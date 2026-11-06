@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=65"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hyprharness-sidecar"
+version = "0.1.0"
+description = "Standalone observational sidecar: recall, logging, and alerting for Hyprland desktops"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+hyprharness-sidecar = "hyprharness_sidecar.sidecar:main"
+hyprharness-chrome-host = "hyprharness_sidecar.chrome_host:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,21 @@
+[Unit]
+Description=Hyprharness independent local observational sidecar
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# Starts with event ingestion disabled. Enable only after explicitly opting in.
+ExecStart=%h/.bin/hyprharness-sidecar serve
+Environment=PATH=%h/.bin:%h/.local/bin:/usr/bin
+Restart=on-failure
+RestartSec=3
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+# AF_INET is necessary only if the opt-in D1/Omni capture worker is enabled.
+# Model URLs are hardcoded to 127.0.0.1; no remote model traffic is requested.
+RestrictAddressFamilies=AF_UNIX AF_INET
+
+[Install]
+WantedBy=graphical-session.target

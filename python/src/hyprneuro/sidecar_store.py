@@ -92,6 +92,7 @@ class SidecarStore:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA busy_timeout=3000")
         self.db.execute("PRAGMA foreign_keys=ON")
+        self.db.create_function("public_url", 1, public_url, deterministic=True)
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS observations (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,6 +146,29 @@ class SidecarStore:
             CREATE TABLE IF NOT EXISTS sidecar_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             INSERT OR IGNORE INTO sidecar_meta VALUES ('schema_version','1');
         """)
+        self.db.executescript("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS search_fts USING fts5(title,message,ocr_text,description,app_id,url_preview,explanation);
+            CREATE VIRTUAL TABLE IF NOT EXISTS search_vocab USING fts5vocab(search_fts,'row');
+            CREATE TRIGGER IF NOT EXISTS search_ai AFTER INSERT ON observations BEGIN
+                INSERT INTO search_fts(rowid,title,message,ocr_text,description,app_id,url_preview)
+                VALUES(new.id,new.title,new.message,new.ocr_text,new.description,new.app_id,public_url(new.url));
+            END;
+            CREATE TRIGGER IF NOT EXISTS search_ad AFTER DELETE ON observations BEGIN
+                DELETE FROM search_fts WHERE rowid=old.id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS search_au AFTER UPDATE ON observations BEGIN
+                UPDATE search_fts SET title=new.title,message=new.message,ocr_text=new.ocr_text,
+                    description=new.description,app_id=new.app_id,url_preview=public_url(new.url) WHERE rowid=new.id;
+            END;
+        """)
+        if not self.db.execute("SELECT 1 FROM sidecar_meta WHERE key='search_v2'").fetchone():
+            with self.db:
+                self.db.execute("DELETE FROM search_fts")
+                self.db.execute("INSERT INTO search_fts(rowid,title,message,ocr_text,description,app_id,url_preview) "
+                                "SELECT id,title,message,ocr_text,description,app_id,public_url(url) FROM observations")
+                self.db.execute("UPDATE search_fts SET explanation=(SELECT json_extract(state_json,'$.d1_reason') "
+                                "FROM alert_state WHERE observation_id=search_fts.rowid)")
+                self.db.execute("INSERT INTO sidecar_meta VALUES ('search_v2','1')")
         if path.exists():
             path.chmod(0o600)
 
@@ -250,8 +274,7 @@ class SidecarStore:
             self.db.execute("INSERT INTO notification_attempts VALUES (?)", (now_ms,))
             return True
 
-    @staticmethod
-    def _where(terms, start_ms, end_ms, source):
+    def _where(self, terms, start_ms, end_ms, source, match="terms"):
         where, params = [], []
         if start_ms is not None:
             where.append("last_seen_ms>=?")
@@ -267,25 +290,49 @@ class SidecarStore:
             where.append("source=?")
             params.append(source)
         if terms:
-            words = SEARCH_TERMS.findall(terms)[:12]
-            if not words:
+            expr = self._match_expression(terms, match)
+            if not expr:
                 return ["0"], []
-            expr = " OR ".join('"' + term.replace('"', '') + '"' for term in words)
-            where.append("id IN (SELECT rowid FROM observations_fts WHERE observations_fts MATCH ?)")
+            where.append("id IN (SELECT rowid FROM search_fts WHERE search_fts MATCH ?)")
             params.append(expr)
         return where, params
 
-    def search(self, *, query="", start_ms=None, end_ms=None, source=None, limit=10):
+    def _match_expression(self, query, match):
+        words = [word[:64] for word in SEARCH_TERMS.findall(query)[:12]]
+        if match == "phrase":
+            return '"' + " ".join(words) + '"' if words else ""
+        if match == "fuzzy":
+            expanded = []
+            for word in words:
+                # At most 2000 vocabulary candidates and 8 expansions per word.
+                candidates = self.db.execute("SELECT term FROM search_vocab WHERE length(term) BETWEEN ? AND ? LIMIT 2000",
+                                             (len(word)-1, len(word)+1))
+                near = [term for (term,) in candidates if _one_edit(word.lower(), term)][:8]
+                expanded.extend([word, *near])
+            words = expanded
+        return " OR ".join('"' + word + '"' + ('*' if match == "prefix" else '') for word in words)
+
+    def search(self, *, query="", start_ms=None, end_ms=None, source=None, limit=10, order="recent", match="terms", offset=0, _candidates=False):
         _text(query, 300)
-        if type(limit) is not int or not 1 <= limit <= 20:
+        if order not in ("recent", "relevance") or match not in ("terms", "phrase", "prefix", "fuzzy"):
+            raise ValueError("Invalid search order/match")
+        if type(offset) is not int or not 0 <= offset <= 1000:
+            raise ValueError("offset must be 0-1000")
+        if type(limit) is not int or not 1 <= limit <= (50 if _candidates else 20):
             raise ValueError("limit must be an integer from 1 to 20")
-        where, args = self._where(query, start_ms, end_ms, source)
+        where, args = self._where(query, start_ms, end_ms, source, match)
         stmt = ("SELECT id,time_ms,last_seen_ms,source,kind,workspace,app_id,title,url,url_verified,"
                 "message,ocr_text,description,repeat_count FROM observations")
         if where:
             stmt += " WHERE " + " AND ".join(where)
-        stmt += " ORDER BY time_ms DESC,id DESC LIMIT ?"
-        rows = self.db.execute(stmt, [*args, limit])
+        if order == "relevance" and query and self._match_expression(query, match):
+            stmt += " ORDER BY (SELECT rank FROM search_fts WHERE rowid=observations.id AND search_fts MATCH ?)"
+            args.append(self._match_expression(query, match))
+            stmt += ",time_ms DESC,id DESC"
+        else:
+            stmt += " ORDER BY time_ms DESC,id DESC"
+        stmt += " LIMIT ? OFFSET ?"
+        rows = self.db.execute(stmt, [*args, limit, offset])
         output = []
         for (ident, t, last, src, kind, workspace, app, title, url, url_verified, msg, ocr, desc, repeated) in rows:
             output.append({"id": ident, "time_ms": t, "last_seen_ms": last, "source": src,
@@ -376,6 +423,8 @@ class SidecarStore:
             if state.get("notification_status") not in ("pending", "cancelled"):
                 phase = "done"
             self.db.execute("UPDATE journal_events SET phase=? WHERE observation_id=?", (phase, ident))
+            self.db.execute("UPDATE search_fts SET explanation=? WHERE rowid=?",
+                            (state.get("d1_reason", "")[:1000], ident))
 
     def alerts(self, *, limit=20):
         """Recent alert-kind observations for the Pi orchestrator (read-only)."""
@@ -399,3 +448,23 @@ class SidecarStore:
         with self.db:
             cur = self.db.execute("DELETE FROM observations WHERE last_seen_ms<?", (before_ms,))
             return {"deleted": cur.rowcount}
+
+
+def _one_edit(a, b):
+    """Levenshtein distance <=1, with linear work and no matrix allocation."""
+    if abs(len(a)-len(b)) > 1:
+        return False
+    if len(a) > len(b):
+        a, b = b, a
+    i = j = errors = 0
+    while i < len(a) and j < len(b):
+        if a[i] != b[j]:
+            errors += 1
+            if errors > 1:
+                return False
+            if len(a) != len(b):
+                j += 1
+                continue
+        i += 1
+        j += 1
+    return errors + (len(b)-j) <= 1

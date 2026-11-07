@@ -71,6 +71,7 @@ class SidecarServer:
         self.browser_ingress = browser_ingress
         self.browser_capture_source = None
         self.handlers = set()
+        self.embeddings = None
 
     def dispatch(self, request):
         if not isinstance(request, dict):
@@ -92,11 +93,12 @@ class SidecarServer:
             return self.store.record(request.get("event"))
         if action in ("search", "context"):
             args = {k: v for k, v in request.items()
-                    if k in ("query", "start_ms", "end_ms", "source", "limit", "role")}
+                    if k in ("query", "start_ms", "end_ms", "source", "limit", "role", "order", "match", "offset")}
             if action == "search":
                 args.pop("role", None)
                 return self.store.search(**args)
-            args.pop("limit", None)
+            for key in ("limit", "order", "match", "offset"):
+                args.pop(key, None)
             return self.store.context(**args)
         # Exact URL is a separate read-only lookup. Opening it is NOT an RPC
         # here; the browser opener must go through broker action approval.
@@ -109,6 +111,10 @@ class SidecarServer:
     async def dispatch_async(self, request):
         if not isinstance(request, dict):
             raise ValueError("Expected JSON object")
+        if request.get("action") == "search" and request.get("semantic"):
+            if self.embeddings is None:
+                raise PermissionError("Semantic search disabled; explicitly configure a local embeddings service")
+            return await self.embeddings.search(self.store, request)
         if request.get("action") == "browser_record":
             if not self.allow_ingest or self.browser_ingress is None:
                 raise PermissionError("Chrome ingestion disabled")
@@ -186,7 +192,8 @@ class SidecarServer:
 
 async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False,
                 allow_on_demand=False, d1_visual=False, allow_browser=False,
-                alert=False, alert_resources=False, retention_days=0, socket_path=None, db_path=None, shutdown=None,
+                alert=False, alert_resources=False, retention_days=0,
+                semantic_enabled=False, embeddings_url="", embeddings_model="", socket_path=None, db_path=None, shutdown=None,
                 desktop=None, models=None, unlock_guard=None, grabber=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None):
     if watch_hyprland and not allow_ingest:
@@ -232,6 +239,10 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
     model_scheduler = None
     browser_token_file = Path(browser_token_file) if browser_token_file else None
     try:
+        if semantic_enabled:
+            from .semantic import Embeddings
+            worker.embeddings = Embeddings(embeddings_url, embeddings_model)
+            await worker.embeddings.embed(["Hyprneuro endpoint verification"])
         server = await asyncio.start_unix_server(worker.handle, path=str(socket_path), limit=MAX_REQUEST+1)
         socket_path.chmod(0o600)
         if allow_browser:
@@ -367,6 +378,9 @@ def main():
     search.add_argument("--end-ms", type=int)
     search.add_argument("--source")
     search.add_argument("--limit", type=int, default=10)
+    search.add_argument("--order", choices=("recent", "relevance"), default="recent")
+    search.add_argument("--match", choices=("terms", "phrase", "prefix", "fuzzy"), default="terms")
+    search.add_argument("--semantic", action="store_true")
     context = sub.add_parser("context")
     context.add_argument("role", choices=("text", "omni"))
     context.add_argument("--query", default="")

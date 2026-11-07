@@ -171,6 +171,8 @@ A crash during notify-send leaves an uncertain outcome and may cause a retry:
 **there is no exactly-once notification guarantee**. Intake remains passive,
 with capped reconnect backoff; no sudo, active scanning or model startup.
 
+See [search modes, exact times and optional local embeddings](docs/SEARCH.md).
+
 ## Security Model
 
 - Same-UID access control (SO_PEERCRED), not a sandbox

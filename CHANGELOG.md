@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Exact-time Pi recall filters, BM25 relevance, bounded phrase/prefix/fuzzy search, safe app/URL/policy index and explicitly configured local HTTP semantic search
 - Independent opt-in resource alerts from the existing Monitor, with duration and hysteresis for CPU, memory, disk, PSI, hwmon and real DRM counters
 - Transactional journal identity/checkpoint and recoverable evidence/gate work, bounded replay with visible gap fallback, notification freshness and persistent rate limits
 - Journal + network alerting (`--alert`, opt-in, requires `--allow-ingest`)
@@ -27,6 +28,7 @@
   at their legacy paths/names; no automatic data migration or service switch
 
 ### Removed
+- Unused, unimported recall_store proposal scaffolding
 - Unused clock checkpoint helper and its Pi Durable/Tape receipt TODOs
 - Planned automatic Pi escalation / background prompt-routing integrations:
   alerts notify via D1-gated notify-send only; Pi inspection is user-requested,

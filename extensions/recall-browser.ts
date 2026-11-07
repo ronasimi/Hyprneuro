@@ -93,16 +93,25 @@ export default function (pi: ExtensionAPI) {
     promptSnippet: "Find previous tabs, apps and visual observations by local time or title",
     parameters: Type.Object({
       query: Type.Optional(Type.String({ maxLength: 300 })),
-      period: Type.Union([
+      period: Type.Optional(Type.Union([
         Type.Literal("all"), Type.Literal("last_night"), Type.Literal("yesterday"),
         Type.Literal("today"), Type.Literal("last_24h"),
-      ]),
-      source: Type.Optional(Type.Union([Type.Literal("chrome"), Type.Literal("omni"), Type.Literal("hyprland"), Type.Literal("journal"), Type.Literal("network")])),
+      ])),
+      start_ms: Type.Optional(Type.Integer({ minimum: 1, description: "Exact inclusive Unix milliseconds; overrides period start" })),
+      end_ms: Type.Optional(Type.Integer({ minimum: 1, description: "Exact inclusive Unix milliseconds; overrides period end" })),
+      order: Type.Optional(Type.Union([Type.Literal("recent"), Type.Literal("relevance")])),
+      match: Type.Optional(Type.Union([Type.Literal("terms"), Type.Literal("phrase"), Type.Literal("prefix"), Type.Literal("fuzzy")])),
+      semantic: Type.Optional(Type.Boolean({ description: "Requires explicit local embeddings configuration; searches at most 50 recent filtered records" })),
+      source: Type.Optional(Type.Union([Type.Literal("chrome"), Type.Literal("omni"), Type.Literal("hyprland"), Type.Literal("journal"), Type.Literal("network"), Type.Literal("resource")])),
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
     }),
     async execute(_id, params, signal) {
       const value = await sidecar({ action: "search", query: params.query ?? "",
-        source: params.source, limit: params.limit ?? 10, ...timeRange(params.period) }, signal);
+        source: params.source, limit: params.limit ?? 10, order: params.order ?? "recent",
+        match: params.match ?? "terms", semantic: params.semantic ?? false,
+        ...timeRange(params.period ?? "all"),
+        ...(params.start_ms === undefined ? {} : { start_ms: params.start_ms }),
+        ...(params.end_ms === undefined ? {} : { end_ms: params.end_ms }) }, signal);
       return result({ untrusted: true, results: value });
     },
   });
@@ -147,7 +156,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "recall_alerts",
     label: "Recent system alerts",
-    description: "On user request, inspect recent journal/network alerts, D1 scores and desktop-notification outcomes. Read-only; alerts never automatically wake Pi or inject session context.",
+    description: "On user request, inspect recent journal/network/resource alerts, D1 scores and desktop-notification outcomes. Read-only; alerts never automatically wake Pi or inject session context.",
     promptSnippet: "Inspect stored system alerts and D1 notification decisions when asked",
     parameters: Type.Object({
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),

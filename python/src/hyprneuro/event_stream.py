@@ -216,9 +216,71 @@ class EventIntake:
                 severity="warning", observed_at=_utcnow(), attributes={"interface": iface}))
         return events
 
-    # -- resource (future) ------------------------------------------------
     async def resource_alerts(self, deliver: Deliver):
-        raise NotImplementedError("Resource alert intake is not wired")
+        from .monitor import Monitor
+        detector = ResourceAlerts()
+        async def on_sample(snapshot):
+            for event in detector.events(snapshot, now=time.monotonic()):
+                await deliver(event)
+        await Monitor().run(on_sample)
+
+
+class ResourceAlerts:
+    """One transition per sustained high episode; reset only below low-water.
+
+    Missing metrics break the duration and discard state. No temperature/GPU
+    estimates: only hwmon/DRM readings actually supplied by Monitor are used.
+    """
+    def __init__(self, duration=30):
+        if duration < 0:
+            raise ValueError("duration must be nonnegative")
+        self.duration = duration
+        self.state = {}
+
+    def events(self, snapshot, *, now):
+        readings = {}
+        def add(key, value, high, low, unit="%"):
+            if type(value) in (int, float) and 0 <= value <= 1000:
+                readings[key] = (value, high, low, unit)
+        add("cpu", snapshot.get("cpu_percent", {}).get("cpu"), 90, 75)
+        mem = snapshot.get("memory_kib", {})
+        if mem.get("MemTotal", 0) > 0 and "MemAvailable" in mem:
+            add("memory", 100*(1-mem["MemAvailable"]/mem["MemTotal"]), 90, 80)
+        for path, used in snapshot.get("disk_used_percent", {}).items():
+            add("disk:"+path, used, 95, 90)
+        for resource, text in snapshot.get("pressure", {}).items():
+            # Linux PSI some/avg10: percent of wall time with stalled work.
+            for line in text.splitlines():
+                if line.startswith("some "):
+                    try:
+                        avg = float(dict(p.split("=", 1) for p in line.split()[1:])["avg10"])
+                        high, low = {"cpu": (50, 20), "memory": (10, 5), "io": (25, 10)}[resource]
+                        add("pressure:"+resource, avg, high, low)
+                    except (ValueError, KeyError):
+                        pass
+        for sensor, milli in snapshot.get("temperatures_millicelsius", {}).items():
+            if type(milli) in (int, float) and milli > 0:
+                add("temperature:"+sensor, milli/1000, 85, 75, "C")
+        for device, counters in snapshot.get("gpu", {}).items():
+            add("gpu:"+device, counters.get("gpu_busy_percent"), 95, 80)
+        self.state = {k: v for k, v in self.state.items() if k in readings}
+        events = []
+        for key, (value, high, low, unit) in readings.items():
+            start, active = self.state.get(key, (None, False))
+            if value < low:
+                start, active = None, False
+            elif not active:
+                if value < high:
+                    start = None
+                else:
+                    start = now if start is None else start
+                    if now-start >= self.duration:
+                        active = True
+                        events.append(MonitorEvent("resource", "resource_alert",
+                            f"{key}: {value:.1f}{unit} sustained for {self.duration:g}s (high {high}{unit}, reset below {low}{unit})",
+                            "warning", _utcnow(), attributes={"metric": key}))
+            self.state[key] = start, active
+        return events
 
 
 def _net_interfaces():

@@ -2,6 +2,7 @@
 import asyncio
 from pathlib import Path
 import time
+import os
 
 class Monitor:
     def __init__(self, interval=2):
@@ -40,6 +41,13 @@ class Monitor:
                 "read_bytes_per_second":max(0,read-prev[0])/elapsed if elapsed>0 else None,
                 "write_bytes_per_second":max(0,written-prev[1])/elapsed if elapsed>0 else None}
         self.previous_disks=disks;self.previous_time=out["time"]
+        out["disk_used_percent"] = {}
+        try:
+            fs = os.statvfs("/")
+            if fs.f_blocks:
+                out["disk_used_percent"]["/"] = 100*(1-fs.f_bavail/fs.f_blocks)
+        except OSError:
+            pass
         out["network"]={}
         for interface in Path("/sys/class/net").iterdir():
             try:out["network"][interface.name]={"state":(interface/"operstate").read_text().strip(),
@@ -61,10 +69,12 @@ class Monitor:
         self.latest=out
         return out
 
-    # TODO: feed event_stream.EventIntake via snapshots rather than starting
-    # another resource poller. Keep existing telemetry lightweight.
-    async def run(self):
+    async def run(self, on_sample=None):
         while True:
-            try:self.sample()
-            except OSError as e:self.latest={"error":str(e),"time":time.time()}
+            try:
+                snapshot = self.sample()
+                if on_sample is not None:
+                    await on_sample(snapshot)
+            except (OSError, ValueError, KeyError) as e:
+                self.latest={"error":str(e),"time":time.time()}
             await asyncio.sleep(self.interval)

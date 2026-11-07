@@ -60,12 +60,13 @@ async def run_retention(store, days, *, interval_seconds=RETENTION_INTERVAL_SECO
 
 class SidecarServer:
     def __init__(self, store, *, allow_ingest=False, capture_enabled=False,
-                 on_demand=False, browser_ingress=None, alert_enabled=False):
+                 on_demand=False, browser_ingress=None, alert_enabled=False, resources_enabled=False):
         self.store = store
         self.allow_ingest = allow_ingest
         self.capture_enabled = capture_enabled
         self.on_demand = on_demand
         self.alert_enabled = alert_enabled
+        self.resources_enabled = resources_enabled
         self.watcher = None
         self.browser_ingress = browser_ingress
         self.browser_capture_source = None
@@ -78,8 +79,9 @@ class SidecarServer:
         if action == "health":
             state = {"service": "hyprneuro", "ingest_enabled": self.allow_ingest,
                      "capture_enabled": self.capture_enabled,
-                     "on_demand_enabled": self.on_demand, "alert_enabled": self.alert_enabled}
-            if not self.capture_enabled and not self.on_demand and not self.alert_enabled:
+                     "on_demand_enabled": self.on_demand, "alert_enabled": self.alert_enabled,
+                     "resources_enabled": self.resources_enabled}
+            if not self.capture_enabled and not self.on_demand and not self.alert_enabled and not self.resources_enabled:
                 state["models_invoked"] = False  # No model path can run.
             state["browser_enabled"] = self.browser_ingress is not None
             state["journal"] = self.store.journal_status()
@@ -184,7 +186,7 @@ class SidecarServer:
 
 async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False,
                 allow_on_demand=False, d1_visual=False, allow_browser=False,
-                alert=False, retention_days=0, socket_path=None, db_path=None, shutdown=None,
+                alert=False, alert_resources=False, retention_days=0, socket_path=None, db_path=None, shutdown=None,
                 desktop=None, models=None, unlock_guard=None, grabber=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None):
     if watch_hyprland and not allow_ingest:
@@ -197,6 +199,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
         raise ValueError("--d1-visual requires --allow-capture")
     if allow_browser and not allow_ingest:
         raise ValueError("--allow-browser requires --allow-ingest")
+    if alert_resources and not allow_ingest:
+        raise ValueError("--alert-resources requires explicit --allow-ingest")
     if alert and not allow_ingest:
         raise ValueError("--alert requires explicit --allow-ingest")
     socket_path = Path(socket_path) if socket_path else paths()[0]
@@ -221,7 +225,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
     store = SidecarStore(db_path)
     worker = SidecarServer(store, allow_ingest=allow_ingest,
                            capture_enabled=allow_capture, on_demand=allow_on_demand,
-                           alert_enabled=alert)
+                           alert_enabled=alert, resources_enabled=alert_resources)
     server = None
     producers = []
     source = None
@@ -280,7 +284,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
 
             producers.extend([asyncio.create_task(source.flush()),
                               asyncio.create_task(desktop.events(on_event))])
-        if alert:
+        if alert or alert_resources:
             from .event_stream import EventIntake
             from .escalation import EscalationRouter
             from .notify import Notifier
@@ -291,10 +295,13 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             router = EscalationRouter(models, store, notifier=Notifier())
             await router.recover()
             intake = EventIntake(store=store)
-            producers.extend([
-                asyncio.create_task(intake.follow_journal(router.escalate)),
-                asyncio.create_task(intake.network_alerts(router.escalate)),
-            ])
+            if alert:
+                producers.extend([
+                    asyncio.create_task(intake.follow_journal(router.escalate)),
+                    asyncio.create_task(intake.network_alerts(router.escalate)),
+                ])
+            if alert_resources:
+                producers.append(asyncio.create_task(intake.resource_alerts(router.escalate)))
         if retention_days > 0:
             producers.append(asyncio.create_task(run_retention(store, retention_days)))
         stop = shutdown or asyncio.Event()
@@ -351,6 +358,8 @@ def main():
                      help="Automatically delete observations older than DAYS (0 = keep forever, default)")
     cmd.add_argument("--alert", action="store_true",
                      help="Opt into journal + network alerting with D1-gated desktop notifications")
+    cmd.add_argument("--alert-resources", action="store_true",
+                     help="Opt in to sustained resource alerts using passive Linux telemetry")
     sub.add_parser("health")
     search = sub.add_parser("search")
     search.add_argument("--query", default="")
@@ -373,6 +382,7 @@ def main():
                           d1_visual=args.d1_visual,
                           allow_browser=args.allow_browser,
                           alert=args.alert,
+                          alert_resources=args.alert_resources,
                           retention_days=args.retention_days,
                           excluded_origins=args.exclude_origin,
                           excluded_apps=args.exclude_app))

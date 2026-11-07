@@ -175,3 +175,16 @@ When you explicitly choose a maintenance window:
 Only remove the old venv/unit after verifying the replacement. Retain the
 legacy data/config paths and native host ID; changing their names would break
 compatibility, not finish the branding rename.
+
+## Optional resource alerts
+
+Manual foreground opt-in: `hyprneuro serve --allow-ingest --alert-resources`.
+This uses the existing passive Monitor sampler (2s interval), not another daemon.
+One warning is emitted after 30 seconds above high-water, and rearmed only below
+low-water: aggregate CPU 90/75%, memory used 90/80%, root filesystem used 95/90%,
+Linux PSI `some avg10` CPU 50/20%, memory 10/5%, IO 25/10%, hwmon temperature
+85/75 C, DRM GPU busy 95/80%. Missing metrics reset duration state; absent GPU
+counters are not estimated from VRAM/GTT. These conservative generic thresholds
+are not hardware thermal safety limits. No active scans or remediation occur.
+Alerts use the same D1/notification policy and manual Pi pull boundary. Resource
+collection is independent of `--alert` (journal + network) and off by default.

@@ -1,0 +1,20 @@
+{
+  "name": "hyprharness-sidecar",
+  "version": "0.1.0",
+  "description": "Observational sidecar for Hyprland: recall, logging, and alerting as a Pi addon",
+  "keywords": ["pi-package"],
+  "pi": {
+    "extensions": [
+      "./extensions/recall-browser.ts",
+      "./extensions/omni-observe.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  },
+  "scripts": {
+    "install-service": "bash scripts/install.sh",
+    "test": "cd python && uv run --with pytest pytest tests/ -v"
+  }
+}

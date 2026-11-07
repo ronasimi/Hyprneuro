@@ -1,14 +1,23 @@
-"""Only the three local loopback llama.cpp endpoints; never upload desktop frames."""
+"""Local loopback llama.cpp LFM3 model clients.
+
+Three always-on Vulkan servers managed by ~/.bin/lfm:
+  • text     → 127.0.0.1:8081  LFM3-1.7B-QAD-Q4_0  (ctx 65536)
+  • omni     → 127.0.0.1:8082  LFM3-Omni-2B-Q4_K_M (ctx 8192, multimodal)
+  • decision → 127.0.0.1:8083  d1-omni-600M-Q8_0   (ctx 4096, D1 classifier)
+
+Never uploads desktop frames or user data off-loopback.
+"""
 import asyncio
 import base64
 import http.client
 import json
-from .policy import tool_intent
 
 class ModelError(RuntimeError):
     pass
 
 class Models:
+    """Thin async client for the three local LFM3 llama.cpp endpoints."""
+
     def __init__(self, config):
         self.c = config
 
@@ -35,6 +44,7 @@ class Models:
         return await asyncio.to_thread(self._call, role, endpoint, payload)
 
     async def health(self):
+        """Check all three LFM servers. Returns {role: status_or_error}."""
         out = {}
         for role in ("text","omni","decision"):
             try:
@@ -42,38 +52,6 @@ class Models:
             except ModelError as e:
                 out[role] = {"error":str(e)}
         return out
-
-    async def decide(self, prompt, vision=False):
-        from .tools import DEFINITIONS
-        names=[name for name,(effect,_,_) in DEFINITIONS.items()
-               if effect!="external" or self.c.external_search]
-        prohibited,requested=tool_intent(prompt,names)
-        half = self.c.decision_chars//2
-        truncated = len(prompt)>self.c.decision_chars
-        state = prompt if not truncated else prompt[:half]+"\n[Middle omitted for classifier context]\n"+prompt[-half:]
-        if vision:
-            state += "\nA screen capture is explicitly requested by the user."
-        payload = {"state":state,"questions":{
-            "route":{"type":"choice","instructions":"Choose tool for requests to execute a tool or inspect current state, including network checks. Discussion of how tools work is direct. Available tools: "+", ".join(names),
-                "criteria":{"direct":"Answer general knowledge with text","tool":"Inspect current desktop, local KB or live system facts using tools",
-                            "media":"Analyze a provided or explicitly requested screenshot or image"}},
-            "needs_tool":{"type":"noul","instructions":"Does fulfilling this request require an external tool rather than general text knowledge?"},
-            "reasoning":{"type":"noul","instructions":"Does this need extended reasoning for complex debugging, troubleshooting or dependent multi-step orchestration? Simple facts and one tool lookup do not."}}}
-        raw = await self.call("decision","/v1/systemone",payload)
-        a = raw.get("answers",{}); route=a.get("route",{}).get("choice")
-        tool=a.get("needs_tool",{}).get("noul"); score=a.get("reasoning",{}).get("noul")
-        if route not in ("direct","tool","media") or not all(type(x) in (float,int) and 0<=x<=1 for x in (tool,score)):
-            raise ModelError("Invalid unified decision schema; failing closed")
-        ambiguous = abs(score-self.c.thinking_threshold)<self.c.ambiguity_margin
-        thinking=self.c.conservative_thinking if ambiguous else score>=self.c.thinking_threshold
-        if self.c.reasoning_policy!="adaptive":thinking=self.c.reasoning_policy=="on"
-        enabled=not prohibited and (bool(requested) or route=="tool" or tool>=self.c.tool_threshold)
-        source="prohibited" if prohibited else "explicit_request" if requested else "classifier"
-        return {"route":route,"effective_route":"media" if vision else "tool" if enabled else "direct",
-                "thinking":thinking,"reasoning_policy":self.c.reasoning_policy,
-                "tool_enabled":enabled,"tool_gate_source":source,"requested_tools":requested,"raw":raw,
-                "reasoning_score":score,"tool_score":tool,"ambiguous":ambiguous,"input_truncated":truncated,
-                "route_tool_disagreement":(route=="tool")!=(tool>=self.c.tool_threshold)}
 
     async def decide_capture(self, candidate, threshold=0.65):
         """D1 advisory screenshot gate for one bounded event, never a grant.

@@ -1,39 +1,103 @@
 # hyprharness-sidecar
 
-Standalone observational sidecar: recall, logging, and alerting for Hyprland desktops.
+Pi addon + standalone observational sidecar: recall, logging, and alerting for Hyprland desktops.
 
 Independent user-level process providing metadata storage and read-only, bounded
 context feeds for local LFM3 text and Omni models. Not an agent, not part of any
 Pi conversation, and not a Pi Durable replacement.
 
-## Features
-
-- **SQLite WAL store** with FTS5 full-text search
-- **Hyprland socket2** window/workspace event ingestion (opt-in)
-- **D1-gated screen capture** with Omni OCR + visual description (opt-in)
-- **Chrome Native Messaging** history ingestion (opt-in)
-- **Bounded context feeds** for text (3500 char) and Omni (1200 char) roles
-- **Same-UID Unix socket RPC** with 64 KiB request / 256 KiB response limits
-- **Login-session lock detection** — capture fails closed when lock state unknown
-- **Rate limiting** — per-window and per-hour capture budgets
-- **App/origin exclusions** — password managers, lock screens, sensitive sites
-
-## Install
+## Install (Pi addon)
 
 ```sh
-pip install -e .
+# From the repo root
+pi install ~/Projects/hyprharness-sidecar
+
+# Install the Python service + systemd unit
+bash scripts/install.sh
+
+# Start the sidecar
+systemctl --user start hyprharness-sidecar
 ```
 
-## Usage
+This gives your Pi sessions three new tools:
+- **`recall_search`** — search local screen/browser history by time, title, or source
+- **`recall_open_page`** — reopen a previously visited, verified URL (with approval)
+- **`omni_observe`** — on-demand Omni screenshot of the focused window (with approval)
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  Pi session                                                         │
+│  ┌───────────────────────────────────────────────────────────────┐  │
+│  │  Pi extensions (TypeScript)                                    │  │
+│  │  • recall-browser.ts → recall_search, recall_open_page        │  │
+│  │  • omni-observe.ts   → omni_observe                           │  │
+│  └───────────────────────────┬───────────────────────────────────┘  │
+│                              │ Unix socket RPC (JSON)               │
+└──────────────────────────────┼──────────────────────────────────────┘
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│  hyprharness-sidecar (Python, user-level process)                   │
+│                                                                     │
+│  ┌───────────┐    ┌──────────────┐    ┌─────────────────────┐      │
+│  │ Hyprland  │───▶│  Sidecar     │───▶│  SQLite (WAL)       │      │
+│  │ socket2   │    │  Server      │    │  + FTS5             │      │
+│  └───────────┘    │  (Unix sock) │    └─────────────────────┘      │
+│  ┌───────────┐    │              │           ▲                      │
+│  │ Chrome    │───▶│  RPC dispatch│           │                      │
+│  │ NativeMsg │    └──────┬───────┘           │                      │
+│  └───────────┘           │                   │                      │
+│                          ▼                   │                      │
+│  ┌─────────────────────────────────┐         │                      │
+│  │  Recall Pipeline (opt-in)       │─────────┘                      │
+│  │  D1 gate → grim → Omni OCR+desc │                                │
+│  └─────────────────────────────────┘                                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+## Repo Layout
+
+```
+hyprharness-sidecar/
+├── package.json              # Pi package manifest
+├── extensions/               # Pi TypeScript extensions
+│   ├── recall-browser.ts     #   recall_search, recall_open_page
+│   └── omni-observe.ts       #   omni_observe
+├── python/                   # Python sidecar service
+│   ├── pyproject.toml
+│   ├── src/hyprharness_sidecar/
+│   │   ├── sidecar.py        #   Unix socket RPC server + CLI
+│   │   ├── sidecar_store.py  #   SQLite WAL + FTS5
+│   │   ├── sidecar_sources.py#   Hyprland socket2 producer
+│   │   ├── sidecar_client.py #   Async client (public API)
+│   │   ├── recall.py         #   D1→Omni capture pipeline
+│   │   ├── recall_events.py  #   D1 capture source adapter
+│   │   ├── browser_ingest.py #   Chrome Native Messaging
+│   │   ├── chrome_host.py    #   Chrome native host process
+│   │   ├── desktop.py        #   Hyprland IPC
+│   │   ├── models.py         #   Model service clients
+│   │   ├── model_dispatch.py #   Bounded async model admission
+│   │   ├── config.py         #   TOML config
+│   │   ├── monitor.py        #   Passive telemetry
+│   │   └── ...
+│   └── tests/                #   64 tests
+├── integrations/
+│   ├── hyprharness-sidecar.service  # systemd user unit
+│   └── chrome/                      # Chrome extension
+├── scripts/
+│   └── install.sh          # Install Python + service
+├── docs/
+└── CHANGELOG.md
+```
+
+## Usage (CLI)
 
 ```sh
 # Read-only (no ingestion)
 hyprharness-sidecar serve
 
-# Opt in to event storage
-hyprharness-sidecar serve --allow-ingest
-
-# Add Hyprland window/workspace events
+# Opt in to event storage + Hyprland events
 hyprharness-sidecar serve --allow-ingest --watch-hyprland
 
 # Enable D1-gated screen capture
@@ -50,33 +114,6 @@ hyprharness-sidecar context text --query "error"
 hyprharness-sidecar context omni --query "dialog"
 ```
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    hyprharness-sidecar                          │
-│                                                                 │
-│  ┌───────────┐    ┌──────────────┐    ┌─────────────────────┐  │
-│  │ Hyprland  │───▶│  Sidecar     │───▶│  SQLite (WAL)       │  │
-│  │ socket2   │    │  Server      │    │  + FTS5             │  │
-│  └───────────┘    │  (Unix sock) │    └─────────────────────┘  │
-│  ┌───────────┐    │              │           ▲                  │
-│  │ Chrome    │───▶│  RPC dispatch│           │                  │
-│  │ NativeMsg │    └──────┬───────┘           │                  │
-│  └───────────┘           │                   │                  │
-│                          ▼                   │                  │
-│  ┌─────────────────────────────────┐         │                  │
-│  │  Recall Pipeline (opt-in)       │─────────┘                  │
-│  │  D1 gate → grim → Omni OCR+desc │                           │
-│  └─────────────────────────────────┘                           │
-│                                                                 │
-│  Clients (same UID):                                            │
-│  • Pi extensions (TypeScript, socket RPC)                       │
-│  • CLI (search, context, health)                                │
-│  • Chrome host process                                          │
-└─────────────────────────────────────────────────────────────────┘
-```
-
 ## Security Model
 
 - Same-UID access control (SO_PEERCRED), not a sandbox
@@ -87,6 +124,7 @@ hyprharness-sidecar context omni --query "dialog"
 - Password managers and lock screens excluded by default
 - Browser URLs: full URL stored privately, model context gets origin+path only
 - `untrusted: true` on all context feed output
+- Pi tools require explicit user approval for sensitive actions
 
 ## Configuration
 
@@ -112,10 +150,9 @@ All directories 0700, files 0600.
 ## Development
 
 ```sh
-pip install -e ".[dev]"  # or just: pip install -e .
-pytest tests/
+# Run tests
+cd python && uv run --with pytest pytest tests/ -v
+
+# Run the sidecar manually
+cd python && uv run hyprharness-sidecar serve --allow-ingest --watch-hyprland
 ```
-
-## License
-
-MIT

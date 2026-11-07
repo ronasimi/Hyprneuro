@@ -1,3 +1,12 @@
+"""Sidecar configuration.
+
+Model endpoints match the ~/.bin/lfm script (three always-on Vulkan servers):
+  • text     → 127.0.0.1:8081  LFM3-1.7B-QAD-Q4_0  (ctx 65536)
+  • omni     → 127.0.0.1:8082  LFM3-Omni-2B-Q4_K_M (ctx 8192, multimodal)
+  • decision → 127.0.0.1:8083  d1-omni-600M-Q8_0   (ctx 4096, D1 classifier)
+
+Override via ~/.config/hyprharness/config.toml
+"""
 from dataclasses import dataclass, fields
 from pathlib import Path
 import os
@@ -5,24 +14,21 @@ import tomllib
 
 @dataclass(frozen=True)
 class Config:
+    # LFM model endpoints (match ~/.bin/lfm ports)
     text_port: int = 8081
     omni_port: int = 8082
     decision_port: int = 8083
     model_timeout: float = 120
+    # Text generation limits
     max_tokens: int = 2048
-    max_hops: int = 8
-    tape_chars: int = 20000
+    # D1 capture gate
     decision_chars: int = 1400
-    reasoning_policy: str = "adaptive"
-    thinking_threshold: float = .5
-    ambiguity_margin: float = .1
-    conservative_thinking: bool = True
-    tool_threshold: float = .5
-    approval_seconds: float = 120
+    capture_threshold: float = 0.65
+    # Monitoring / jobs
     monitor_seconds: float = 2
     max_jobs: int = 4
     memory_reserve_mib: int = 256
-    external_search: bool = False
+    # Input backend (for future desktop control)
     input_backend: str = "wtype"
 
     @classmethod
@@ -39,16 +45,14 @@ class Config:
             if not valid:raise ValueError(f"Invalid type for {field.name}")
         if not all(isinstance(x, int) and 1 <= x <= 65535 for x in (c.text_port, c.omni_port, c.decision_port)):
             raise ValueError("Invalid model port")
-        if not (1 <= c.max_hops <= 32 and 32 <= c.max_tokens <= 8192 and 1000 <= c.tape_chars <= 64000):
-            raise ValueError("Invalid model/context limits")
+        if not (32 <= c.max_tokens <= 8192):
+            raise ValueError("Invalid max_tokens")
         if not (100 <= c.decision_chars <= 1600 and 1 <= c.max_jobs <= 16 and 64 <= c.memory_reserve_mib <= 4096):
             raise ValueError("Invalid decision/job limits")
-        if not all(0 <= x <= 1 for x in (c.thinking_threshold, c.tool_threshold, c.ambiguity_margin)):
-            raise ValueError("Invalid thresholds")
-        if c.monitor_seconds < .5 or not 1 <= c.approval_seconds <= 600 or not 1 <= c.model_timeout <= 600:
+        if not 0 <= c.capture_threshold <= 1:
+            raise ValueError("Invalid capture_threshold")
+        if c.monitor_seconds < .5 or not 1 <= c.model_timeout <= 600:
             raise ValueError("Invalid timing limits")
-        if c.reasoning_policy not in ("adaptive", "on", "off"):
-            raise ValueError("reasoning_policy must be adaptive, on or off")
         if c.input_backend not in ("wtype", "ydotool"):
             raise ValueError("input_backend must be wtype or ydotool")
         return c

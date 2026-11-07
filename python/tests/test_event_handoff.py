@@ -14,13 +14,13 @@ try:
 except ImportError:
     Image = None
 
-from hyprharness_sidecar.model_dispatch import ModelLane, ScheduledModels
-from hyprharness_sidecar.d1_visual import decide_visual, preview_png
-from hyprharness_sidecar.recall import CaptureCandidate, CapturePolicy, ScreenWatcher, PNG_MAGIC
-from hyprharness_sidecar.sidecar_store import SidecarStore
-from hyprharness_sidecar.sidecar import serve
-from hyprharness_sidecar.sidecar_client import request
-from hyprharness_sidecar.temporary_capture import capture_output, remove_screenshot, PREFIX
+from hyprneuro.model_dispatch import ModelLane, ScheduledModels
+from hyprneuro.d1_visual import decide_visual, preview_png
+from hyprneuro.recall import CaptureCandidate, CapturePolicy, ScreenWatcher, PNG_MAGIC
+from hyprneuro.sidecar_store import SidecarStore
+from hyprneuro.sidecar import serve
+from hyprneuro.sidecar_client import request
+from hyprneuro.temporary_capture import capture_output, remove_screenshot, PREFIX
 
 
 def picture():
@@ -184,7 +184,7 @@ class ForegroundTests(unittest.IsolatedAsyncioTestCase):
                 stop.set();await asyncio.wait_for(service,5)
 
     async def test_disabled_foreground_rejects_without_capture(self):
-        from hyprharness_sidecar.sidecar import SidecarServer
+        from hyprneuro.sidecar import SidecarServer
         store=SidecarStore(":memory:")
         try:
             server=SidecarServer(store,allow_ingest=True)

@@ -29,6 +29,7 @@ BROWSERS = {
 
 
 def config_dir():
+    # Keep the existing extension allowlist across the Hyprneuro rename.
     return Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "hyprharness"
 
 
@@ -103,9 +104,9 @@ def install(extension_id, browser, *, executable=None, home=None, replace=False)
         raise ValueError("Invalid Chrome extension ID (32 letters a-p)")
     if browser not in BROWSERS:
         raise ValueError("Unknown Chrome-family browser")
-    executable = executable or shutil.which("hyprharness-chrome-host")
+    executable = executable or shutil.which("hyprneuro-chrome-host")
     if not executable or not Path(executable).is_absolute() or not Path(executable).is_file():
-        raise FileNotFoundError("Install Hyprharness first so the Chrome host entry point is on PATH")
+        raise FileNotFoundError("Install Hyprneuro first so the Chrome host entry point is on PATH")
     base = Path(home) if home else Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     if not base.is_absolute():
         raise ValueError("Expected absolute XDG config directory")
@@ -121,7 +122,7 @@ def install(extension_id, browser, *, executable=None, home=None, replace=False)
         if path.is_symlink() or (path.exists() and (not replace or path.stat().st_uid != os.getuid())):
             raise PermissionError("Refusing to overwrite existing Chrome host registration")
     manifest = {"name": HOST_NAME,
-                "description": "Opt-in local Hyprharness Chrome Recall bridge",
+                "description": "Opt-in local Hyprneuro Chrome Recall bridge",
                 "path": str(executable), "type": "stdio",
                 "allowed_origins": ["chrome-extension://" + extension_id + "/"]}
     for path, body in ((identity, extension_id + "\n"),

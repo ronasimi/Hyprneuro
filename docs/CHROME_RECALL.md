@@ -28,11 +28,11 @@ page URL from OCR or a window title**.
 ## Manual installation and consent
 
 Install the Python package in a user-managed environment, so its console entry
-points `hyprharness-sidecar` and `hyprharness-chrome-host` exist. Start the
+points `hyprneuro` and `hyprneuro-chrome-host` exist. Start the
 sidecar explicitly with Chrome ingestion:
 
 ```sh
-hyprharness-sidecar serve --allow-ingest --allow-browser \
+hyprneuro serve --allow-ingest --allow-browser \
   --exclude-origin https://accounts.google.com \
   --exclude-origin https://mybank.example
 ```
@@ -44,9 +44,14 @@ Chrome extension:
 4. Register the user-only native host for your browser:
 
 ```sh
-hyprharness-chrome-host install --browser chromium --extension-id YOUR_32_CHARACTER_ID
+hyprneuro-chrome-host install --browser chromium --extension-id YOUR_32_CHARACTER_ID
 # or --browser chrome / --browser brave
 ```
+
+The native host ID remains `org.ronasimi.hyprharness` for compatibility; the
+extension and Python host must agree on that protocol identifier. The renamed
+command is `hyprneuro-chrome-host`. See [rename upgrade notes](INSTALL.md#upgrading-from-hyprharness-sidecar)
+for re-registering existing manifests or a moved unpacked extension.
 
 Reload the extension after registering the host. The installer creates a
 `0600` host manifest under the relevant `~/.config/.../NativeMessagingHosts/`
@@ -97,8 +102,12 @@ incognito/subframe filtering, exact URL provenance, search, and sidecar IPC.
 worker syntax. Live Chrome-extension/Hyprland/Vulkan integration must still be
 validated on the target Arch desktop.
 
-**Phase 5 remaining:** unify browser-open permission receipts with Pi Durable,
-configure local retention/deletion controls, integrate d1 fast-path retrieval
-for history queries, and implement reliable TUI-to-GTK session handoff. Pi
-model tool requests can currently search Recall via the native Pi tools, but
-those requests are not yet intercepted by a separate direct-to-DB d1 router.
+## Manual Pi boundary
+
+Browser and system records are retrieved only when the user asks Pi to call
+`recall_search` or `recall_alerts`. D1-gated system alerts can send a local
+notify-send notification, but never automatically wake Pi, inject session
+context, or start a Pi Durable workflow. Automatic agent escalation and a
+background direct-to-Pi dispatcher are not planned. Exact-page reopening still
+requires the existing per-request approval; this feature does not add Durable
+permission receipts or clock/receipt integration.

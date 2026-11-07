@@ -1,5 +1,6 @@
 /* Opt-in local Chrome event adapter. Native host only; no HTTP, no content scripts. */
 "use strict";
+// Stable protocol identity; existing Chrome host manifests use this name.
 const HOST = "org.ronasimi.hyprharness";
 let port = null;
 let backlog = [];
@@ -12,7 +13,7 @@ function connect() {
     const current = chrome.runtime.connectNative(HOST);
     port = current;
     current.onMessage.addListener((message) => {
-      if (!message?.ok) console.warn("Hyprharness native host rejected event");
+      if (!message?.ok) console.warn("Hyprneuro native host rejected event");
     });
     current.onDisconnect.addListener(() => {
       if (port === current) port = null;

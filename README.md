@@ -1,4 +1,4 @@
-# hyprharness-sidecar
+# Hyprneuro
 
 Pi addon + standalone observational sidecar: recall, logging, and alerting for Hyprland desktops.
 
@@ -6,24 +6,32 @@ Independent user-level process providing metadata storage and read-only, bounded
 context feeds for local LFM3 text and Omni models. Not an agent, not part of any
 Pi conversation, and not a Pi Durable replacement.
 
-## Install (Pi addon)
+## Install
 
 ```sh
-# From the repo root
-pi install ~/Projects/hyprharness-sidecar
-
-# Install the Python service + systemd unit
+# From the repo root: isolated Python installation only (no collection/service changes)
 bash scripts/install.sh
+SIDECAR="${XDG_DATA_HOME:-$HOME/.local/share}/hyprneuro/venv/bin/hyprneuro"
+"$SIDECAR" --help
 
-# Start the sidecar
-systemctl --user start hyprharness-sidecar
+# Separately register the Pi addon
+pi install "$PWD"
+
+# OPTIONAL: install a read-only user unit (does not enable or start)
+bash scripts/install.sh --install-service
+# Enable/start only when explicitly requested:
+# bash scripts/install.sh --install-service --enable --start
 ```
+
+Requires Python 3.11+ with SQLite FTS5 and either `uv` or Python venv/pip.
+No system-Python fallback, PATH modification, or silent ingestion. See
+[installation, prerequisites and opt-in features](docs/INSTALL.md).
 
 This gives your Pi sessions four new tools:
 - **`recall_search`** — search local screen/browser history by time, title, or source
 - **`recall_open_page`** — reopen a previously visited, verified URL (with approval)
 - **`omni_observe`** — on-demand Omni screenshot of the focused window (with approval)
-- **`recall_alerts`** — recent journal/network alerts with severity + reason (read-only)
+- **`recall_alerts`** — recent journal/network alerts with event evidence, D1 score/status and notification outcome (read-only)
 
 ## Architecture
 
@@ -39,7 +47,7 @@ This gives your Pi sessions four new tools:
 └──────────────────────────────┼──────────────────────────────────────┘
                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  hyprharness-sidecar (Python, user-level process)                   │
+│  Hyprneuro (Python, user-level process)                              │
 │                                                                     │
 │  ┌───────────┐    ┌──────────────┐    ┌─────────────────────┐      │
 │  │ Hyprland  │───▶│  Sidecar     │───▶│  SQLite (WAL)       │      │
@@ -60,14 +68,14 @@ This gives your Pi sessions four new tools:
 ## Repo Layout
 
 ```
-hyprharness-sidecar/
+Hyprneuro/
 ├── package.json              # Pi package manifest
 ├── extensions/               # Pi TypeScript extensions
 │   ├── recall-browser.ts     #   recall_search, recall_open_page
 │   └── omni-observe.ts       #   omni_observe
 ├── python/                   # Python sidecar service
 │   ├── pyproject.toml
-│   ├── src/hyprharness_sidecar/
+│   ├── src/hyprneuro/
 │   │   ├── sidecar.py        #   Unix socket RPC server + CLI
 │   │   ├── sidecar_store.py  #   SQLite WAL + FTS5
 │   │   ├── sidecar_sources.py#   Hyprland socket2 producer
@@ -85,9 +93,9 @@ hyprharness-sidecar/
 │   │   ├── config.py         #   TOML config
 │   │   ├── monitor.py        #   Passive telemetry
 │   │   └── ...
-│   └── tests/                #   79 tests
+│   └── tests/                #   Functional tests + mocked installer smoke tests
 ├── integrations/
-│   ├── hyprharness-sidecar.service  # systemd user unit
+│   ├── hyprneuro.service  # systemd user unit
 │   └── chrome/                      # Chrome extension
 ├── scripts/
 │   └── install.sh          # Install Python + service
@@ -99,27 +107,58 @@ hyprharness-sidecar/
 
 ```sh
 # Read-only (no ingestion)
-hyprharness-sidecar serve
+"$SIDECAR" serve
 
 # Opt in to event storage + Hyprland events
-hyprharness-sidecar serve --allow-ingest --watch-hyprland
+"$SIDECAR" serve --allow-ingest --watch-hyprland
 
 # Enable D1-gated screen capture
-hyprharness-sidecar serve --allow-ingest --watch-hyprland --allow-capture \
+"$SIDECAR" serve --allow-ingest --watch-hyprland --allow-capture \
   --exclude-app org.gnome.Settings --exclude-app org.mozilla.firefox
 
 # Enable Chrome history ingestion
-hyprharness-sidecar serve --allow-ingest --allow-browser
+"$SIDECAR" serve --allow-ingest --allow-browser
 
 # Enable journal + network alerting (D1-gated desktop notifications)
-hyprharness-sidecar serve --allow-ingest --alert
+"$SIDECAR" serve --allow-ingest --alert
 
 # Query
-hyprharness-sidecar health
-hyprharness-sidecar search --query "makepkg" --limit 5
-hyprharness-sidecar context text --query "error"
-hyprharness-sidecar context omni --query "dialog"
+"$SIDECAR" health
+"$SIDECAR" search --query "makepkg" --limit 5
+"$SIDECAR" context text --query "error"
+"$SIDECAR" context omni --query "dialog"
 ```
+
+### Notification-only alerts; manual Pi inspection
+
+Alerts go only through local storage and D1-gated **notify-send** desktop
+notifications (with the critical-severity fallback when D1 is unavailable).
+Hyprneuro never wakes Pi, injects alert text into a session, starts a Pi Durable
+workflow, or automatically asks an agent to investigate. Automatic Pi escalation
+is **not a planned feature**. After seeing a notification, the user can manually
+ask Pi to inspect `recall_alerts` or `recall_search`; those tools pull records only
+when requested. Capture/Omni observation remains a separate explicit opt-in.
+
+### Alert feed semantics
+
+The `alerts` RPC (and Pi `recall_alerts`) includes original event evidence in
+`reason`, plus `d1_status`, `d1_score`, `notify_recommended`, `d1_reason`,
+`notification_status`, and timestamps. D1 returns **only a score**: `d1_reason`
+is a local policy explanation, **not model-generated textual reasoning**.
+Legacy/manual records report unknown outcomes rather than inventing a decision.
+A successful notify-send exit means the request was accepted, not proof of display.
+
+All detected repeats are stored, even during the five-minute notification/gate
+cooldown. The existing three-second deduplication window increments repeat counts;
+spaced repeats become separate records. A deduplicated row retains its last actual
+D1 evaluation while its notification status reflects the latest occurrence.
+Cooldown keys expire and are capped at 1024; eviction can allow earlier re-evaluation.
+
+Journal intake uses valid separate JSON/priority options, bounded stream/record
+buffers and backpressure, skips malformed or oversized records, and reconnects
+with capped exponential backoff. It starts with `--lines=0`: **there is no durable
+cursor replay**, so downtime/reconnect gaps can lose events. Journal and network
+intake are passive; no sudo, active scanning or model-server startup occurs.
 
 ## Security Model
 
@@ -138,10 +177,9 @@ hyprharness-sidecar context omni --query "dialog"
 Model endpoints are read from `~/.config/hyprharness/config.toml`:
 
 ```toml
-[models]
-text_endpoint = "http://127.0.0.1:8081/v1"
-omni_endpoint = "http://127.0.0.1:8082/v1"
-decision_endpoint = "http://127.0.0.1:8083/v1"
+text_port = 8081
+omni_port = 8082
+decision_port = 8083
 ```
 
 ## Paths
@@ -150,16 +188,32 @@ decision_endpoint = "http://127.0.0.1:8083/v1"
 |------|-------|
 | Socket | `$XDG_RUNTIME_DIR/hyprharness/sidecar.sock` |
 | Database | `$XDG_STATE_HOME/hyprharness/sidecar/observations.sqlite3` |
-| Chrome token | `$XDG_RUNTIME_DIR/hyprharness/chrome-token` |
+| Chrome token | `$XDG_RUNTIME_DIR/hyprharness/chrome-ingest.token` |
 
 All directories 0700, files 0600.
+
+### Rename compatibility
+
+Hyprneuro was formerly `hyprharness-sidecar`. The package, CLI, Python imports
+(`hyprneuro`) and user unit (`hyprneuro.service`) now use the new name. The
+checkout is `/home/ron/Projects/Hyprneuro`; upstream is
+[ronasimi/Hyprneuro](https://github.com/ronasimi/Hyprneuro).
+
+**Existing records stay in place.** Database/schema, config, Unix socket,
+Chrome token/extension-ID file and native host ID (`org.ronasimi.hyprharness`)
+retain their legacy names deliberately, for both new and existing installs.
+There is no automatic move, copy, deletion or switch to an empty database.
+Existing Pi clients and Chrome registrations can still use the same protocol.
+See [upgrade instructions](docs/INSTALL.md#upgrading-from-hyprharness-sidecar)
+before switching an existing installation; no service is stopped automatically.
 
 ## Development
 
 ```sh
 # Run tests
-cd python && uv run --with pytest pytest tests/ -v
+cd python && uv run --with pytest --with pillow pytest tests/ -v
+# Shell syntax (from the repo root): bash -n scripts/install.sh
 
 # Run the sidecar manually
-cd python && uv run hyprharness-sidecar serve --allow-ingest --watch-hyprland
+cd python && uv run hyprneuro serve --allow-ingest --watch-hyprland
 ```

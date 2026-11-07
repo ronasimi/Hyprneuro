@@ -5,7 +5,7 @@ Model endpoints match the ~/.bin/lfm script (three always-on Vulkan servers):
   • omni     → 127.0.0.1:8082  LFM3-Omni-2B-Q4_K_M (ctx 8192, multimodal)
   • decision → 127.0.0.1:8083  d1-omni-600M-Q8_0   (ctx 4096, D1 classifier)
 
-Override via ~/.config/hyprharness/config.toml
+Override via ~/.config/hyprharness/config.toml (legacy path retained by Hyprneuro)
 """
 from dataclasses import dataclass, fields
 from pathlib import Path

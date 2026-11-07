@@ -8,10 +8,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Awaitable, Callable
+
+log = logging.getLogger(__name__)
 
 Deliver = Callable[["MonitorEvent"], Awaitable[None]]
 
@@ -39,43 +43,100 @@ def _clean(text: str) -> str:
 
 
 class EventIntake:
-    def __init__(self, *, journal_priority: int = 4, max_message: int = 500):
+    def __init__(self, *, journal_priority: int = 4, max_message: int = 500,
+                 max_line_bytes: int = 65536, reconnect_seconds: float = 1):
         if not (0 <= journal_priority <= 7):
             raise ValueError("journal_priority must be 0-7")
+        if not 1 <= max_message <= 4096 or max_line_bytes < 1 or reconnect_seconds <= 0:
+            raise ValueError("Invalid journal bounds/reconnect interval")
+        self.max_line_bytes = max_line_bytes
+        self.reconnect_seconds = reconnect_seconds
+        self.oversized = 0
+        self.failures = 0
         self.journal_priority = journal_priority
         self.max_message = max_message
 
     # -- journal ----------------------------------------------------------
     async def follow_journal(self, deliver: Deliver):
-        proc = await asyncio.create_subprocess_exec(
-            "journalctl", "--follow", "-o", f"json-priority={self.journal_priority}",
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
-        try:
-            assert proc.stdout is not None
-            while True:
-                line = await proc.stdout.readline()
-                if not line:
-                    break
-                event = self._journal_event(line)
-                if event is not None:
-                    await deliver(event)
-        finally:
-            if proc.returncode is None:
-                proc.kill()
-                await proc.wait()
+        # Delivery applies backpressure: no unbounded queue behind slow D1 calls.
+        # The stream buffer and individual JSON records are independently bounded.
+        delay = self.reconnect_seconds
+        while True:
+            proc = None
+            started = time.monotonic()
+            try:
+                proc = await asyncio.create_subprocess_exec(
+                    "journalctl", "--follow", "--output=json",
+                    f"--priority={self.journal_priority}", "--lines=0", "--no-pager",
+                    stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
+                    limit=self.max_line_bytes)
+                async for line in self._journal_lines(proc.stdout):
+                    event = self._journal_event(line)
+                    if event is not None:
+                        try:
+                            await deliver(event)
+                        except Exception:
+                            self.failures += 1
+                            log.exception("Journal alert delivery failed")
+                self.failures += 1
+                log.warning("journalctl exited; reconnecting")
+            except OSError as exc:
+                self.failures += 1
+                log.warning("Cannot follow journal: %s", exc)
+            finally:
+                if proc is not None:
+                    if proc.returncode is None:
+                        try:
+                            proc.kill()
+                        except ProcessLookupError:
+                            pass
+                    await proc.wait()
+            if time.monotonic() - started >= 60:
+                delay = self.reconnect_seconds
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 30)
+
+    async def _journal_lines(self, reader):
+        """Discard oversized records through their newline, then resume parsing."""
+        pending = bytearray()
+        dropping = False
+        while chunk := await reader.read(8192):
+            parts = chunk.split(b"\n")
+            for index, part in enumerate(parts):
+                complete = index < len(parts) - 1
+                if not dropping:
+                    if len(pending) + len(part) > self.max_line_bytes:
+                        pending.clear()
+                        dropping = True
+                        self.oversized += 1
+                    else:
+                        pending.extend(part)
+                if complete:
+                    if not dropping:
+                        yield bytes(pending)
+                    pending.clear()
+                    dropping = False
+        # An unterminated final record is not a complete journal JSON frame.
 
     def _journal_event(self, line: bytes) -> "MonitorEvent | None":
         try:
             data = json.loads(line)
-        except (ValueError, UnicodeDecodeError):
+        except (ValueError, RecursionError):
             return None
-        message = _clean(data.get("MESSAGE", ""))[: self.max_message]
+        if not isinstance(data, dict) or not isinstance(data.get("MESSAGE"), str):
+            return None
+        message = _clean(data["MESSAGE"])[: self.max_message]
         if not message:
             return None
+        raw_priority = data.get("PRIORITY", 6)
+        if type(raw_priority) not in (str, int):
+            return None
         try:
-            priority = int(data.get("PRIORITY", 6) or 6)
-        except (TypeError, ValueError):
-            priority = 6
+            priority = int(raw_priority)
+        except ValueError:
+            return None
+        if not 0 <= priority <= self.journal_priority:
+            return None
         severity = _PRIORITY_SEVERITY.get(priority, "info")
         source = data.get("SYSLOG_IDENTIFIER") or data.get("_SYSTEMD_UNIT") or "journal"
         return MonitorEvent(source="journal", kind="journal_alert", message=message,
@@ -87,7 +148,10 @@ class EventIntake:
         prev_state: dict[str, str] = {}
         prev_errors: dict[str, int] = {}
         while True:
-            for iface in _net_interfaces():
+            interfaces = set(_net_interfaces())
+            prev_state = {k: v for k, v in prev_state.items() if k in interfaces}
+            prev_errors = {k: v for k, v in prev_errors.items() if k in interfaces}
+            for iface in interfaces:
                 if iface == "lo":
                     continue
                 state, total_err = _iface_state(iface)

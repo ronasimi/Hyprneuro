@@ -1,13 +1,18 @@
 # Independent observational sidecar — phase 1
 
-**Status:** functional SQLite + same-UID Unix RPC + read-only context feeds.
+**Historical phase-1 design:** functional SQLite + same-UID Unix RPC + read-only context feeds.
 An opt-in Hyprland socket2 event source is wired; journal and Chrome
 producers and automatic model invocation are not yet connected.
 The separate Pi and Pi Durable journals remain authoritative for agent actions.
 
+Current installation and opt-in collectors are documented in
+[INSTALL.md](INSTALL.md) and the [README](../README.md). Journal/network alerting,
+Chrome intake, capture and retention have since been implemented; the phase notes
+below describe their original boundaries, not the current completion status.
+
 ## Boundaries
 
-- `hyprharness-sidecar` is a separate **user-level process**, not a Python agent
+- `hyprneuro` is a separate **user-level process**, not a Python agent
   loop, part of Pi's context, or a Pi Durable replacement.
 - The sidecar alone owns `$XDG_STATE_HOME/hyprharness/sidecar/observations.sqlite3`.
   The socket is `$XDG_RUNTIME_DIR/hyprharness/sidecar.sock`. The directories
@@ -35,20 +40,20 @@ The separate Pi and Pi Durable journals remain authoritative for agent actions.
 
 ## Start manually (no auto-install)
 
-From the repo, with `PYTHONPATH=src`:
+From the repo’s `python/` directory, with `PYTHONPATH=src`:
 
 ```sh
-python -m hyprharness.sidecar serve                # read only; ingestion OFF
-python -m hyprharness.sidecar serve --allow-ingest # explicitly opt in
-python -m hyprharness.sidecar serve --allow-ingest --watch-hyprland  # opt-in event source
-python -m hyprharness.sidecar health
-python -m hyprharness.sidecar search --query "makepkg" --limit 5
-python -m hyprharness.sidecar context text --query "makepkg"
-python -m hyprharness.sidecar context omni --query "error"
+python -m hyprneuro.sidecar serve                # read only; ingestion OFF
+python -m hyprneuro.sidecar serve --allow-ingest # explicitly opt in
+python -m hyprneuro.sidecar serve --allow-ingest --watch-hyprland  # opt-in event source
+python -m hyprneuro.sidecar health
+python -m hyprneuro.sidecar search --query "makepkg" --limit 5
+python -m hyprneuro.sidecar context text --query "makepkg"
+python -m hyprneuro.sidecar context omni --query "error"
 ```
 
-The packaged `hyprharness-sidecar` entry point is equivalent. The optional
-`integrations/hyprharness-sidecar.service` intentionally starts without
+The packaged `hyprneuro` entry point is equivalent. The optional
+`integrations/hyprneuro.service` intentionally starts without
 `--allow-ingest`. Change the service locally after deciding which event
 producers, apps and retention windows are acceptable.
 
@@ -58,7 +63,10 @@ One newline-terminated JSON object per connection; response is
 `{"ok":true,"result":...}` or `{"ok":false,"error":...}`. 64 KiB request
 limit and 256 KiB response limit. Supported actions:
 
-- `health` — always available, includes ingestion state.
+- `health` — always available, includes ingestion and alert enablement state.
+- `alerts` — `limit<=50`; bounded event evidence, severity, repeat count, last-seen
+  timestamp, and persisted D1/notification outcomes. D1 provides a score only;
+  `d1_reason` is a local policy explanation, not model-generated reasoning.
 - `search` — `query` (optional), `start_ms`, `end_ms`, `source`, `limit<=20`.
   Time-only searches are allowed, and result rows include `id`, time, title,
   app, source, OCR/description previews and `url_available`/`url_preview`.
@@ -96,7 +104,7 @@ To explicitly enable the focused-window perception worker *in addition to*
 Hyprland metadata ingestion:
 
 ```sh
-hyprharness-sidecar serve --allow-ingest --watch-hyprland --allow-capture \
+hyprneuro serve --allow-ingest --watch-hyprland --allow-capture \
   --exclude-app org.gnome.Settings --exclude-app org.mozilla.firefox
 ```
 
@@ -125,9 +133,14 @@ An explicit sidecar search/context request retrieves the relevant evidence.
 The worker does not write Pi Durable action receipts or execute user commands.
 
 Current limitations: no Chrome event host yet (Phase 4), no graphical capture
-permission editor, no automatic d1 escalation into Pi, and no proof that an
-arbitrary screen locker has signalled logind correctly. Live Vulkan and GUI
-integration must be validated on the actual Arch desktop.
+permission editor, and no proof that an arbitrary screen locker has signalled
+logind correctly. Live Vulkan and GUI integration must be validated on the
+actual Arch desktop.
+
+Automatic d1 escalation into Pi is intentionally **not planned**, not a missing
+integration: alerts use local storage and D1-gated notify-send notifications.
+The user manually asks Pi for `recall_alerts` / `recall_search`. Hyprneuro never
+automatically wakes Pi, injects session context or starts a Pi Durable workflow.
 
 ## Phase 4 — Chrome history
 

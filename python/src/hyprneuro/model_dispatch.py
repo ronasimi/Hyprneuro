@@ -48,7 +48,7 @@ class ModelLane:
         if self._closed:
             raise RuntimeError("Model lane stopped")
         if not self._worker:
-            self._worker = asyncio.create_task(self._run(), name="hyprharness-"+self.name)
+            self._worker = asyncio.create_task(self._run(), name="hyprneuro-"+self.name)
         return self
 
     async def stop(self):

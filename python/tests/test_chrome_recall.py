@@ -12,11 +12,11 @@ import time
 import unittest
 from unittest.mock import patch
 
-from hyprharness_sidecar.browser_ingest import BrowserIngress, create_token, read_token, EXTENSION_ID
-from hyprharness_sidecar.chrome_host import read_frame, write_frame, run_host, install, expected_origin
-from hyprharness_sidecar.sidecar import serve
-from hyprharness_sidecar.sidecar_client import request
-from hyprharness_sidecar.sidecar_store import SidecarStore
+from hyprneuro.browser_ingest import BrowserIngress, create_token, read_token, EXTENSION_ID
+from hyprneuro.chrome_host import read_frame, write_frame, run_host, install, expected_origin
+from hyprneuro.sidecar import serve
+from hyprneuro.sidecar_client import request
+from hyprneuro.sidecar_store import SidecarStore
 
 ID = "a" * 32
 URL = "https://example.com/docs/path?token=PRIVATE#section"

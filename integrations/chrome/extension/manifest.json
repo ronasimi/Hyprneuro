@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Hyprharness Recall (Local)",
-  "description": "Opt-in local active-tab URL history for Hyprharness. No remote endpoints.",
+  "name": "Hyprneuro Recall (Local)",
+  "description": "Opt-in local active-tab URL history for Hyprneuro. No remote endpoints.",
   "version": "0.1.0",
   "permissions": ["tabs", "webNavigation", "nativeMessaging"],
   "background": {"service_worker": "background.js"}

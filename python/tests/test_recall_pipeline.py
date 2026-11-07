@@ -7,13 +7,13 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from hyprharness_sidecar.recall import (
+from hyprneuro.recall import (
     CaptureCandidate, CapturePolicy, GrimWindowCapture, LoginSessionGuard,
     ScreenWatcher, MAX_PNG_BYTES, PNG_MAGIC,
 )
-from hyprharness_sidecar.recall_events import D1CaptureSource
-from hyprharness_sidecar.sidecar_store import SidecarStore
-from hyprharness_sidecar.sidecar import serve
+from hyprneuro.recall_events import D1CaptureSource
+from hyprneuro.sidecar_store import SidecarStore
+from hyprneuro.sidecar import serve
 
 class FakeDesktop:
     def __init__(self):
@@ -250,7 +250,7 @@ class WindowGrabTests(unittest.IsolatedAsyncioTestCase):
         async def fake_exec(*argv,**kwargs):
             calls.append(argv)
             return FakeProcess([PNG_MAGIC,b"a"*32,b"b"*16])
-        with patch("hyprharness_sidecar.recall.asyncio.create_subprocess_exec",fake_exec):
+        with patch("hyprneuro.recall.asyncio.create_subprocess_exec",fake_exec):
             payload=await GrimWindowCapture().grab({"at":[25,-14],"size":[860,500]})
         self.assertEqual(payload,PNG_MAGIC+b"a"*32+b"b"*16)
         self.assertEqual(calls,[("grim","-g","25,-14 860x500","-")])
@@ -261,7 +261,7 @@ class WindowGrabTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_refuses_non_png_data(self):
         async def fake_exec(*a,**kw):return FakeProcess([b"GIF\x00bad"])
-        with patch("hyprharness_sidecar.recall.asyncio.create_subprocess_exec",fake_exec):
+        with patch("hyprneuro.recall.asyncio.create_subprocess_exec",fake_exec):
             with self.assertRaises(ValueError):
                 await GrimWindowCapture().grab({"at":[0,0],"size":[100,100]})
 
@@ -269,20 +269,20 @@ class WindowGrabTests(unittest.IsolatedAsyncioTestCase):
         fake=FakeProcess([PNG_MAGIC,b"a"*(MAX_PNG_BYTES)])
         fake.returncode=None
         async def fake_exec(*a,**kw):return fake
-        with patch("hyprharness_sidecar.recall.asyncio.create_subprocess_exec",fake_exec):
+        with patch("hyprneuro.recall.asyncio.create_subprocess_exec",fake_exec):
             with self.assertRaises(ValueError):
                 await GrimWindowCapture().grab({"at":[0,0],"size":[100,100]})
         self.assertTrue(fake.killed)
 
     async def test_rejects_failed_grim(self):
         async def fake_exec(*a,**kw):return FakeProcess([b""],b"capture failed",1)
-        with patch("hyprharness_sidecar.recall.asyncio.create_subprocess_exec",fake_exec):
+        with patch("hyprneuro.recall.asyncio.create_subprocess_exec",fake_exec):
             with self.assertRaisesRegex(RuntimeError,"capture failed"):
                 await GrimWindowCapture().grab({"at":[0,0],"size":[100,100]})
 
 class ExtraPolicyTests(unittest.IsolatedAsyncioTestCase):
     async def test_password_manager_excluded_by_default(self):
-        from hyprharness_sidecar.recall import DEFAULT_EXCLUDED_APPS
+        from hyprneuro.recall import DEFAULT_EXCLUDED_APPS
         self.assertIn("keepassxc",DEFAULT_EXCLUDED_APPS)
         pol=CapturePolicy(enabled=True, check_unlocked=permit)
         self.assertFalse(await pol.permits(CaptureCandidate("hyprland","activewindowv2"),

@@ -19,9 +19,11 @@ provides a Pi-native `omni_observe` tool for explicit main-model requests.
   caller's wait, not necessarily an HTTP request already executing inside
   `asyncio.to_thread`. Actual server-side cancellation needs a separate model
   transport enhancement. These workers do not launch another model/server.
-- The current Pi foreground user-query router still needs integration with
-  this shared admission path; **this change prioritizes Pi's explicit
-  `omni_observe` calls**, not all ordinary Pi prompt routing yet.
+- This admission path prioritizes explicitly requested `omni_observe` calls.
+  It does not route ordinary Pi prompts or wake a Pi session from a background
+  event. Background alerts only use local storage and D1-gated notify-send;
+  the user manually requests Pi inspection. No automatic wake, injection or
+  Pi Durable workflow is planned.
 
 ## D1 visual screening
 
@@ -75,8 +77,6 @@ Background Recall observations still bypass LFM3 entirely.
 - Live llama.cpp `d1-omni-600m` projector and `images[]` test on the user's
   Arch/Vulkan installation; local tests use stub model clients.
 - Browser Native Messaging, exact-page reopening, temporal-query routing.
-- Unified user-query d1 dispatch across Pi CLI and GTK (currently Pi has its
-  own model process and the legacy broker path is separate).
 - Stronger one-time broker admission tokens and crash recovery for `/tmp`
   leftovers, or migrate the legacy broker to in-memory-only screenshots.
 

@@ -1,4 +1,4 @@
-"""Independent, optional Hyprharness observational sidecar.
+"""Independent, optional Hyprneuro observational sidecar.
 
 It provides metadata storage and read-only, bounded context feeds for
 LFM3 text and Omni without launching either model or a new Pi agent loop.
@@ -24,6 +24,7 @@ RETENTION_INTERVAL_SECONDS = 3600
 
 
 def paths():
+    """Keep legacy paths: the rename must not strand records or live clients."""
     runtime = os.environ.get("XDG_RUNTIME_DIR")
     if not runtime or not Path(runtime).is_absolute():
         raise RuntimeError("XDG_RUNTIME_DIR is required")
@@ -58,11 +59,13 @@ async def run_retention(store, days, *, interval_seconds=RETENTION_INTERVAL_SECO
 
 
 class SidecarServer:
-    def __init__(self, store, *, allow_ingest=False, capture_enabled=False, on_demand=False, browser_ingress=None):
+    def __init__(self, store, *, allow_ingest=False, capture_enabled=False,
+                 on_demand=False, browser_ingress=None, alert_enabled=False):
         self.store = store
         self.allow_ingest = allow_ingest
         self.capture_enabled = capture_enabled
         self.on_demand = on_demand
+        self.alert_enabled = alert_enabled
         self.watcher = None
         self.browser_ingress = browser_ingress
         self.browser_capture_source = None
@@ -73,10 +76,10 @@ class SidecarServer:
             raise ValueError("Expected JSON object")
         action = request.get("action")
         if action == "health":
-            state = {"service": "hyprharness-sidecar", "ingest_enabled": self.allow_ingest,
+            state = {"service": "hyprneuro", "ingest_enabled": self.allow_ingest,
                      "capture_enabled": self.capture_enabled,
-                     "on_demand_enabled": self.on_demand}
-            if not self.capture_enabled and not self.on_demand:
+                     "on_demand_enabled": self.on_demand, "alert_enabled": self.alert_enabled}
+            if not self.capture_enabled and not self.on_demand and not self.alert_enabled:
                 state["models_invoked"] = False  # No model path can run.
             state["browser_enabled"] = self.browser_ingress is not None
             return state
@@ -148,32 +151,34 @@ class SidecarServer:
         task = asyncio.current_task()
         self.handlers.add(task)
         try:
-            sock = writer.get_extra_info("socket")
-            _, uid, _ = struct.unpack("3i", sock.getsockopt(socket.SOL_SOCKET,
-                                                            socket.SO_PEERCRED, 12))
-            if uid != os.getuid():
-                raise PermissionError("Wrong peer UID")
-            raw = await asyncio.wait_for(reader.readline(), 5)
-            if not raw.endswith(b"\n") or len(raw) > MAX_REQUEST:
-                raise ValueError("Invalid or oversized RPC frame")
-            response = {"ok": True, "result": await self.dispatch_async(json.loads(raw))}
-        except asyncio.CancelledError:
-            raise
-        except (Exception) as exc:
-            response = {"ok": False, "error": str(exc)}
-        finally:
-            self.handlers.discard(task)
-        try:
-            data = json.dumps(response, ensure_ascii=False).encode("utf-8")
-            if len(data) > MAX_RESPONSE:
-                data = b'{"ok":false,"error":"Response exceeds limit"}'
-            writer.write(data + b"\n")
-            await writer.drain()
-        except (BrokenPipeError, ConnectionResetError):
-            pass
+            try:
+                sock = writer.get_extra_info("socket")
+                _, uid, _ = struct.unpack("3i", sock.getsockopt(socket.SOL_SOCKET,
+                                                                socket.SO_PEERCRED, 12))
+                if uid != os.getuid():
+                    raise PermissionError("Wrong peer UID")
+                raw = await asyncio.wait_for(reader.readline(), 5)
+                if not raw.endswith(b"\n") or len(raw) > MAX_REQUEST:
+                    raise ValueError("Invalid or oversized RPC frame")
+                response = {"ok": True, "result": await self.dispatch_async(json.loads(raw))}
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                response = {"ok": False, "error": str(exc)}
+            try:
+                data = json.dumps(response, ensure_ascii=False).encode("utf-8")
+                if len(data) > MAX_RESPONSE:
+                    data = b'{"ok":false,"error":"Response exceeds limit"}'
+                writer.write(data + b"\n")
+                await writer.drain()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
         finally:
             writer.close()
-            await writer.wait_closed()
+            try:
+                await writer.wait_closed()
+            finally:
+                self.handlers.discard(task)
 
 
 async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False,
@@ -214,7 +219,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             probe.close()
     store = SidecarStore(db_path)
     worker = SidecarServer(store, allow_ingest=allow_ingest,
-                           capture_enabled=allow_capture, on_demand=allow_on_demand)
+                           capture_enabled=allow_capture, on_demand=allow_on_demand,
+                           alert_enabled=alert)
     server = None
     producers = []
     source = None
@@ -297,20 +303,21 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                     loop.add_signal_handler(sig, stop.set)
                 except NotImplementedError:
                     pass
-        async with server:
-            await stop.wait()
+        await stop.wait()
     finally:
+        if server:
+            server.close()
         for worker_task in producers:
             worker_task.cancel()
         if producers:
             await asyncio.gather(*producers, return_exceptions=True)
-        if server:
-            server.close()
-            await server.wait_closed()
-        for task in list(worker.handlers):
+        handlers = list(worker.handlers)
+        for task in handlers:
             task.cancel()
-        if worker.handlers:
-            await asyncio.gather(*worker.handlers, return_exceptions=True)
+        if handlers:
+            await asyncio.gather(*handlers, return_exceptions=True)
+        if server:
+            await server.wait_closed()
         if model_scheduler:
             await model_scheduler.stop()
         socket_path.unlink(missing_ok=True)
@@ -320,7 +327,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Hyprharness observational sidecar")
+    parser = argparse.ArgumentParser(description="Hyprneuro observational sidecar")
     sub = parser.add_subparsers(dest="command", required=True)
     cmd = sub.add_parser("serve", help="Independent user-level JSONL/Unix service")
     cmd.add_argument("--allow-ingest", action="store_true", help="Opt in to local event storage")

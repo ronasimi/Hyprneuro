@@ -8,9 +8,9 @@ import time
 import unittest
 from zoneinfo import ZoneInfo
 
-from hyprharness_sidecar.sidecar import serve
-from hyprharness_sidecar.sidecar_client import request
-from hyprharness_sidecar.sidecar_store import SidecarStore
+from hyprneuro.sidecar import serve
+from hyprneuro.sidecar_client import request
+from hyprneuro.sidecar_store import SidecarStore
 
 NOW = int(time.time() * 1000)
 
@@ -171,6 +171,20 @@ class IpcTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await request({"action": "search", "query": "x" * 100000}, socket_path=self.socket)
 
+    async def test_shutdown_closes_idle_rpc_connection(self):
+        reader, writer = await asyncio.open_unix_connection(str(self.socket))
+        try:
+            # Confirm the accepted handler is waiting for a complete frame.
+            writer.write(b'{"action":')
+            await writer.drain()
+            await asyncio.sleep(0.01)
+            self.stop.set()
+            await asyncio.wait_for(self.service, 1)
+            self.assertEqual(await asyncio.wait_for(reader.read(), 1), b"")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
     async def test_socket_permissions(self):
         self.assertEqual(self.socket.stat().st_mode & 0o777, 0o600)
         self.assertEqual(self.socket.parent.stat().st_mode & 0o777, 0o700)
@@ -203,7 +217,7 @@ class IngestIpcTests(unittest.IsolatedAsyncioTestCase):
 
 class SourceTests(unittest.IsolatedAsyncioTestCase):
     async def test_hyprland_source_filters_and_deduplicates(self):
-        from hyprharness_sidecar.sidecar_sources import HyprlandSource
+        from hyprneuro.sidecar_sources import HyprlandSource
         with tempfile.TemporaryDirectory() as directory:
             db = SidecarStore(Path(directory) / "db.sqlite3")
             source = HyprlandSource(db, max_queue=2)
@@ -273,7 +287,7 @@ class RetentionTests(unittest.IsolatedAsyncioTestCase):
             self.tmp.cleanup()
 
     def test_prune_old_removes_only_stale_rows(self):
-        from hyprharness_sidecar.sidecar import prune_old
+        from hyprneuro.sidecar import prune_old
         self.store = self._store()
         self.store.record(event(time_ms=NOW - 60_000, title="fresh row"))
         self.store.record(event(time_ms=NOW - 40 * 86_400_000, title="stale row"))
@@ -281,7 +295,7 @@ class RetentionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([r["title"] for r in self.store.search()], ["fresh row"])
 
     async def test_run_retention_prunes_then_stops_cleanly(self):
-        from hyprharness_sidecar.sidecar import run_retention
+        from hyprneuro.sidecar import run_retention
         self.store = self._store()
         self.store.record(event(time_ms=NOW - 40 * 86_400_000, title="stale row"))
         task = asyncio.create_task(run_retention(self.store, 7, interval_seconds=0.05))

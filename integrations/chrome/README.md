@@ -12,7 +12,7 @@ Optional downloads events are alerts, not screenshot triggers.
 
 A local Native Messaging host will validate the configured extension origin,
 read/write Chrome's length-prefixed JSON frames, and forward bounded metadata
-to the existing same-UID Hyprharness Unix broker. Do not expose an HTTP port,
+to the existing same-UID Hyprneuro Unix broker. Do not expose an HTTP port,
 read browser cookies, or use a global debugging port. Tabs/WebNavigation
 permissions must be explicit. Ignore incognito/private tabs and excluded URLs.
 

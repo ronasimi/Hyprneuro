@@ -10,7 +10,7 @@ from pathlib import Path
 import stat
 import tempfile
 
-PREFIX = "hyprharness-capture-"
+PREFIX = "hyprneuro-capture-"
 MAX_CAPTURE = 8 * 1024 * 1024
 
 
@@ -18,7 +18,7 @@ def remove_screenshot(path):
     """Delete only a capture generated in /tmp; never follow a symlink."""
     p = Path(path)
     if p.parent != Path("/tmp") or not p.name.startswith(PREFIX) or p.suffix != ".png":
-        raise ValueError("Refusing to remove a path outside Hyprharness /tmp captures")
+        raise ValueError("Refusing to remove a path outside Hyprneuro /tmp captures")
     try:
         metadata = p.lstat()
     except FileNotFoundError:

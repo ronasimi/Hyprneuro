@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 
 from .sidecar_store import _url, public_url
 
+# Protocol identity is stable across the Hyprneuro branding rename.
 HOST_NAME = "org.ronasimi.hyprharness"
 EVENTS = frozenset({
     "tab_activated", "tab_updated", "navigation_committed",

@@ -12,6 +12,7 @@ import { join } from "node:path";
 const MAX_REPLY = 16 * 1024;
 
 async function observe(purpose: "read_text" | "describe" | "both", signal: AbortSignal) {
+  // Keep the legacy socket path compatible with existing service installations.
   const runtime = process.env.XDG_RUNTIME_DIR;
   if (!runtime || !runtime.startsWith("/")) throw new Error("XDG_RUNTIME_DIR unavailable");
   const path = join(runtime, "hyprharness", "sidecar.sock");
@@ -70,7 +71,7 @@ export default function (pi: ExtensionAPI) {
       const value = await observe(params.purpose, signal);
       return {
         content: [{ type: "text" as const, text: JSON.stringify(value) }],
-        details: { source: "hyprharness-sidecar", untrusted: true },
+        details: { source: "hyprneuro", untrusted: true },
       };
     },
   });

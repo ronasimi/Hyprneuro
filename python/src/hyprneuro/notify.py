@@ -15,9 +15,9 @@ _SEVERITY_TO_URGENCY = {
 
 
 class Notifier:
-    """Thin notify-send wrapper: bounded, timed, best-effort, never raises."""
+    """Thin notify-send wrapper: bounded, timed, best-effort; cancellation propagates."""
 
-    def __init__(self, app: str = "hyprharness-sidecar", binary: str = "notify-send",
+    def __init__(self, app: str = "hyprneuro", binary: str = "notify-send",
                  timeout: float = 5):
         self.app = app
         self.binary = binary
@@ -32,18 +32,25 @@ class Notifier:
         summary = str(summary)[:MAX_SUMMARY]
         body = str(body)[:MAX_BODY]
         urgency = _SEVERITY_TO_URGENCY.get(severity, "normal")
-        argv = [self.binary, "-a", self.app, "-u", urgency, summary]
+        argv = [self.binary, "-a", self.app, "-u", urgency, "--", summary]
         if body:
             argv.append(body)
+        proc = None
         try:
             proc = await asyncio.create_subprocess_exec(
                 *argv, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
             try:
                 await asyncio.wait_for(proc.wait(), timeout=self.timeout)
             except asyncio.TimeoutError:
-                proc.kill()
-                await proc.wait()
                 return False
             return proc.returncode == 0
         except (OSError, ValueError):
             return False
+        finally:
+            if proc is not None:
+                if proc.returncode is None:
+                    try:
+                        proc.kill()
+                    except ProcessLookupError:
+                        pass
+                await proc.wait()

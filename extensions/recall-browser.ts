@@ -8,6 +8,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 
 async function sidecar(message: Record<string, unknown>, signal?: AbortSignal): Promise<any> {
+  // Keep the legacy socket path compatible with existing service installations.
   const runtime = process.env.XDG_RUNTIME_DIR;
   if (!runtime || !runtime.startsWith("/")) throw new Error("No local runtime directory");
   return await new Promise((resolve, reject) => {
@@ -81,7 +82,7 @@ async function openExactUrl(url: string, signal?: AbortSignal): Promise<void> {
 
 const result = (value: unknown) => ({
   content: [{ type: "text" as const, text: JSON.stringify(value).slice(0, 12000) }],
-  details: { source: "hyprharness-recall" },
+  details: { source: "hyprneuro-recall" },
 });
 
 export default function (pi: ExtensionAPI) {
@@ -146,8 +147,8 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "recall_alerts",
     label: "Recent system alerts",
-    description: "List recent journal/network alerts the sidecar detected, with severity, reason and time. Read-only; the orchestrator's view of what was escalated and why.",
-    promptSnippet: "See recent system alerts and the reason each escalated",
+    description: "On user request, inspect recent journal/network alerts, D1 scores and desktop-notification outcomes. Read-only; alerts never automatically wake Pi or inject session context.",
+    promptSnippet: "Inspect stored system alerts and D1 notification decisions when asked",
     parameters: Type.Object({
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
     }),

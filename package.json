@@ -1,5 +1,5 @@
 {
-  "name": "hyprharness-sidecar",
+  "name": "hyprneuro",
   "version": "0.1.0",
   "description": "Observational sidecar for Hyprland: recall, logging, and alerting as a Pi addon",
   "keywords": ["pi-package"],

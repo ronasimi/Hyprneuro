@@ -1,4 +1,4 @@
-"""Standalone, opt-in observational log for Hyprharness.
+"""Standalone, opt-in observational log for Hyprneuro.
 
 Not an agent, tool executor, screenshot service, or Pi Durable journal.
 This database belongs only to the sidecar; no agent transcript is stored.
@@ -130,6 +130,10 @@ class SidecarStore:
                 INSERT INTO observations_fts(rowid,title,message,ocr_text,description)
                 VALUES (new.id,new.title,new.message,new.ocr_text,new.description);
             END;
+            CREATE TABLE IF NOT EXISTS alert_state (
+                observation_id INTEGER PRIMARY KEY REFERENCES observations(id) ON DELETE CASCADE,
+                state_json TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS sidecar_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             INSERT OR IGNORE INTO sidecar_meta VALUES ('schema_version','1');
         """)
@@ -304,18 +308,36 @@ class SidecarStore:
         return {"verified": bool(row), "observation_id": row[0] if row else None,
                 "observed_at_ms": row[1] if row else None}
 
+    def alert_outcome(self, ident):
+        row = self.db.execute("SELECT state_json FROM alert_state WHERE observation_id=?",
+                              (ident,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def update_alert(self, ident, state):
+        """Internal alert outcome; generic record RPC cannot supply this state."""
+        encoded = json.dumps({**state, "updated_at_ms": int(time.time() * 1000)}, allow_nan=False)
+        if len(encoded) > 4096:
+            raise ValueError("Alert state exceeds limit")
+        with self.db:
+            self.db.execute("INSERT INTO alert_state VALUES (?,?) ON CONFLICT(observation_id) "
+                            "DO UPDATE SET state_json=excluded.state_json", (ident, encoded))
+
     def alerts(self, *, limit=20):
         """Recent alert-kind observations for the Pi orchestrator (read-only)."""
         if type(limit) is not int or not 1 <= limit <= 50:
             raise ValueError("limit must be an integer from 1 to 50")
         placeholders = ",".join("?" * len(ALERT_KINDS))
         rows = self.db.execute(
-            "SELECT id, time_ms, source, kind, message, repeat_count FROM observations "
-            f"WHERE kind IN ({placeholders}) ORDER BY time_ms DESC, id DESC LIMIT ?",
+            "SELECT o.id,o.time_ms,o.last_seen_ms,o.source,o.kind,o.message,o.repeat_count,a.state_json "
+            "FROM observations o LEFT JOIN alert_state a ON a.observation_id=o.id "
+            f"WHERE o.kind IN ({placeholders}) ORDER BY o.last_seen_ms DESC,o.id DESC LIMIT ?",
             [*ALERT_KINDS, limit]).fetchall()
-        return [{"id": i, "time_ms": t, "source": s, "kind": k,
-                 "severity": _severity(m), "reason": m[:500], "repeat_count": r}
-                for (i, t, s, k, m, r) in rows]
+        return [{"id": i, "time_ms": t, "last_seen_ms": last, "source": s, "kind": k,
+                 "severity": _severity(m), "reason": m[:500], "repeat_count": r,
+                 **(json.loads(state) if state else {"d1_status": "unknown", "d1_score": None,
+                      "notify_recommended": None, "d1_reason": "No recorded D1 evaluation.",
+                      "notification_status": "unknown", "notified": None})}
+                for (i, t, last, s, k, m, r, state) in rows]
 
     def prune(self, *, before_ms):
         _time_ms(before_ms)

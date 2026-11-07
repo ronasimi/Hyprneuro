@@ -96,6 +96,8 @@ class SidecarServer:
         # here; the browser opener must go through broker action approval.
         if action == "page_url":
             return self.store.page_url(request.get("id"))
+        if action == "alerts":
+            return self.store.alerts(limit=request.get("limit", 20))
         raise ValueError("Unknown sidecar RPC action")
 
     async def dispatch_async(self, request):
@@ -176,7 +178,7 @@ class SidecarServer:
 
 async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False,
                 allow_on_demand=False, d1_visual=False, allow_browser=False,
-                retention_days=0, socket_path=None, db_path=None, shutdown=None,
+                alert=False, retention_days=0, socket_path=None, db_path=None, shutdown=None,
                 desktop=None, models=None, unlock_guard=None, grabber=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None):
     if watch_hyprland and not allow_ingest:
@@ -189,6 +191,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
         raise ValueError("--d1-visual requires --allow-capture")
     if allow_browser and not allow_ingest:
         raise ValueError("--allow-browser requires --allow-ingest")
+    if alert and not allow_ingest:
+        raise ValueError("--alert requires explicit --allow-ingest")
     socket_path = Path(socket_path) if socket_path else paths()[0]
     db_path = Path(db_path) if db_path else paths()[1]
     ensure_private(socket_path.parent)
@@ -269,6 +273,20 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
 
             producers.extend([asyncio.create_task(source.flush()),
                               asyncio.create_task(desktop.events(on_event))])
+        if alert:
+            from .event_stream import EventIntake
+            from .escalation import EscalationRouter
+            from .notify import Notifier
+            if models is None:
+                from .config import Config
+                from .models import Models
+                models = Models(Config.load())
+            router = EscalationRouter(models, store, notifier=Notifier())
+            intake = EventIntake()
+            producers.extend([
+                asyncio.create_task(intake.follow_journal(router.escalate)),
+                asyncio.create_task(intake.network_alerts(router.escalate)),
+            ])
         if retention_days > 0:
             producers.append(asyncio.create_task(run_retention(store, retention_days)))
         stop = shutdown or asyncio.Event()
@@ -322,6 +340,8 @@ def main():
                      help="Exclude an application class from automatic capture (repeatable)")
     cmd.add_argument("--retention-days", type=float, default=0, metavar="DAYS",
                      help="Automatically delete observations older than DAYS (0 = keep forever, default)")
+    cmd.add_argument("--alert", action="store_true",
+                     help="Opt into journal + network alerting with D1-gated desktop notifications")
     sub.add_parser("health")
     search = sub.add_parser("search")
     search.add_argument("--query", default="")
@@ -343,6 +363,7 @@ def main():
                           allow_on_demand=args.allow_on_demand,
                           d1_visual=args.d1_visual,
                           allow_browser=args.allow_browser,
+                          alert=args.alert,
                           retention_days=args.retention_days,
                           excluded_origins=args.exclude_origin,
                           excluded_apps=args.exclude_app))

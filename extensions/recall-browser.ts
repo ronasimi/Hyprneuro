@@ -96,7 +96,7 @@ export default function (pi: ExtensionAPI) {
         Type.Literal("all"), Type.Literal("last_night"), Type.Literal("yesterday"),
         Type.Literal("today"), Type.Literal("last_24h"),
       ]),
-      source: Type.Optional(Type.Union([Type.Literal("chrome"), Type.Literal("omni"), Type.Literal("hyprland")])),
+      source: Type.Optional(Type.Union([Type.Literal("chrome"), Type.Literal("omni"), Type.Literal("hyprland"), Type.Literal("journal"), Type.Literal("network")])),
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
     }),
     async execute(_id, params, signal) {
@@ -140,6 +140,20 @@ export default function (pi: ExtensionAPI) {
         id: params.id, url_preview: parsed.origin + parsed.pathname,
         note: confirmed ? "Chrome reported an active tab with the exact saved URL" :
           "Browser launch returned success; no Chrome navigation confirmation yet" });
+    },
+  });
+
+  pi.registerTool({
+    name: "recall_alerts",
+    label: "Recent system alerts",
+    description: "List recent journal/network alerts the sidecar detected, with severity, reason and time. Read-only; the orchestrator's view of what was escalated and why.",
+    promptSnippet: "See recent system alerts and the reason each escalated",
+    parameters: Type.Object({
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 50 })),
+    }),
+    async execute(_id, params, signal) {
+      const value = await sidecar({ action: "alerts", limit: params.limit ?? 20 }, signal);
+      return result({ untrusted: true, alerts: value });
     },
   });
 }

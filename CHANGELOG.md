@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Journal + network alerting (`--alert`, opt-in, requires `--allow-ingest`)
+- `notify-send` desktop notifications, D1-gated (advisory; fail-safe critical floor when D1 is down)
+- Every detected alert stored in the sidecar DB (severity + reason), independent of the notification decision
+- `alerts` RPC action + `recall_alerts` Pi tool so the orchestrator can read what escalated and why
+- `recall_search` now filters `journal` and `network` sources
+- 12 alerting tests (79 total)
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

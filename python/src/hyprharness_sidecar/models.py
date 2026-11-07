@@ -96,6 +96,45 @@ class Models:
                 "score": float(score), "source": safe["source"],
                 "threshold": threshold}
 
+    async def decide_alert(self, alert, threshold=0.6):
+        """D1 advisory gate: should this local system event notify the user?
+
+        Only bounded, redacted event metadata is sent — never full logs.
+        Returns a recommendation; it is not a permission and authorizes nothing.
+        """
+        if not isinstance(alert, dict) or not 0 <= threshold <= 1:
+            raise ModelError("Invalid alert candidate")
+        safe = {}
+        for key in ("source", "kind", "severity", "message"):
+            value = alert.get(key)
+            if value is None:
+                continue
+            if not isinstance(value, (str, int)):
+                raise ModelError("Invalid alert metadata")
+            safe[key] = str(value)[:300]
+        if safe.get("source") not in ("journal", "network", "resource", "hyprland"):
+            raise ModelError("Invalid alert source")
+        payload = {
+            "state": json.dumps(safe, ensure_ascii=False)[:800],
+            "questions": {
+                "escalate": {
+                    "type": "noul",
+                    "instructions": (
+                        "Should this local system event be escalated to a desktop "
+                        "notification for the user? Prefer no for routine, transient "
+                        "or self-resolved events. Yes for genuine failures, repeated "
+                        "errors, disk/memory pressure, or network loss. "
+                        "This is a recommendation only, not permission."
+                    ),
+                }
+            },
+        }
+        raw = await self.call("decision", "/v1/systemone", payload)
+        score = raw.get("answers", {}).get("escalate", {}).get("noul")
+        if type(score) not in (float, int) or not 0 <= score <= 1:
+            raise ModelError("Malformed D1 alert recommendation: skip")
+        return {"notify_recommended": score >= threshold, "score": float(score)}
+
     async def chat(self, messages, thinking, tools=None):
         if not tools:
             messages=[dict(m) for m in messages]

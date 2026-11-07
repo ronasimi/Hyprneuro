@@ -20,6 +20,19 @@ SEARCH_TERMS = re.compile(r"[^\W_]+", re.UNICODE)
 MAX_MESSAGE = 4096
 MAX_DESCRIPTION = 4096
 MAX_OCR = 8192
+ALERT_KINDS = ("journal_alert", "network_alert", "resource_alert")
+_SEVERITIES = ("info", "warning", "error", "critical")
+
+
+def _severity(message):
+    """Recover the severity tag the escalation router encodes as '[tag] ...'."""
+    if message.startswith("["):
+        end = message.find("]")
+        if end > 1:
+            tag = message[1:end].lower()
+            if tag in _SEVERITIES:
+                return tag
+    return "info"
 
 
 def _text(value, limit, *, empty_ok=True):
@@ -290,6 +303,19 @@ class SidecarStore:
         ).fetchone()
         return {"verified": bool(row), "observation_id": row[0] if row else None,
                 "observed_at_ms": row[1] if row else None}
+
+    def alerts(self, *, limit=20):
+        """Recent alert-kind observations for the Pi orchestrator (read-only)."""
+        if type(limit) is not int or not 1 <= limit <= 50:
+            raise ValueError("limit must be an integer from 1 to 50")
+        placeholders = ",".join("?" * len(ALERT_KINDS))
+        rows = self.db.execute(
+            "SELECT id, time_ms, source, kind, message, repeat_count FROM observations "
+            f"WHERE kind IN ({placeholders}) ORDER BY time_ms DESC, id DESC LIMIT ?",
+            [*ALERT_KINDS, limit]).fetchall()
+        return [{"id": i, "time_ms": t, "source": s, "kind": k,
+                 "severity": _severity(m), "reason": m[:500], "repeat_count": r}
+                for (i, t, s, k, m, r) in rows]
 
     def prune(self, *, before_ms):
         _time_ms(before_ms)

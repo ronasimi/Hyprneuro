@@ -19,10 +19,11 @@ bash scripts/install.sh
 systemctl --user start hyprharness-sidecar
 ```
 
-This gives your Pi sessions three new tools:
+This gives your Pi sessions four new tools:
 - **`recall_search`** — search local screen/browser history by time, title, or source
 - **`recall_open_page`** — reopen a previously visited, verified URL (with approval)
 - **`omni_observe`** — on-demand Omni screenshot of the focused window (with approval)
+- **`recall_alerts`** — recent journal/network alerts with severity + reason (read-only)
 
 ## Architecture
 
@@ -73,6 +74,9 @@ hyprharness-sidecar/
 │   │   ├── sidecar_client.py #   Async client (public API)
 │   │   ├── recall.py         #   D1→Omni capture pipeline
 │   │   ├── recall_events.py  #   D1 capture source adapter
+│   │   ├── event_stream.py   #   Journal + network alert intake
+│   │   ├── escalation.py     #   D1-gated store + notify escalation
+│   │   ├── notify.py         #   notify-send wrapper (best-effort)
 │   │   ├── browser_ingest.py #   Chrome Native Messaging
 │   │   ├── chrome_host.py    #   Chrome native host process
 │   │   ├── desktop.py        #   Hyprland IPC
@@ -81,7 +85,7 @@ hyprharness-sidecar/
 │   │   ├── config.py         #   TOML config
 │   │   ├── monitor.py        #   Passive telemetry
 │   │   └── ...
-│   └── tests/                #   64 tests
+│   └── tests/                #   79 tests
 ├── integrations/
 │   ├── hyprharness-sidecar.service  # systemd user unit
 │   └── chrome/                      # Chrome extension
@@ -106,6 +110,9 @@ hyprharness-sidecar serve --allow-ingest --watch-hyprland --allow-capture \
 
 # Enable Chrome history ingestion
 hyprharness-sidecar serve --allow-ingest --allow-browser
+
+# Enable journal + network alerting (D1-gated desktop notifications)
+hyprharness-sidecar serve --allow-ingest --alert
 
 # Query
 hyprharness-sidecar health

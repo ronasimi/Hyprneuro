@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 import json
+from contextlib import nullcontext
 import os
 import re
 import sqlite3
@@ -134,6 +135,13 @@ class SidecarStore:
                 observation_id INTEGER PRIMARY KEY REFERENCES observations(id) ON DELETE CASCADE,
                 state_json TEXT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS journal_events (
+                cursor TEXT PRIMARY KEY,
+                observation_id INTEGER NOT NULL REFERENCES observations(id) ON DELETE CASCADE,
+                event_json TEXT NOT NULL,
+                phase TEXT NOT NULL DEFAULT 'evidence'
+            );
+            CREATE TABLE IF NOT EXISTS notification_attempts (time_ms INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS sidecar_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
             INSERT OR IGNORE INTO sidecar_meta VALUES ('schema_version','1');
         """)
@@ -143,7 +151,7 @@ class SidecarStore:
     def close(self):
         self.db.close()
 
-    def record(self, item, *, _trusted_browser=False):
+    def record(self, item, *, _trusted_browser=False, _transaction=True):
         if not isinstance(item, dict):
             raise ValueError("Event must be a JSON object")
         allowed = {"time_ms", "source", "kind", "workspace", "app_id", "title",
@@ -180,7 +188,7 @@ class SidecarStore:
             raise ValueError("Exact page URL requires browser-sourced provenance")
         if not (title or msg or ocr or description or url):
             raise ValueError("Empty observation")
-        with self.db:
+        with self.db if _transaction else nullcontext():
             # Only dedupe explicit event keys. Browser navigation defaults to one
             # record per event so exact time-of-visit remains reconstructible.
             if key:
@@ -198,6 +206,49 @@ class SidecarStore:
                  int(bool(_trusted_browser and source == 'chrome')), msg, ocr, description, key),
             )
             return {"stored": True, "id": cursor.lastrowid, "deduplicated": False}
+
+    def journal_checkpoint(self):
+        row = self.db.execute("SELECT value FROM sidecar_meta WHERE key='journal_checkpoint'").fetchone()
+        return json.loads(row[0]) if row else None
+
+    def journal_gap(self, reason):
+        with self.db:
+            self.db.execute("INSERT OR REPLACE INTO sidecar_meta VALUES ('journal_gap',?)",
+                            (json.dumps({"reason": reason, "time_ms": int(time.time()*1000)}),))
+
+    def journal_status(self):
+        row = self.db.execute("SELECT value FROM sidecar_meta WHERE key='journal_gap'").fetchone()
+        return {"checkpoint": self.journal_checkpoint(), "last_gap": json.loads(row[0]) if row else None,
+                "pending": self.db.execute("SELECT count(*) FROM journal_events WHERE phase!='done'").fetchone()[0]}
+
+    def record_journal(self, item, event):
+        """Evidence, stable identity, work item and checkpoint commit together."""
+        cursor = event["attributes"]["cursor"]
+        with self.db:
+            old = self.db.execute("SELECT observation_id,phase FROM journal_events WHERE cursor=?", (cursor,)).fetchone()
+            if old:
+                return {"stored": True, "id": old[0], "replayed": True, "phase": old[1]}
+            stored = self.record(item, _transaction=False)
+            self.db.execute("INSERT INTO journal_events(cursor,observation_id,event_json) VALUES (?,?,?)",
+                            (cursor, stored["id"], json.dumps(event)))
+            checkpoint = {"cursor": cursor, "time_ms": event["attributes"]["realtime_ms"]}
+            self.db.execute("INSERT OR REPLACE INTO sidecar_meta VALUES ('journal_checkpoint',?)",
+                            (json.dumps(checkpoint),))
+            return {**stored, "phase": "evidence"}
+
+    def pending_journal(self, limit=100):
+        return [(ident, json.loads(event)) for ident, event in self.db.execute(
+            "SELECT observation_id,event_json FROM journal_events WHERE phase!='done' ORDER BY rowid LIMIT ?", (limit,))]
+
+    def reserve_notification(self, *, now_ms, limit=3):
+        # A reservation is durable BEFORE the external side effect. Delivery is
+        # best effort, not exactly-once (a crash can leave an unknown outcome).
+        with self.db:
+            self.db.execute("DELETE FROM notification_attempts WHERE time_ms<?", (now_ms-60000,))
+            if self.db.execute("SELECT count(*) FROM notification_attempts").fetchone()[0] >= limit:
+                return False
+            self.db.execute("INSERT INTO notification_attempts VALUES (?)", (now_ms,))
+            return True
 
     @staticmethod
     def _where(terms, start_ms, end_ms, source):
@@ -321,6 +372,10 @@ class SidecarStore:
         with self.db:
             self.db.execute("INSERT INTO alert_state VALUES (?,?) ON CONFLICT(observation_id) "
                             "DO UPDATE SET state_json=excluded.state_json", (ident, encoded))
+            phase = ("evidence" if state.get("d1_status") in ("pending", "cancelled") else "gated")
+            if state.get("notification_status") not in ("pending", "cancelled"):
+                phase = "done"
+            self.db.execute("UPDATE journal_events SET phase=? WHERE observation_id=?", (phase, ident))
 
     def alerts(self, *, limit=20):
         """Recent alert-kind observations for the Pi orchestrator (read-only)."""

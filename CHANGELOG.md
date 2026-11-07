@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- Transactional journal identity/checkpoint and recoverable evidence/gate work, bounded replay with visible gap fallback, notification freshness and persistent rate limits
 - Journal + network alerting (`--alert`, opt-in, requires `--allow-ingest`)
 - `notify-send` desktop notifications, D1-gated (advisory; fail-safe critical floor when D1 is down)
 - Every detected alert stored in the sidecar DB (severity + reason), independent of the notification decision

@@ -10,6 +10,7 @@ import asyncio
 from collections import OrderedDict
 import hashlib
 import time
+from dataclasses import asdict
 
 from .event_stream import MonitorEvent
 
@@ -18,11 +19,12 @@ _ALERT_KINDS = {"journal_alert", "network_alert", "resource_alert"}
 
 class EscalationRouter:
     def __init__(self, models, store, *, notifier=None, threshold=0.6,
-                 cooldown_seconds=300, max_reason=400, max_cooldowns=1024):
+                 cooldown_seconds=300, max_reason=400, max_cooldowns=1024, freshness_seconds=120):
         if not 0 <= threshold <= 1:
             raise ValueError("threshold must be 0-1")
         if cooldown_seconds < 0 or max_cooldowns < 1 or not 1 <= max_reason <= 4096:
             raise ValueError("Invalid cooldown/reason bounds")
+        self.freshness_seconds = freshness_seconds
         self.models = models
         self.store = store
         self.notifier = notifier
@@ -39,26 +41,34 @@ class EscalationRouter:
                  str(event.attributes.get("interface", "")))
         return hashlib.sha256("\0".join(parts).encode()).hexdigest()
 
-    async def escalate(self, event: MonitorEvent) -> dict:
+    async def escalate(self, event: MonitorEvent, *, _stored=None) -> dict:
         fp = self._fingerprint(event)
         now = time.monotonic()
         while self._last and now - next(iter(self._last.values())) >= self.cooldown_seconds:
             self._last.popitem(last=False)
         cooling = fp in self._last
         reason = f"[{event.severity}] {event.message}"[:self.max_reason]
-        stored = self.store.record({
+        item = {
             "source": event.source,
             "kind": event.kind if event.kind in _ALERT_KINDS else "alert",
-            "time_ms": int(time.time() * 1000),
+            "time_ms": event.attributes.get("realtime_ms", int(time.time() * 1000)),
             "message": reason,
             "event_key": fp,
-        })
+        }
+        journal = bool(event.attributes.get("cursor"))
+        if journal:
+            item["event_key"] = None  # Journal identity, not message/time deduplication.
+        stored = _stored or (self.store.record_journal(item, asdict(event)) if journal else self.store.record(item))
+        if stored.get("phase") == "done":
+            return {"stored": True, **(self.store.alert_outcome(stored["id"]) or {})}
+        previous = self.store.alert_outcome(stored["id"]) if journal else None
+        resume_gate = previous and previous.get("d1_status") in ("scored", "unavailable")
         state = {"d1_status": "pending", "d1_score": None,
                  "notify_recommended": None, "d1_fallback": False,
                  "d1_reason": "Awaiting D1 score (no textual reasoning requested).",
                  "notification_status": "pending", "notified": False,
                  "threshold": self.threshold}
-        if cooling:
+        if cooling and not _stored and not stored.get("replayed"):
             # A deduplicated row keeps its last real D1 evaluation; only the
             # latest notification outcome changes. New rows have no evaluation.
             previous = self.store.alert_outcome(stored["id"])
@@ -73,9 +83,13 @@ class EscalationRouter:
         self._last[fp] = now
         if len(self._last) > self.max_cooldowns:
             self._last.popitem(last=False)
+        if resume_gate:
+            state.update(previous)
         self.store.update_alert(stored["id"], state)
         try:
-            decision = await self._gate(event, reason)
+            decision = ({"fallback": state["d1_fallback"], "score": state["d1_score"],
+                         "notify_recommended": state["notify_recommended"]} if resume_gate
+                        else await self._gate(event, reason))
             fallback = bool(decision.get("fallback"))
             recommended = decision["notify_recommended"]
             state.update(d1_evaluated_at_ms=int(time.time() * 1000),
@@ -90,12 +104,14 @@ class EscalationRouter:
             # Preserve the decision even if the notifier is interrupted.
             self.store.update_alert(stored["id"], state)
             if recommended and self.notifier is not None:
-                try:
-                    state["notified"] = await self.notifier.notify(
-                        f"{event.source}: {event.severity}", event.message[:200], severity=event.severity)
-                except Exception:
-                    state["notified"] = False
-                state["notification_status"] = "sent" if state["notified"] else "failed"
+                now_ms = int(time.time()*1000)
+                age = now_ms - event.attributes.get("realtime_ms", now_ms)
+                if age > self.freshness_seconds*1000:
+                    state["notification_status"] = "suppressed_stale"
+                elif not self.store.reserve_notification(now_ms=now_ms):
+                    state["notification_status"] = "suppressed_rate"
+                else:
+                    await self._notify(event, state)
         except asyncio.CancelledError:
             if state["d1_status"] == "pending":
                 state.update(d1_status="cancelled", d1_reason="D1 evaluation cancelled.")
@@ -104,6 +120,21 @@ class EscalationRouter:
         finally:
             self.store.update_alert(stored["id"], state)
         return {"stored": bool(stored.get("stored")), **state}
+
+    async def recover(self):
+        """Bounded batches, no in-memory backlog; stored evidence survives crashes."""
+        while batch := self.store.pending_journal():
+            for ident, event in batch:
+                await self.escalate(MonitorEvent(**event), _stored={"id": ident, "stored": True})
+            await asyncio.sleep(0)
+
+    async def _notify(self, event, state):
+        try:
+            state["notified"] = await self.notifier.notify(
+                f"{event.source}: {event.severity}", event.message[:200], severity=event.severity)
+        except Exception:
+            state["notified"] = False
+        state["notification_status"] = "sent" if state["notified"] else "failed"
 
     async def _gate(self, event: MonitorEvent, reason: str) -> dict:
         state = {"source": event.source, "kind": event.kind,

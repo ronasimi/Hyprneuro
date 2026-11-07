@@ -82,6 +82,7 @@ class SidecarServer:
             if not self.capture_enabled and not self.on_demand and not self.alert_enabled:
                 state["models_invoked"] = False  # No model path can run.
             state["browser_enabled"] = self.browser_ingress is not None
+            state["journal"] = self.store.journal_status()
             return state
         if action == "record":
             if not self.allow_ingest:
@@ -288,7 +289,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 from .models import Models
                 models = Models(Config.load())
             router = EscalationRouter(models, store, notifier=Notifier())
-            intake = EventIntake()
+            await router.recover()
+            intake = EventIntake(store=store)
             producers.extend([
                 asyncio.create_task(intake.follow_journal(router.escalate)),
                 asyncio.create_task(intake.network_alerts(router.escalate)),

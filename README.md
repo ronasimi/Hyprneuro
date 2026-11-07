@@ -154,11 +154,22 @@ spaced repeats become separate records. A deduplicated row retains its last actu
 D1 evaluation while its notification status reflects the latest occurrence.
 Cooldown keys expire and are capped at 1024; eviction can allow earlier re-evaluation.
 
-Journal intake uses valid separate JSON/priority options, bounded stream/record
-buffers and backpressure, skips malformed or oversized records, and reconnects
-with capped exponential backoff. It starts with `--lines=0`: **there is no durable
-cursor replay**, so downtime/reconnect gaps can lose events. Journal and network
-intake are passive; no sudo, active scanning or model-server startup occurs.
+Journal intake commits the journal cursor, stable event identity, evidence and a
+pending-work record in one SQLite transaction. Restart/reconnect resumes after
+that cursor; stored but unfinished work is recovered independently of intake.
+A completed identity is not counted/notified again. Identity records follow
+observation retention; this is not an unlimited deduplication archive.
+
+Catch-up is bounded to one hour and 1000 records per reconnect. An unavailable
+cursor falls back to a bounded timestamp replay; a record budget overflow resumes
+at the live tail. Truncation/fallback is visible in `health.journal.last_gap`;
+this is intentionally **not a lossless journal backup**. First startup without a
+checkpoint starts at the live tail. Malformed/oversized frames are skipped.
+Notifications older than 120 seconds are suppressed; a durable global reservation
+limits sends to three per minute in addition to the per-message cooldown.
+A crash during notify-send leaves an uncertain outcome and may cause a retry:
+**there is no exactly-once notification guarantee**. Intake remains passive,
+with capped reconnect backoff; no sudo, active scanning or model startup.
 
 ## Security Model
 

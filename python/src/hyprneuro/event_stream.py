@@ -44,11 +44,15 @@ def _clean(text: str) -> str:
 
 class EventIntake:
     def __init__(self, *, journal_priority: int = 4, max_message: int = 500,
-                 max_line_bytes: int = 65536, reconnect_seconds: float = 1):
+                 max_line_bytes: int = 65536, reconnect_seconds: float = 1,
+                 store=None, catchup_seconds=3600, catchup_records=1000):
         if not (0 <= journal_priority <= 7):
             raise ValueError("journal_priority must be 0-7")
         if not 1 <= max_message <= 4096 or max_line_bytes < 1 or reconnect_seconds <= 0:
             raise ValueError("Invalid journal bounds/reconnect interval")
+        self.store = store
+        self.catchup_seconds = catchup_seconds
+        self.catchup_records = catchup_records
         self.max_line_bytes = max_line_bytes
         self.reconnect_seconds = reconnect_seconds
         self.oversized = 0
@@ -61,13 +65,27 @@ class EventIntake:
         # Delivery applies backpressure: no unbounded queue behind slow D1 calls.
         # The stream buffer and individual JSON records are independently bounded.
         delay = self.reconnect_seconds
+        fallback = False
+        tail = False
         while True:
             proc = None
             started = time.monotonic()
             try:
+                checkpoint = self.store.journal_checkpoint() if self.store else None
+                replay = checkpoint is not None and not tail
+                options = ["--lines=0"]
+                if replay:
+                    floor = int((time.time()-self.catchup_seconds)*1000)
+                    since = max(checkpoint["time_ms"], floor)
+                    options = [f"--since=@{since/1000:.3f}"]
+                    if not fallback:
+                        options.append("--after-cursor=" + checkpoint["cursor"])
+                    if checkpoint["time_ms"] < floor:
+                        self.store.journal_gap("Catch-up truncated to configured time window")
+                count = 0
                 proc = await asyncio.create_subprocess_exec(
                     "journalctl", "--follow", "--output=json",
-                    f"--priority={self.journal_priority}", "--lines=0", "--no-pager",
+                    f"--priority={self.journal_priority}", *options, "--no-pager",
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                     limit=self.max_line_bytes)
                 async for line in self._journal_lines(proc.stdout):
@@ -78,6 +96,15 @@ class EventIntake:
                         except Exception:
                             self.failures += 1
                             log.exception("Journal alert delivery failed")
+                            break  # Do not advance past evidence that failed to commit.
+                    count += 1
+                    if replay and count >= self.catchup_records:
+                        self.store.journal_gap("Catch-up record budget reached; resumed at live tail")
+                        tail = True
+                        break
+                if replay and not fallback and proc.returncode not in (None, 0):
+                    self.store.journal_gap("Cursor unavailable; bounded timestamp fallback (duplicates possible)")
+                    fallback = True
                 self.failures += 1
                 log.warning("journalctl exited; reconnecting")
             except OSError as exc:
@@ -139,9 +166,21 @@ class EventIntake:
             return None
         severity = _PRIORITY_SEVERITY.get(priority, "info")
         source = data.get("SYSLOG_IDENTIFIER") or data.get("_SYSTEMD_UNIT") or "journal"
+        attributes = {"identifier": str(source)[:120], "priority": priority}
+        cursor = data.get("__CURSOR")
+        realtime = data.get("__REALTIME_TIMESTAMP")
+        observed = _utcnow()
+        if isinstance(cursor, str) and 0 < len(cursor) <= 2048 and not any(ord(c) < 32 for c in cursor):
+            try:
+                when = int(realtime)//1000
+                if not 0 < when <= int(time.time()*1000)+300000:
+                    return None
+                observed = datetime.fromtimestamp(when/1000, timezone.utc).isoformat()
+                attributes.update(cursor=cursor, realtime_ms=when)
+            except (ValueError, TypeError, OverflowError, OSError):
+                return None
         return MonitorEvent(source="journal", kind="journal_alert", message=message,
-                            severity=severity, observed_at=_utcnow(),
-                            attributes={"identifier": str(source)[:120], "priority": priority})
+                            severity=severity, observed_at=observed, attributes=attributes)
 
     # -- network ----------------------------------------------------------
     async def network_alerts(self, deliver: Deliver, *, interval: float = 5.0):

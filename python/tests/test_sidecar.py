@@ -260,5 +260,56 @@ class SourceTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.wait_for(task, 3)
 
 
+class RetentionTests(unittest.IsolatedAsyncioTestCase):
+    def _store(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name) / "observations.sqlite3"
+        return SidecarStore(self.path)
+
+    def tearDown(self):
+        if getattr(self, "store", None):
+            self.store.close()
+        if getattr(self, "tmp", None):
+            self.tmp.cleanup()
+
+    def test_prune_old_removes_only_stale_rows(self):
+        from hyprharness_sidecar.sidecar import prune_old
+        self.store = self._store()
+        self.store.record(event(time_ms=NOW - 60_000, title="fresh row"))
+        self.store.record(event(time_ms=NOW - 40 * 86_400_000, title="stale row"))
+        self.assertEqual(prune_old(self.store, 7), 1)  # 7-day retention
+        self.assertEqual([r["title"] for r in self.store.search()], ["fresh row"])
+
+    async def test_run_retention_prunes_then_stops_cleanly(self):
+        from hyprharness_sidecar.sidecar import run_retention
+        self.store = self._store()
+        self.store.record(event(time_ms=NOW - 40 * 86_400_000, title="stale row"))
+        task = asyncio.create_task(run_retention(self.store, 7, interval_seconds=0.05))
+        await asyncio.sleep(0.15)  # allow at least one prune pass
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
+        self.assertEqual(self.store.search(), [])
+
+    async def test_serve_wires_retention_and_shuts_down_cleanly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            socket = root / "runtime" / "sidecar.sock"
+            stop = asyncio.Event()
+            task = asyncio.create_task(serve(allow_ingest=True, socket_path=socket,
+                                             db_path=root / "state" / "ret.db",
+                                             shutdown=stop, retention_days=7))
+            try:
+                for _ in range(100):
+                    if socket.exists():
+                        break
+                    await asyncio.sleep(0.01)
+                self.assertTrue(socket.exists())
+                self.assertTrue((await request({"action": "health"}, socket_path=socket))["ingest_enabled"])
+            finally:
+                stop.set()
+                await asyncio.wait_for(task, 3)  # must not hang on the retention task
+
+
 if __name__ == "__main__":
     unittest.main()

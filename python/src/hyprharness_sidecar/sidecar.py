@@ -14,11 +14,13 @@ import signal
 import socket
 import stat
 import struct
+import time
 
 from .sidecar_store import SidecarStore
 
 MAX_REQUEST = 65536
 MAX_RESPONSE = 262144
+RETENTION_INTERVAL_SECONDS = 3600
 
 
 def paths():
@@ -35,6 +37,24 @@ def ensure_private(path):
     if path.is_symlink() or path.stat().st_uid != os.getuid():
         raise RuntimeError("Unsafe sidecar directory")
     path.chmod(0o700)
+
+
+def prune_old(store, days):
+    """Delete observations older than the retention window; return deleted count."""
+    before_ms = int(time.time() * 1000) - int(days * 86_400_000)
+    return store.prune(before_ms=before_ms)["deleted"]
+
+
+async def run_retention(store, days, *, interval_seconds=RETENTION_INTERVAL_SECONDS):
+    """Prune on startup, then on a fixed interval. A failed prune never kills the service."""
+    while True:
+        try:
+            prune_old(store, days)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+        await asyncio.sleep(interval_seconds)
 
 
 class SidecarServer:
@@ -156,8 +176,8 @@ class SidecarServer:
 
 async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False,
                 allow_on_demand=False, d1_visual=False, allow_browser=False,
-                socket_path=None, db_path=None, shutdown=None, desktop=None,
-                models=None, unlock_guard=None, grabber=None,
+                retention_days=0, socket_path=None, db_path=None, shutdown=None,
+                desktop=None, models=None, unlock_guard=None, grabber=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None):
     if watch_hyprland and not allow_ingest:
         raise ValueError("--watch-hyprland requires explicit --allow-ingest")
@@ -249,6 +269,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
 
             producers.extend([asyncio.create_task(source.flush()),
                               asyncio.create_task(desktop.events(on_event))])
+        if retention_days > 0:
+            producers.append(asyncio.create_task(run_retention(store, retention_days)))
         stop = shutdown or asyncio.Event()
         if shutdown is None:
             loop = asyncio.get_running_loop()
@@ -298,6 +320,8 @@ def main():
                      help="Opt in to screenshot preview screening by d1's vision projector")
     cmd.add_argument("--exclude-app", action="append", default=[], metavar="APP_ID",
                      help="Exclude an application class from automatic capture (repeatable)")
+    cmd.add_argument("--retention-days", type=float, default=0, metavar="DAYS",
+                     help="Automatically delete observations older than DAYS (0 = keep forever, default)")
     sub.add_parser("health")
     search = sub.add_parser("search")
     search.add_argument("--query", default="")
@@ -319,6 +343,7 @@ def main():
                           allow_on_demand=args.allow_on_demand,
                           d1_visual=args.d1_visual,
                           allow_browser=args.allow_browser,
+                          retention_days=args.retention_days,
                           excluded_origins=args.exclude_origin,
                           excluded_apps=args.exclude_app))
         return

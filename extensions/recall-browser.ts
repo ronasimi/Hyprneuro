@@ -30,7 +30,7 @@ async function sidecar(message: Record<string, unknown>, signal?: AbortSignal): 
     sock.on("connect", () => sock.write(JSON.stringify(message) + "\n"));
     sock.on("data", (chunk) => {
       buf = Buffer.concat([buf, chunk]);
-      if (buf.length > 32 * 1024) return finish(new Error("Oversized Recall result"));
+      if (buf.length > 256 * 1024) return finish(new Error("Oversized Recall result"));
       const idx = buf.indexOf(10);
       if (idx < 0) return;
       try {
@@ -80,16 +80,20 @@ async function openExactUrl(url: string, signal?: AbortSignal): Promise<void> {
   });
 }
 
-const result = (value: unknown) => ({
-  content: [{ type: "text" as const, text: JSON.stringify(value).slice(0, 12000) }],
-  details: { source: "hyprneuro-recall" },
-});
+const result = (value: unknown) => {
+  const encoded = JSON.stringify(value);
+  return {
+    content: [{ type: "text" as const, text: encoded.length <= 12000 ? encoded :
+      encoded.slice(0, 11900) + "\n[Truncated to 12000 characters; request fewer results for details.]" }],
+    details: { source: "hyprneuro-recall", truncated: encoded.length > 12000 },
+  };
+};
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "recall_search",
     label: "Search local screen/browser history",
-    description: "Search time-indexed local Recall observations and verified Chrome pages. Read-only; returns bounded untrusted metadata without screenshots.",
+    description: "Search time-indexed local Recall observations and verified Chrome pages. Read-only; returns untrusted metadata without screenshots (20 rows, 12000-character tool output cap).",
     promptSnippet: "Find previous tabs, apps and visual observations by local time or title",
     parameters: Type.Object({
       query: Type.Optional(Type.String({ maxLength: 300 })),

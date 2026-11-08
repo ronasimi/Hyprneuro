@@ -64,14 +64,16 @@ One newline-terminated JSON object per connection; response is
 limit and 256 KiB response limit. Supported actions:
 
 - `health` — always available, includes ingestion and alert enablement state.
-- `alerts` — `limit<=50`; bounded event evidence, severity, repeat count, last-seen
+- `alerts` — `limit<=50`, `offset<=1000`; bounded event evidence, severity, repeat count, last-seen
   timestamp, and persisted D1/notification outcomes. D1 provides a score only;
   `d1_reason` is a local policy explanation, not model-generated reasoning.
-- `search` — `query` (optional), `start_ms`, `end_ms`, `source`, `limit<=20`.
+- `search` — `query` (optional), `start_ms`, `end_ms`, `source`, `limit<=20`,
+  `order`, `match`, `offset<=1000`, explicitly opted-in `semantic`. See [SEARCH.md](SEARCH.md).
   Time-only searches are allowed, and result rows include `id`, time, title,
   app, source, OCR/description previews and `url_available`/`url_preview`.
 - `context` — same filters plus required `role=text|omni`; text is capped
   at 3500 characters, Omni at 1200. Provenance is included; `untrusted=true`.
+- `details` — `id`, bounded local record and alert state; sanitized URL only.
 - `page_url` — `id`, yields exact HTTP(S) URL **only for authenticated
   browser records**; generic RPC ingestion cannot mark a URL authenticated.
   A future browser-open action still requires separate approval.

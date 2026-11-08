@@ -75,7 +75,13 @@ class ReplayTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_bounded_cursor_fallback_and_subprocess_cleanup(self):
         await self.router().escalate(self.event())
-        procs = [_Process(returncode=1, data=b''), _Process(data=(json.dumps({
+        class DeferredExit(_Process):
+            async def wait(self):
+                self.returncode = 1
+                self.waited = True
+                return 1
+        failed = DeferredExit(data=b'')  # stdout EOF precedes child-exit callback
+        procs = [failed, _Process(data=(json.dumps({
             'MESSAGE':'later', 'PRIORITY':3, '__CURSOR':'c2',
             '__REALTIME_TIMESTAMP':str(int(time.time()*1000000))})+'\n').encode())]
         calls = []
@@ -93,8 +99,33 @@ class ReplayTests(unittest.IsolatedAsyncioTestCase):
             task.cancel()
             with self.assertRaises(asyncio.CancelledError):
                 await task
+        self.assertTrue(failed.waited)
+        self.assertFalse(failed.killed)
         self.assertIn('--after-cursor=c1', calls[0])
         self.assertFalse(any(x.startswith('--after-cursor') for x in calls[1]))
         self.assertIn('--lines=0', calls[2])
         self.assertIn('budget', self.store.journal_status()['last_gap']['reason'])
         self.assertEqual(self.store.journal_checkpoint()['cursor'], 'c2')
+
+    async def test_oversized_frames_consume_catchup_budget(self):
+        await self.router().escalate(self.event())
+        proc = _Process(data=b'x'*1000+b'\n')
+        calls = []
+        done = asyncio.Event()
+        async def spawn(*args, **kwargs):
+            calls.append(args)
+            if len(calls) == 1:
+                return proc
+            done.set()
+            await asyncio.Event().wait()
+        intake = EventIntake(store=self.store, max_line_bytes=100, catchup_records=1, reconnect_seconds=.001)
+        with patch('asyncio.create_subprocess_exec', side_effect=spawn):
+            task = asyncio.create_task(intake.follow_journal(self.router().escalate))
+            await asyncio.wait_for(done.wait(),1)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+        self.assertEqual(intake.oversized,1)
+        self.assertIn('budget',self.store.journal_status()['last_gap']['reason'])
+        self.assertIn('--lines=0',calls[1])
+        self.assertTrue(proc.killed and proc.waited)

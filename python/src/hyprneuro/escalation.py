@@ -1,6 +1,7 @@
 """Store every alert; D1 advises notifications only, never authorizes actions.
 
-D1 supplies a score, not textual reasoning. Persist local policy explanations
+D1 scoring supplies no textual reasoning. Optional text generation is separate.
+Persist local policy explanations
 and actual notification outcomes separately from the original event evidence.
 No Pi wake, context injection or Durable workflow; users request inspection.
 """
@@ -19,11 +20,13 @@ _ALERT_KINDS = {"journal_alert", "network_alert", "resource_alert"}
 
 class EscalationRouter:
     def __init__(self, models, store, *, notifier=None, threshold=0.6,
-                 cooldown_seconds=300, max_reason=400, max_cooldowns=1024, freshness_seconds=120):
+                 cooldown_seconds=300, max_reason=400, max_cooldowns=1024, freshness_seconds=120,
+                 explanation_enabled=False):
         if not 0 <= threshold <= 1:
             raise ValueError("threshold must be 0-1")
         if cooldown_seconds < 0 or max_cooldowns < 1 or not 1 <= max_reason <= 4096:
             raise ValueError("Invalid cooldown/reason bounds")
+        self.explanation_enabled = explanation_enabled
         self.freshness_seconds = freshness_seconds
         self.models = models
         self.store = store
@@ -92,17 +95,31 @@ class EscalationRouter:
                         else await self._gate(event, reason))
             fallback = bool(decision.get("fallback"))
             recommended = decision["notify_recommended"]
-            state.update(d1_evaluated_at_ms=int(time.time() * 1000),
+            evaluated_at = state.get("d1_evaluated_at_ms") if resume_gate else None
+            state.update(d1_evaluated_at_ms=evaluated_at or int(time.time() * 1000),
                          d1_status="unavailable" if fallback else "scored",
                          d1_score=decision.get("score"), d1_fallback=fallback,
                          notify_recommended=recommended,
                          d1_reason=("D1 unavailable; critical-severity fallback policy."
                                     if fallback else "D1 score compared with threshold; no textual reasoning returned."),
                          notification_status="not_recommended")
+            state["notified"] = False
             if recommended:
                 state["notification_status"] = "disabled" if self.notifier is None else "pending"
             # Preserve the decision even if the notifier is interrupted.
             self.store.update_alert(stored["id"], state)
+            state.setdefault("model_explanation_status", "disabled")
+            if self.explanation_enabled and not state.get("model_explanation"):
+                try:
+                    text = await self.models.explain_alert({"source": event.source,
+                        "severity": event.severity, "message": event.message[:500]})
+                    if not isinstance(text, str) or not text.strip():
+                        raise ValueError("Empty model explanation")
+                    state.update(model_explanation_status="generated", model_explanation=text[:500],
+                                 model_explanation_label="Actual D1 model explanation (untrusted, not verified)")
+                except Exception:
+                    state["model_explanation_status"] = "unavailable"
+                self.store.update_alert(stored["id"], state)
             if recommended and self.notifier is not None:
                 now_ms = int(time.time()*1000)
                 age = now_ms - event.attributes.get("realtime_ms", now_ms)

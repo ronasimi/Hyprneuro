@@ -39,7 +39,7 @@ bash scripts/install.sh
 SIDECAR="${XDG_DATA_HOME:-$HOME/.local/share}/hyprneuro/venv/bin/hyprneuro"
 "$SIDECAR" --help
 # Optional foreground read-only server; stop with Ctrl-C:
-"$SIDECAR" serve
+"$SIDECAR" serve --no-settings
 # In another terminal, with the same SIDECAR variable:
 "$SIDECAR" health
 ```
@@ -74,6 +74,11 @@ enablement and local drop-ins are **not removed**; inspect those before assuming
 that a previously configured service is read-only. The unit is atomically
 written to `${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/` only after Python
 installation and entry-point verification succeed.
+
+The generated read-only unit ignores saved feature settings (`--no-settings`).
+To explicitly use TUI settings at startup, pass `--config /absolute/path/settings.json`
+to the installer. This writes the chosen path into the unit; it does not change
+consents or start model services. See [TUI/configuration and CLI precedence](TUI.md).
 
 All service feature flags are explicit; see `bash scripts/install.sh --help`.
 `--allow-ingest` permits local writes but alone starts no collectors.
@@ -186,5 +191,6 @@ Linux PSI `some avg10` CPU 50/20%, memory 10/5%, IO 25/10%, hwmon temperature
 85/75 C, DRM GPU busy 95/80%. Missing metrics reset duration state; absent GPU
 counters are not estimated from VRAM/GTT. These conservative generic thresholds
 are not hardware thermal safety limits. No active scans or remediation occur.
-Alerts use the same D1/notification policy and manual Pi pull boundary. Resource
-collection is independent of `--alert` (journal + network) and off by default.
+Alerts use the same D1 score policy and manual Pi pull boundary. Add
+`--notifications` explicitly for notify-send with granular resource/journal/network
+flags (legacy `--alert` includes notifications). Resource collection is independent of `--alert` (journal + network) and off by default.

@@ -8,6 +8,8 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import math
+from dataclasses import asdict, fields
 import os
 from pathlib import Path
 import signal
@@ -72,6 +74,9 @@ class SidecarServer:
         self.browser_capture_source = None
         self.handlers = set()
         self.embeddings = None
+        self.active_settings = {}
+        self.settings_file = None
+        self.producers = []
 
     def dispatch(self, request):
         if not isinstance(request, dict):
@@ -82,10 +87,15 @@ class SidecarServer:
                      "capture_enabled": self.capture_enabled,
                      "on_demand_enabled": self.on_demand, "alert_enabled": self.alert_enabled,
                      "resources_enabled": self.resources_enabled}
-            if not self.capture_enabled and not self.on_demand and not self.alert_enabled and not self.resources_enabled:
+            if not self.capture_enabled and not self.on_demand and not self.alert_enabled and not self.resources_enabled and self.embeddings is None:
                 state["models_invoked"] = False  # No model path can run.
             state["browser_enabled"] = self.browser_ingress is not None
             state["journal"] = self.store.journal_status()
+            state["active_settings"] = self.active_settings
+            state["settings_file"] = self.settings_file
+            state["collectors"] = {task.get_name(): ("running" if not task.done() else
+                "stopped" if task.cancelled() else "failed" if task.exception() else "finished")
+                for task in self.producers}
             return state
         if action == "record":
             if not self.allow_ingest:
@@ -105,7 +115,9 @@ class SidecarServer:
         if action == "page_url":
             return self.store.page_url(request.get("id"))
         if action == "alerts":
-            return self.store.alerts(limit=request.get("limit", 20))
+            return self.store.alerts(limit=request.get("limit", 20), offset=request.get("offset", 0))
+        if action == "details":
+            return self.store.details(request.get("id"))
         raise ValueError("Unknown sidecar RPC action")
 
     async def dispatch_async(self, request):
@@ -186,16 +198,25 @@ class SidecarServer:
             writer.close()
             try:
                 await writer.wait_closed()
+            except (BrokenPipeError, ConnectionResetError):
+                pass
             finally:
                 self.handlers.discard(task)
 
 
 async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False,
                 allow_on_demand=False, d1_visual=False, allow_browser=False,
-                alert=False, alert_resources=False, retention_days=0,
+                alert=False, alert_journal=False, alert_network=False, alert_resources=False,
+                notifications=None, explanation_enabled=False, retention_days=0,
+                active_settings=None, settings_file=None,
                 semantic_enabled=False, embeddings_url="", embeddings_model="", socket_path=None, db_path=None, shutdown=None,
                 desktop=None, models=None, unlock_guard=None, grabber=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None):
+    alert_journal = alert or alert_journal
+    alert_network = alert or alert_network
+    notifications = bool(alert) if notifications is None else notifications
+    if not math.isfinite(retention_days) or retention_days < 0:
+        raise ValueError("retention_days must be finite and nonnegative")
     if watch_hyprland and not allow_ingest:
         raise ValueError("--watch-hyprland requires explicit --allow-ingest")
     if allow_capture and not (allow_ingest and watch_hyprland):
@@ -208,7 +229,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
         raise ValueError("--allow-browser requires --allow-ingest")
     if alert_resources and not allow_ingest:
         raise ValueError("--alert-resources requires explicit --allow-ingest")
-    if alert and not allow_ingest:
+    if (alert_journal or alert_network) and not allow_ingest:
         raise ValueError("--alert requires explicit --allow-ingest")
     socket_path = Path(socket_path) if socket_path else paths()[0]
     db_path = Path(db_path) if db_path else paths()[1]
@@ -232,9 +253,20 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
     store = SidecarStore(db_path)
     worker = SidecarServer(store, allow_ingest=allow_ingest,
                            capture_enabled=allow_capture, on_demand=allow_on_demand,
-                           alert_enabled=alert, resources_enabled=alert_resources)
+                           alert_enabled=bool(alert_journal or alert_network), resources_enabled=alert_resources)
+    from .settings import Settings
+    worker.active_settings = active_settings or asdict(Settings(
+        allow_ingest=allow_ingest, watch_hyprland=watch_hyprland, allow_capture=allow_capture,
+        allow_on_demand=allow_on_demand, allow_browser=allow_browser, d1_visual=d1_visual,
+        alert_journal=alert_journal, alert_network=alert_network, alert_resources=alert_resources,
+        notifications=notifications, explanation_enabled=explanation_enabled,
+        semantic_enabled=semantic_enabled, embeddings_url=embeddings_url, embeddings_model=embeddings_model,
+        retention_enabled=retention_days > 0, retention_days=retention_days,
+        excluded_apps=tuple(excluded_apps), excluded_origins=tuple(excluded_origins)))
+    worker.settings_file = str(settings_file) if settings_file else None
     server = None
     producers = []
+    worker.producers = producers
     source = None
     model_scheduler = None
     browser_token_file = Path(browser_token_file) if browser_token_file else None
@@ -284,7 +316,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 from .recall_events import D1CaptureSource
                 capture_source = D1CaptureSource(worker.watcher)
                 worker.browser_capture_source = capture_source
-                producers.append(asyncio.create_task(capture_source.run()))
+                producers.append(asyncio.create_task(capture_source.run(), name="capture"))
 
             async def on_event(name, data):
                 # Both handlers enqueue; the compositor's socket2 loop is
@@ -293,9 +325,9 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 if capture_source is not None:
                     await capture_source.on_event(name, data)
 
-            producers.extend([asyncio.create_task(source.flush()),
-                              asyncio.create_task(desktop.events(on_event))])
-        if alert or alert_resources:
+            producers.extend([asyncio.create_task(source.flush(), name="hyprland_store"),
+                              asyncio.create_task(desktop.events(on_event), name="hyprland")])
+        if alert_journal or alert_network or alert_resources:
             from .event_stream import EventIntake
             from .escalation import EscalationRouter
             from .notify import Notifier
@@ -303,18 +335,18 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 from .config import Config
                 from .models import Models
                 models = Models(Config.load())
-            router = EscalationRouter(models, store, notifier=Notifier())
-            await router.recover()
+            router = EscalationRouter(models, store, notifier=Notifier() if notifications else None,
+                                      explanation_enabled=explanation_enabled)
             intake = EventIntake(store=store)
-            if alert:
-                producers.extend([
-                    asyncio.create_task(intake.follow_journal(router.escalate)),
-                    asyncio.create_task(intake.network_alerts(router.escalate)),
-                ])
+            if alert_journal:
+                await router.recover()
+                producers.append(asyncio.create_task(intake.follow_journal(router.escalate), name="journal"))
+            if alert_network:
+                producers.append(asyncio.create_task(intake.network_alerts(router.escalate), name="network"))
             if alert_resources:
-                producers.append(asyncio.create_task(intake.resource_alerts(router.escalate)))
+                producers.append(asyncio.create_task(intake.resource_alerts(router.escalate), name="resources"))
         if retention_days > 0:
-            producers.append(asyncio.create_task(run_retention(store, retention_days)))
+            producers.append(asyncio.create_task(run_retention(store, retention_days), name="retention"))
         stop = shutdown or asyncio.Event()
         if shutdown is None:
             loop = asyncio.get_running_loop()
@@ -346,31 +378,27 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
         store.close()
 
 
-def main():
+def build_parser():
     parser = argparse.ArgumentParser(description="Hyprneuro observational sidecar")
     sub = parser.add_subparsers(dest="command", required=True)
     cmd = sub.add_parser("serve", help="Independent user-level JSONL/Unix service")
-    cmd.add_argument("--allow-ingest", action="store_true", help="Opt in to local event storage")
-    cmd.add_argument("--watch-hyprland", action="store_true",
-                     help="Opt in to socket2 window/workspace event intake")
-    cmd.add_argument("--allow-capture", action="store_true",
-                     help="Additionally opt into D1-gated focused-window Omni capture; deny when lock state unknown")
-    cmd.add_argument("--allow-on-demand", action="store_true",
-                     help="Permit independently approved Pi->Omni foreground requests")
-    cmd.add_argument("--allow-browser", action="store_true",
-                     help="Explicitly permit authenticated Chrome active-tab history ingestion")
-    cmd.add_argument("--exclude-origin", action="append", default=[], metavar="ORIGIN",
-                     help="Do not store any Chrome page at this origin (repeatable)")
-    cmd.add_argument("--d1-visual", action="store_true",
-                     help="Opt in to screenshot preview screening by d1's vision projector")
-    cmd.add_argument("--exclude-app", action="append", default=[], metavar="APP_ID",
-                     help="Exclude an application class from automatic capture (repeatable)")
-    cmd.add_argument("--retention-days", type=float, default=0, metavar="DAYS",
-                     help="Automatically delete observations older than DAYS (0 = keep forever, default)")
-    cmd.add_argument("--alert", action="store_true",
-                     help="Opt into journal + network alerting with D1-gated desktop notifications")
-    cmd.add_argument("--alert-resources", action="store_true",
-                     help="Opt in to sustained resource alerts using passive Linux telemetry")
+    cmd.add_argument("--config", help="Private Hyprneuro JSON settings (not legacy model TOML)")
+    cmd.add_argument("--no-settings", action="store_true", help="Ignore saved feature settings; all defaults off")
+    for name in ("allow_ingest", "watch_hyprland", "allow_capture", "allow_on_demand",
+                 "allow_browser", "d1_visual", "alert_journal", "alert_network", "alert_resources",
+                 "notifications", "semantic_enabled", "explanation_enabled", "retention_enabled"):
+        cmd.add_argument("--" + name.replace("_", "-"), action=argparse.BooleanOptionalAction, default=None,
+                         help="Explicit on/off override of saved " + name)
+    cmd.add_argument("--alert", action=argparse.BooleanOptionalAction, default=None,
+                     help="Legacy shorthand: journal + network + notifications; granular flags override")
+    cmd.add_argument("--exclude-origin", action="append", default=None, dest="excluded_origins")
+    cmd.add_argument("--exclude-app", action="append", default=None, dest="excluded_apps")
+    cmd.add_argument("--retention-days", type=float, default=None, metavar="DAYS",
+                     help="Explicit deletion window (0 disables); overrides saved retention toggle unless specified")
+    cmd.add_argument("--embeddings-url", default=None)
+    cmd.add_argument("--embeddings-model", default=None)
+    tui = sub.add_parser("tui", help="Manual curses history/search/alerts/status/settings UI")
+    tui.add_argument("--config", help="Private Hyprneuro settings path")
     sub.add_parser("health")
     search = sub.add_parser("search")
     search.add_argument("--query", default="")
@@ -387,19 +415,46 @@ def main():
     context.add_argument("--start-ms", type=int)
     context.add_argument("--end-ms", type=int)
     context.add_argument("--source")
+    return parser
+
+
+def resolve_settings(args):
+    from .settings import Settings
+    saved = Settings() if args.no_settings else Settings.load(args.config)
+    values = asdict(saved)
+    for field in fields(Settings):
+        value = getattr(args, field.name)
+        if value is not None:
+            values[field.name] = value
+    if args.alert is not None:
+        for name in ("alert_journal", "alert_network", "notifications"):
+            if getattr(args, name) is None:
+                values[name] = args.alert
+    if args.retention_days is not None and args.retention_enabled is None:
+        values["retention_enabled"] = args.retention_days > 0
+    return Settings(**values).validate(prerequisites=True)
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
+    if args.command == "tui":
+        from .tui import run
+        run(config_path=args.config)
+        return
     if args.command == "serve":
-        asyncio.run(serve(allow_ingest=args.allow_ingest,
-                          watch_hyprland=args.watch_hyprland,
-                          allow_capture=args.allow_capture,
-                          allow_on_demand=args.allow_on_demand,
-                          d1_visual=args.d1_visual,
-                          allow_browser=args.allow_browser,
-                          alert=args.alert,
-                          alert_resources=args.alert_resources,
-                          retention_days=args.retention_days,
-                          excluded_origins=args.exclude_origin,
-                          excluded_apps=args.exclude_app))
+        try:
+            settings = resolve_settings(args)
+        except (ValueError, OSError) as exc:
+            parser.error(str(exc))
+        values = asdict(settings)
+        active = values.copy()
+        values.pop("retention_enabled")
+        if not settings.retention_enabled:
+            values["retention_days"] = 0
+        from .settings import settings_path
+        asyncio.run(serve(**values, active_settings=active,
+                          settings_file=None if args.no_settings else args.config or settings_path()))
         return
     from .sidecar_client import request
     query = vars(args).copy()

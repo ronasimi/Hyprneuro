@@ -109,3 +109,46 @@ class SemanticTests(unittest.IsolatedAsyncioTestCase):
                     await client.embed(['a'])
         finally:
             s.close()
+
+    async def test_cancelled_caller_keeps_lane_reserved_until_worker_exits(self):
+        client = Embeddings('http://127.0.0.1:9000/v1/embeddings', 'actual-embedding-model')
+        entered, release = asyncio.Event(), asyncio.Event()
+        async def worker(*args):
+            entered.set()
+            await release.wait()
+            return [[1,0]]
+        with patch('asyncio.to_thread', side_effect=worker):
+            task = asyncio.create_task(client.embed(['a']))
+            await entered.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+            with self.assertRaisesRegex(RuntimeError,'busy'):
+                await client.embed(['b'])
+            release.set()
+            for _ in range(5):
+                await asyncio.sleep(0)
+            self.assertFalse(client.lock.locked())
+
+    async def test_malformed_endpoint_vectors_fail_clearly_and_close(self):
+        client = Embeddings('http://127.0.0.1:9000/v1/embeddings','real-id')
+        closed = []
+        class Response:
+            status = 200
+            def read(self, limit):
+                return payload
+        class Connection:
+            def __init__(self,*args,**kw): pass
+            def request(self,*args): pass
+            def getresponse(self): return Response()
+            def close(self): closed.append(True)
+        for data in ({'data':[{'index':0,'embedding':[float('nan')]}]},
+                     {'data':[{'index':0,'embedding':[0,0]}]},
+                     {'data':[{'index':0,'embedding':[1]*2049}]},
+                     {'data':[{'index':1,'embedding':[1]}]},
+                     {'data':[{'embedding':[1]}]}, {'data':None}):
+            payload = json.dumps(data).encode()
+            with patch('http.client.HTTPConnection',Connection):
+                with self.assertRaisesRegex(RuntimeError,'Local embeddings unavailable or incompatible'):
+                    await client.embed(['a'])
+        self.assertEqual(len(closed),6)

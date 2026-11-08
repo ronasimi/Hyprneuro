@@ -98,6 +98,7 @@ if os.environ.get('FAIL_SYSTEMCTL'): sys.exit(1)
         out = self.run_installer("--install-service")
         self.assertEqual(out.returncode, 0, out.stderr)
         unit = self.unit().read_text()
+        self.assertIn("--no-settings", unit)
         self.assertNotIn("--allow-ingest", unit)
         self.assertNotIn("--watch-hyprland", unit)
         self.assertIn('isolated space %% \\" $$ venv', unit)
@@ -121,6 +122,17 @@ if os.environ.get('FAIL_SYSTEMCTL'): sys.exit(1)
         self.assertIn('"--allow-ingest" "--alert" "--retention-days" "7"', self.unit().read_text())
         self.assertIn(["systemctl", "--user", "enable", "hyprneuro.service"], self.calls())
         self.assertIn(["systemctl", "--user", "restart", "hyprneuro.service"], self.calls())
+
+    def test_explicit_saved_config_and_granular_resources(self):
+        config = self.home / 'private settings.json'
+        config.write_text('{"allow_ingest":true,"alert_resources":true}')
+        out = self.run_installer("--install-service", "--config", str(config))
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('"--config"', self.unit().read_text())
+        self.assertNotIn('--no-settings', self.unit().read_text())
+        out = self.run_installer("--install-service", "--allow-ingest", "--alert-resources")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('--alert-resources', self.unit().read_text())
 
     def test_invalid_flags_fail_before_install(self):
         for args in (("--alert",), ("--enable",), ("--install-service", "--alert"),

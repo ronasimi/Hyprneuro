@@ -50,6 +50,8 @@ class EventIntake:
             raise ValueError("journal_priority must be 0-7")
         if not 1 <= max_message <= 4096 or max_line_bytes < 1 or reconnect_seconds <= 0:
             raise ValueError("Invalid journal bounds/reconnect interval")
+        if catchup_seconds <= 0 or type(catchup_records) is not int or catchup_records < 1:
+            raise ValueError("Invalid catch-up bounds")
         self.store = store
         self.catchup_seconds = catchup_seconds
         self.catchup_records = catchup_records
@@ -70,9 +72,11 @@ class EventIntake:
         while True:
             proc = None
             started = time.monotonic()
+            started_ms = int(time.time()*1000)
             try:
                 checkpoint = self.store.journal_checkpoint() if self.store else None
                 replay = checkpoint is not None and not tail
+                tail = False
                 options = ["--lines=0"]
                 if replay:
                     floor = int((time.time()-self.catchup_seconds)*1000)
@@ -88,11 +92,15 @@ class EventIntake:
                     f"--priority={self.journal_priority}", *options, "--no-pager",
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL,
                     limit=self.max_line_bytes)
-                async for line in self._journal_lines(proc.stdout):
+                async for line in self._journal_lines(proc.stdout, report_drops=True):
                     event = self._journal_event(line)
                     if event is not None:
                         try:
                             await deliver(event)
+                            if event.attributes.get("cursor"):
+                                fallback = False
+                            if event.attributes.get("realtime_ms", 0) > started_ms:
+                                replay = False  # Live records do not exhaust the catch-up budget.
                         except Exception:
                             self.failures += 1
                             log.exception("Journal alert delivery failed")
@@ -102,6 +110,10 @@ class EventIntake:
                         self.store.journal_gap("Catch-up record budget reached; resumed at live tail")
                         tail = True
                         break
+                else:
+                    # EOF may precede asyncio's child-exit callback. Reap before
+                    # inspecting status, or a vacuumed cursor can retry forever.
+                    await asyncio.wait_for(proc.wait(), 1)
                 if replay and not fallback and proc.returncode not in (None, 0):
                     self.store.journal_gap("Cursor unavailable; bounded timestamp fallback (duplicates possible)")
                     fallback = True
@@ -123,7 +135,7 @@ class EventIntake:
             await asyncio.sleep(delay)
             delay = min(delay * 2, 30)
 
-    async def _journal_lines(self, reader):
+    async def _journal_lines(self, reader, *, report_drops=False):
         """Discard oversized records through their newline, then resume parsing."""
         pending = bytearray()
         dropping = False
@@ -141,6 +153,8 @@ class EventIntake:
                 if complete:
                     if not dropping:
                         yield bytes(pending)
+                    elif report_drops:
+                        yield b""  # Oversized frames still consume the replay budget.
                     pending.clear()
                     dropping = False
         # An unterminated final record is not a complete journal JSON frame.

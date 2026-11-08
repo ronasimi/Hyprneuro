@@ -29,7 +29,9 @@ class Embeddings:
             if response.status != 200 or len(raw) > 1024*1024:
                 raise ValueError('HTTP failure or oversized embeddings response')
             data = json.loads(raw)['data']
-            if len(data) != len(texts) or sorted(row['index'] for row in data) != list(range(len(texts))):
+            if (not isinstance(data, list) or len(data) != len(texts) or
+                    any(not isinstance(row, dict) or type(row.get('index')) is not int for row in data) or
+                    sorted(row['index'] for row in data) != list(range(len(texts)))):
                 raise ValueError('Embedding response count/index mismatch')
             vectors = []
             for row in sorted(data, key=lambda r: r['index']):
@@ -44,7 +46,7 @@ class Embeddings:
             if len({len(v) for v in vectors}) != 1:
                 raise ValueError('Embedding dimension mismatch')
             return vectors
-        except (OSError, ValueError, KeyError, TypeError, http.client.HTTPException) as exc:
+        except (OSError, ValueError, KeyError, TypeError, RecursionError, http.client.HTTPException) as exc:
             raise RuntimeError(f'Local embeddings unavailable or incompatible: {exc}') from exc
         finally:
             if conn is not None:
@@ -56,8 +58,16 @@ class Embeddings:
         # Reject overload, rather than queueing arbitrarily many RPC requests.
         if self.lock.locked():
             raise RuntimeError('Semantic search busy; retry later')
-        async with self.lock:
-            return await asyncio.to_thread(self._embed, texts)
+        await self.lock.acquire()
+        work = asyncio.create_task(asyncio.to_thread(self._embed, texts))
+        def finished(task):
+            self.lock.release()
+            if not task.cancelled():
+                task.exception()  # Consume errors even if the RPC caller disconnected.
+        work.add_done_callback(finished)
+        # A cancelled caller must not open another inference lane while the
+        # socket-timeout-bounded worker thread still owns the existing request.
+        return await asyncio.shield(work)
 
     async def search(self, store, request):
         query = request.get('query', '')

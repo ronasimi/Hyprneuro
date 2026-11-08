@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- Manual stdlib curses history/search/alerts/details/status/settings UI; inert terminal text, bounded pages and no alert-management actions
+- Private atomic feature settings, all optional defaults off, explicit CLI on/off overrides, saved/active/restart visibility and installer config opt-in
+- Separate optional actual D1 text explanation with unavailable status for unsupported endpoints; no fabricated score narrative
 - Exact-time Pi recall filters, BM25 relevance, bounded phrase/prefix/fuzzy search, safe app/URL/policy index and explicitly configured local HTTP semantic search
 - Independent opt-in resource alerts from the existing Monitor, with duration and hysteresis for CPU, memory, disk, PSI, hwmon and real DRM counters
 - Transactional journal identity/checkpoint and recoverable evidence/gate work, bounded replay with visible gap fallback, notification freshness and persistent rate limits

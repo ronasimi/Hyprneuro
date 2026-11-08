@@ -6,6 +6,8 @@ VENV="${XDG_DATA_HOME:-$HOME/.local/share}/hyprneuro/venv"
 PYTHON="python3"
 install_service=false enable=false start=false
 serve_args=()
+config_supplied=false
+resources=false journal=false network=false notifications=false explanation=false
 allow_ingest=false watch=false capture=false on_demand=false browser=false visual=false alert=false
 usage() {
   cat <<'EOF'
@@ -17,6 +19,12 @@ Usage: bash scripts/install.sh [options]
   --start              Start/restart unit now; requires --install-service
   --allow-ingest       Opt in to event storage
   --watch-hyprland     Opt in to Hyprland metadata (requires --allow-ingest)
+  --config PATH        Explicitly load saved Hyprneuro JSON settings on service startup
+  --alert-resources    Opt in to sustained passive resource alerts
+  --alert-journal      Opt in to durable journal intake (no notifications by itself)
+  --alert-network      Opt in to passive network alerts (no notifications by itself)
+  --notifications      Opt in to notify-send for enabled alert collectors
+  --explanation-enabled Optional actual D1 text explanation (independent score gate)
   --alert              Opt in to journal/network + D1 notifications (requires --allow-ingest)
   --allow-browser      Opt in to authenticated Chrome ingestion (requires --allow-ingest)
   --allow-on-demand    Permit approved Omni requests (requires --allow-ingest)
@@ -40,13 +48,19 @@ while (($#)); do
     --install-service) install_service=true; shift ;;
     --enable) enable=true; shift ;;
     --start) start=true; shift ;;
-    --allow-ingest|--watch-hyprland|--allow-capture|--allow-on-demand|--allow-browser|--d1-visual|--alert)
+    --allow-ingest|--watch-hyprland|--allow-capture|--allow-on-demand|--allow-browser|--d1-visual|--alert|--alert-resources|--alert-journal|--alert-network|--notifications|--explanation-enabled)
       case "$1" in
+        --alert-resources) resources=true ;; --alert-journal) journal=true ;;
+        --alert-network) network=true ;; --notifications) notifications=true ;;
+        --explanation-enabled) explanation=true ;;
         --allow-ingest) allow_ingest=true ;; --watch-hyprland) watch=true ;;
         --allow-capture) capture=true ;; --allow-on-demand) on_demand=true ;;
         --allow-browser) browser=true ;; --d1-visual) visual=true ;; --alert) alert=true ;;
       esac
       serve_args+=("$1"); shift ;;
+    --config)
+      (($# >= 2)) && [[ -n $2 && $2 != --* ]] || die "--config requires a path"
+      config_supplied=true; serve_args+=("$1" "$2"); shift 2 ;;
     --retention-days|--exclude-app|--exclude-origin)
       (($# >= 2)) && [[ -n $2 && $2 != --* ]] || die "$1 requires a value"
       serve_args+=("$1" "$2"); shift 2 ;;
@@ -56,11 +70,17 @@ done
 if ! $install_service && { $enable || $start || ((${#serve_args[@]})); }; then
   die "Service options require --install-service"
 fi
-if { $watch || $capture || $on_demand || $browser || $alert; } && ! $allow_ingest; then
+if { $watch || $capture || $on_demand || $browser || $alert || $resources || $journal || $network; } && ! $allow_ingest && ! $config_supplied; then
   die "Collectors/model requests require explicit --allow-ingest"
 fi
-$capture && ! $watch && die "--allow-capture requires --watch-hyprland"
-$visual && ! $capture && die "--d1-visual requires --allow-capture"
+if { $notifications || $explanation; } && ! { $alert || $journal || $network || $resources || $config_supplied; }; then
+  die "Notifications/explanations require an explicitly enabled alert collector"
+fi
+$capture && ! $watch && ! $config_supplied && die "--allow-capture requires --watch-hyprland"
+$visual && ! $capture && ! $config_supplied && die "--d1-visual requires --allow-capture"
+if $install_service && ! $config_supplied; then
+  serve_args=("--no-settings" "${serve_args[@]}")
+fi
 need "$PYTHON" "install Python >=3.11 with venv support"
 PYTHON="$(command -v "$PYTHON")"
 # Validate before writing. Paths are absolute and encoded for systemd below.
@@ -74,6 +94,8 @@ if not pathlib.Path(sys.argv[1]).is_absolute():
     sys.exit('--venv must be an absolute path')
 args = sys.argv[2:]
 for i, arg in enumerate(args):
+    if arg == '--config' and not pathlib.Path(args[i + 1]).is_absolute():
+        sys.exit('--config must be an absolute path for a service')
     if arg == '--retention-days':
         try:
             days = float(args[i + 1])
@@ -89,7 +111,8 @@ if $install_service; then
   need systemctl "systemd user services required for --install-service"
   [[ -x /usr/bin/env ]] || die "Systemd unit launcher /usr/bin/env is required"
   systemctl --user show-environment >/dev/null || die "Cannot contact systemd user manager; use a logged-in user session (no sudo)"
-  $alert && { need journalctl "journal alerts"; need notify-send "desktop notifications (libnotify)"; }
+  if $alert || $journal; then need journalctl "journal alerts"; fi
+  if $alert || $notifications; then need notify-send "desktop notifications (libnotify)"; fi
   if $capture || $on_demand; then
     need grim "Wayland screenshots"; need loginctl "verified unlocked session"
   fi
@@ -161,4 +184,5 @@ PY
   printf 'Start/restart only requested with --start. Existing service drop-ins remain in effect.\n'
 fi
 printf 'Installed executable: %s\nHealth (requires a running service): %q health\n' "$EXE" "$EXE"
+printf 'Manual TUI (does not start a service): %q tui\n' "$EXE"
 printf 'Pi tools require a separate: pi install %q\n' "$ROOT"

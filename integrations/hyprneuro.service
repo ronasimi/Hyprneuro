@@ -7,7 +7,7 @@ PartOf=graphical-session.target
 Type=simple
 # Starts with event ingestion disabled. Enable only after explicitly opting in.
 # Installer replaces ExecStart with the absolute executable path and opted-in flags.
-ExecStart=%h/.local/share/hyprneuro/venv/bin/hyprneuro serve
+ExecStart=%h/.local/share/hyprneuro/venv/bin/hyprneuro serve --no-settings
 Environment=PATH=%h/.bin:%h/.local/bin:/usr/bin
 Restart=on-failure
 RestartSec=3
@@ -15,8 +15,8 @@ UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true
 # AF_INET is necessary for opt-in D1/Omni capture or D1 alert scoring.
-# Model URLs are hardcoded to 127.0.0.1; no remote model traffic is requested.
-RestrictAddressFamilies=AF_UNIX AF_INET
+# Model traffic stays on loopback; optional embeddings also support literal ::1.
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 
 [Install]
 WantedBy=graphical-session.target

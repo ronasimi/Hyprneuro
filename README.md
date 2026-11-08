@@ -90,7 +90,9 @@ Hyprneuro/
 │   │   ├── desktop.py        #   Hyprland IPC
 │   │   ├── models.py         #   Model service clients
 │   │   ├── model_dispatch.py #   Bounded async model admission
-│   │   ├── config.py         #   TOML config
+│   │   ├── tui.py            #   Manual stdlib curses interface
+│   │   ├── settings.py       #   Private opt-in feature settings
+│   │   ├── config.py         #   Legacy model TOML config
 │   │   ├── monitor.py        #   Passive telemetry
 │   │   └── ...
 │   └── tests/                #   Functional tests + mocked installer smoke tests
@@ -107,7 +109,7 @@ Hyprneuro/
 
 ```sh
 # Read-only (no ingestion)
-"$SIDECAR" serve
+"$SIDECAR" serve --no-settings
 
 # Opt in to event storage + Hyprland events
 "$SIDECAR" serve --allow-ingest --watch-hyprland
@@ -121,6 +123,9 @@ Hyprneuro/
 
 # Enable journal + network alerting (D1-gated desktop notifications)
 "$SIDECAR" serve --allow-ingest --alert
+
+# Manual terminal UI (never starts a service)
+"$SIDECAR" tui
 
 # Query
 "$SIDECAR" health
@@ -143,14 +148,17 @@ when requested. Capture/Omni observation remains a separate explicit opt-in.
 
 The `alerts` RPC (and Pi `recall_alerts`) includes original event evidence in
 `reason`, plus `d1_status`, `d1_score`, `notify_recommended`, `d1_reason`,
-`notification_status`, and timestamps. D1 returns **only a score**: `d1_reason`
+`notification_status`, and timestamps. The default D1 gate returns **only a score**: `d1_reason`
 is a local policy explanation, **not model-generated textual reasoning**.
+A separate opt-in can request actual D1 text, stored/labeled independently;
+unsupported text APIs report unavailable rather than fabricating an explanation.
 Legacy/manual records report unknown outcomes rather than inventing a decision.
 A successful notify-send exit means the request was accepted, not proof of display.
 
 All detected repeats are stored, even during the five-minute notification/gate
-cooldown. The existing three-second deduplication window increments repeat counts;
-spaced repeats become separate records. A deduplicated row retains its last actual
+cooldown. Non-journal events retain the existing three-second message-key
+deduplication window; spaced repeats become separate records. Distinct journal
+cursors are separate records; a replayed cursor is not counted again. A deduplicated row retains its last actual
 D1 evaluation while its notification status reflects the latest occurrence.
 Cooldown keys expire and are capped at 1024; eviction can allow earlier re-evaluation.
 
@@ -176,7 +184,7 @@ See [search modes, exact times and optional local embeddings](docs/SEARCH.md).
 ## Security Model
 
 - Same-UID access control (SO_PEERCRED), not a sandbox
-- All ingestion is **opt-in** via explicit flags
+- All ingestion is **opt-in** via explicit flags or saved feature consent
 - No screenshot bytes stored — only OCR text and descriptions
 - No raw conversation transcripts
 - Lock state checked before every capture; fails closed
@@ -186,6 +194,12 @@ See [search modes, exact times and optional local embeddings](docs/SEARCH.md).
 - Pi tools require explicit user approval for sensitive actions
 
 ## Configuration
+
+Use **`hyprneuro tui`** for history, search, alerts, details, status and explicit
+feature settings. Every optional feature defaults off. Saved JSON settings are
+private and require a manual process restart to apply; CLI on/off flags override
+them. The installer’s read-only unit ignores saved settings unless explicitly
+configured to load them. See [TUI, consent and precedence](docs/TUI.md).
 
 Model endpoints are read from `~/.config/hyprharness/config.toml`:
 

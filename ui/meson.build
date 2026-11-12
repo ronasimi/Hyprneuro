@@ -14,9 +14,14 @@ deps = [
   dependency('gtk4-layer-shell-0'),
   dependency('json-glib-1.0'),
   dependency('gio-unix-2.0'),
+  dependency('gstreamer-1.0'),
+  dependency('gstreamer-app-1.0'),
+  dependency('gstreamer-video-1.0'),
+  dependency('gstreamer-base-1.0'),
 ]
 
 executable('hyprneuro-ui',
   'src/hyprneuro.c',
   dependencies: deps,
+  link_args: ['-lm'],
   install: true)

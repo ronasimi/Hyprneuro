@@ -18,6 +18,9 @@
 #include <json-glib/json-glib.h>
 #include <glib-unix.h>
 #include <gio/gunixsocketaddress.h>
+#include <gst/gst.h>
+#include <gst/app/gstappsink.h>
+#include <gst/video/video.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +91,31 @@ struct App {
     char *current_msg;
 
     GPtrArray *attachments;
+
+    /* Media preview area. */
+    GtkWidget *media_preview;
+    GtkWidget *camera_picture;
+    GtkWidget *media_controls;
+    GtkWidget *media_label;
+
+    /* GStreamer camera pipeline. */
+    GstElement *camera_pipe;
+    GstElement *camera_sink;
+    gboolean    camera_active;
+    char       *captured_file;
+    guint8     *frame_bgr;
+    int         frame_w, frame_h, frame_stride;
+
+    /* Audio recording state. */
+    GstElement *audio_pipe;
+    GstElement *audio_sink;
+    gboolean     audio_recording;
+    guint        audio_timer;
+    int          audio_seconds;
+    gdouble      audio_rms;
+    GtkWidget   *audio_level;
+    GtkWidget   *audio_timer_lbl;
+    char        *recorded_file;
 };
 
 /* ---- utility ------------------------------------------------------------- */
@@ -697,15 +725,301 @@ static void on_attach(GtkButton *btn, gpointer data) {
     g_object_unref(dialog);
 }
 
-/* ---- media stubs (to be implemented with GStreamer/PipeWire) -------------- */
-static void on_audio(GtkButton *btn, gpointer data) {
-    (void)btn; (void)data;
-    /* TODO: PipeWire audio capture with inline level meter. */
+/* ---- camera viewfinder (GStreamer/PipeWire) ------------------------------- */
+typedef struct {
+    App *app;
+    guint8 *pixels;
+    int width, height, stride;
+} FrameData;
+
+static void on_frame_ready(gpointer data) {
+    FrameData *fd = data;
+    App *a = fd->app;
+    int w = fd->width, h = fd->height, s = fd->stride;
+    if (a->frame_bgr) g_free(a->frame_bgr);
+    a->frame_bgr = fd->pixels;
+    a->frame_w = w; a->frame_h = h; a->frame_stride = s;
+    fd->pixels = NULL;
+    if (a->camera_picture) {
+        size_t bgra_size = (size_t)w * h * 4;
+        guint8 *bgra = g_malloc(bgra_size);
+        for (int y = 0; y < h; y++) {
+            const guint8 *src = a->frame_bgr + (size_t)y * s;
+            guint8 *dst = bgra + (size_t)y * w * 4;
+            for (int x = 0; x < w; x++) {
+                dst[x*4+0] = src[x*3+0];
+                dst[x*4+1] = src[x*3+1];
+                dst[x*4+2] = src[x*3+2];
+                dst[x*4+3] = 255;
+            }
+        }
+        GdkPixbuf *pb = gdk_pixbuf_new_from_data(
+            bgra, GDK_COLORSPACE_RGB, TRUE, 8,
+            w, h, w * 4, NULL, NULL);
+        GdkTexture *tex = gdk_texture_new_for_pixbuf(pb);
+        g_object_unref(pb);
+        g_free(bgra);
+        if (tex) {
+            gtk_picture_set_paintable(GTK_PICTURE(a->camera_picture),
+                                      GDK_PAINTABLE(tex));
+            g_object_unref(tex);
+        }
+    } else if (a->frame_bgr) {
+        g_free(a->frame_bgr);
+        a->frame_bgr = NULL;
+    }
+    g_free(fd);
+}
+
+static void on_appsink_new_sample(GstElement *sink, gpointer data) {
+    (void)sink;
+    App *a = data;
+    GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
+    if (!sample) return;
+    GstBuffer *buf = gst_sample_get_buffer(sample);
+    if (buf) {
+        GstMapInfo map;
+        if (gst_buffer_map(buf, &map, GST_MAP_READ)) {
+            GstCaps *caps = gst_sample_get_caps(sample);
+            if (caps) {
+                GstStructure *st = gst_caps_get_structure(caps, 0);
+                int w = 0, h = 0;
+                gst_structure_get_int(st, "width", &w);
+                gst_structure_get_int(st, "height", &h);
+                int stride = w * 3;
+                size_t sz = (size_t)stride * h;
+                if (map.size >= sz && w > 0 && h > 0) {
+                    guint8 *copy = g_malloc(sz);
+                    memcpy(copy, map.data, sz);
+                    FrameData *fd = g_new0(FrameData, 1);
+                    fd->app = a;
+                    fd->pixels = copy;
+                    fd->width = w;
+                    fd->height = h;
+                    fd->stride = stride;
+                    g_main_context_invoke(NULL, (GSourceFunc)on_frame_ready, fd);
+                }
+                gst_caps_unref(caps);
+            }
+            gst_buffer_unmap(buf, &map);
+        }
+    }
+    gst_sample_unref(sample);
+}
+
+static void camera_stop(App *a) {
+    if (a->camera_pipe) {
+        gst_element_set_state(a->camera_pipe, GST_STATE_NULL);
+        g_object_unref(a->camera_pipe);
+        a->camera_pipe = NULL;
+        a->camera_sink = NULL;
+    }
+    a->camera_active = FALSE;
+    if (a->frame_bgr) { g_free(a->frame_bgr); a->frame_bgr = NULL; }
+    if (a->media_preview)
+        gtk_widget_set_visible(a->media_preview, FALSE);
+    if (a->camera_picture)
+        gtk_picture_set_paintable(GTK_PICTURE(a->camera_picture), NULL);
+}
+
+static void camera_start(App *a) {
+    if (a->camera_active) return;
+    GstElement *pipeline = gst_parse_launch(
+        "pipewiresrc ! videoscale ! videoconvert "
+        "! video/x-raw,format=BGR,width=640,height=480,framerate=15/1 "
+        "! appsink name=sink sync=false", NULL);
+    if (!pipeline) {
+        set_status(a, "Hyprneuro · camera init failed");
+        return;
+    }
+    a->camera_sink = gst_bin_get_by_name(GST_BIN(pipeline), "sink");
+    if (!a->camera_sink) {
+        g_object_unref(pipeline);
+        set_status(a, "Hyprneuro · camera sink not found");
+        return;
+    }
+    g_signal_connect(a->camera_sink, "new-sample",
+                     G_CALLBACK(on_appsink_new_sample), a);
+    a->camera_pipe = pipeline;
+    GstStateChangeReturn ret = gst_element_set_state(
+        pipeline, GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        g_object_unref(pipeline);
+        a->camera_pipe = NULL;
+        a->camera_sink = NULL;
+        set_status(a, "Hyprneuro · camera start failed");
+        return;
+    }
+    a->camera_active = TRUE;
+    if (a->media_preview)
+        gtk_widget_set_visible(a->media_preview, TRUE);
+    if (a->media_label)
+        gtk_label_set_text(GTK_LABEL(a->media_label), "Camera · live");
+    set_status(a, "Hyprneuro · camera");
+}
+
+static void on_camera_capture(GtkButton *btn, gpointer data) {
+    (void)btn;
+    App *a = data;
+    if (!a->frame_bgr || a->frame_w <= 0) return;
+    int w = a->frame_w, h = a->frame_h, s = a->frame_stride;
+    cairo_surface_t *surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, w, h);
+    cairo_surface_flush(surface);
+    unsigned char *dst = cairo_image_surface_get_data(surface);
+    int dst_s = cairo_image_surface_get_stride(surface);
+    for (int y = 0; y < h; y++) {
+        const guint8 *src = a->frame_bgr + (size_t)y * s;
+        unsigned char *d = dst + (size_t)y * dst_s;
+        for (int x = 0; x < w; x++) {
+            d[x*4+0] = src[x*3+2];
+            d[x*4+1] = src[x*3+1];
+            d[x*4+2] = src[x*3+0];
+            d[x*4+3] = 255;
+        }
+    }
+    cairo_surface_mark_dirty(surface);
+    char *path = g_strdup_printf("/tmp/hyprneuro-capture-%ld.png",
+                                  (long)g_get_real_time() / 1000000);
+    cairo_surface_write_to_png(surface, path);
+    cairo_surface_destroy(surface);
+    if (a->captured_file) g_free(a->captured_file);
+    a->captured_file = path;
+    GFile *f = g_file_new_for_path(path);
+    g_ptr_array_add(a->attachments, f);
+    char *name = g_file_get_basename(f);
+    GtkWidget *item = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+    gtk_widget_add_css_class(item, "hn-attach-item");
+    gtk_box_append(GTK_BOX(item), gtk_label_new(name));
+    GtkWidget *rm = gtk_button_new_from_icon_name("window-close-symbolic");
+    g_signal_connect_swapped(rm, "clicked",
+                             G_CALLBACK(gtk_widget_unparent), item);
+    gtk_box_append(GTK_BOX(item), rm);
+    gtk_box_append(GTK_BOX(a->attach_strip), item);
+    g_free(name);
+    gtk_widget_set_visible(a->attach_strip, TRUE);
+    if (a->media_label)
+        gtk_label_set_text(GTK_LABEL(a->media_label), "Captured · attached");
+}
+
+static void on_camera_cancel(GtkButton *btn, gpointer data) {
+    (void)btn;
+    camera_stop(data);
 }
 
 static void on_vision(GtkButton *btn, gpointer data) {
-    (void)btn; (void)data;
-    /* TODO: Camera viewfinder via GStreamer/PipeWire. */
+    (void)btn;
+    App *a = data;
+    if (a->camera_active) camera_stop(a);
+    else camera_start(a);
+}
+
+/* ---- audio capture (PipeWire via GStreamer) ------------------------------- */
+static void on_audio_level_sample(GstElement *sink, gpointer data) {
+    (void)sink;
+    App *a = data;
+    GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(sink));
+    if (!sample) return;
+    GstBuffer *buf = gst_sample_get_buffer(sample);
+    if (buf) {
+        GstMapInfo map;
+        if (gst_buffer_map(buf, &map, GST_MAP_READ)) {
+            const gint16 *pcm = (const gint16 *)map.data;
+            guint n = map.size / 2;
+            gdouble sum = 0;
+            for (guint i = 0; i < n; i++)
+                sum += (gdouble)pcm[i] * pcm[i];
+            a->audio_rms = sqrt(sum / (gdouble)n) / 32768.0;
+            gst_buffer_unmap(buf, &map);
+        }
+    }
+    gst_sample_unref(sample);
+}
+
+static gboolean audio_tick(gpointer data) {
+    App *a = data;
+    a->audio_seconds++;
+    char buf[32];
+    snprintf(buf, sizeof buf, "%d:%02d", a->audio_seconds / 60, a->audio_seconds % 60);
+    if (a->audio_timer_lbl)
+        gtk_label_set_text(GTK_LABEL(a->audio_timer_lbl), buf);
+    if (a->audio_level)
+        gtk_level_bar_set_value(GTK_LEVEL_BAR(a->audio_level), a->audio_rms);
+    return G_SOURCE_CONTINUE;
+}
+
+static void audio_stop(App *a) {
+    if (a->audio_pipe) {
+        gst_element_set_state(GST_ELEMENT(a->audio_pipe), GST_STATE_NULL);
+        g_object_unref(a->audio_pipe);
+        a->audio_pipe = NULL;
+        a->audio_sink = NULL;
+    }
+    if (a->audio_timer) {
+        g_source_remove(a->audio_timer);
+        a->audio_timer = 0;
+    }
+    a->audio_recording = FALSE;
+    a->audio_seconds = 0;
+    a->audio_rms = 0;
+    if (a->media_preview)
+        gtk_widget_set_visible(a->media_preview, FALSE);
+    if (a->audio_level)
+        gtk_level_bar_set_value(GTK_LEVEL_BAR(a->audio_level), 0);
+}
+
+static void audio_start(App *a) {
+    if (a->audio_recording) return;
+    GstElement *pipeline = gst_parse_launch(
+        "pipewiresrc ! audioconvert ! audioresample "
+        "! audio/x-raw,format=S16LE,channels=1,rate=16000 "
+        "! appsink name=sink sync=false", NULL);
+    if (!pipeline) {
+        set_status(a, "Hyprneuro · audio init failed");
+        return;
+    }
+    a->audio_sink = gst_bin_get_by_name(GST_BIN(pipeline), "sink");
+    if (!a->audio_sink) {
+        g_object_unref(pipeline);
+        set_status(a, "Hyprneuro · audio sink not found");
+        return;
+    }
+    g_signal_connect(a->audio_sink, "new-sample",
+                     G_CALLBACK(on_audio_level_sample), a);
+    a->audio_pipe = pipeline;
+    GstStateChangeReturn ret = gst_element_set_state(
+        GST_ELEMENT(pipeline), GST_STATE_PLAYING);
+    if (ret == GST_STATE_CHANGE_FAILURE) {
+        g_object_unref(pipeline);
+        a->audio_pipe = NULL;
+        a->audio_sink = NULL;
+        set_status(a, "Hyprneuro · audio start failed");
+        return;
+    }
+    a->audio_recording = TRUE;
+    a->audio_seconds = 0;
+    a->audio_rms = 0;
+    a->audio_timer = g_timeout_add(1000, audio_tick, a);
+    if (a->media_preview)
+        gtk_widget_set_visible(a->media_preview, TRUE);
+    if (a->audio_level)
+        gtk_widget_set_visible(a->audio_level, TRUE);
+    if (a->audio_timer_lbl)
+        gtk_widget_set_visible(a->audio_timer_lbl, TRUE);
+    if (a->media_label)
+        gtk_label_set_text(GTK_LABEL(a->media_label), "Recording…");
+    set_status(a, "Hyprneuro · recording");
+}
+
+static void on_audio_stop_btn(GtkButton *btn, gpointer data) {
+    (void)btn;
+    audio_stop(data);
+}
+
+static void on_audio(GtkButton *btn, gpointer data) {
+    (void)btn;
+    App *a = data;
+    if (a->audio_recording) audio_stop(a);
+    else audio_start(a);
 }
 
 /* ---- show / hide / toggle ------------------------------------------------ */
@@ -875,6 +1189,36 @@ int main(int argc, char **argv) {
         GTK_SCROLLED_WINDOW(a->scroller));
     g_signal_connect(vadj, "value-changed", G_CALLBACK(on_scroll_adjustment), a);
     gtk_box_append(GTK_BOX(a->chat_page), a->scroller);
+
+    /* Media preview area (hidden until camera/audio active). */
+    a->media_preview = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_set_visible(a->media_preview, FALSE);
+    a->camera_picture = gtk_picture_new();
+    gtk_widget_set_size_request(a->camera_picture, 320, 240);
+    gtk_picture_set_can_shrink(GTK_PICTURE(a->camera_picture), TRUE);
+    gtk_box_append(GTK_BOX(a->media_preview), a->camera_picture);
+    a->audio_level = gtk_level_bar_new_for_interval(0.0, 1.0);
+    gtk_widget_set_visible(a->audio_level, FALSE);
+    gtk_box_append(GTK_BOX(a->media_preview), a->audio_level);
+    a->audio_timer_lbl = gtk_label_new("0:00");
+    gtk_widget_set_visible(a->audio_timer_lbl, FALSE);
+    gtk_box_append(GTK_BOX(a->media_preview), a->audio_timer_lbl);
+    a->media_controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    a->media_label = gtk_label_new("");
+    gtk_widget_set_hexpand(a->media_label, TRUE);
+    gtk_label_set_xalign(GTK_LABEL(a->media_label), 0.0);
+    gtk_box_append(GTK_BOX(a->media_controls), a->media_label);
+    GtkWidget *cap_btn = gtk_button_new_with_label("Capture");
+    g_signal_connect(cap_btn, "clicked", G_CALLBACK(on_camera_capture), a);
+    gtk_box_append(GTK_BOX(a->media_controls), cap_btn);
+    GtkWidget *astop_btn = gtk_button_new_with_label("Stop");
+    g_signal_connect(astop_btn, "clicked", G_CALLBACK(on_audio_stop_btn), a);
+    gtk_box_append(GTK_BOX(a->media_controls), astop_btn);
+    GtkWidget *acancel_btn = gtk_button_new_with_label("Cancel");
+    g_signal_connect(acancel_btn, "clicked", G_CALLBACK(on_camera_cancel), a);
+    gtk_box_append(GTK_BOX(a->media_controls), acancel_btn);
+    gtk_box_append(GTK_BOX(a->media_preview), a->media_controls);
+    gtk_box_append(GTK_BOX(a->chat_page), a->media_preview);
 
     /* Attachment strip (hidden until files are selected). */
     a->attach_strip = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);

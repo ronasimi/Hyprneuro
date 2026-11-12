@@ -123,8 +123,42 @@ static void reasoning_tags(void) {
     gdk_rgba_free(color); g_free(text); g_object_unref(buf);
     g_string_free(app.current_answer, TRUE);
 }
+static void inference_metrics_format(void) {
+    JsonParser *p = json_parser_new();
+    g_assert_true(json_parser_load_from_data(p,
+        "{\"prefill_tps\":12.5,\"decode_tps\":7,\"cache_hit_pct\":0}", -1, NULL));
+    char *text = format_inference_metrics(json_parser_get_root(p));
+    g_assert_cmpstr(text, ==, "Prefill 12.5 t/s · Decode 7.0 t/s · Hit 0.0% · Full —");
+    g_free(text);
+    g_assert_true(json_parser_load_from_data(p,
+        "{\"prefill_tps\":true,\"decode_tps\":\"8\",\"cache_hit_pct\":101}", -1, NULL));
+    text = format_inference_metrics(json_parser_get_root(p));
+    g_assert_cmpstr(text, ==, "Prefill — · Decode — · Hit — · Full —");
+    g_free(text);
+    text = format_inference_metrics(NULL);
+    g_assert_cmpstr(text, ==, "Prefill — · Decode — · Hit — · Full —");
+    g_free(text);
+    g_assert_true(json_parser_load_from_data(p,
+        "{\"prompt_tokens_total\":20,\"prompt_tokens_evaluated\":20,\"prompt_tokens_cached\":0,\"output_tokens\":4}", -1, NULL));
+    text = format_token_counts(json_parser_get_root(p));
+    g_assert_nonnull(strstr(text, "Prompt total 20 · evaluated 20 · cached 0 · output 4"));
+    g_free(text);
+    g_assert_true(json_parser_load_from_data(p,
+        "{\"prompt_tokens_total\":true,\"prompt_tokens_evaluated\":2.0,\"prompt_tokens_cached\":-1}", -1, NULL));
+    text = format_token_counts(json_parser_get_root(p));
+    g_assert_nonnull(strstr(text, "Prompt total — · evaluated — · cached — · output —"));
+    g_free(text);
+    JsonNode *nonfinite = json_node_new(JSON_NODE_VALUE);
+    json_node_set_double(nonfinite, INFINITY);
+    g_assert_cmpfloat(jnum(nonfinite, -1), ==, -1);
+    json_node_set_double(nonfinite, NAN);
+    g_assert_cmpfloat(jnum(nonfinite, -1), ==, -1);
+    json_node_unref(nonfinite);
+    g_object_unref(p);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/inference-metrics", inference_metrics_format);
     g_test_add_func("/ui/reasoning-tags", reasoning_tags);
     g_test_add_func("/ui/history-ownership", history_ownership);
     g_test_add_func("/ui/adjustment-callback", adjustment_callback);

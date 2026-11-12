@@ -309,6 +309,8 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
         async def fixture_stream(*args, **kwargs):
             yield {"type": "delta", "channel": "reasoning", "text": "check"}
             yield {"type": "delta", "channel": "answer", "text": "pong"}
+            yield {"type": "metrics", "prefill_tps": 10.0, "cache_hit_pct": 0.0,
+                   "prompt_tokens_total": 20, "prompt_tokens_evaluated": 20, "prompt_tokens_cached": 0}
         mock_stream = patch("hyprneuro.agent.stream_chat", fixture_stream)
         mock_stream.start()
         self.addCleanup(mock_stream.stop)
@@ -336,6 +338,48 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(types, ["delta", "delta", "done"])
         self.assertEqual(frames[0]["channel"], "reasoning")
         self.assertEqual(frames[-1]["text"], "pong")  # reasoning is not history
+        self.assertEqual(frames[-1]["metrics"]["cache_hit_pct"], 0)
+        self.assertEqual(frames[-1]["metrics"]["prompt_tokens_evaluated"], 20)
+
+
+    async def test_media_fail_closed_over_ipc(self):
+        import base64
+        for media in [False, [], {}, {"mime": "video/mp4", "data": "AAAA"},
+                      {"mime": "audio/wav", "data": "AAAA"},
+                      {"mime": "image/png", "data": "not base64"},
+                      {"mime": "image/png", "data": 123},
+                      {"mime": "image/png", "data": base64.b64encode(b"not png").decode()},
+                      {"mime": "image/png", "data": "A" * (7 * 1024 * 1024)}]:
+            with self.subTest(media=str(media)[:80]):
+                with patch("hyprneuro.agent.stream_chat") as backend:
+                    reader, writer = await asyncio.open_unix_connection(str(self.socket))
+                    writer.write((json.dumps({"action": "agent_chat", "message": "describe", "media": media}) + "\n").encode())
+                    await writer.drain()
+                    frame = json.loads(await asyncio.wait_for(reader.readline(), 5))
+                    writer.close()
+                    await writer.wait_closed()
+                    self.assertEqual(frame["type"], "error")
+                    backend.assert_not_called()
+
+    async def test_image_snapshot_routes_only_to_omni(self):
+        import base64
+        seen = []
+        async def backend(messages, **kwargs):
+            seen.append((messages, kwargs))
+            yield {"type": "delta", "channel": "answer", "text": "image"}
+        # Protocol validation only: full decoding/dimension checks belong to GTK/backend.
+        data = base64.b64encode(b"\x89PNG\r\n\x1a\nfixture").decode()
+        with patch("hyprneuro.agent.stream_chat", backend):
+            reader, writer = await asyncio.open_unix_connection(str(self.socket))
+            writer.write((json.dumps({"action": "agent_chat", "message": "describe", "media":
+                {"mime": "image/png", "data": data}}) + "\n").encode())
+            await writer.drain()
+            self.assertEqual(json.loads(await reader.readline())["type"], "delta")
+            self.assertEqual(json.loads(await reader.readline())["type"], "done")
+            writer.close()
+            await writer.wait_closed()
+        self.assertEqual(seen[0][1]["role"], "omni")
+        self.assertEqual(seen[0][0][-1]["content"][1]["image_url"]["url"], "data:image/png;base64," + data)
 
 
 if __name__ == "__main__":

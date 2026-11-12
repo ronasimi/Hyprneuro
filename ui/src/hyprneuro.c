@@ -26,6 +26,7 @@
 #include <sys/un.h>
 #include <sys/time.h>
 #include <errno.h>
+#include <math.h>
 
 #define MARGIN_PX 9
 #define DEFAULT_WIDTH 656
@@ -56,7 +57,7 @@ typedef struct {
     App *app;
     gboolean success;
     char *error;
-    char *metrics;
+    char *metrics, *token_counts;
 } ChatDoneData;
 
 typedef struct {
@@ -92,7 +93,7 @@ struct App {
     GtkWidget *send, *size_toggle, *attach_btn, *audio_btn, *vision_btn, *settings_btn;
     GtkWidget *attach_strip;
 
-    GtkWidget *status, *metrics;
+    GtkWidget *status, *metrics, *monitoring;
 
     char *sidecar_sock;
     char *control_sock;
@@ -142,10 +143,46 @@ static double jnum(JsonNode *n, double def) {
     if (!n) return def;
     if (JSON_NODE_HOLDS_VALUE(n)) {
         GType t = json_node_get_value_type(n);
-        if (t == G_TYPE_DOUBLE) return json_node_get_double(n);
+        if (t == G_TYPE_DOUBLE) {
+            double value = json_node_get_double(n);
+            return isfinite(value) ? value : def;
+        }
         if (t == G_TYPE_INT64) return (double)json_node_get_int(n);
     }
     return def;
+}
+
+/* Untrusted IPC telemetry: unknown is not zero; occupancy is not reuse. */
+static char *format_inference_metrics(JsonNode *metrics) {
+    const char *keys[] = {"prefill_tps", "decode_tps", "cache_hit_pct"};
+    const char *labels[] = {"Prefill", "Decode", "Hit"};
+    GString *text = g_string_new("");
+    for (int i = 0; i < 3; i++) {
+        double value = jnum(jmember(metrics, keys[i]), -1);
+        if (i) g_string_append(text, " · ");
+        if (value < 0 || (i == 2 && value > 100))
+            g_string_append_printf(text, "%s —", labels[i]);
+        else
+            g_string_append_printf(text, "%s %.1f%s", labels[i], value, i == 2 ? "%" : " t/s");
+    }
+    g_string_append(text, " · Full —");
+    return g_string_free(text, FALSE);
+}
+
+static char *format_token_counts(JsonNode *metrics) {
+    const char *keys[] = {"prompt_tokens_total", "prompt_tokens_evaluated", "prompt_tokens_cached", "output_tokens"};
+    const char *names[] = {"Prompt total", "evaluated", "cached", "output"};
+    GString *s = g_string_new("");
+    for (int i = 0; i < 4; i++) {
+        JsonNode *n = jmember(metrics, keys[i]);
+        if (i) g_string_append(s, " · ");
+        if (n && JSON_NODE_HOLDS_VALUE(n) && json_node_get_value_type(n) == G_TYPE_INT64 && json_node_get_int(n) >= 0)
+            g_string_append_printf(s, "%s %" G_GINT64_FORMAT, names[i], json_node_get_int(n));
+        else
+            g_string_append_printf(s, "%s —", names[i]);
+    }
+    g_string_append(s, "\nPrefill/decode: tok/s. Hit: prompt reuse, not cache occupancy. Full: unavailable.");
+    return g_string_free(s, FALSE);
 }
 
 static void set_status(App *a, const char *text) {
@@ -373,14 +410,11 @@ static gboolean on_chat_done(gpointer data) {
         /* Record the exchange in bounded history. */
         push_history(a, "user", a->current_msg);
         push_history(a, "assistant", a->current_answer->str);
-        /* Display performance metrics in the status bar if available. */
-        if (d->metrics) {
-            gtk_label_set_text(GTK_LABEL(a->metrics), d->metrics);
-            gtk_widget_set_tooltip_text(a->metrics,
-                "Prefill tok/s · Decode tok/s · Cache hit %");
-        }
+        gtk_label_set_text(GTK_LABEL(a->metrics), d->metrics ? d->metrics : "Prefill — · Decode — · Hit — · Full —");
+        gtk_widget_set_tooltip_text(a->metrics, d->token_counts);
     } else {
         set_status(a, "Hyprneuro · error");
+        gtk_label_set_text(GTK_LABEL(a->metrics), "Inference failed · Full —");
         GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
         GtkTextIter end;
         gtk_text_buffer_get_end_iter(buf, &end);
@@ -396,6 +430,7 @@ static gboolean on_chat_done(gpointer data) {
     gtk_widget_grab_focus(GTK_WIDGET(a->input));
     g_free(d->error);
     g_free(d->metrics);
+    g_free(d->token_counts);
     g_free(d);
     return G_SOURCE_REMOVE;
 }
@@ -519,20 +554,8 @@ static void chat_worker(GTask *task, gpointer source, gpointer task_data,
                         } else if (type && !g_strcmp0(type, "done")) {
                             ChatDoneData *cd = g_new0(ChatDoneData, 1);
                             cd->app = a; cd->success = TRUE;
-                            /* Extract optional performance metrics. */
-                            JsonNode *mn = jmember(r, "metrics");
-                            if (mn && JSON_NODE_HOLDS_OBJECT(mn)) {
-                                JsonObject *mo = json_node_get_object(mn);
-                                GString *ms = g_string_new("");
-                                double pt = jnum(json_object_get_member(mo, "prefill_tps"), -1);
-                                if (pt >= 0) g_string_append_printf(ms, "⚡%.0f", pt);
-                                double dt = jnum(json_object_get_member(mo, "decode_tps"), -1);
-                                if (dt >= 0) g_string_append_printf(ms, " ⚡%.0f/s", dt);
-                                double ch = jnum(json_object_get_member(mo, "cache_hit_pct"), -1);
-                                if (ch >= 0) g_string_append_printf(ms, " 📦%.0f%%", ch);
-                                cd->metrics = ms->len ? g_strdup(ms->str) : NULL;
-                                g_string_free(ms, TRUE);
-                            }
+                            cd->metrics = format_inference_metrics(jmember(r, "metrics"));
+                            cd->token_counts = format_token_counts(jmember(r, "metrics"));
                             g_idle_add(on_chat_done, cd);
                             done = TRUE;
                         } else if (type && !g_strcmp0(type, "error")) {
@@ -636,29 +659,6 @@ static gboolean load_image(GFile *file, char **b64, char **mime,
     return ok;
 }
 
-/* Load a video file for Omni frame-extraction inference. No thumbnail is
- * generated (no GStreamer dependency); the user sees file metadata only. */
-static gboolean load_video(GFile *file, char **b64, char **mime, gsize *length) {
-    if (!g_file_is_native(file)) return FALSE;
-    GFileInputStream *in = g_file_read(file, NULL, NULL);
-    if (!in) return FALSE;
-    gsize limit = 10 * 1024 * 1024, len = 0; /* 10 MiB video cap */
-    guchar *bytes = g_malloc(limit + 1);
-    gboolean ok = g_input_stream_read_all(G_INPUT_STREAM(in), bytes, limit + 1,
-                                         &len, NULL, NULL);
-    g_object_unref(in);
-    char *type = g_content_type_guess(NULL, bytes, len, NULL);
-    ok = ok && len > 0 && len <= limit &&
-        (!g_strcmp0(type, "video/mp4") || !g_strcmp0(type, "video/webm"));
-    if (ok) {
-        *b64 = g_base64_encode(bytes, len);
-        *mime = g_strdup(type);
-        *length = len;
-    }
-    g_free(type); g_free(bytes);
-    return ok;
-}
-
 static void send_message(App *a) {
     if (a->busy) return;
     GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->input));
@@ -672,6 +672,8 @@ static void send_message(App *a) {
     a->busy = TRUE;
     gtk_widget_set_sensitive(a->send, FALSE);
     set_status(a, "Hyprneuro · thinking…");
+    gtk_label_set_text(GTK_LABEL(a->metrics), "Inference pending · Full —");
+    gtk_widget_set_tooltip_text(a->metrics, NULL);
 
     /* Start an assistant line in the transcript. */
     GtkTextBuffer *tbuf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
@@ -720,6 +722,7 @@ static void snapshot_ready(GObject *source, GAsyncResult *result, gpointer data)
     a->ui_data = snapshot->ui; a->mon_data = snapshot->mon;
     g_free(snapshot);
     a->snapshot_busy = FALSE;
+    gtk_label_set_text(GTK_LABEL(a->monitoring), "Monitoring —");
     char *mon_data = g_strdup(a->mon_data);
     if (mon_data) {
         JsonParser *p = json_parser_new();
@@ -729,19 +732,19 @@ static void snapshot_ready(GObject *source, GAsyncResult *result, gpointer data)
                 JsonObject *o = json_node_get_object(root);
                 GString *s = g_string_new("");
                 double cpu = jnum(json_object_get_member(o, "cpu_pct"), -1);
-                if (cpu >= 0) g_string_append_printf(s, "cpu %d%%  ", (int)cpu);
+                if (cpu >= 0 && cpu <= 100) g_string_append_printf(s, "cpu %d%%  ", (int)cpu);
                 JsonNode *rn = json_object_get_member(o, "ram");
                 double rpct = (rn && JSON_NODE_HOLDS_OBJECT(rn)) ?
                     jnum(json_object_get_member(json_node_get_object(rn), "pct"), -1) : -1;
-                if (rpct >= 0) g_string_append_printf(s, "ram %d%%", (int)rpct);
-                gtk_label_set_text(GTK_LABEL(a->metrics), s->str);
+                if (rpct >= 0 && rpct <= 100) g_string_append_printf(s, "ram %d%%", (int)rpct);
+                gtk_label_set_text(GTK_LABEL(a->monitoring), s->str);
                 g_string_free(s, TRUE);
             }
         }
         g_object_unref(p);
         g_free(mon_data);
     } else {
-        gtk_label_set_text(GTK_LABEL(a->metrics), "sidecar offline");
+        gtk_label_set_text(GTK_LABEL(a->monitoring), "sidecar offline");
 
     }
     /* Settings is a stable read-only snapshot, refreshed on next open. */
@@ -995,6 +998,7 @@ static void populate_settings(App *a) {
     add_settings_section(content, "Monitoring");
     GtkWidget *mon_list = gtk_list_box_new();
     gtk_widget_add_css_class(mon_list, "hn-settings");
+    gtk_label_set_text(GTK_LABEL(a->monitoring), "Monitoring —");
     char *mon_data = g_strdup(a->mon_data);
     if (mon_data) {
         JsonParser *p = json_parser_new();
@@ -1112,15 +1116,10 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     GdkPixbuf *preview = NULL;
     gsize length = 0;
     ImageSize size = {0};
-    gboolean is_video = FALSE;
     if (!load_image(file, &b64, &mime, &preview, &length, &size)) {
-        if (load_video(file, &b64, &mime, &length)) {
-            is_video = TRUE;
-        } else {
-            set_status(a, "Rejected: audio unsupported; use PNG/JPEG/WebP image or MP4/WebM video (≤10 MiB)");
-            g_object_unref(file);
-            return;
-        }
+        set_status(a, "Rejected: static PNG/JPEG/WebP only, ≤5 MiB, ≤4096×4096; decoder required");
+        g_object_unref(file);
+        return;
     }
     clear_attachments(a);
     a->attachment_b64 = b64; a->attachment_mime = mime;
@@ -1128,37 +1127,32 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     apply_transcript_size(a);
     char *name = g_file_get_basename(file);
     char *formatted_size = g_format_size_full(length, G_FORMAT_SIZE_IEC_UNITS);
-    char *metadata;
-    if (is_video)
-        metadata = g_strdup_printf("%s\n%s · %s · video (frame extraction)", name, mime, formatted_size);
-    else
-        metadata = g_strdup_printf("%s\n%s · %s · %d × %d", name, mime,
+    char *metadata = g_strdup_printf("%s\n%s · %s · %d × %d", name, mime,
                                       formatted_size, size.width, size.height);
     GtkWidget *item = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     gtk_widget_add_css_class(item, "hn-attach-item");
     GtkWidget *summary = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    if (!is_video && preview) {
-        /* Image: thumbnail + review expander */
-        double thumb_scale = MIN(112.0 / gdk_pixbuf_get_width(preview),
-                                 72.0 / gdk_pixbuf_get_height(preview));
-        GdkPixbuf *small = gdk_pixbuf_scale_simple(preview,
-            MAX(1, (int)(gdk_pixbuf_get_width(preview) * thumb_scale)),
-            MAX(1, (int)(gdk_pixbuf_get_height(preview) * thumb_scale)), GDK_INTERP_BILINEAR);
-        GdkTexture *thumb_texture = preview_texture(small);
-        g_object_unref(small);
-        GtkWidget *thumbnail = gtk_picture_new_for_paintable(GDK_PAINTABLE(thumb_texture));
-        g_object_unref(thumb_texture);
-        gtk_picture_set_content_fit(GTK_PICTURE(thumbnail), GTK_CONTENT_FIT_CONTAIN);
-        gtk_widget_set_halign(thumbnail, GTK_ALIGN_CENTER);
-        gtk_widget_set_valign(thumbnail, GTK_ALIGN_CENTER);
-        gtk_box_append(GTK_BOX(summary), thumbnail);
-    } else {
-        /* Video: icon */
-        GtkWidget *vicon = gtk_image_new_from_icon_name("video-x-generic");
-        gtk_widget_set_size_request(vicon, 32, 32);
-        gtk_widget_set_valign(vicon, GTK_ALIGN_CENTER);
-        gtk_box_append(GTK_BOX(summary), vicon);
-    }
+    double review_scale = MIN(480.0 / gdk_pixbuf_get_width(preview),
+                              240.0 / gdk_pixbuf_get_height(preview));
+    GdkPixbuf *review_pixels = gdk_pixbuf_scale_simple(preview,
+        MAX(1, (int)(gdk_pixbuf_get_width(preview) * review_scale)),
+        MAX(1, (int)(gdk_pixbuf_get_height(preview) * review_scale)), GDK_INTERP_BILINEAR);
+    GdkTexture *texture = preview_texture(review_pixels);
+    g_object_unref(review_pixels);
+    double thumb_scale = MIN(112.0 / gdk_pixbuf_get_width(preview),
+                             72.0 / gdk_pixbuf_get_height(preview));
+    GdkPixbuf *small = gdk_pixbuf_scale_simple(preview,
+        MAX(1, (int)(gdk_pixbuf_get_width(preview) * thumb_scale)),
+        MAX(1, (int)(gdk_pixbuf_get_height(preview) * thumb_scale)), GDK_INTERP_BILINEAR);
+    g_object_unref(preview);
+    GdkTexture *thumb_texture = preview_texture(small);
+    g_object_unref(small);
+    GtkWidget *thumbnail = gtk_picture_new_for_paintable(GDK_PAINTABLE(thumb_texture));
+    g_object_unref(thumb_texture);
+    gtk_picture_set_content_fit(GTK_PICTURE(thumbnail), GTK_CONTENT_FIT_CONTAIN);
+    gtk_widget_set_halign(thumbnail, GTK_ALIGN_CENTER);
+    gtk_widget_set_valign(thumbnail, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(summary), thumbnail);
     GtkWidget *label = gtk_label_new(metadata);
     gtk_label_set_xalign(GTK_LABEL(label), 0);
     gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_MIDDLE);
@@ -1170,41 +1164,32 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     g_signal_connect(rm, "clicked", G_CALLBACK(on_attachment_remove), a);
     gtk_box_append(GTK_BOX(summary), rm);
     gtk_box_append(GTK_BOX(item), summary);
-    if (!is_video && preview) {
-        /* Image review expander */
-        double review_scale = MIN(480.0 / gdk_pixbuf_get_width(preview),
-                                  240.0 / gdk_pixbuf_get_height(preview));
-        GdkPixbuf *review_pixels = gdk_pixbuf_scale_simple(preview,
-            MAX(1, (int)(gdk_pixbuf_get_width(preview) * review_scale)),
-            MAX(1, (int)(gdk_pixbuf_get_height(preview) * review_scale)), GDK_INTERP_BILINEAR);
-        GdkTexture *texture = preview_texture(review_pixels);
-        g_object_unref(review_pixels);
-        g_object_unref(preview);
-        GtkWidget *review = gtk_expander_new("Review image (bounded preview)");
-        GtkWidget *picture = gtk_picture_new_for_paintable(GDK_PAINTABLE(texture));
-        gtk_picture_set_content_fit(GTK_PICTURE(picture), GTK_CONTENT_FIT_CONTAIN);
-        gtk_widget_set_size_request(picture, gdk_texture_get_width(texture), gdk_texture_get_height(texture));
-        GtkWidget *canvas = gtk_fixed_new();
-        gtk_widget_set_size_request(canvas, 480, 240);
-        gtk_widget_set_halign(canvas, GTK_ALIGN_CENTER);
-        gtk_fixed_put(GTK_FIXED(canvas), picture,
-                      (480 - gdk_texture_get_width(texture)) / 2.0,
-                      (240 - gdk_texture_get_height(texture)) / 2.0);
-        gtk_expander_set_child(GTK_EXPANDER(review), canvas);
-        gtk_box_append(GTK_BOX(item), review);
-        g_object_unref(texture);
-    }
+    GtkWidget *review = gtk_expander_new("Review image (bounded preview)");
+    GtkWidget *picture = gtk_picture_new_for_paintable(GDK_PAINTABLE(texture));
+    gtk_picture_set_content_fit(GTK_PICTURE(picture), GTK_CONTENT_FIT_CONTAIN);
+    gtk_widget_set_size_request(picture, gdk_texture_get_width(texture), gdk_texture_get_height(texture));
+    /* A fixed review canvas bounds height-for-width measurement as well as
+     * pixels; GtkPicture alone can make an expanded layer taller than output. */
+    GtkWidget *canvas = gtk_fixed_new();
+    gtk_widget_set_size_request(canvas, 480, 240);
+    gtk_widget_set_halign(canvas, GTK_ALIGN_CENTER);
+    gtk_fixed_put(GTK_FIXED(canvas), picture,
+                  (480 - gdk_texture_get_width(texture)) / 2.0,
+                  (240 - gdk_texture_get_height(texture)) / 2.0);
+    gtk_expander_set_child(GTK_EXPANDER(review), canvas);
+    gtk_box_append(GTK_BOX(item), review);
+    g_object_unref(texture);
     gtk_box_append(GTK_BOX(a->attach_strip), item);
     g_free(name); g_free(formatted_size); g_free(metadata);
     gtk_widget_set_visible(a->attach_strip, TRUE);
-    set_status(a, is_video ? "One reviewed video attached" : "One reviewed image attached");
+    set_status(a, "One reviewed image attached · audio/video/documents unsupported");
 }
 
 static void on_attach(GtkButton *btn, gpointer data) {
     (void)btn;
     App *a = data;
     GtkFileDialog *dialog = gtk_file_dialog_new();
-    gtk_file_dialog_set_title(dialog, "Select image (PNG/JPEG/WebP) or video (MP4/WebM)");
+    gtk_file_dialog_set_title(dialog, "Select static image (PNG/JPEG/WebP; ≤5 MiB, ≤4096×4096)");
     /* Layer surfaces are not xdg_toplevels: exporting one as the portal
      * parent disconnects this client on Hyprland. Use an unparented portal. */
     gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
@@ -1454,7 +1439,7 @@ int main(int argc, char **argv) {
     gtk_css_provider_load_from_string(alpha,
         "window.background.hn-transparent { background-color: rgba(0,0,0,0); background-image: none;"
         " border: none; outline: none; box-shadow: none; }"
-        ".hn-panel button.hn-status-action { min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none; }"
+        ".hn-panel button.hn-status-action { min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; outline: none; background: transparent; box-shadow: none; }"
         ".hn-panel button.hn-status-action:focus-visible { outline: 1px solid #9ecbff; outline-offset: 1px; }");
     gtk_style_context_add_provider_for_display(gdk_display_get_default(),
         GTK_STYLE_PROVIDER(alpha), GTK_STYLE_PROVIDER_PRIORITY_USER);
@@ -1476,7 +1461,7 @@ int main(int argc, char **argv) {
     gtk_stack_set_vhomogeneous(a->stack, FALSE);
     gtk_overlay_set_child(GTK_OVERLAY(a->panel), GTK_WIDGET(a->stack));
     a->size_toggle = gtk_button_new_from_icon_name("go-up-symbolic");
-    gtk_widget_add_css_class(a->size_toggle, "hn-input-action");
+    gtk_widget_add_css_class(a->size_toggle, "hn-status-action");
     gtk_widget_set_halign(a->size_toggle, GTK_ALIGN_END);
     gtk_widget_set_valign(a->size_toggle, GTK_ALIGN_START);
     g_signal_connect(a->size_toggle, "clicked", G_CALLBACK(on_size_toggle), a);
@@ -1568,7 +1553,9 @@ int main(int argc, char **argv) {
     gtk_label_set_max_width_chars(GTK_LABEL(a->status), 24);
     gtk_label_set_ellipsize(GTK_LABEL(a->status), PANGO_ELLIPSIZE_END);
 
-    a->metrics = gtk_label_new("");
+    a->metrics = gtk_label_new("Prefill — · Decode — · Hit — · Full —");
+    gtk_widget_set_name(a->metrics, "hn-inference-metrics");
+    gtk_widget_set_tooltip_text(a->metrics, "Prefill/decode tokens per second; prompt cache reuse; cache fullness unknown (no occupancy telemetry)");
     gtk_widget_add_css_class(a->metrics, "dim-label");
     gtk_widget_set_hexpand(a->metrics, TRUE);
     gtk_label_set_xalign(GTK_LABEL(a->metrics), 1);
@@ -1582,8 +1569,15 @@ int main(int argc, char **argv) {
     gtk_box_append(GTK_BOX(local), a->settings_btn);
     gtk_box_append(GTK_BOX(local), a->status);
     gtk_box_append(GTK_BOX(statusrow), local);
-    gtk_box_append(GTK_BOX(statusrow), a->metrics);
+    GtkWidget *telemetry = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_append(GTK_BOX(telemetry), a->metrics);
+    gtk_box_append(GTK_BOX(statusrow), telemetry);
     gtk_box_append(GTK_BOX(a->chat_page), statusrow);
+    a->monitoring = gtk_label_new("Monitoring pending");
+    gtk_widget_set_name(a->monitoring, "hn-monitoring");
+    gtk_label_set_xalign(GTK_LABEL(a->monitoring), 1);
+    gtk_widget_add_css_class(a->monitoring, "dim-label");
+    gtk_box_append(GTK_BOX(telemetry), a->monitoring);
 
     gtk_stack_add_named(a->stack, a->chat_page, "chat");
 

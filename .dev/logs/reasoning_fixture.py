@@ -29,10 +29,18 @@ async def main():
             with (root / 'backend-requests.jsonl').open('a') as log:
                 log.write(json.dumps(req, ensure_ascii=False) + '\n')
             message = req['messages'][-1]['content']
+            if isinstance(message, list):
+                message = message[0]['text']
+            if message.startswith('metrics-'):
+                await asyncio.sleep(.8)
             if message == 'native':
                 deltas = [{'reasoning_content': 'Fixture: checking α and β. '},
                           {'reasoning_content': 'Thinking remains grey and italic.'},
                           {'content': 'Ordinary answer stays blue and upright ✓.'}]
+            elif message == 'reasoning-only':
+                deltas = [{'reasoning_content': 'Only fixture reasoning α.'}]
+            elif message == 'orphan-close':
+                deltas = [{'content': c} for c in 'Before</think>After']
             elif message == 'delimiters':
                 raw = '<think>Fixture delimiter reasoning α.</think>Delimiter answer ✓.'
                 deltas = [{'content': raw[i:i+3]} for i in range(0, len(raw), 3)]
@@ -50,6 +58,12 @@ async def main():
                     writer.write(f'{len(chunk):x}\r\n'.encode() + chunk + b'\r\n')
                 await writer.drain()
                 await asyncio.sleep(.06)
+            if message in ('metrics-zero', 'metrics-hit'):
+                cached = 0 if message == 'metrics-zero' else 80
+                metadata = {'choices': [], 'timings': {'prompt_n': 20, 'cache_n': cached,
+                    'prompt_per_second': 12.5, 'predicted_per_second': 7.0}}
+                body = ('data: ' + json.dumps(metadata) + '\n\n').encode()
+                writer.write(f'{len(body):x}\r\n'.encode() + body + b'\r\n')
             if message != 'disconnect':
                 body = b'data: [DONE]\n\n'
                 writer.write(f'{len(body):x}\r\n'.encode() + body + b'\r\n0\r\n\r\n')
@@ -61,7 +75,8 @@ async def main():
             await writer.wait_closed()
     if '--live' not in sys.argv:
         server = await asyncio.start_server(backend, '127.0.0.1', 0)
-        agent.ENDPOINTS['text'] = (server.sockets[0].getsockname()[1], 'fixture')
+        for role in ('text', 'omni'):
+            agent.ENDPOINTS[role] = (server.sockets[0].getsockname()[1], 'fixture')
     class FixtureModels:
         async def decide_alert(self, *args, **kwargs):
             return {"score": 0.0, "notify_recommended": False}

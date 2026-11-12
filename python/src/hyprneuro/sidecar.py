@@ -6,6 +6,8 @@ LFM3 text and Omni without launching either model or a new Pi agent loop.
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import asyncio
 import json
 import math
@@ -20,7 +22,7 @@ import time
 
 from .sidecar_store import SidecarStore
 
-MAX_REQUEST = 10 * 1024 * 1024  # 10 MB: supports base64-encoded media
+MAX_REQUEST = 10 * 1024 * 1024  # 10 MiB: includes JSON and base64 overhead
 MAX_RESPONSE = 262144
 RETENTION_INTERVAL_SECONDS = 3600
 
@@ -443,9 +445,22 @@ class SidecarServer:
                    for h in history[-20:] if isinstance(h, dict)]
         # Build the user message, including media if present.
         media = request.get("media")
-        if media and isinstance(media, dict) and media.get("data"):
-            mime = media.get("mime", "image/png")
-            b64 = media["data"]
+        if media is not None:
+            try:
+                if not isinstance(media, dict) or media.get("mime") not in ("image/png", "image/jpeg", "image/webp"):
+                    raise ValueError("Only reviewed static PNG/JPEG/WebP attachments are enabled; audio/video unavailable")
+                mime, b64 = media["mime"], media.get("data")
+                if not isinstance(b64, str) or not b64 or len(b64) > 4 * ((5 * 1024 * 1024 + 2) // 3):
+                    raise ValueError("Invalid or oversized image attachment")
+                image = base64.b64decode(b64, validate=True)
+                signatures = {"image/png": image.startswith(b"\x89PNG\r\n\x1a\n"),
+                              "image/jpeg": image.startswith(b"\xff\xd8\xff"),
+                              "image/webp": image[:4] == b"RIFF" and image[8:12] == b"WEBP"}
+                if not image or len(image) > 5 * 1024 * 1024 or not signatures[mime]:
+                    raise ValueError("Image bytes do not match the declared type or size limit")
+            except (ValueError, binascii.Error) as exc:
+                await self._write_frame(writer, {"type": "error", "error": str(exc)})
+                return
             user_content = [
                 {"type": "text", "text": message[:8000]},
                 {"type": "image_url",
@@ -455,7 +470,7 @@ class SidecarServer:
             user_content = message[:8000]
         messages = ([{"role": "system", "content": system[:4000]}] + history +
                     [{"role": "user", "content": user_content}])
-        role = "omni" if (media and isinstance(media, dict) and media.get("data")) else "text"
+        role = "omni" if media is not None else "text"
         answer = []
         stream_bytes = 0
         metrics = {}

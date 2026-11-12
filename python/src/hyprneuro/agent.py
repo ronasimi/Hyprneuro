@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from typing import AsyncIterator
 
 HOST = "127.0.0.1"
@@ -31,6 +32,46 @@ DEFAULT_SYSTEM = (
 )
 
 
+def inference_metrics(timings=None, usage=None) -> dict:
+    """llama.cpp 7bcbc04: prompt_n is evaluated, not total prompt tokens.
+
+    Never infer cache occupancy from reuse, nor absent counters from zero.
+    Counts are JSON integers; rates must be finite nonnegative JSON numbers.
+    """
+    timings = timings if isinstance(timings, dict) else {}
+    usage = usage if isinstance(usage, dict) else {}
+    metrics = {}
+    for source, target in (("prompt_per_second", "prefill_tps"),
+                           ("predicted_per_second", "decode_tps")):
+        value = timings.get(source)
+        if type(value) in (int, float) and 0 <= value <= 1e308 and math.isfinite(value):
+            metrics[target] = round(value, 1)
+
+    def count(value):
+        return value if type(value) is int and 0 <= value <= 2**63 - 1 else None
+
+    cached = count(timings.get("cache_n"))
+    evaluated = count(timings.get("prompt_n"))
+    total = None
+    if cached is not None and evaluated is not None:
+        total = cached + evaluated
+    else:
+        total = count(usage.get("prompt_tokens"))
+        details = usage.get("prompt_tokens_details")
+        cached = count(details.get("cached_tokens")) if isinstance(details, dict) else None
+        evaluated = total - cached if total is not None and cached is not None and cached <= total else None
+    if total is not None:
+        metrics["prompt_tokens_total"] = total
+    if evaluated is not None and cached is not None and total is not None and cached <= total:
+        metrics.update(prompt_tokens_evaluated=evaluated, prompt_tokens_cached=cached)
+        if total > 0:
+            metrics["cache_hit_pct"] = round(100 * cached / total, 1)
+    output = count(usage.get("completion_tokens"))
+    if output is not None:
+        metrics["output_tokens"] = output
+    return metrics
+
+
 class ThinkingParser:
     """Split the deployed template's <think> delimiters across arbitrary deltas.
 
@@ -45,19 +86,24 @@ class ThinkingParser:
         self.pending += text
         out = []
         while self.pending:
-            token = "</think>" if self.thinking else "<think>"
-            index = self.pending.find(token)
-            if index >= 0:
+            tokens = ("<think>", "</think>")
+            matches = [(self.pending.find(token), token) for token in tokens
+                       if token in self.pending]
+            if matches:
+                index, token = min(matches)
                 if index:
                     out.append(self.event(self.pending[:index]))
                 self.pending = self.pending[index + len(token):]
-                self.thinking = not self.thinking
+                # A closer without an opener is still a control delimiter,
+                # not answer text. Never infer unmarked text was reasoning.
+                self.thinking = token == "<think>"
                 continue
             keep = 0
             if not final:
-                for n in range(1, min(len(token), len(self.pending) + 1)):
-                    if self.pending.endswith(token[:n]):
-                        keep = n
+                for token in tokens:
+                    for n in range(1, min(len(token), len(self.pending) + 1)):
+                        if self.pending.endswith(token[:n]):
+                            keep = max(keep, n)
             count = len(self.pending) - keep
             if count:
                 out.append(self.event(self.pending[:count]))
@@ -168,28 +214,9 @@ async def stream_chat(messages: list[dict], *, role: str = "text",
                 if isinstance(content, str):
                     for event in parser.feed(content):
                         yield event
-            # Capture timings/usage from the final chunk (present on finish).
-            timings = obj.get("timings")
-            usage = obj.get("usage")
-            if timings or usage:
-                metrics = {}
-                if isinstance(timings, dict):
-                    if "prompt_per_second" in timings:
-                        metrics["prefill_tps"] = round(timings["prompt_per_second"], 1)
-                    if "predicted_per_second" in timings:
-                        metrics["decode_tps"] = round(timings["predicted_per_second"], 1)
-                    cache_n = timings.get("cache_n", 0)
-                    prompt_n = timings.get("prompt_n", 0)
-                    if prompt_n and cache_n:
-                        metrics["cache_hit_pct"] = round(100 * cache_n / prompt_n, 1)
-                if isinstance(usage, dict) and "cache_hit_pct" not in metrics:
-                    pt = usage.get("prompt_tokens_details") or {}
-                    cached = pt.get("cached_tokens", 0)
-                    total_pt = usage.get("prompt_tokens", 0)
-                    if total_pt:
-                        metrics["cache_hit_pct"] = round(100 * cached / total_pt, 1)
-                if metrics:
-                    yield {"type": "metrics", **metrics}
+            metrics = inference_metrics(obj.get("timings"), obj.get("usage"))
+            if metrics:
+                yield {"type": "metrics", **metrics}
         for event in parser.feed("", final=True):
             yield event
         if not complete:

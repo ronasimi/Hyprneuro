@@ -8,7 +8,7 @@ import time
 import unittest
 from zoneinfo import ZoneInfo
 
-from hyprneuro.sidecar import serve
+from hyprneuro.sidecar import MAX_REQUEST, serve
 from hyprneuro.sidecar_client import request
 from hyprneuro.sidecar_store import SidecarStore
 
@@ -168,8 +168,10 @@ class IpcTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(output["records"], [])
         with self.assertRaisesRegex(RuntimeError, "Unknown sidecar"):
             await request({"action": "shutdown"}, socket_path=self.socket)
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(RuntimeError, "oversized text field"):
             await request({"action": "search", "query": "x" * 100000}, socket_path=self.socket)
+        with self.assertRaises(ValueError):
+            await request({"action": "search", "query": "x" * MAX_REQUEST}, socket_path=self.socket)
 
     async def test_shutdown_closes_idle_rpc_connection(self):
         reader, writer = await asyncio.open_unix_connection(str(self.socket))

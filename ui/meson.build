@@ -14,10 +14,6 @@ deps = [
   dependency('gtk4-layer-shell-0'),
   dependency('json-glib-1.0'),
   dependency('gio-unix-2.0'),
-  dependency('gstreamer-1.0'),
-  dependency('gstreamer-app-1.0'),
-  dependency('gstreamer-video-1.0'),
-  dependency('gstreamer-base-1.0'),
 ]
 
 executable('hyprneuro-ui',
@@ -25,3 +21,6 @@ executable('hyprneuro-ui',
   dependencies: deps,
   link_args: ['-lm'],
   install: true)
+
+history_test = executable('test-ui-history', 'tests/history.c', dependencies: deps)
+test('ui-history', history_test)

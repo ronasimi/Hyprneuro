@@ -156,3 +156,22 @@ The three local llama.cpp endpoints are used exactly as before:
 
 Deterministic routing is preferred; D1 is invoked only when beneficial. No
 inference-stack configuration was changed.
+
+## GTK recovery audit (2026-11-12)
+
+See [current acceptance](PRODUCTION_ACCEPTANCE.md): **NOT READY**. The GTK
+Settings page is read-only, not the editable curses TUI settings. Snapshot RPCs
+run off the main thread and bounded control commands are read asynchronously.
+Chat history owns builder roots and transfers copies when embedding JSON.
+The file portal is unparented because a layer surface cannot be exported as an
+xdg_toplevel. Unsafe raw PipeWire/grim capture paths were removed with approval;
+camera/audio/screen controls report unavailable until real portal-backed
+capture and release exist. No hardware preview success is asserted.
+
+Composer Return/KP_Enter sends; Ctrl+Return/Ctrl+KP_Enter inserts a newline,
+with consumed key events and unchanged busy/empty send guards. Static PNG,
+JPEG and WebP attachments (≤5 MiB, ≤4096×4096) are decoder-validated, previewed
+inline with bounded thumbnail/expandable review and metadata, and submitted
+from the exact reviewed snapshot. X clears bytes and UI. Cancel preserves draft
+and attachment. Audio/video/document attachments have no verified inference
+path and are rejected; no playback/document preview support is claimed.

@@ -8,6 +8,21 @@ transient logs and large artifacts are Git-ignored).
 > Retrieve specific records on demand. Do not inject the whole ledger into a
 > prompt.
 
+> **2026-11-12 recovery audit: NOT READY.** Earlier phase/scorecard entries
+> below are historical, not GTK production acceptance. The old GUI/media PASS
+> claims and builder-root UAF explanation are superseded by
+> [PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md). Actual GUI tests found
+> stream-buffer UAF, invalid GTask source, callback/history ownership defects,
+> and a layer-surface file-picker export disconnect. Fixes are in the working
+> tree; capture fails closed with approval. GTK frame-timing warnings still
+> abort under fatal warnings. GTK settings contain **no switches or submenus**.
+> Late requirements: Enter/KP_Enter send; Ctrl variants insert newline.
+> Static PNG/JPEG/WebP now have bounded thumbnails/review and frozen payloads;
+> unsupported audio/video/documents are rejected.
+> Current evidence: 11 live-model GUI text turns, 6 GUI Omni image submissions,
+> 25 deterministic GUI fixture turns, 5 sanitizer C cases, Python 253 passed /
+> 1 skipped / 30 subtests. These do not satisfy missing media/settings gates.
+
 ## Machine-readable state
 
 - `.dev/state.json` — current git/deployed/last-known-good revision, phase,
@@ -23,7 +38,7 @@ transient logs and large artifacts are Git-ignored).
   comparisons).
 - `.dev/last_known_good.txt` — the last verified-good git revision.
 
-## Current status (as of iteration 5)
+## Historical phase status (iteration 5; not current GUI acceptance)
 
 | Item | Status |
 |---|---|
@@ -59,7 +74,12 @@ See `.dev/benchmarks/final_scorecard.json`.
 
 ## Rollback
 
-Restore the last-known-good revision and service configuration:
+**Audit warning:** `.dev/last_known_good.txt` is a historical phase reference,
+not a verified-good GTK production build. Current state deliberately records no
+production last-known-good. Preserve local work and data; do not automatically
+execute the historical checkout recipe below.
+
+Historical recipe: restore the last-known-good revision and service configuration:
 
 ```bash
 cd ~/Projects/Hyprneuro

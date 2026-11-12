@@ -1,0 +1,1 @@
+{"ts": "2026-11-12T08:27:44-0500", "status": "open", "blocker": "GTK frame-timing warning fatal with G_DEBUG=fatal-warnings; missing portal capture/settings controls; physical hotkey unverified", "evidence": "docs/PRODUCTION_ACCEPTANCE.md"}

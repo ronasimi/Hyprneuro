@@ -187,10 +187,19 @@ class SidecarStore:
                 updated_ms INTEGER NOT NULL
             );
             CREATE INDEX IF NOT EXISTS tasks_status_time ON tasks(status, updated_ms DESC);
+            CREATE TABLE IF NOT EXISTS authorizations (
+                task_id TEXT PRIMARY KEY,
+                app_id TEXT,
+                file_prefix TEXT,
+                ops_json TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                approved INTEGER NOT NULL DEFAULT 0,
+                created_ms INTEGER NOT NULL
+            );
         """)
         with self.db:
-            self.db.execute("INSERT INTO sidecar_meta VALUES ('schema_version','2') "
-                            "ON CONFLICT(key) DO UPDATE SET value='2'")
+            self.db.execute("INSERT INTO sidecar_meta VALUES ('schema_version','3') "
+                            "ON CONFLICT(key) DO UPDATE SET value='3'")
         if not self.db.execute("SELECT 1 FROM sidecar_meta WHERE key='search_v2'").fetchone():
             with self.db:
                 self.db.execute("DELETE FROM search_fts")
@@ -637,6 +646,62 @@ class SidecarStore:
             rows = self.db.execute("SELECT id,goal,scope,status,updated_ms FROM tasks "
                                     "ORDER BY updated_ms DESC LIMIT ?", (limit,)).fetchall()
         return [{"id": i, "goal": g[:200], "scope": s, "status": st, "updated_ms": u} for (i, g, s, st, u) in rows]
+
+    # -- Task-scoped authorization (schema v3) -----------------------------
+
+    def auth_upsert(self, scope):
+        if not isinstance(scope, dict) or not scope.get("task_id"):
+            raise ValueError("Authorization scope requires task_id")
+        task_id = scope["task_id"]
+        if len(task_id) > 128:
+            raise ValueError("Invalid task_id")
+        ops = scope.get("ops") or []
+        if not isinstance(ops, (list, tuple)):
+            raise ValueError("Invalid ops")
+        encoded = json.dumps(list(ops))
+        if len(encoded) > 4096:
+            raise ValueError("Too many ops")
+        status = scope.get("status", "active")
+        if status not in ("active", "revoked"):
+            raise ValueError("Invalid authorization status")
+        with self.db:
+            self.db.execute(
+                "INSERT INTO authorizations(task_id,app_id,file_prefix,ops_json,status,approved,created_ms) "
+                "VALUES(?,?,?,?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET app_id=excluded.app_id,"
+                "file_prefix=excluded.file_prefix,ops_json=excluded.ops_json,status=excluded.status,"
+                "approved=excluded.approved,created_ms=excluded.created_ms",
+                (task_id, scope.get("app_id"), scope.get("file_prefix"), encoded, status,
+                 int(bool(scope.get("approved"))), int(scope.get("created_ms") or 0)))
+        return {"authorized": True, **self.auth_get(task_id)}
+
+    def auth_get(self, task_id):
+        if not isinstance(task_id, str) or not task_id:
+            raise ValueError("Invalid task_id")
+        row = self.db.execute(
+            "SELECT task_id,app_id,file_prefix,ops_json,status,approved,created_ms "
+            "FROM authorizations WHERE task_id=?", (task_id,)).fetchone()
+        if not row:
+            return None
+        return {"task_id": row[0], "app_id": row[1], "file_prefix": row[2],
+                "ops": json.loads(row[3]), "status": row[4], "approved": bool(row[5]),
+                "created_ms": row[6]}
+
+    def auth_revoke(self, task_id):
+        if not isinstance(task_id, str) or not task_id:
+            raise ValueError("Invalid task_id")
+        with self.db:
+            cur = self.db.execute("UPDATE authorizations SET status='revoked' WHERE task_id=?",
+                                  (task_id,))
+        if cur.rowcount == 0:
+            raise LookupError("No authorization scope for task")
+        return {"revoked": True, "task_id": task_id}
+
+    def auth_list(self):
+        rows = self.db.execute(
+            "SELECT task_id,app_id,file_prefix,ops_json,status,approved,created_ms "
+            "FROM authorizations ORDER BY created_ms").fetchall()
+        return [{"task_id": r[0], "app_id": r[1], "file_prefix": r[2], "ops": json.loads(r[3]),
+                 "status": r[4], "approved": bool(r[5]), "created_ms": r[6]} for r in rows]
 
 
 def _one_edit(a, b):

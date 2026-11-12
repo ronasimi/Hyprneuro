@@ -1,0 +1,10 @@
+{
+  "baseline_revision": "cfc7abb961a4174bbe49e398fc062e0d54272585",
+  "candidate_revision": "working-tree",
+  "regression_tests": {"baseline": "176 passed", "candidate": "203 passed", "delta": "+27 new, 0 failures"},
+  "warm_ttft_p50_ms": {"text": 513.7, "omni": 478.3, "decision": 229.6, "note": "unchanged model stack"},
+  "routing_cost_ms": {"route": 0.00013, "handoff_build": 0.008},
+  "prompt_cache_reuse": {"cached_tokens_last_text_trial": 0, "note": "cross-request reuse not reliably hitting; optimization target"},
+  "hard_gates": {"security_regression": false, "unauthorized_action_blocked": true, "data_corruption": false, "uncontrolled_desktop": false, "critical_crash": false, "broken_monitoring": false, "unbounded_growth": false},
+  "decision": "PROMOTE"
+}

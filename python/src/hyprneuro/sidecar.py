@@ -86,12 +86,18 @@ class SidecarServer:
         self.memory = None
         self.skills = None
         self.app_watcher = None
+        self.broker = None
+        self.router = None
         if assistant_enabled:
             from .application import AppRegistry, SkillIndex, TieredMemory
+            from .authorization import PermissionBroker
+            from .model_router import ModelRouter
             self.registry = AppRegistry(max_recent=assistant_recent_apps,
                                         debounce_ms=assistant_focus_debounce_ms)
             self.memory = TieredMemory(store)
             self.skills = SkillIndex.from_directory(skills_dir) if skills_dir else SkillIndex()
+            self.broker = PermissionBroker(store)
+            self.router = ModelRouter()
 
     def _assistant(self, request):
         """Versioned assistant IPC. All reads are read-only and bounded.
@@ -151,6 +157,42 @@ class SidecarServer:
             if set(request) - {"action", "status", "limit"}:
                 raise ValueError("Invalid task_list request")
             return self.store.task_list(status=request.get("status"), limit=request.get("limit", 20))
+        if action == "auth_create":
+            if set(request) - {"action", "task_id", "app_id", "file_prefix", "ops", "approved"}:
+                raise ValueError("Invalid auth_create request")
+            return self.broker.authorize(request["task_id"], app_id=request.get("app_id"),
+                                         file_prefix=request.get("file_prefix"),
+                                         ops=tuple(request.get("ops") or ("read", "write")),
+                                         approved=request.get("approved", False))
+        if action == "auth_check":
+            if set(request) - {"action", "task_id", "op", "app_id", "path"}:
+                raise ValueError("Invalid auth_check request")
+            return self.broker.check(request["task_id"], request["op"],
+                                     app_id=request.get("app_id"), path=request.get("path"))
+        if action == "auth_expand":
+            if set(request) - {"action", "task_id", "ops", "file_prefix", "app_id", "approved"}:
+                raise ValueError("Invalid auth_expand request")
+            return self.broker.expand(request["task_id"], ops=tuple(request.get("ops")) if request.get("ops") else None,
+                                      file_prefix=request.get("file_prefix"), app_id=request.get("app_id"),
+                                      approved=request.get("approved", False))
+        if action == "auth_revoke":
+            if set(request) - {"action", "task_id"}:
+                raise ValueError("Invalid auth_revoke request")
+            return self.broker.revoke(request["task_id"])
+        if action == "auth_list":
+            return {"schema": "hyprneuro.auth/1", "scopes": self.broker.list()}
+        if action == "route":
+            if set(request) - {"action", "task_kind", "has_multimodal", "needs_classification"}:
+                raise ValueError("Invalid route request")
+            role = self.router.route(request["task_kind"],
+                                     has_multimodal=request.get("has_multimodal", False),
+                                     needs_classification=request.get("needs_classification", False))
+            return {"schema": "hyprneuro.route/1", "role": role,
+                    "d1_invoked": role == "decision"}
+        if action == "handoff":
+            if set(request) - {"action", "from_role", "to_role", "payload"}:
+                raise ValueError("Invalid handoff request")
+            return self.router.handoff(request["from_role"], request["to_role"], request.get("payload") or {})
         raise ValueError("Unknown assistant RPC action")
 
     def dispatch(self, request):
@@ -197,7 +239,9 @@ class SidecarServer:
             return self.store.details(request.get("id"))
         if action in ("app_context", "memory_remember", "memory_recall",
                      "skill_discover", "skill_load", "skill_list",
-                     "task_create", "task_update", "task_get", "task_list"):
+                     "task_create", "task_update", "task_get", "task_list",
+                     "auth_create", "auth_check", "auth_expand", "auth_revoke", "auth_list",
+                     "route", "handoff"):
             if not self.assistant_enabled:
                 raise PermissionError("Assistant features are disabled")
             return self._assistant(request)

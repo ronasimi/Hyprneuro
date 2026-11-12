@@ -46,7 +46,7 @@ class StoreMigrationTests(unittest.TestCase):
 
     def test_schema_version_bumped(self):
         row = self.store.db.execute("SELECT value FROM sidecar_meta WHERE key='schema_version'").fetchone()
-        self.assertEqual(row[0], "2")
+        self.assertEqual(row[0], "3")
 
     def test_memory_roundtrip(self):
         self.store.app_memory_remember("app", "pref.theme", json.dumps("dark"), app_id="google-chrome")
@@ -201,6 +201,56 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
                            "bogus": True}, socket_path=self.socket)
         with self.assertRaisesRegex(RuntimeError, "Invalid"):
             await request({"action": "task_create", "goal": ""}, socket_path=self.socket)
+
+    async def test_auth_lifecycle_over_ipc(self):
+        # Normal ops within scope are allowed; privileged need approval.
+        await request({"action": "auth_create", "task_id": "t1", "app_id": "kitty",
+                       "file_prefix": "/tmp/work", "ops": ["read", "write"]},
+                      socket_path=self.socket)
+        ok = await request({"action": "auth_check", "task_id": "t1", "op": "read",
+                            "app_id": "kitty", "path": "/tmp/work/a.txt"}, socket_path=self.socket)
+        self.assertTrue(ok["allowed"])
+        out = await request({"action": "auth_check", "task_id": "t1", "op": "read",
+                             "path": "/etc/passwd"}, socket_path=self.socket)
+        self.assertFalse(out["allowed"])
+        self.assertEqual(out["reason"], "path_out_of_scope")
+        # Privileged op not in the scope -> denied.
+        priv = await request({"action": "auth_check", "task_id": "t1", "op": "delete"},
+                             socket_path=self.socket)
+        self.assertFalse(priv["allowed"])
+        # Expand with approval grants the privileged op.
+        await request({"action": "auth_expand", "task_id": "t1", "ops": ["read", "write", "delete"],
+                       "approved": True}, socket_path=self.socket)
+        allowed = await request({"action": "auth_check", "task_id": "t1", "op": "delete"},
+                                socket_path=self.socket)
+        self.assertTrue(allowed["allowed"])
+        listed = await request({"action": "auth_list"}, socket_path=self.socket)
+        self.assertEqual(listed["schema"], "hyprneuro.auth/1")
+        self.assertEqual(len(listed["scopes"]), 1)
+        # Revoke denies everything.
+        await request({"action": "auth_revoke", "task_id": "t1"}, socket_path=self.socket)
+        revoked = await request({"action": "auth_check", "task_id": "t1", "op": "read"},
+                                socket_path=self.socket)
+        self.assertEqual(revoked["reason"], "scope_revoked")
+
+    async def test_route_and_handoff_over_ipc(self):
+        text = await request({"action": "route", "task_kind": "code"}, socket_path=self.socket)
+        self.assertEqual(text["role"], "text")
+        self.assertFalse(text["d1_invoked"])
+        omni = await request({"action": "route", "task_kind": "vision"}, socket_path=self.socket)
+        self.assertEqual(omni["role"], "omni")
+        d1 = await request({"action": "route", "task_kind": "classify"}, socket_path=self.socket)
+        self.assertEqual(d1["role"], "decision")
+        self.assertTrue(d1["d1_invoked"])
+        handoff = await request({"action": "handoff", "from_role": "text", "to_role": "omni",
+                                 "payload": {"task_id": "t1", "summary": "read tab",
+                                             "evidence": "E" * 5000}}, socket_path=self.socket)
+        self.assertTrue(handoff["handoff"])
+        self.assertLessEqual(len(handoff["evidence"]), 1200)
+        # No unnecessary D1 for ordinary kinds.
+        for kind in ("chat", "code", "tool", "general"):
+            r = await request({"action": "route", "task_kind": kind}, socket_path=self.socket)
+            self.assertFalse(r["d1_invoked"])
 
 
 if __name__ == "__main__":

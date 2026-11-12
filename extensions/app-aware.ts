@@ -150,4 +150,62 @@ export default function (pi: ExtensionAPI) {
       return result(await sidecar(payload, signal));
     },
   });
+
+  pi.registerTool({
+    name: "hyprneuro_auth",
+    label: "Task-scoped authorization",
+    description: "Manage task-scoped autonomy. `create` authorizes a task/app/file scope with a bounded set of operations (privileged ops require explicit approved=true). `check` decides if one operation is permitted (returns {allowed, reason}). `expand` widens a scope (always requires approved=true). `revoke`/`list` manage scopes. This is policy only; it grants no desktop lease by itself.",
+    promptSnippet: "Authorize, check, expand, or revoke a task-scoped permission",
+    parameters: Type.Object({
+      action: Type.Union([Type.Literal("create"), Type.Literal("check"), Type.Literal("expand"), Type.Literal("revoke"), Type.Literal("list")]),
+      task_id: Type.Optional(Type.String({ maxLength: 128 })),
+      op: Type.Optional(Type.String({ maxLength: 40 })),
+      app_id: Type.Optional(Type.String({ maxLength: 128 })),
+      path: Type.Optional(Type.String({ maxLength: 512 })),
+      file_prefix: Type.Optional(Type.String({ maxLength: 512 })),
+      ops: Type.Optional(Type.Array(Type.String({ maxLength: 40 }))),
+      approved: Type.Optional(Type.Boolean()),
+    }),
+    async execute(_id, params, signal) {
+      const action = params.action === "create" ? "auth_create"
+        : params.action === "check" ? "auth_check"
+        : params.action === "expand" ? "auth_expand"
+        : params.action === "revoke" ? "auth_revoke" : "auth_list";
+      const payload: Record<string, unknown> = { action };
+      if (params.task_id) payload.task_id = params.task_id;
+      if (params.op) payload.op = params.op;
+      if (params.app_id) payload.app_id = params.app_id;
+      if (params.path) payload.path = params.path;
+      if (params.file_prefix) payload.file_prefix = params.file_prefix;
+      if (params.ops) payload.ops = params.ops;
+      if (params.approved !== undefined) payload.approved = params.approved;
+      return result(await sidecar(payload, signal));
+    },
+  });
+
+  pi.registerTool({
+    name: "hyprneuro_route",
+    label: "Deterministic model routing",
+    description: "Decide which local LFM endpoint a task should use (text / omni / decision) with deterministic rules, and build bounded structured handoffs between models. D1 is used only when a classification is explicitly requested; multimodal tasks go to Omni; ordinary work goes to text. No inference is performed here.",
+    promptSnippet: "Route a task to text/omni/decision or build a model handoff",
+    parameters: Type.Object({
+      action: Type.Union([Type.Literal("route"), Type.Literal("handoff")]),
+      task_kind: Type.Optional(Type.Union([Type.Literal("chat"), Type.Literal("code"), Type.Literal("tool"), Type.Literal("vision"), Type.Literal("classify"), Type.Literal("general")])),
+      has_multimodal: Type.Optional(Type.Boolean()),
+      needs_classification: Type.Optional(Type.Boolean()),
+      from_role: Type.Optional(Type.Union([Type.Literal("text"), Type.Literal("omni"), Type.Literal("decision")])),
+      to_role: Type.Optional(Type.Union([Type.Literal("text"), Type.Literal("omni"), Type.Literal("decision")])),
+      payload: Type.Optional(Type.Object({}, { additionalProperties: true })),
+    }),
+    async execute(_id, params, signal) {
+      const payload: Record<string, unknown> = { action: params.action };
+      if (params.task_kind) payload.task_kind = params.task_kind;
+      if (params.has_multimodal !== undefined) payload.has_multimodal = params.has_multimodal;
+      if (params.needs_classification !== undefined) payload.needs_classification = params.needs_classification;
+      if (params.from_role) payload.from_role = params.from_role;
+      if (params.to_role) payload.to_role = params.to_role;
+      if (params.payload !== undefined) payload.payload = params.payload;
+      return result(await sidecar(payload, signal));
+    },
+  });
 }

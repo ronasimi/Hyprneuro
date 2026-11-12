@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794448206677,
+  "updated_at_ms": 1794449586562,
   "git": {
     "revision": "cfc7abb961a4174bbe49e398fc062e0d54272585",
     "branch": "feat/application-aware-assistant",
@@ -8,7 +8,7 @@
   },
   "deployed_revision": null,
   "last_known_good": "cfc7abb961a4174bbe49e398fc062e0d54272585",
-  "phase": "2-application-awareness (slice complete)",
+  "phase": "3/4 permission-broker + model-router (slice complete)",
   "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
   "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
   "completed_features": [
@@ -22,10 +22,13 @@
     "durable-task-state",
     "cold-start-seed-fix",
     "live-validation",
-    "durable-task-e2e"
+    "durable-task-e2e",
+    "permission-broker",
+    "deterministic-model-router",
+    "structured-handoffs",
+    "kv-reuse-measurement"
   ],
   "remaining_criteria": [
-    "permission-broker",
     "computer-use-leases",
     "hotkey-interface",
     "adaptive-residency",
@@ -41,5 +44,5 @@
   "artifacts": {
     "baseline_tests": ".dev/benchmarks/baseline_tests.json"
   },
-  "next_action": "Phase 3/4: deepen the Pi Durable adapter (durable conversation/checkpoint surface, permission broker) + measure LFM routing/KV reuse; then Phase 5 computer-use leases with disposable test apps."
+  "next_action": "Phase 5: computer-use desktop-control lease + focus validation + safe user interruption (disposable test apps); Phase 6 hotkey interface."
 }

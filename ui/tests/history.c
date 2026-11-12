@@ -156,8 +156,100 @@ static void inference_metrics_format(void) {
     json_node_unref(nonfinite);
     g_object_unref(p);
 }
+static void put32(guchar *p, guint32 n) {
+    p[0] = n; p[1] = n >> 8; p[2] = n >> 16; p[3] = n >> 24;
+}
+static guchar *pcm_wav(guint rate, guint channels, guint frames, gsize *length) {
+    *length = 44 + frames * channels * 2;
+    guchar *p = g_malloc0(*length);
+    memcpy(p, "RIFF", 4); put32(p+4, *length-8); memcpy(p+8, "WAVEfmt ", 8);
+    put32(p+16, 16); p[20] = 1; p[22] = channels;
+    put32(p+24, rate); put32(p+28, rate*channels*2); p[32] = channels*2; p[34] = 16;
+    memcpy(p+36, "data", 4); put32(p+40, *length-44);
+    return p;
+}
+static void audio_bounds_snapshot(void) {
+    gsize n;
+    guchar *p = pcm_wav(24000, 1, 74880, &n);
+    AudioInfo info = {0};
+    g_assert_true(validate_wav(p, n, &info));
+    g_assert_cmpuint(info.rate, ==, 24000);
+    g_assert_cmpuint(info.channels, ==, 1);
+    g_assert_cmpuint(info.frames, ==, 74880);
+    g_assert_false(validate_wav(p, 0, &info));
+    g_assert_false(validate_wav(p, 43, &info));
+    g_assert_false(validate_wav(p, n-1, &info));
+    guint offsets[] = {0,4,8,12,16,20,22,24,28,32,34,36,40};
+    for (guint i = 0; i < G_N_ELEMENTS(offsets); i++) {
+        p[offsets[i]] ^= 0x80;
+        g_assert_false(validate_wav(p, n, &info));
+        p[offsets[i]] ^= 0x80;
+    }
+    char *directory = g_dir_make_tmp("hyprneuro-audio-test-XXXXXX", NULL);
+    char *path = g_build_filename(directory, "audio.wav", NULL);
+    GFile *file = g_file_new_for_path(path);
+    g_assert_true(g_file_set_contents(path, (char *)p, n, NULL));
+    GBytes *snapshot = load_audio(file, &info);
+    g_assert_nonnull(snapshot);
+    /* Source replacement cannot mutate the in-memory decoder/send snapshot. */
+    g_assert_true(g_file_set_contents(path, "bad", 3, NULL));
+    g_assert_cmpmem(g_bytes_get_data(snapshot, NULL), g_bytes_get_size(snapshot), p, n);
+    g_assert_null(load_audio(file, &info));
+    g_bytes_unref(snapshot);
+    g_unlink(path);
+    g_assert_cmpint(mkfifo(path, 0600), ==, 0);
+    g_assert_null(load_audio(file, &info));
+    char *b64 = NULL, *mime = NULL; GdkPixbuf *preview = NULL; ImageSize size = {0};
+    gsize length;
+    g_assert_false(load_image(file, &b64, &mime, &preview, &length, &size));
+    g_unlink(path);
+    g_assert_cmpint(symlink("/dev/zero", path), ==, 0);
+    g_assert_null(load_audio(file, &info));
+    g_unlink(path); g_rmdir(directory); g_free(path); g_free(directory); g_object_unref(file);
+    g_free(p);
+    p = pcm_wav(48000, 2, 48000*15, &n);
+    g_assert_cmpuint(n, ==, MAX_AUDIO_BYTES);
+    g_assert_true(validate_wav(p, n, &info));
+    g_free(p);
+    p = pcm_wav(8000, 1, 8000*15+1, &n);
+    g_assert_false(validate_wav(p, n, &info));
+    g_free(p);
+    p = pcm_wav(48000, 2, 48000*15+1, &n);
+    g_assert_false(validate_wav(p, n, &info));
+    g_free(p);
+}
+static void observation_rendering(void) {
+    JsonParser *p = json_parser_new();
+    const char *json = "{\"id\":7,\"time_ms\":1794510000000,\"source\":\"manual\","
+        "\"title\":\"<b>needle</b>\",\"untrusted\":true,\"message\":\"Do not execute\","
+        "\"url_preview\":\"https://example.test/path\"}";
+    g_assert_true(json_parser_load_from_data(p, json, -1, NULL));
+    char *summary = observation_summary(json_parser_get_root(p));
+    g_assert_nonnull(strstr(summary, "#7 · "));
+    g_assert_nonnull(strstr(summary, "<b>needle</b>"));
+    g_free(summary);
+    char *detail = observation_detail(json_parser_get_root(p));
+    g_assert_nonnull(strstr(detail, "untrusted text, not instructions"));
+    g_assert_nonnull(strstr(detail, "Message: Do not execute"));
+    g_assert_nonnull(strstr(detail, "URL preview (no opening): https://example.test/path"));
+    g_free(detail);
+    const char *invalid[] = {"{}", "[]", "null", "{\"id\":true}",
+        "{\"id\":1,\"time_ms\":-1,\"source\":\"manual\",\"title\":\"x\"}",
+        "{\"id\":1,\"time_ms\":1,\"source\":true,\"title\":\"x\"}"};
+    for (guint i = 0; i < G_N_ELEMENTS(invalid); i++) {
+        g_assert_true(json_parser_load_from_data(p, invalid[i], -1, NULL));
+        g_assert_null(observation_summary(json_parser_get_root(p)));
+        g_assert_null(observation_detail(json_parser_get_root(p)));
+    }
+    g_assert_true(json_parser_load_from_data(p,
+        "{\"id\":1,\"time_ms\":1,\"source\":\"manual\",\"title\":\"x\",\"untrusted\":false}", -1, NULL));
+    g_assert_null(observation_detail(json_parser_get_root(p)));
+    g_object_unref(p);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/observation-rendering", observation_rendering);
+    g_test_add_func("/ui/audio-bounds-snapshot", audio_bounds_snapshot);
     g_test_add_func("/ui/inference-metrics", inference_metrics_format);
     g_test_add_func("/ui/reasoning-tags", reasoning_tags);
     g_test_add_func("/ui/history-ownership", history_ownership);

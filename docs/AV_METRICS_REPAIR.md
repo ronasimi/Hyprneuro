@@ -1,5 +1,10 @@
 # AV and inference telemetry repair — NOT READY
 
+**Newer uncommitted milestone/deployment:** [AUDIO_FILE_CHECKPOINT.md](AUDIO_FILE_CHECKPOINT.md).
+Historical missing-plugin failure is preserved below; user-installed plugins now
+permit verified bounded native WAV playback/review and actual installed Omni
+transcription. Video UI remains unimplemented; see the newer checkpoint.
+
 Last verified code: **4f1711e**.
 
 2026-11-12; audited clean HEAD `22174f1` on `feat/application-aware-assistant`.

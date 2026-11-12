@@ -447,25 +447,28 @@ class SidecarServer:
         media = request.get("media")
         if media is not None:
             try:
-                if not isinstance(media, dict) or media.get("mime") not in ("image/png", "image/jpeg", "image/webp"):
-                    raise ValueError("Only reviewed static PNG/JPEG/WebP attachments are enabled; audio/video unavailable")
+                from .audio import MAX_AUDIO_BYTES, validate_wav
+                if not isinstance(media, dict) or media.get("mime") not in ("image/png", "image/jpeg", "image/webp", "audio/wav"):
+                    raise ValueError("Only reviewed static PNG/JPEG/WebP or bounded PCM16 WAV attachments are enabled")
                 mime, b64 = media["mime"], media.get("data")
-                if not isinstance(b64, str) or not b64 or len(b64) > 4 * ((5 * 1024 * 1024 + 2) // 3):
-                    raise ValueError("Invalid or oversized image attachment")
-                image = base64.b64decode(b64, validate=True)
-                signatures = {"image/png": image.startswith(b"\x89PNG\r\n\x1a\n"),
-                              "image/jpeg": image.startswith(b"\xff\xd8\xff"),
-                              "image/webp": image[:4] == b"RIFF" and image[8:12] == b"WEBP"}
-                if not image or len(image) > 5 * 1024 * 1024 or not signatures[mime]:
-                    raise ValueError("Image bytes do not match the declared type or size limit")
+                limit = MAX_AUDIO_BYTES if mime == "audio/wav" else 5 * 1024 * 1024
+                if not isinstance(b64, str) or not b64 or len(b64) > 4 * ((limit + 2) // 3):
+                    raise ValueError("Invalid or oversized attachment")
+                decoded = base64.b64decode(b64, validate=True)
+                if mime == "audio/wav":
+                    validate_wav(decoded)
+                    part = {"type": "input_audio", "input_audio": {"data": b64, "format": "wav"}}
+                else:
+                    signatures = {"image/png": decoded.startswith(b"\x89PNG\r\n\x1a\n"),
+                                  "image/jpeg": decoded.startswith(b"\xff\xd8\xff"),
+                                  "image/webp": decoded[:4] == b"RIFF" and decoded[8:12] == b"WEBP"}
+                    if not decoded or len(decoded) > limit or not signatures[mime]:
+                        raise ValueError("Image bytes do not match the declared type or size limit")
+                    part = {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
             except (ValueError, binascii.Error) as exc:
                 await self._write_frame(writer, {"type": "error", "error": str(exc)})
                 return
-            user_content = [
-                {"type": "text", "text": message[:8000]},
-                {"type": "image_url",
-                 "image_url": {"url": f"data:{mime};base64,{b64}"}},
-            ]
+            user_content = [{"type": "text", "text": message[:8000]}, part]
         else:
             user_content = message[:8000]
         messages = ([{"role": "system", "content": system[:4000]}] + history +

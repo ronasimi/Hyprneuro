@@ -361,6 +361,35 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(frame["type"], "error")
                     backend.assert_not_called()
 
+    async def test_audio_snapshot_native_schema_and_rejections(self):
+        import base64
+        import struct
+        n = 240 * 2
+        wav = struct.pack('<4sI4s4sIHHIIHH4sI', b'RIFF', n + 36, b'WAVE', b'fmt ',
+                          16, 1, 1, 24000, 48000, 2, 16, b'data', n) + bytes(n)
+        seen = []
+        async def backend(messages, **kwargs):
+            seen.append((messages, kwargs))
+            yield {"type": "delta", "channel": "answer", "text": "audio fixture"}
+        data = base64.b64encode(wav).decode()
+        with patch("hyprneuro.agent.stream_chat", backend):
+            for decoded in [wav, wav[:-1], wav + b'\0', wav[:20] + b'\x03' + wav[21:]]:
+                reader, writer = await asyncio.open_unix_connection(str(self.socket))
+                writer.write((json.dumps({"action": "agent_chat", "message": "transcribe", "media":
+                    {"mime": "audio/wav", "data": base64.b64encode(decoded).decode()}}) + "\n").encode())
+                await writer.drain()
+                frame = json.loads(await reader.readline())
+                self.assertEqual(frame["type"], "delta" if decoded == wav else "error")
+                if decoded == wav:
+                    self.assertEqual(json.loads(await reader.readline())["type"], "done")
+                writer.close()
+                await writer.wait_closed()
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0][1]["role"], "omni")
+        self.assertEqual(seen[0][0][-1]["content"], [
+            {"type": "text", "text": "transcribe"},
+            {"type": "input_audio", "input_audio": {"data": data, "format": "wav"}}])
+
     async def test_image_snapshot_routes_only_to_omni(self):
         import base64
         seen = []

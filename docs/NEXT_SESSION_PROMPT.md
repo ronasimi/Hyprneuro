@@ -1,109 +1,118 @@
 # Hyprneuro — exact continuation checkpoint (NOT READY)
 
-Audit git HEAD/worktree and running identity first: interrupted processes may
-have stopped. Branch **feat/application-aware-assistant**, never main. Last
-verified **code** checkpoint **4f1711e** (repair began at clean22174f1); subsequent
-documentation checkpoint is not a different application binary.
+Audit HEAD/worktree/processes first. Branch `feat/application-aware-assistant`;
+HEAD is still **13ad215** (last verified committed code4f1711e). Implementation
+writer left changes **uncommitted/unpushed**, as required by its developer
+contract. Do not claim new commits or pushed iterations. Main agent/user must
+review/publish coherent milestones, using exact trailer
+`Co-Authored-By: AI Agent <agent@local>` and plain HTTPS `git push`, verify remote
+hash, never merge/main. No stale-binary restores during test cleanup.
 
-Read [AV_METRICS_REPAIR.md](AV_METRICS_REPAIR.md),
-[FEATURE_ITERATIONS.md](FEATURE_ITERATIONS.md), then
-[GTK_FEATURE_CHECKPOINT.md](GTK_FEATURE_CHECKPOINT.md) and
-[PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md). Historical completion,
-audio/video/cache claims are superseded only by exact current evidence.
+Read [AUDIO_FILE_CHECKPOINT.md](AUDIO_FILE_CHECKPOINT.md),
+[SEARCH_GTK_CHECKPOINT.md](SEARCH_GTK_CHECKPOINT.md),
+[FEATURE_ITERATIONS.md](FEATURE_ITERATIONS.md), then earlier
+[AV_METRICS_REPAIR.md](AV_METRICS_REPAIR.md). Newer checkpoints supersede only
+named earlier claims; historical failures stay evidence, not PASS.
 
-## Implemented, tested, deployed separately
+## Current verified/deployed working-tree milestones
 
-- Running unchanged llama.cpp b12308/7bcbc04fb; source/API/template/model/projector
-  inspected. Native `input_audio` transcribed a known synthetic WAV exactly;
-  native `input_video` described red→blue and reversed blue→red MP4s correctly
-  (reverse response length-limited). Neither tone guessing through image_url nor
-  static-colour MP4 guessing established the earlier claims.
-- **AV file UI deliberately disabled** until inline review/playback, duration/
-  decode/resource/transport bounds exist. GTK/IPC only PNG/JPEG/WebP static
-  attachments. Removed10MiB raw-video path (~13.33MiB base64 >10MiB IPC frame).
-- Metrics distinguish evaluated/cached/total, finite typed values, valid zero
-  reuse and unknown missing. Separate monitoring/inference state; pending/done/
-  error/reset; cache occupancy explicitly Full—. Tooltips distinguish counts.
-- Thinking control parser consumes orphan closers after a real live stray tag
-  was observed. Native/split/only/error/reset fixtures through **installed** GTK
-  expose actual italic/weight400/#b8b8b8 attributes; answer upright, history only
-  answer, no control leaks. This is fixture proof, NOT enabled live thinking.
-- Arrow and Settings **actual16×16**, same scoped transparent CSS, no permanent
-  border/outline/shadow; keyboard-only focus indication, top-right nonmeasuring
-  overlay. Actual installed10hide/show recreations,3-state pointer behavior and
-  keyboard Ctrl+Tab/Tab+Return passed. Prior apparent reversion was tests restoring
-  still-old installed service52e1c69f before deployment; never reinstall that backup.
-- Installed release/build/running binary SHA256:
-  **6c23feb4f5ca85ea536703e86f2600f009aadc48af6bc47eedb4ee2cbde13e3d**.
-  C source **59d95192c29c62693b867e6fa0b56a79492bb81bc51bc5493663b69f78ff9c78**.
-  ExecStart `/home/ron/.local/bin/hyprneuro-ui`. Sidecar restarted with patched
-  parser; installed post-parser actual GUI live CEDAR + metrics/poll check passed.
-  Earlier installed actual MAPLE/recall and reviewed green JPEG→Green passed.
-- Python **277pass/1skip/57subtests**; C7helpers release+ASan/UBSan incl helper
-  leak detection. Full earlier sanitized metrics/keyboard/image/AV-rejection run
-  and installed full thinking/image run passed. Focused final sanitized thinking/
-  metrics/arrow run passed. **Latest expanded combined GUI runs had input/Atspi/
-  portal test-driver failures and are NOT full mixed acceptance**. Detailed logs
-  are preserved; do not turn partial runs into PASS.
-- Dedicated namespace hyprneuro observed running. Blur source root cause proven:
-  GTK4.24 empty background-effect region overrides Hyprland0.57 rule. Controlled
-  default/disabled-protocol A/B: edge step24→1; actual screenshots inspected.
-  Installed app runtime-only drop-in at
-  `/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf` sets
-  `GDK_WAYLAND_DISABLE=ext_background_effect_manager_v1` (prior value preserved,
-  empty here). **EXPIRES AT REBOOT**. No renderer/global compositor/env change.
+- Native **canonical PCM16 WAV file** attachment: ≤15s, 8–48kHz, 1–2channels,
+  ≤2,880,044bytes, exact header/frame/duration checks in C+Python, regular native
+  immutable memory snapshot. GtkMediaFile preparation/error/duration check5s;
+  no autoplay; playback timestamp must advance before explicit review checkbox;
+  only explicit Send submits. Real native controls/output sink/playback/replay,
+  source replacement, Cancel/remove/hide/error recovery, exact fixture
+  `input_audio` bytes, and actual installed local Omni synthetic speech transcript
+  passed. No image_url audio. No recording/capture; no MP3/FLAC/general-WAV claim.
+- Prior missing-plugin refusal milestone preserved. **User**, not agent, installed
+  gst-plugins-base/good/libav1.28.8-1; pipewireplugin1:1.6.10-1 verified. WAV now
+  genuinely plays through the UI PID's uncorked/unmuted output. MP4 now prepares
+  as video4s with no audio, **not** video UI/strict resource acceptance.
+- Settings → Search observations: explicit bounded read-only existing
+  search/details RPCs. Query/recent10, source/time filters, plain untrusted stored
+  detail, sanitized URL preview only; no exact URL lookup/open, model call,
+  collector or consent edit. Empty/malformed/error/reconnect/Back-while-pending
+  passed with disposable fixtures and actual installed existing observations.
+- Preserved metrics/thinking/style/keyboard code and namespace. Focused final
+  sanitizer telemetry/thinking/arrow suite passed exact italic/weight400/
+  #b8b8b8 attrs, upright answers, history/reset, real16×16 matching actions.
+  Existing normal GTK baseline/frame warnings remain, no suppression/fix claim.
+- Python304pass/1skip/57subtests;9Chelpers release+ASan/UBSan incl helper leaks.
+  GUI leak detection off, not library leak freedom. Final sanitized audio
+  native164003 completed. Final standalone installed native164254 **exit0**.
+  Installed search/details rechecked after final audio deployment. Failed and
+  timed-out combined runs retained; no full mixed/soak acceptance claim.
 
-## Next bounded feature work
+## Exact latest deployment
 
-User now requests **each** outstanding feature as an individually tested,
-deployed, documented, committed and **pushed iteration**; then actual-interface
-and local-machine workflows, fix findings. Follow FEATURE_ITERATIONS inventory.
-Continue independent safe work; do not call blocked features complete.
+Build/installed/running binary SHA256:
+**11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154**.
+C source SHA256:
+**2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121**.
+ExecStart `/home/ron/.local/bin/hyprneuro-ui`; app-only atomic deployment and
+sidecar restart, no LFM/config edits. Verify `/proc/MainPID/exe` again: test
+cleanup restarts the **current installed** binary, never a backup. Latest prior
+search50c8fa5d… and original6c23feb4… preserved in unique rollback directories.
 
-Recommended next: stabilize narrow GTK/test-driver failures, then native AV
-**file** review/playback with strict bounds and native schema. Local existing
-GtkMediaFile constructs GtkGstMediaFileBuiltin; actual preparation/playback NOT
-accepted yet. No package install required/proven by that construction. Also safe
-independent work: bounded read-only recall/search/memory GTK views via existing
-RPCs. Verify exact current schemas first, no automatic collectors/actions.
-Settings3monitor controls already exist with explicit startup-only consent;
-preserve saved/draft/observed state. Stop-generation, physical hotkey, full
-long-duration/mixed/recovery remain unaccepted as inventoried.
+`~/Workspace/hyprneuro-audio/native-deployment/identity.json` and matching source
+snapshots, `~/Workspace/hyprneuro-search/deployment/`, logs under those roots.
+The original LFM PIDs1504762/1504763/1504761, start01:09:46, launcher/unit/server/
+libraries remain unchanged. Existing model source b12308/7bcbc04fb/native
+input_audio/input_video audit remains distinct from reproducible binary provenance.
 
-## Hard safety/acceptance boundaries
+Blur working process-only drop-in preserved byte-for-byte:
+`/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf`,
+`GDK_WAYLAND_DISABLE=ext_background_effect_manager_v1`. **Expires at reboot**.
+Do not edit global env/renderer/compositor rules or reinstall stale binaries.
+Appearance9px/#21212190%/black95% border, transparent bottom-left Settings,
+nonmeasuring top-right16×16 arrow, namespacehyprneuro remain unchanged.
 
-- Capture BLOCKED: NO allow-capture/d1-visual/on-demand raw screenshot worker,
-  microphone/camera/background capture consent, raw grim workaround, external
-  egress or autonomous action. Prior advice enabling capture was safe is withdrawn.
-  Portal Request.Close cleanup failed. File AV and capture are distinct.
-- Screenshots only explicit bounded GUI inspection on independently verified
-  same-UID local active unlocked session; check logind AND locker processes
-  (hyprlock was observed while LockedHint=no). Stop/ask unlock if ambiguous.
-  No lock bypass or sensitive-scene capture. Test screenshots never enter models.
-- No package/model/config/residency/compositor-renderer changes. App-only atomic
-  deployment/restarts authorized with rollback for failed deploy only. Preserve
-  newest installed verified binary through test cleanup. Parent does not edit app
-  source concurrently; coordinate any runtime compositor action separately.
-- NOT READY: GTK baseline/presentation warnings; portal architecture; AV UI
-  bounds/review; recall/search/memory; physical hotkey; full mixed/long-duration/
-  actual model-crash recovery. No all-features completion/production claim.
+## Next bounded iteration
 
-## Verification/evidence
+After review/publication of current milestones, native **video file** only:
+actual immutable temporal MP4 fixtures, real inline GtkMediaFile playback,
+strict type/duration/dimensions/**actual decoded frames**/memory/CPU/time/bytes/
+whole-IPC bounds before activation, exact native `input_video`, cancellation/
+removal/hide/error and actual installed Omni temporal order. No unbounded old
+ffmpeg path or static-thumbnail inference. No video implementation added yet.
+Keep arbitrary audio formats/documents and all capture disabled. Memory read-only
+inventory can proceed independently, but no edits/promotion/collector activation.
+
+## Hard session/privacy/acceptance gates
+
+Before **every** GUI input/screenshot, independently verify same-UID local active
+unlocked Wayland session with logind **and locker processes**. hyprlock has twice
+returned while LockedHint=no; tests correctly refused. Stop/ask unlock again if
+ambiguous. Never disable idle lock or bypass it. No screenshots taken this
+iteration: installed grimblast area modifies a compositor rule; raw grim is not
+authorized. Existing screenshot evidence stays historical/private in Workspace.
+
+No allow-capture/d1-visual/raw workers, mic/camera/background capture, external
+egress or autonomous action; no agent package install/model/config/residency/
+renderer/global env changes. Existing monitoring consents unchanged. App-only
+atomic deployments/restarts authorized with rollback only for failed deployment.
+Use a machine inference lease for live model tests/benchmarks.
+
+NOT READY: video UI strict bounds; GTK warnings; capture/portal cleanup and
+session/sensitive-scene architecture; physical hotkey; memory GTK; full mixed/
+long-duration/recovery acceptance. Model crash/restart testing is outside current
+no-model-service-change authority. Do not invent recall content or completion.
+
+## Verification commands
 
 - `PYTHONPATH=python/src python/.venv/bin/python -m pytest python/tests -q`
-- `ninja -C ui/build`; `meson test -C ui/build --print-errorlogs`
-- Sanitizer build `~/Workspace/hyprneuro-repair/sanitize`, address+undefined;
-  helpers ASAN detect_leaks1/abort_on_error1; UBSAN halt_on_error1.
-  GUI detect_leaks0: global/library leak freedom is NOT proven.
-- `python ui/tests/metrics_interactive.py SESSION_ID BINARY --thinking` focuses
-  arrow/telemetry/thinking. Without flag also exercises keyboard/portal images;
-  combined portal-driver stability remains a documented limit. BINARY can be
-  actual installed path; script verifies executed `/proc` hash and restores only
-  current installed service. It never reinstalls a backup or changes models.
-- Opt-in native API probe `.dev/logs/capability_audit.py OUTPUT_DIR SYNTHETIC_WAV`
-  under machine inference lease. No capture/playback/service edits.
-- `~/Workspace/hyprneuro-repair/` logs/identity/backups; screenshots Workspace.
-  Sidecar `/run/user/1000/hyprharness/sidecar.sock`; UI `/run/user/1000/hyprneuro/ui.sock`.
-- Update docs/.dev checkpoint before claiming a result, commit trailer exactly
-  `Co-Authored-By: AI Agent <agent@local>`, HTTPS plain git push after each verified
-  iteration, never merge/main. Verify remote hash. Keep Obsidian auto-open off.
+- `ninja -C ui/build; meson test -C ui/build --print-errorlogs`
+- Sanitizers: `~/Workspace/hyprneuro-repair/sanitize`, address+undefined;
+  helper ASANdetect_leaks1/abort_on_error1, UBSANhalt_on_error1.
+- `python ui/tests/audio_file_interactive.py 2 BINARY`: actual sanitized fixture
+  full audio workflow (~80s). `--service` uses actual installed systemd UI/sidecar/
+  Omni and needs machine lease. Run separately with adequate budget, not combined
+  under120s. Scripts stop on lockers and never replace the installed binary.
+- `python ui/tests/search_interactive.py 2 BINARY [--service]`: actual read-only
+  search fixtures or actual installed existing public records, no inference.
+- `python ui/tests/metrics_interactive.py 2 BINARY --thinking --no-screenshots`:
+  focused attributes/metrics/arrows; **not full combined portal acceptance**.
+- `audio_interactive.py` is the historical **missing-decoder** refusal test;
+  intentionally not applicable after successful user dependency installation.
+- `.dev/logs/capability_audit.py OUTPUT_DIR SYNTHETIC_WAV` opt-in native backend
+  audit under machine lease; no capture. Never infer UI inference from preview.

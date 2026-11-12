@@ -1,5 +1,13 @@
 # Remaining feature iterations — NOT READY
 
+Current **uncommitted/unpushed** working-tree milestones:
+[AUDIO_FILE_CHECKPOINT.md](AUDIO_FILE_CHECKPOINT.md) (canonical PCM16 WAV native
+playback/review/snapshot/actual installed Omni verified after user-installed Gst
+plugins) and [SEARCH_GTK_CHECKPOINT.md](SEARCH_GTK_CHECKPOINT.md) (read-only
+observations/search/details verified). Latest installed hash11a10dc16… .
+Implementation-writer contract requires leaving changes uncommitted for main
+agent/user review/publication; no new pushed iteration is claimed.
+
 User's expanded request: implement outstanding supported features in bounded
 iterations; after **each** iteration run source regressions/applicable sanitizers,
 actual GTK E2E and applicable unchanged local-stack workflow checks, atomically
@@ -15,8 +23,8 @@ binary during test cleanup. Recheck actual `/proc/PID/exe`, not only source CSS.
 |---|---|
 | 1. AV/metrics/thinking/arrow repair | Implemented and individually verified/deployed in `4f1711e`. Native audio/video backend proof is separate from enabled attachment UI. Combined GUI-driver failures remain documented; not full mixed acceptance. |
 | 2. GTK presentation warnings and GUI test reliability | OPEN. GtkImage baseline and presentation/frame warnings still prevent fatal-warning acceptance. Diagnose app paths with exact installed GTK/Wayland source and public APIs; no renderer/package change or warning suppression. Automated portal selection and virtual-key input have intermittent driver failures; bounded waits/verified input detect rather than hide them. |
-| 3. Native attached audio/video, inline review/playback | NEXT SAFE FEATURE. Backend WAV synthetic speech and temporally contrasting MP4 proven; UI intentionally rejects AV until immutable reviewed bytes, real preview/playback, duration/dimensions/frame/decode/memory/time bounds, whole-IPC/base64 bound, cancellation/removal and exact native schema all pass. Existing local GtkMediaFile creates `GtkGstMediaFileBuiltin` (no module-install requirement observed); preparation/playback has NOT been accepted. A scaletempo warning was observed; do not claim playback from object construction. Do not enable untested formats (WebM etc.) just from MIME/source declarations. No microphone/camera/screen capture. |
-| 4. Recall/search/history GTK views | OPEN, independent safe read-only work. Existing bounded `search` RPC and metadata store are available; verify exact current schemas first. Text query/time/source, bounded results/detail/error/empty/reconnect need actual GUI fixtures and live metadata checks; never auto-open URLs or enable collectors. |
+| 3. Native attached audio/video, inline review/playback | Canonical PCM16 WAV bounded implementation and actual installed playback/native Omni E2E verified, uncommitted; see audio checkpoint for limits. User-installed Gst plugins now resolve earlier missing WAV parser; agent installed nothing. MP4 preparation now works but video UI/native-send/decode/frame/resource bounds remain NEXT, not implemented. MP3/FLAC/arbitrary WAV/WebM/documents remain disabled. No microphone/camera/screen capture. |
+| 4. Recall/search/history GTK views | Bounded explicit read-only observation search/details now implemented, tested with real GTK fixtures and actual installed existing store, deployed/uncommitted. Query/recent10/source/last24h/today, literal untrusted details, sanitized URL preview; no URL opening/collectors/models. No pagination/full chat-history claim. See search checkpoint. |
 | 5. Memory GTK workflow | OPEN. Existing app/global/task memory APIs; inspect approval semantics and limits before exposing read-only recall and explicitly requested edits. No background memory promotion, autonomous action, or raw chat collector. |
 | 6. Settings/monitor controls | Already accepted only for transcript size, autoscroll, opacity and three explicit monitoring consents with saved/draft/observed-active state. Save does NOT start workers; startup-only lifecycle tested earlier. Preserve those semantics until separately implemented/tested. Other capture/browser/model/semantic/action toggles must not be shown as accepted working features. Safe missing status/detail/error workflow can proceed independently. |
 | 7. Manual generation interruption/recovery | OPEN if still requested by current control inventory. No Stop-generation button currently. Verify actual server/client cancellation contracts before adding UI; do not confuse closing a display with cancelling model work. No model service restart. |

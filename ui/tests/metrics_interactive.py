@@ -3,6 +3,7 @@ No screenshots except this test's UI rectangle, no captures for inference.
 Requires an explicitly identified active unlocked local session (argument 1).
 Run: python ui/tests/metrics_interactive.py SESSION_ID BINARY [--thinking]
 --thinking runs telemetry/thinking/arrow only, not the separate portal media workflow.
+--no-screenshots skips captures (attribute/payload assertions still run).
 """
 import json
 import os
@@ -91,6 +92,8 @@ def send(text):
     subprocess.run(['wtype', '-k', 'Return'], check=True)
 
 def shot(name):
+    if '--no-screenshots' in sys.argv:
+        return
     unlocked()
     data = json.loads(subprocess.check_output(['hyprctl', '-j', 'layers']))
     layer = next(l for m in data.values() for levels in m['levels'].values()
@@ -220,18 +223,18 @@ try:
         click(find('button', 'Attach file'))
         time.sleep(.6)
         clients = json.loads(subprocess.check_output(['hyprctl', '-j', 'clients']))
-        dialog = next(c for c in clients if c['title'].startswith('Select static image'))
+        dialog = next(c for c in clients if c['title'].startswith(('Select static image', 'Select attachment')))
         x, y = dialog['at']; w, h = dialog['size']
         subprocess.run(['wdotool', '--backend', 'wlr-protocols', 'mousemove', str(x + 250), str(y + 180)], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(['wdotool', '--backend', 'wlr-protocols', 'click', '1'], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(['wtype', '-M', 'ctrl', '-k', 'l', '-m', 'ctrl', '-s', '300',
                         '-M', 'ctrl', '-k', 'a', '-m', 'ctrl', '-s', '200',
                         '-d', '15', str(path), '-s', '500', '-k', 'Return'], check=True)
-        wait(lambda: not any(c['title'].startswith('Select static image') for c in
+        wait(lambda: not any(c['title'].startswith(('Select static image', 'Select attachment')) for c in
                              json.loads(subprocess.check_output(['hyprctl', '-j', 'clients']))), timeout=8)
         time.sleep(.3)
     fixtures = Path.home() / 'Workspace/hyprneuro-audit/fixtures'
-    for name in ['unsupported.mp4', 'unsupported.wav']:
+    for name in ['unsupported.mp4']:
         unlocked(); choose(fixtures / name)
         wait(lambda: any(s.startswith('Rejected: static PNG') for s in labels()))
         send('rejected ' + name);wait(lambda: 'Hyprneuro - Local' in labels())
@@ -247,7 +250,7 @@ try:
         url = req[-1]['messages'][-1]['content'][1]['image_url']['url']
         assert url.startswith('data:' + mime + ';base64,')
         assert base64.b64decode(url.split(',', 1)[1]) == path.read_bytes()
-    print('PASS actual portal MP4/WAV rejection and PNG/JPEG/WebP previews -> exact snapshot bytes through real sidecar', flush=True)
+    print('PASS actual portal MP4 rejection and PNG/JPEG/WebP previews -> exact snapshot bytes through real sidecar', flush=True)
     print('PASS actual GTK keyboard, reasoning/history, Settings/Back, persistent separate telemetry; root', root, flush=True)
 finally:
     if ui is not None:

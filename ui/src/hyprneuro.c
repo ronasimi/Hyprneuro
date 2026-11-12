@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 /* Hyprneuro: transparent GTK4 layer-shell overlay, bottom-right.
  *
  * A component of the Hyprneuro assistant. Talks to the Hyprneuro sidecar
@@ -27,12 +28,16 @@
 #include <sys/time.h>
 #include <errno.h>
 #include <math.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define MARGIN_PX 9
 #define DEFAULT_WIDTH 656
 #define MONITOR_POLL_MS 2000
 #define MAX_HISTORY 20
 #define DEFAULT_MAX_TOKENS 4096
+#define MAX_IPC_FRAME (10 * 1024 * 1024)
+#define MAX_AUDIO_BYTES 2880044
 
 typedef enum { SIZE_COMPACT, SIZE_RESTORE, SIZE_FULL } TranscriptSize;
 #define N_MONITOR_PREFS 3
@@ -77,6 +82,10 @@ struct App {
     GtkWidget *chat_page;
     GtkWidget *settings_page;
     GtkWidget *settings_scroll;
+    GtkEntry *search_query;
+    GtkDropDown *search_period, *search_source;
+    GtkWidget *search_button, *search_status, *search_results, *search_detail;
+    gboolean search_busy;
     GtkDropDown *prefs_size;
     GtkSwitch *prefs_autoscroll;
     GtkSpinButton *prefs_opacity;
@@ -117,6 +126,11 @@ struct App {
     GPtrArray *attachments;
     char *attachment_b64, *attachment_mime;
     GCancellable *picker_cancel;
+    GtkMediaStream *audio_stream;
+    GtkWidget *audio_review, *audio_status;
+    guint audio_timeout;
+    gint64 audio_duration;
+    gboolean audio_ready, audio_played;
 
     /* Media preview area. */
     GtkWidget *media_preview;
@@ -398,6 +412,7 @@ static gboolean on_chat_done(gpointer data) {
     gtk_widget_set_sensitive(a->attach_btn, TRUE);
     gtk_widget_set_sensitive(a->attach_strip, TRUE);
 
+    if (!d->success && a->audio_stream) clear_attachments(a);
     if (d->success) {
         set_status(a, "Hyprneuro - Local");
         clear_attachments(a);
@@ -504,7 +519,7 @@ static void chat_worker(GTask *task, gpointer source, gpointer task_data,
     char *frame = g_strconcat(req, "\n", NULL);
 
     gsize offset = 0, length = strlen(frame);
-    while (offset < length) {
+    while (length <= MAX_IPC_FRAME && offset < length) {
         ssize_t n = send(fd, frame + offset, length - offset, MSG_NOSIGNAL);
         if (n < 0 && errno == EINTR) continue;
         if (n <= 0) break;
@@ -515,7 +530,7 @@ static void chat_worker(GTask *task, gpointer source, gpointer task_data,
     if (offset != length) {
         ChatDoneData *dd = g_new0(ChatDoneData, 1);
         dd->app = a; dd->success = FALSE;
-        dd->error = g_strdup("write failed");
+        dd->error = g_strdup(length > MAX_IPC_FRAME ? "Complete request exceeds 10 MiB IPC limit" : "write failed");
         g_idle_add(on_chat_done, dd);
         close(fd);
         goto cleanup;
@@ -599,6 +614,15 @@ cleanup:
 }
 
 static void clear_attachments(App *a) {
+    if (a->audio_timeout) { g_source_remove(a->audio_timeout); a->audio_timeout = 0; }
+    if (a->audio_stream) {
+        g_signal_handlers_disconnect_by_data(a->audio_stream, a);
+        gtk_media_stream_pause(a->audio_stream);
+        gtk_media_file_clear(GTK_MEDIA_FILE(a->audio_stream));
+        g_clear_object(&a->audio_stream);
+    }
+    a->audio_ready = a->audio_played = FALSE;
+    a->audio_review = a->audio_status = NULL;
     g_ptr_array_set_size(a->attachments, 0);
     g_clear_pointer(&a->attachment_b64, g_free);
     g_clear_pointer(&a->attachment_mime, g_free);
@@ -621,18 +645,39 @@ static void image_size_prepared(GdkPixbufLoader *loader, int width, int height, 
     gdk_pixbuf_loader_set_size(loader, MAX(1, (int)(width * scale)),
                                       MAX(1, (int)(height * scale)));
 }
+/* Snapshot only bounded regular native files, not symlinks/devices/pipes. */
+static GBytes *read_attachment(GFile *file, gsize limit) {
+    char *path = g_file_get_path(file);
+    if (!path) return NULL;
+    int fd = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW);
+    g_free(path);
+    if (fd < 0) return NULL;
+    struct stat st;
+    GBytes *result = NULL;
+    if (!fstat(fd, &st) && S_ISREG(st.st_mode) && st.st_size > 0 && (guint64)st.st_size <= limit) {
+        guchar *bytes = g_malloc(st.st_size + 1);
+        gsize used = 0;
+        while (used < (gsize)st.st_size + 1) {
+            ssize_t n = read(fd, bytes + used, st.st_size + 1 - used);
+            if (n < 0 && errno == EINTR) continue;
+            if (n <= 0) break;
+            used += n;
+        }
+        if (used == (gsize)st.st_size) result = g_bytes_new_take(bytes, used);
+        else g_free(bytes);
+    }
+    close(fd);
+    return result;
+}
 static gboolean load_image(GFile *file, char **b64, char **mime,
                            GdkPixbuf **preview, gsize *length, ImageSize *size) {
-    if (!g_file_is_native(file)) return FALSE;
-    GFileInputStream *in = g_file_read(file, NULL, NULL);
-    if (!in) return FALSE;
-    gsize limit = 5 * 1024 * 1024, len = 0;
-    guchar *bytes = g_malloc(limit + 1);
-    gboolean ok = g_input_stream_read_all(G_INPUT_STREAM(in), bytes, limit + 1,
-                                         &len, NULL, NULL);
-    g_object_unref(in);
+    GBytes *snapshot = read_attachment(file, 5 * 1024 * 1024);
+    if (!snapshot) return FALSE;
+    gsize len;
+    const guchar *bytes = g_bytes_get_data(snapshot, &len);
+    gboolean ok = TRUE;
     char *type = g_content_type_guess(NULL, bytes, len, NULL);
-    ok = ok && len > 0 && len <= limit &&
+    ok = len > 0 && len <= 5 * 1024 * 1024 &&
         (!g_strcmp0(type, "image/png") || !g_strcmp0(type, "image/jpeg") ||
          !g_strcmp0(type, "image/webp"));
     GdkPixbufLoader *loader = ok ? gdk_pixbuf_loader_new_with_mime_type(type, NULL) : NULL;
@@ -655,12 +700,127 @@ static gboolean load_image(GFile *file, char **b64, char **mime,
         *mime = g_strdup(type);
         *length = len;
     }
-    g_free(type); g_free(bytes);
+    g_free(type); g_bytes_unref(snapshot);
     return ok;
 }
 
+static void on_attachment_remove(GtkButton *btn, gpointer data);
+
+/* A deliberately small WAV subset avoids compressed expansion and ambiguous
+ * chunk parsers. Every PCM16 bit pattern decodes; full frame counts bound work.
+ * Keep this contract identical to python/hyprneuro/audio.py. */
+typedef struct { guint rate, channels, frames; } AudioInfo;
+static guint32 le32(const guchar *p) {
+    return (guint32)p[0] | (guint32)p[1] << 8 | (guint32)p[2] << 16 | (guint32)p[3] << 24;
+}
+static guint16 le16(const guchar *p) { return p[0] | (guint16)p[1] << 8; }
+static gboolean validate_wav(const guchar *p, gsize n, AudioInfo *info) {
+    if (n <= 44 || n > MAX_AUDIO_BYTES || memcmp(p, "RIFF", 4) ||
+        le32(p+4) != n-8 || memcmp(p+8, "WAVEfmt ", 8) || le32(p+16) != 16 ||
+        le16(p+20) != 1 || le16(p+34) != 16 || memcmp(p+36, "data", 4) || le32(p+40) != n-44)
+        return FALSE;
+    guint channels = le16(p+22), rate = le32(p+24), align = le16(p+32);
+    if ((channels != 1 && channels != 2) || rate < 8000 || rate > 48000 ||
+        align != channels*2 || le32(p+28) != rate*align || (n-44) % align)
+        return FALSE;
+    guint frames = (n-44) / align;
+    if (!frames || frames > rate*15) return FALSE;
+    *info = (AudioInfo){rate, channels, frames};
+    return TRUE;
+}
+static GBytes *load_audio(GFile *file, AudioInfo *info) {
+    GBytes *bytes = read_attachment(file, MAX_AUDIO_BYTES);
+    if (!bytes) return NULL;
+    gsize n;
+    const guchar *p = g_bytes_get_data(bytes, &n);
+    if (validate_wav(p, n, info)) return bytes;
+    g_bytes_unref(bytes);
+    return NULL;
+}
+static void audio_changed(GObject *stream, GParamSpec *spec, App *a) {
+    (void)spec;
+    if (stream != G_OBJECT(a->audio_stream)) return;
+    GtkMediaStream *audio = a->audio_stream;
+    const GError *error = gtk_media_stream_get_error(audio);
+    gboolean prepared = gtk_media_stream_is_prepared(audio);
+    if (error || (prepared && (!gtk_media_stream_has_audio(audio) || gtk_media_stream_has_video(audio) ||
+            llabs(gtk_media_stream_get_duration(audio) - a->audio_duration) > 50000))) {
+        clear_attachments(a);
+        set_status(a, "WAV playback unavailable: decoder failed or duration mismatch; audio removed (not sent)");
+        return;
+    }
+    if (!prepared) return;
+    if (a->audio_timeout) { g_source_remove(a->audio_timeout); a->audio_timeout = 0; }
+    a->audio_ready = TRUE;
+    if (gtk_media_stream_get_timestamp(audio) > 0) a->audio_played = TRUE;
+    gtk_widget_set_sensitive(a->audio_review, a->audio_played);
+    char *text = g_strdup_printf("%s · %.2f / %.2f s · review then Send explicitly",
+        gtk_media_stream_get_playing(audio) ? "Playing audio" : "Audio ready",
+        gtk_media_stream_get_timestamp(audio) / 1000000.0, a->audio_duration / 1000000.0);
+    gtk_label_set_text(GTK_LABEL(a->audio_status), text);
+    g_free(text);
+}
+static gboolean audio_timed_out(gpointer data) {
+    App *a = data;
+    a->audio_timeout = 0;
+    clear_attachments(a);
+    set_status(a, "Audio decoder preparation timed out (5 s); attachment removed");
+    return G_SOURCE_REMOVE;
+}
+static void attach_audio(App *a, GFile *file, GBytes *bytes, const AudioInfo *info) {
+    clear_attachments(a);
+    gsize n;
+    const guchar *p = g_bytes_get_data(bytes, &n);
+    a->attachment_b64 = g_base64_encode(p, n);
+    a->attachment_mime = g_strdup("audio/wav");
+    g_ptr_array_add(a->attachments, g_object_ref(file));
+    a->audio_duration = (gint64)info->frames * 1000000 / info->rate;
+    GtkWidget *item = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_widget_add_css_class(item, "hn-attach-item");
+    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    char *name = g_file_get_basename(file);
+    char *metadata = g_strdup_printf("%s\naudio/wav · %zu bytes · PCM16 · %u Hz · %u ch · %u frames · %.2f s",
+        name, n, info->rate, info->channels, info->frames, a->audio_duration / 1000000.0);
+    GtkWidget *label = gtk_label_new(metadata);
+    gtk_label_set_xalign(GTK_LABEL(label), 0);
+    gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_MIDDLE);
+    gtk_widget_set_tooltip_text(label, metadata);
+    gtk_widget_set_hexpand(label, TRUE);
+    gtk_box_append(GTK_BOX(row), label);
+    GtkWidget *remove = gtk_button_new_from_icon_name("window-close-symbolic");
+    gtk_widget_set_tooltip_text(remove, "Remove attachment (also removes it from submission)");
+    g_signal_connect(remove, "clicked", G_CALLBACK(on_attachment_remove), a);
+    gtk_box_append(GTK_BOX(row), remove);
+    gtk_box_append(GTK_BOX(item), row);
+    a->audio_status = gtk_label_new("Preparing audio decoder (5 s limit)…");
+    gtk_label_set_xalign(GTK_LABEL(a->audio_status), 0);
+    gtk_box_append(GTK_BOX(item), a->audio_status);
+    GInputStream *input = g_memory_input_stream_new_from_bytes(bytes);
+    a->audio_stream = gtk_media_file_new();
+    gtk_box_append(GTK_BOX(item), gtk_media_controls_new(a->audio_stream));
+    a->audio_review = gtk_check_button_new_with_label("Use reviewed audio (play first; Send is separate)");
+    gtk_widget_set_sensitive(a->audio_review, FALSE);
+    gtk_box_append(GTK_BOX(item), a->audio_review);
+    gtk_box_append(GTK_BOX(a->attach_strip), item);
+    gtk_widget_set_visible(a->attach_strip, TRUE);
+    apply_transcript_size(a);
+    g_signal_connect(a->audio_stream, "notify", G_CALLBACK(audio_changed), a);
+    a->audio_timeout = g_timeout_add(5000, audio_timed_out, a);
+    gtk_media_file_set_input_stream(GTK_MEDIA_FILE(a->audio_stream), input);
+    g_object_unref(input);
+    set_status(a, "Audio attached · playback does not send · review required");
+    g_free(name); g_free(metadata);
+}
+
 static void send_message(App *a) {
-    if (a->busy) return;
+    if (a->busy || a->picker_cancel) return;
+    if (a->audio_stream) {
+        if (!a->audio_ready || !a->audio_played || !gtk_check_button_get_active(GTK_CHECK_BUTTON(a->audio_review))) {
+            set_status(a, "Play to review the prepared audio, then select Use reviewed audio before Send");
+            return;
+        }
+        gtk_media_stream_pause(a->audio_stream);
+    }
     GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->input));
     GtkTextIter s, e;
     gtk_text_buffer_get_bounds(buf, &s, &e);
@@ -806,19 +966,19 @@ static void update_preferences(App *a, const char *error) {
     gtk_widget_set_sensitive(a->prefs_save, !a->prefs_busy && a->prefs_available);
     gtk_widget_set_sensitive(a->prefs_reload, !a->prefs_busy);
 }
-typedef struct { char *socket, *request; } PreferencesTask;
-static void preferences_task_free(gpointer data) {
-    PreferencesTask *d = data;
+typedef struct { char *socket, *request; } RequestTask;
+static void request_task_free(gpointer data) {
+    RequestTask *d = data;
     g_free(d->socket); g_free(d->request); g_free(d);
 }
-static void preferences_worker(GTask *task, gpointer source, gpointer data, GCancellable *cancel) {
+static void request_worker(GTask *task, gpointer source, gpointer data, GCancellable *cancel) {
     (void)source; (void)cancel;
-    PreferencesTask *d = data;
+    RequestTask *d = data;
     GError *error = NULL;
     char *result = sidecar_request(d->socket, d->request, &error);
     if (result) g_task_return_pointer(task, result, g_free);
     else g_task_return_error(task, error ? error :
-        g_error_new_literal(G_IO_ERROR, G_IO_ERROR_FAILED, "Preference storage unavailable"));
+        g_error_new_literal(G_IO_ERROR, G_IO_ERROR_FAILED, "Sidecar unavailable"));
 }
 static void preferences_ready(GObject *source, GAsyncResult *result, gpointer data) {
     (void)source;
@@ -878,7 +1038,7 @@ static void preferences_ready(GObject *source, GAsyncResult *result, gpointer da
 }
 static void request_preferences(App *a, gboolean save) {
     if (a->prefs_busy) return;
-    PreferencesTask *d = g_new0(PreferencesTask, 1);
+    RequestTask *d = g_new0(RequestTask, 1);
     d->socket = g_strdup(a->sidecar_sock);
     guint draft = gtk_drop_down_get_selected(a->prefs_size);
     if (save && draft < 3 && a->prefs_available) {
@@ -907,8 +1067,8 @@ static void request_preferences(App *a, gboolean save) {
     a->prefs_busy = TRUE;
     update_preferences(a, "Loading…");
     GTask *task = g_task_new(NULL, NULL, preferences_ready, a);
-    g_task_set_task_data(task, d, preferences_task_free);
-    g_task_run_in_thread(task, preferences_worker);
+    g_task_set_task_data(task, d, request_task_free);
+    g_task_run_in_thread(task, request_worker);
     g_object_unref(task);
 }
 static void on_preferences_save(GtkButton *btn, App *a) {
@@ -919,6 +1079,168 @@ static void on_preferences_reload(GtkButton *btn, App *a) {
 }
 static void on_preferences_draft(GObject *obj, GParamSpec *spec, App *a) {
     (void)obj; (void)spec; update_preferences(a, NULL);
+}
+
+/* ---- bounded read-only observation search --------------------------------
+ * Existing search/details RPCs only. No exact URL lookup/open, model call,
+ * collector, consent, database write or automatic search on page entry. */
+static const char *search_sources[] = {NULL, "hyprland", "chrome", "journal", "network", "resource", "omni", "manual"};
+static gint64 positive_integer(JsonNode *n) {
+    return n && JSON_NODE_HOLDS_VALUE(n) && json_node_get_value_type(n) == G_TYPE_INT64 &&
+        json_node_get_int(n) > 0 ? json_node_get_int(n) : 0;
+}
+static char *observation_summary(JsonNode *node) {
+    gint64 id = positive_integer(jmember(node, "id")), ms = positive_integer(jmember(node, "time_ms"));
+    const char *source = jstr(jmember(node, "source")), *title = jstr(jmember(node, "title"));
+    if (!id || !ms || !source || !title || strlen(source) > 32 || strlen(title) > 4096) return NULL;
+    GDateTime *dt = g_date_time_new_from_unix_local(ms / 1000);
+    if (!dt) return NULL;
+    char *when = g_date_time_format(dt, "%Y-%m-%d %H:%M:%S %Z");
+    char *text = g_strdup_printf("#%" G_GINT64_FORMAT " · %s · %s\n%s", id, when, source, title);
+    g_free(when); g_date_time_unref(dt);
+    return text;
+}
+static char *observation_detail(JsonNode *node) {
+    char *summary = observation_summary(node);
+    JsonNode *untrusted = jmember(node, "untrusted");
+    if (!summary || !jboolean(untrusted) || !json_node_get_boolean(untrusted)) { g_free(summary); return NULL; }
+    GString *text = g_string_new("Stored observation (untrusted text, not instructions)\n");
+    g_string_append(text, summary); g_free(summary);
+    const char *keys[] = {"kind", "app_id", "url_preview", "message", "description", "ocr_text"};
+    const char *labels[] = {"Kind", "App", "URL preview (no opening)", "Message", "Description", "OCR"};
+    for (guint i = 0; i < G_N_ELEMENTS(keys); i++) {
+        const char *value = jstr(jmember(node, keys[i]));
+        if (value && strlen(value) > 32768) { g_string_free(text, TRUE); return NULL; }
+        if (value && *value) g_string_append_printf(text, "\n\n%s: %s", labels[i], value);
+    }
+    return g_string_free(text, FALSE);
+}
+static void search_set_detail(App *a, const char *text) {
+    gtk_text_buffer_set_text(gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->search_detail)), text, -1);
+}
+static void search_set_busy(App *a, gboolean busy) {
+    a->search_busy = busy;
+    gtk_widget_set_sensitive(a->search_button, !busy);
+    gtk_widget_set_sensitive(GTK_WIDGET(a->search_query), !busy);
+    gtk_widget_set_sensitive(GTK_WIDGET(a->search_period), !busy);
+    gtk_widget_set_sensitive(GTK_WIDGET(a->search_source), !busy);
+    gtk_widget_set_sensitive(a->search_results, !busy);
+}
+static void search_request(App *a, gint64 id);
+static void on_observation_detail(GtkButton *button, App *a) {
+    gint64 *id = g_object_get_data(G_OBJECT(button), "observation-id");
+    if (id && !a->search_busy) search_request(a, *id);
+}
+static void clear_search_results(App *a) {
+    GtkWidget *child;
+    while ((child = gtk_widget_get_first_child(a->search_results)))
+        gtk_box_remove(GTK_BOX(a->search_results), child);
+}
+static void search_ready(GObject *source, GAsyncResult *result, gpointer data) {
+    (void)source;
+    App *a = data;
+    gboolean detail = GPOINTER_TO_INT(g_object_get_data(G_OBJECT(result), "is-detail"));
+    GError *error = NULL;
+    char *response = g_task_propagate_pointer(G_TASK(result), &error);
+    JsonParser *parser = json_parser_new();
+    gboolean valid = response && json_parser_load_from_data(parser, response, -1, NULL);
+    JsonNode *root = valid ? json_parser_get_root(parser) : NULL;
+    if (detail) {
+        char *text = valid ? observation_detail(root) : NULL;
+        valid = text != NULL;
+        search_set_detail(a, text ? text : "Details unavailable. Select a result or search again.");
+        g_free(text);
+    } else {
+        valid = valid && JSON_NODE_HOLDS_ARRAY(root);
+        JsonArray *array = valid ? json_node_get_array(root) : NULL;
+        guint count = valid ? json_array_get_length(array) : 0;
+        valid = valid && count <= 10;
+        /* Validate the entire bounded response before rendering any rows. */
+        for (guint i = 0; valid && i < count; i++) {
+            char *summary = observation_summary(json_array_get_element(array, i));
+            valid = summary != NULL; g_free(summary);
+        }
+        if (valid) {
+            for (guint i = 0; i < count; i++) {
+                JsonNode *row = json_array_get_element(array, i);
+                char *summary = observation_summary(row);
+                GtkWidget *button = gtk_button_new();
+                GtkWidget *label = gtk_label_new(summary);
+                gtk_label_set_xalign(GTK_LABEL(label), 0);
+                gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
+                gtk_widget_set_tooltip_text(button, summary);
+                gtk_accessible_update_property(GTK_ACCESSIBLE(button), GTK_ACCESSIBLE_PROPERTY_LABEL, summary, -1);
+                gtk_button_set_child(GTK_BUTTON(button), label);
+                gint64 *id = g_new(gint64, 1); *id = positive_integer(jmember(row, "id"));
+                g_object_set_data_full(G_OBJECT(button), "observation-id", id, g_free);
+                g_signal_connect(button, "clicked", G_CALLBACK(on_observation_detail), a);
+                gtk_box_append(GTK_BOX(a->search_results), button);
+                g_free(summary);
+            }
+            gtk_label_set_text(GTK_LABEL(a->search_status), count ?
+                "Up to 10 results · newest first · select for stored details" : "No matching stored observations");
+        }
+    }
+    if (!valid) {
+        char *text = g_strdup_printf("Search unavailable: %s · retry explicitly",
+            error ? error->message : "invalid sidecar response");
+        gtk_label_set_text(GTK_LABEL(a->search_status), text); g_free(text);
+    } else if (detail) gtk_label_set_text(GTK_LABEL(a->search_status), "Stored details · read-only · no URLs opened or data sent to a model");
+    search_set_busy(a, FALSE);
+    g_clear_error(&error); g_free(response); g_object_unref(parser);
+}
+static void search_request(App *a, gint64 id) {
+    if (a->search_busy) return;
+    RequestTask *d = g_new0(RequestTask, 1);
+    d->socket = g_strdup(a->sidecar_sock);
+    JsonBuilder *b = json_builder_new();
+    json_builder_begin_object(b);
+    json_builder_set_member_name(b, "action"); json_builder_add_string_value(b, id ? "details" : "search");
+    if (id) {
+        json_builder_set_member_name(b, "id"); json_builder_add_int_value(b, id);
+    } else {
+        json_builder_set_member_name(b, "query");
+        json_builder_add_string_value(b, gtk_editable_get_text(GTK_EDITABLE(a->search_query)));
+        json_builder_set_member_name(b, "limit"); json_builder_add_int_value(b, 10);
+        guint selected = gtk_drop_down_get_selected(a->search_source);
+        if (selected > 0 && selected < G_N_ELEMENTS(search_sources)) {
+            json_builder_set_member_name(b, "source"); json_builder_add_string_value(b, search_sources[selected]);
+        }
+        selected = gtk_drop_down_get_selected(a->search_period);
+        if (selected == 1 || selected == 2) {
+            gint64 now = g_get_real_time() / 1000, start = now - 86400000;
+            if (selected == 2) {
+                GDateTime *dt = g_date_time_new_now_local();
+                GDateTime *midnight = g_date_time_new_local(g_date_time_get_year(dt),
+                    g_date_time_get_month(dt), g_date_time_get_day_of_month(dt), 0, 0, 0);
+                start = g_date_time_to_unix(midnight) * 1000;
+                g_date_time_unref(midnight); g_date_time_unref(dt);
+            }
+            json_builder_set_member_name(b, "start_ms"); json_builder_add_int_value(b, start);
+            json_builder_set_member_name(b, "end_ms"); json_builder_add_int_value(b, now);
+        }
+        clear_search_results(a);
+    }
+    json_builder_end_object(b);
+    JsonNode *root = json_builder_get_root(b);
+    JsonGenerator *g = json_generator_new(); json_generator_set_root(g, root);
+    d->request = json_generator_to_data(g, NULL);
+    json_node_unref(root); g_object_unref(g); g_object_unref(b);
+    search_set_detail(a, id ? "Loading stored details…" : "Select a result for stored details. Nothing is sent to a model.");
+    gtk_label_set_text(GTK_LABEL(a->search_status), id ? "Loading stored details…" : "Searching stored observations…");
+    search_set_busy(a, TRUE);
+    GTask *task = g_task_new(NULL, NULL, search_ready, a);
+    g_object_set_data(G_OBJECT(task), "is-detail", GINT_TO_POINTER(id != 0));
+    g_task_set_task_data(task, d, request_task_free);
+    g_task_run_in_thread(task, request_worker); g_object_unref(task);
+}
+static void on_search(GtkButton *button, App *a) { (void)button; search_request(a, 0); }
+static void on_query_activate(GtkEntry *entry, App *a) { (void)entry; search_request(a, 0); }
+static void on_search_open(GtkButton *button, App *a) {
+    (void)button; gtk_stack_set_visible_child_name(a->stack, "search");
+}
+static void on_search_back(GtkButton *button, App *a) {
+    (void)button; gtk_stack_set_visible_child_name(a->stack, "settings");
 }
 
 /* ---- settings view ------------------------------------------------------- */
@@ -1100,6 +1422,7 @@ static GdkTexture *preview_texture(GdkPixbuf *pixbuf) {
 static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer data) {
     App *a = data;
     GError *err = NULL;
+    gboolean accept = a->shown && a->picker_cancel && !g_cancellable_is_cancelled(a->picker_cancel);
     g_clear_object(&a->picker_cancel);
     if (a->win) gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
     gtk_widget_set_sensitive(a->attach_btn, !a->busy);
@@ -1111,13 +1434,21 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
         g_clear_error(&err);
         return;
     }
-    if (a->busy) { g_object_unref(file); return; }
+    if (a->busy || !accept) { g_object_unref(file); return; }
+    AudioInfo audio = {0};
+    GBytes *audio_bytes = load_audio(file, &audio);
+    if (audio_bytes) {
+        attach_audio(a, file, audio_bytes, &audio);
+        g_bytes_unref(audio_bytes);
+        g_object_unref(file);
+        return;
+    }
     char *b64 = NULL, *mime = NULL;
     GdkPixbuf *preview = NULL;
     gsize length = 0;
     ImageSize size = {0};
     if (!load_image(file, &b64, &mime, &preview, &length, &size)) {
-        set_status(a, "Rejected: static PNG/JPEG/WebP only, ≤5 MiB, ≤4096×4096; decoder required");
+        set_status(a, "Rejected: static PNG/JPEG/WebP ≤5 MiB, ≤4096×4096; or canonical PCM16 WAV ≤15 s, 8–48 kHz, 1–2 ch");
         g_object_unref(file);
         return;
     }
@@ -1182,14 +1513,16 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     gtk_box_append(GTK_BOX(a->attach_strip), item);
     g_free(name); g_free(formatted_size); g_free(metadata);
     gtk_widget_set_visible(a->attach_strip, TRUE);
-    set_status(a, "One reviewed image attached · audio/video/documents unsupported");
+    set_status(a, "One reviewed image attached · Send when ready");
 }
 
 static void on_attach(GtkButton *btn, gpointer data) {
     (void)btn;
     App *a = data;
+    if (a->picker_cancel || a->busy) return;
+    if (a->audio_stream) gtk_media_stream_pause(a->audio_stream);
     GtkFileDialog *dialog = gtk_file_dialog_new();
-    gtk_file_dialog_set_title(dialog, "Select static image (PNG/JPEG/WebP; ≤5 MiB, ≤4096×4096)");
+    gtk_file_dialog_set_title(dialog, "Select attachment (PNG/JPEG/WebP or PCM16 WAV ≤15 s; playback review required)");
     /* Layer surfaces are not xdg_toplevels: exporting one as the portal
      * parent disconnects this client on Hyprland. Use an unparented portal. */
     gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
@@ -1245,6 +1578,7 @@ static void show_ui(App *a) {
 static void hide_ui(App *a) {
     if (!a->shown) return;
     if (a->picker_cancel) g_cancellable_cancel(a->picker_cancel);
+    if (a->audio_stream) clear_attachments(a);
     gtk_widget_set_visible(a->media_preview, FALSE);
     a->shown = FALSE;
     gtk_widget_set_visible(GTK_WIDGET(a->win), FALSE);
@@ -1265,7 +1599,9 @@ static gboolean on_key(GtkEventControllerKey *c, guint keyval, guint code,
     App *a = data;
     if (keyval == GDK_KEY_Escape) {
         /* If settings is showing, go back to chat first. */
-        if (!g_strcmp0(gtk_stack_get_visible_child_name(a->stack), "settings"))
+        if (!g_strcmp0(gtk_stack_get_visible_child_name(a->stack), "search"))
+            gtk_stack_set_visible_child_name(a->stack, "settings");
+        else if (!g_strcmp0(gtk_stack_get_visible_child_name(a->stack), "settings"))
             gtk_stack_set_visible_child_name(a->stack, "chat");
         else
             hide_ui(a);
@@ -1590,6 +1926,9 @@ int main(int argc, char **argv) {
     gtk_widget_add_css_class(settings_title, "hn-settings-title");
     gtk_box_append(GTK_BOX(settings_header), back_btn);
     gtk_box_append(GTK_BOX(settings_header), settings_title);
+    GtkWidget *search_open = gtk_button_new_with_label("Search observations");
+    g_signal_connect(search_open, "clicked", G_CALLBACK(on_search_open), a);
+    gtk_box_append(GTK_BOX(settings_header), search_open);
     gtk_box_append(GTK_BOX(a->settings_page), settings_header);
 
     GtkWidget *preferences = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -1650,6 +1989,54 @@ int main(int argc, char **argv) {
     gtk_box_append(GTK_BOX(a->settings_page), a->settings_scroll);
 
     gtk_stack_add_named(a->stack, a->settings_page, "settings");
+
+    GtkWidget *search_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    GtkWidget *search_header = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    GtkWidget *search_back = gtk_button_new_with_label("← Settings");
+    g_signal_connect(search_back, "clicked", G_CALLBACK(on_search_back), a);
+    gtk_box_append(GTK_BOX(search_header), search_back);
+    gtk_box_append(GTK_BOX(search_header), gtk_label_new("Stored observations · read-only"));
+    gtk_box_append(GTK_BOX(search_page), search_header);
+    a->search_query = GTK_ENTRY(gtk_entry_new());
+    gtk_entry_set_max_length(a->search_query, 300);
+    g_signal_connect(a->search_query, "activate", G_CALLBACK(on_query_activate), a);
+    gtk_entry_set_placeholder_text(a->search_query, "Query (optional; empty = recent)");
+    gtk_widget_set_tooltip_text(GTK_WIDGET(a->search_query), "Observation query (300 characters maximum)");
+    gtk_box_append(GTK_BOX(search_page), GTK_WIDGET(a->search_query));
+    GtkWidget *search_filters = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    const char *periods[] = {"Any time", "Last 24 hours", "Today (local)", NULL};
+    const char *sources[] = {"All sources", "hyprland", "chrome", "journal", "network", "resource", "omni", "manual", NULL};
+    a->search_period = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(periods));
+    a->search_source = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(sources));
+    gtk_widget_set_tooltip_text(GTK_WIDGET(a->search_period), "Observation time filter");
+    gtk_widget_set_tooltip_text(GTK_WIDGET(a->search_source), "Observation source filter");
+    gtk_box_append(GTK_BOX(search_filters), GTK_WIDGET(a->search_period));
+    gtk_box_append(GTK_BOX(search_filters), GTK_WIDGET(a->search_source));
+    a->search_button = gtk_button_new_with_label("Search / Recent");
+    g_signal_connect(a->search_button, "clicked", G_CALLBACK(on_search), a);
+    gtk_box_append(GTK_BOX(search_filters), a->search_button);
+    gtk_box_append(GTK_BOX(search_page), search_filters);
+    a->search_status = gtk_label_new("Explicit search only · existing records · no collectors or model calls");
+    gtk_label_set_wrap(GTK_LABEL(a->search_status), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(a->search_status), 0);
+    gtk_box_append(GTK_BOX(search_page), a->search_status);
+    GtkWidget *results_scroll = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(results_scroll, DEFAULT_WIDTH, 200);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(results_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    a->search_results = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(results_scroll), a->search_results);
+    gtk_box_append(GTK_BOX(search_page), results_scroll);
+    GtkWidget *detail_scroll = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(detail_scroll, DEFAULT_WIDTH, 180);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(detail_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    a->search_detail = gtk_text_view_new();
+    gtk_text_view_set_editable(GTK_TEXT_VIEW(a->search_detail), FALSE);
+    gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(a->search_detail), GTK_WRAP_WORD_CHAR);
+    gtk_widget_set_tooltip_text(a->search_detail, "Stored observation details (untrusted, read-only)");
+    search_set_detail(a, "Select a result for stored details. Nothing is sent to a model.");
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(detail_scroll), a->search_detail);
+    gtk_box_append(GTK_BOX(search_page), detail_scroll);
+    gtk_stack_add_named(a->stack, search_page, "search");
     gtk_stack_set_visible_child_name(a->stack, "chat");
 
     apply_transcript_size(a);

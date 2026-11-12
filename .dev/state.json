@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794514634991,
+  "updated_at_ms": 1794520015000,
   "status": "NOT READY",
   "git": {
-    "revision": "4f1711ef49df35629cbdde81530d568d6016eeb0",
+    "revision": "13ad215",
     "branch": "feat/application-aware-assistant",
-    "dirty": false,
-    "note": "Last tested code revision; subsequent documentation-only checkpoint expected clean after commit. Re-audit actual HEAD/state."
+    "dirty": true,
+    "note": "No commits/pushes: implementation-writer contract leaves working tree uncommitted for main agent/user review."
   },
-  "deployed_revision": "4f1711ef49df35629cbdde81530d568d6016eeb0",
-  "deployed_source_sha256": "59d95192c29c62693b867e6fa0b56a79492bb81bc51bc5493663b69f78ff9c78",
-  "deployed_binary_sha256": "6c23feb4f5ca85ea536703e86f2600f009aadc48af6bc47eedb4ee2cbde13e3d",
-  "phase": "Verified and deployed bounded AV/metrics/thinking/arrow repair; runtime-only blur compatibility verified",
-  "current_task": "Push repair checkpoint, then bounded outstanding feature iterations",
+  "deployed_revision": "13ad215 + uncommitted WAV/search milestones",
+  "deployed_source_sha256": "2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121",
+  "deployed_binary_sha256": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+  "phase": "Native canonical PCM16 WAV file playback/immutable review/native Omni and read-only observation search verified/deployed; uncommitted",
+  "current_task": "Review/publish current milestones via main agent; next separate bounded native video-file iteration",
   "active_hypothesis": "Native AV backend exists; enable file attachments only with reviewed immutable bytes, playback and hard decode/transport/resource bounds.",
   "verified_this_audit": [
     "Version-matched source/runtime template/model/projector/API inspected;installed binary hashes known;exact source/binary rebuild chain not proven",
@@ -32,12 +32,12 @@
   ],
   "remaining_criteria": [
     "GTK warning/test-driver reliability",
-    "Native AV FILE review/playback/duration/decode/resource/transport bounds",
-    "Read-only recall/search/memory GTK workflows",
     "Remaining explicitly requested Settings/monitor and manual workflow gaps",
     "Portal cancellation/session/sensitive-scene gate; no capture consent",
     "Physical hotkey",
-    "Long-duration/full mixed/local-workflow/recovery acceptance"
+    "Long-duration/full mixed/local-workflow/recovery acceptance",
+    "Native VIDEO FILE inline review/playback with actual decoded frame/duration/resource/bytes/native schema bounds (not implemented)",
+    "Read-only memory GTK workflow; broader recall/history/search pagination not accepted"
   ],
   "blockers": [
     "Production NOT READY; capture fail-closed; no blanket all-features PASS"
@@ -129,10 +129,18 @@
     "deployment_identity": "/home/ron/Workspace/hyprneuro-repair/deployment/identity.json",
     "installed_fixture_log": "/home/ron/Workspace/hyprneuro-repair/installed-thinking-fixtures.log",
     "focused_sanitized_log": "/home/ron/Workspace/hyprneuro-repair/thinking-sanitizer-bounded.log",
-    "post_parser_live_log": "/home/ron/Workspace/hyprneuro-repair/post-parser-live.log"
+    "post_parser_live_log": "/home/ron/Workspace/hyprneuro-repair/post-parser-live.log",
+    "audio_checkpoint": "docs/AUDIO_FILE_CHECKPOINT.md",
+    "audio_logs": "/home/ron/Workspace/hyprneuro-audio",
+    "search_checkpoint": "docs/SEARCH_GTK_CHECKPOINT.md",
+    "search_logs": "/home/ron/Workspace/hyprneuro-search",
+    "native_audio_deployment": "/home/ron/Workspace/hyprneuro-audio/native-deployment",
+    "native_audio_fixture_log": "/home/ron/Workspace/hyprneuro-audio/native-final-complete-sanitized.log",
+    "native_audio_installed_log": "/home/ron/Workspace/hyprneuro-audio/native-installed-standalone.log",
+    "native_audio_thinking_regression": "/home/ron/Workspace/hyprneuro-audio/native-thinking-regression.log"
   },
-  "next_action": "Follow docs/FEATURE_ITERATIONS.md; continue independent safe feature iterations with per-iteration E2E/deploy/hash/docs/commit/push; capture remains blocked.",
-  "verified_this_checkpoint": "277Python pass/1skip/57subtests;7C release+ASan/UBSan helper cases pass incl helper leaks. Installed full fixture gui150454 passed exact reasoning attrs/history/errors/reset and images. Focused final sanitized gui151247 passed telemetry/thinking/arrow. Earlier full sanitized gui145748 passed keyboard/images/AV rejection. Installed live MAPLE/recall/greenJPEG and post-parser CEDAR passed. Combined expanded GUI-driver failures preserved; NOT full mixed acceptance.",
+  "next_action": "Main agent/user reviews/commits/pushes coherent milestones; then implement native temporal video file review with hard decode/frame/resource/transport bounds. No capture.",
+  "verified_this_checkpoint": "304Python pass/1skip/57subtests;9C release+ASan/UBSan incl helper leaks;actual sanitized native WAV full fixture164003;standalone actual installed native WAV/Omni164254 exit0;actual installed read-only search/details rechecked;focused sanitized metrics/thinking/16px actions pass without screenshots;failed/combined timeout logs retained;no all-features/mixed/soak PASS",
   "enabled_this_checkpoint": [],
   "historical_pre_repair_state": {
     "git": {
@@ -179,5 +187,22 @@
     "orphan thinking-control stripping",
     "matching16x16transparentSettings/arrow",
     "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
+  ],
+  "working_tree_milestones": [
+    {
+      "name": "missing-decoder WAV gate + preserved images",
+      "binary": "419159ad2a8269a8e36329592a103c7457e77cac8ef148cfd9504082ab193756",
+      "accepted": "Refusal only; historical missing-plugin dependency now user-resolved"
+    },
+    {
+      "name": "read-only observation search/details GTK",
+      "binary": "50c8fa5d03acfe475c3accb7a2c677cd2f84a2719e323f2115f04ccd63b6812a",
+      "accepted": "Bounded actual fixture and real store workflow"
+    },
+    {
+      "name": "native canonical PCM16 WAV file",
+      "binary": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+      "accepted": "Actual playback/output/replay/immutable native schema/local Omni transcription + cleanup, bounded subset only"
+    }
   ]
 }

@@ -55,6 +55,8 @@ typedef struct {
     char *sock_path;
     char *message;
     char *history_json;
+    char *media_b64;   /* base64-encoded file data, or NULL */
+    char *media_mime;  /* MIME type, or NULL */
     App *app;
 } ChatTaskData;
 
@@ -375,6 +377,16 @@ static void chat_worker(GTask *task, gpointer source, gpointer task_data,
         }
         g_object_unref(hp);
     }
+    /* Embed media (base64-encoded file) if present. */
+    if (d->media_b64 && d->media_b64[0]) {
+        json_builder_set_member_name(b, "media");
+        json_builder_begin_object(b);
+        json_builder_set_member_name(b, "data");
+        json_builder_add_string_value(b, d->media_b64);
+        json_builder_set_member_name(b, "mime");
+        json_builder_add_string_value(b, d->media_mime ? d->media_mime : "image/png");
+        json_builder_end_object(b);
+    }
     json_builder_end_object(b);
     JsonGenerator *g = json_generator_new();
     json_generator_set_root(g, json_builder_get_root(b));
@@ -456,6 +468,8 @@ cleanup:
     g_free(d->sock_path);
     g_free(d->message);
     g_free(d->history_json);
+    g_free(d->media_b64);
+    g_free(d->media_mime);
     g_free(d);
 }
 
@@ -488,6 +502,38 @@ static void send_message(App *a) {
     td->sock_path = g_strdup(a->sidecar_sock);
     td->message = g_strdup(msg);
     td->history_json = history_to_json(a);
+
+    /* If there are attachments, include the first one as media. */
+    if (a->attachments->len > 0) {
+        GFile *f = g_ptr_array_index(a->attachments, 0);
+        char *path = g_file_get_path(f);
+        GError *ferr = NULL;
+        gsize len = 0;
+        gchar *contents = NULL;
+        if (g_file_get_contents(path, &contents, &len, &ferr) &&
+            len > 0 && len < 5 * 1024 * 1024) {
+            td->media_b64 = g_base64_encode(contents, len);
+            /* Guess MIME from extension. */
+            char *name = g_file_get_basename(f);
+            char *dot = strrchr(name, '.');
+            if (dot) {
+                if (!g_strcmp0(dot+1, "png")) td->media_mime = g_strdup("image/png");
+                else if (!g_strcmp0(dot+1, "jpg") || !g_strcmp0(dot+1, "jpeg"))
+                    td->media_mime = g_strdup("image/jpeg");
+                else if (!g_strcmp0(dot+1, "webp")) td->media_mime = g_strdup("image/webp");
+                else if (!g_strcmp0(dot+1, "wav")) td->media_mime = g_strdup("audio/wav");
+                else if (!g_strcmp0(dot+1, "mp3")) td->media_mime = g_strdup("audio/mpeg");
+                else td->media_mime = g_strdup("application/octet-stream");
+            } else {
+                td->media_mime = g_strdup("application/octet-stream");
+            }
+            g_free(name);
+        } else {
+            if (ferr) g_clear_error(&ferr);
+        }
+        g_free(contents);
+        g_free(path);
+    }
 
     GTask *task = g_task_new(a, NULL, NULL, NULL);
     g_task_set_task_data(task, td, NULL); /* worker frees it */

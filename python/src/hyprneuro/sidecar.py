@@ -20,7 +20,7 @@ import time
 
 from .sidecar_store import SidecarStore
 
-MAX_REQUEST = 65536
+MAX_REQUEST = 10 * 1024 * 1024  # 10 MB: supports base64-encoded media
 MAX_RESPONSE = 262144
 RETENTION_INTERVAL_SECONDS = 3600
 
@@ -413,9 +413,21 @@ class SidecarServer:
         history = [{"role": ("user" if str(h.get("role", "user")) == "user" else "assistant"),
                     "content": str(h.get("content", ""))[:4000]}
                    for h in history[-20:] if isinstance(h, dict)]
+        # Build the user message, including media if present.
+        media = request.get("media")
+        if media and isinstance(media, dict) and media.get("data"):
+            mime = media.get("mime", "image/png")
+            b64 = media["data"]
+            user_content = [
+                {"type": "text", "text": message[:8000]},
+                {"type": "image_url",
+                 "image_url": {"url": f"data:{mime};base64,{b64}"}},
+            ]
+        else:
+            user_content = message[:8000]
         messages = ([{"role": "system", "content": system[:4000]}] + history +
-                    [{"role": "user", "content": message[:8000]}])
-        role = "omni" if request.get("media") else "text"
+                    [{"role": "user", "content": user_content}])
+        role = "omni" if (media and isinstance(media, dict) and media.get("data")) else "text"
         full = ""
         try:
             async for delta in agent.stream_chat(

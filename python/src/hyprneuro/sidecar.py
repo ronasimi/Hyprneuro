@@ -88,16 +88,20 @@ class SidecarServer:
         self.app_watcher = None
         self.broker = None
         self.router = None
+        self.leases = None
+        self.desktop_controller = None
         if assistant_enabled:
             from .application import AppRegistry, SkillIndex, TieredMemory
             from .authorization import PermissionBroker
             from .model_router import ModelRouter
+            from .desktop_control import LeaseManager
             self.registry = AppRegistry(max_recent=assistant_recent_apps,
                                         debounce_ms=assistant_focus_debounce_ms)
             self.memory = TieredMemory(store)
             self.skills = SkillIndex.from_directory(skills_dir) if skills_dir else SkillIndex()
             self.broker = PermissionBroker(store)
             self.router = ModelRouter()
+            self.leases = LeaseManager()  # in-memory only: fail-closed on restart
 
     def _assistant(self, request):
         """Versioned assistant IPC. All reads are read-only and bounded.
@@ -193,6 +197,34 @@ class SidecarServer:
             if set(request) - {"action", "from_role", "to_role", "payload"}:
                 raise ValueError("Invalid handoff request")
             return self.router.handoff(request["from_role"], request["to_role"], request.get("payload") or {})
+        if action == "lease_acquire":
+            if set(request) - {"action", "task_id", "ttl_ms"}:
+                raise ValueError("Invalid lease_acquire request")
+            lease = self.leases.acquire(request["task_id"], ttl_ms=request.get("ttl_ms") or 10000)
+            return {"schema": "hyprneuro.lease/1", **lease.compact()}
+        if action == "lease_release":
+            if set(request) - {"action", "task_id", "token"}:
+                raise ValueError("Invalid lease_release request")
+            return {"released": self.leases.release(request["task_id"], request["token"])}
+        if action == "lease_renew":
+            if set(request) - {"action", "task_id", "token", "ttl_ms"}:
+                raise ValueError("Invalid lease_renew request")
+            lease = self.leases.renew(request["task_id"], request["token"],
+                                      ttl_ms=request.get("ttl_ms") or 10000)
+            return {"schema": "hyprneuro.lease/1", **lease.compact()}
+        if action == "lease_pause":
+            if set(request) - {"action", "task_id", "token"}:
+                raise ValueError("Invalid lease_pause request")
+            return {"paused": self.leases.pause(request["task_id"], request["token"])}
+        if action == "lease_resume":
+            if set(request) - {"action", "task_id", "token"}:
+                raise ValueError("Invalid lease_resume request")
+            return {"resumed": self.leases.resume(request["task_id"], request["token"])}
+        if action == "lease_status":
+            lease = self.leases.active()
+            return {"schema": "hyprneuro.lease/1", "active": lease.compact() if lease else None}
+        if action == "lease_emergency_stop":
+            return {"stopped": self.leases.force_release()}
         raise ValueError("Unknown assistant RPC action")
 
     def dispatch(self, request):
@@ -241,7 +273,9 @@ class SidecarServer:
                      "skill_discover", "skill_load", "skill_list",
                      "task_create", "task_update", "task_get", "task_list",
                      "auth_create", "auth_check", "auth_expand", "auth_revoke", "auth_list",
-                     "route", "handoff"):
+                     "route", "handoff",
+                     "lease_acquire", "lease_release", "lease_renew", "lease_pause",
+                     "lease_resume", "lease_status", "lease_emergency_stop"):
             if not self.assistant_enabled:
                 raise PermissionError("Assistant features are disabled")
             return self._assistant(request)
@@ -265,6 +299,16 @@ class SidecarServer:
             if set(request) != {"action", "id", "since_ms"}:
                 raise ValueError("Invalid navigation verification request")
             return self.store.verify_navigation(request["id"], request["since_ms"])
+        if request.get("action") == "desktop_action":
+            if not self.assistant_enabled:
+                raise PermissionError("Assistant features are disabled")
+            if self.desktop_controller is None:
+                raise PermissionError("Desktop control requires watch_hyprland")
+            if set(request) - {"action", "task_id", "token", "op", "value", "expected_window"}:
+                raise ValueError("Invalid desktop_action request")
+            return await self.desktop_controller.perform(
+                request["task_id"], request["token"], request["op"],
+                request.get("value"), expected_window=request.get("expected_window"))
         if request.get("action") != "omni_observe":
             return self.dispatch(request)
         # The native Pi tool must show user approval for EVERY foreground
@@ -452,8 +496,10 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             app_watcher = None
             if assistant_enabled:
                 from .application import AppWatcher
+                from .desktop_control import DesktopController
                 app_watcher = AppWatcher(desktop, worker.registry)
                 worker.app_watcher = app_watcher
+                worker.desktop_controller = DesktopController(desktop, worker.broker, worker.leases)
                 # Seed the registry with the currently focused window so a
                 # change-only event stream does not leave it empty at startup.
                 producers.append(asyncio.create_task(app_watcher.initial_resolve(), name="app_seed"))

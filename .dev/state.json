@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794449586562,
+  "updated_at_ms": 1794451206603,
   "git": {
     "revision": "cfc7abb961a4174bbe49e398fc062e0d54272585",
     "branch": "feat/application-aware-assistant",
@@ -8,7 +8,7 @@
   },
   "deployed_revision": null,
   "last_known_good": "cfc7abb961a4174bbe49e398fc062e0d54272585",
-  "phase": "3/4 permission-broker + model-router (slice complete)",
+  "phase": "5 computer-use safety primitives (slice complete)",
   "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
   "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
   "completed_features": [
@@ -26,7 +26,11 @@
     "permission-broker",
     "deterministic-model-router",
     "structured-handoffs",
-    "kv-reuse-measurement"
+    "kv-reuse-measurement",
+    "desktop-control-lease",
+    "focus-validation",
+    "gated-desktop-controller",
+    "emergency-stop"
   ],
   "remaining_criteria": [
     "computer-use-leases",
@@ -44,5 +48,5 @@
   "artifacts": {
     "baseline_tests": ".dev/benchmarks/baseline_tests.json"
   },
-  "next_action": "Phase 5: computer-use desktop-control lease + focus validation + safe user interruption (disposable test apps); Phase 6 hotkey interface."
+  "next_action": "Phase 6: hotkey-activated native Wayland interface; Phase 7: progressive skills; Phase 8: adaptive residency; Phase 9: production stabilization + final scorecard."
 }

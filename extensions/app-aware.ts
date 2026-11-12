@@ -208,4 +208,39 @@ export default function (pi: ExtensionAPI) {
       return result(await sidecar(payload, signal));
     },
   });
+
+  pi.registerTool({
+    name: "hyprneuro_desktop",
+    label: "Leased, gated desktop control",
+    description: "Manage the exclusive desktop-control lease and perform gated desktop actions. `acquire`/`release`/`renew`/`pause`/`resume`/`status`/`emergency_stop` control the lease. `action` performs ONE bounded desktop operation, allowed only if the task is authorized for desktop_control (approval required), holds an active non-paused lease, and (when expected_window is given) the target window is still focused. Use disposable test windows for unattended testing; never target the user's normal desktop without explicit approval.",
+    promptSnippet: "Acquire/release the desktop lease or perform a gated desktop action",
+    parameters: Type.Object({
+      action: Type.Union([Type.Literal("acquire"), Type.Literal("release"), Type.Literal("renew"), Type.Literal("pause"), Type.Literal("resume"), Type.Literal("status"), Type.Literal("emergency_stop"), Type.Literal("perform")]),
+      task_id: Type.Optional(Type.String({ maxLength: 128 })),
+      token: Type.Optional(Type.String({ maxLength: 64 })),
+      ttl_ms: Type.Optional(Type.Integer({ minimum: 1, maximum: 120000 })),
+      op: Type.Optional(Type.String({ maxLength: 40 })),
+      value: Type.Optional(Type.Unknown()),
+      expected_window: Type.Optional(Type.Object({}, { additionalProperties: true })),
+    }),
+    async execute(_id, params, signal) {
+      if (params.action === "perform") {
+        const payload: Record<string, unknown> = { action: "desktop_action" };
+        if (params.task_id) payload.task_id = params.task_id;
+        if (params.token) payload.token = params.token;
+        if (params.op) payload.op = params.op;
+        if (params.value !== undefined) payload.value = params.value;
+        if (params.expected_window) payload.expected_window = params.expected_window;
+        return result(await sidecar(payload, signal));
+      }
+      const map: Record<string, string> = { acquire: "lease_acquire", release: "lease_release",
+        renew: "lease_renew", pause: "lease_pause", resume: "lease_resume",
+        status: "lease_status", emergency_stop: "lease_emergency_stop" };
+      const payload: Record<string, unknown> = { action: map[params.action] };
+      if (params.task_id) payload.task_id = params.task_id;
+      if (params.token) payload.token = params.token;
+      if (params.ttl_ms) payload.ttl_ms = params.ttl_ms;
+      return result(await sidecar(payload, signal));
+    },
+  });
 }

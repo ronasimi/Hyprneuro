@@ -1,5 +1,8 @@
 # Hyprneuro Implementation Ledger
 
+**Current correction:** [AV/metrics repair — NOT READY](AV_METRICS_REPAIR.md).
+Earlier completion/AV/cache claims are superseded only by its exact evidence.
+
 This is the human-readable pointer to the **external engineering ledger**, which
 lives in `.dev/` (machine-readable, Git-tracked for decisions/iterations;
 transient logs and large artifacts are Git-ignored).

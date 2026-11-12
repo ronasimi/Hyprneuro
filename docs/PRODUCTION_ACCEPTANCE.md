@@ -1,5 +1,10 @@
 # Hyprneuro production acceptance — NOT READY
 
+**Current AV/telemetry correction:** [AV_METRICS_REPAIR.md](AV_METRICS_REPAIR.md).
+Backend native audio/video is now demonstrated on bounded fixtures; attachment
+UI remains static-image-only. Earlier unsupported-backend wording below is
+historical, not a finding that the model cannot hear or decode video.
+
 **Later bounded feature checkpoint:** [GTK_FEATURE_CHECKPOINT.md](GTK_FEATURE_CHECKPOINT.md)
 updates reasoning, actual Settings/monitoring controls, outer CSS and deployment.
 The historical inventory below describes the earlier audit; the newer checkpoint

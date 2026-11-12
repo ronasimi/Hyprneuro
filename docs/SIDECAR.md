@@ -1,5 +1,11 @@
 # Independent observational sidecar — phase 1
 
+> **Current privacy gate: capture BLOCKED.** Do not enable `--allow-capture`,
+> `--d1-visual` or raw screenshot/on-demand workers from the historical examples
+> below. Portal cancellation/session/sensitive-scene protection is not accepted;
+> prior advice that enabling capture was safe is withdrawn. Explicit capture
+> consent has NOT been granted. See [current repair checkpoint](AV_METRICS_REPAIR.md).
+
 **Historical phase-1 design:** functional SQLite + same-UID Unix RPC + read-only context feeds.
 An opt-in Hyprland socket2 event source is wired; journal and Chrome
 producers and automatic model invocation are not yet connected.

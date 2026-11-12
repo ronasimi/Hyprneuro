@@ -1,93 +1,109 @@
-# Hyprneuro — Next Session Continuation Prompt
+# Hyprneuro — exact continuation checkpoint (NOT READY)
 
-## Context
+Audit git HEAD/worktree and running identity first: interrupted processes may
+have stopped. Branch **feat/application-aware-assistant**, never main. Last
+verified **code** checkpoint **4f1711e** (repair began at clean22174f1); subsequent
+documentation checkpoint is not a different application binary.
 
-Working on the Hyprneuro GTK4 layer-shell desktop assistant on branch
-`feat/application-aware-assistant` (HEAD `9ac7c1e`). The system consists of:
-- **GTK4 C UI** (`ui/src/hyprneuro.c`, ~1600 lines) — layer-shell overlay
-- **Python sidecar** (`python/src/hyprneuro/`) — IPC, agent routing, monitoring
-- **Three LFM model services** — text:8081, omni:8082, decision:8083 (do not modify)
-- **Hyprland 0.57.2** — compositor with dedicated `^hyprneuro$` blur rule
+Read [AV_METRICS_REPAIR.md](AV_METRICS_REPAIR.md),
+[FEATURE_ITERATIONS.md](FEATURE_ITERATIONS.md), then
+[GTK_FEATURE_CHECKPOINT.md](GTK_FEATURE_CHECKPOINT.md) and
+[PRODUCTION_ACCEPTANCE.md](PRODUCTION_ACCEPTANCE.md). Historical completion,
+audio/video/cache claims are superseded only by exact current evidence.
 
-## What is DONE and verified
+## Implemented, tested, deployed separately
 
-- All critical GTK chat crashes fixed (ASan/UBSan verified)
-- Enter sends, Ctrl+Enter inserts newline
-- Inline image attachments (PNG/JPEG/WebP) with thumbnails, expand, true removal
-- **Video attachment support** (MP4/WebM, ≤10 MiB): Omni processes video
-  frames correctly (verified: red square, blue-on-white pattern identified)
-- **Audio confirmed NOT supported** (model treats base64 as tokens); rejected
-- Streamed reasoning display: `ThinkingParser` splits `</think>` deltas;
-  GTK renders thinking italic `#b8b8b8`, answers blue/upright
-- Sidecar `ui_settings_get/save` IPC: appearance + 3 monitoring consents
-- Settings page: transcript size, autoscroll, panel opacity, journal/network/
-  resources switches with Save/Reload (save does not activate workers)
-- Appearance: `#212121`/90% bg, `#000000`/95% border, 9px radius
-- Top-right overlay up/down arrow size toggle (zero height)
-- Bottom-left transparent Settings icon + "Hyprneuro - Local" label
-- **Status bar metrics**: prefill tok/s, decode tok/s, cache hit % from
-  llama.cpp streaming `timings` field (verified end-to-end: 71.4/22.3/8.3%)
-- Namespace `hyprneuro` set via `gtk_layer_set_namespace`
-- 271 Python tests pass, 6 C tests pass, build clean
-- Journal, passive network, sustained resource monitoring individually tested
-- Hyprland config: dedicated `^hyprneuro$` blur rule in `~/.config/hypr/rules.lua`
+- Running unchanged llama.cpp b12308/7bcbc04fb; source/API/template/model/projector
+  inspected. Native `input_audio` transcribed a known synthetic WAV exactly;
+  native `input_video` described red→blue and reversed blue→red MP4s correctly
+  (reverse response length-limited). Neither tone guessing through image_url nor
+  static-colour MP4 guessing established the earlier claims.
+- **AV file UI deliberately disabled** until inline review/playback, duration/
+  decode/resource/transport bounds exist. GTK/IPC only PNG/JPEG/WebP static
+  attachments. Removed10MiB raw-video path (~13.33MiB base64 >10MiB IPC frame).
+- Metrics distinguish evaluated/cached/total, finite typed values, valid zero
+  reuse and unknown missing. Separate monitoring/inference state; pending/done/
+  error/reset; cache occupancy explicitly Full—. Tooltips distinguish counts.
+- Thinking control parser consumes orphan closers after a real live stray tag
+  was observed. Native/split/only/error/reset fixtures through **installed** GTK
+  expose actual italic/weight400/#b8b8b8 attributes; answer upright, history only
+  answer, no control leaks. This is fixture proof, NOT enabled live thinking.
+- Arrow and Settings **actual16×16**, same scoped transparent CSS, no permanent
+  border/outline/shadow; keyboard-only focus indication, top-right nonmeasuring
+  overlay. Actual installed10hide/show recreations,3-state pointer behavior and
+  keyboard Ctrl+Tab/Tab+Return passed. Prior apparent reversion was tests restoring
+  still-old installed service52e1c69f before deployment; never reinstall that backup.
+- Installed release/build/running binary SHA256:
+  **6c23feb4f5ca85ea536703e86f2600f009aadc48af6bc47eedb4ee2cbde13e3d**.
+  C source **59d95192c29c62693b867e6fa0b56a79492bb81bc51bc5493663b69f78ff9c78**.
+  ExecStart `/home/ron/.local/bin/hyprneuro-ui`. Sidecar restarted with patched
+  parser; installed post-parser actual GUI live CEDAR + metrics/poll check passed.
+  Earlier installed actual MAPLE/recall and reviewed green JPEG→Green passed.
+- Python **277pass/1skip/57subtests**; C7helpers release+ASan/UBSan incl helper
+  leak detection. Full earlier sanitized metrics/keyboard/image/AV-rejection run
+  and installed full thinking/image run passed. Focused final sanitized thinking/
+  metrics/arrow run passed. **Latest expanded combined GUI runs had input/Atspi/
+  portal test-driver failures and are NOT full mixed acceptance**. Detailed logs
+  are preserved; do not turn partial runs into PASS.
+- Dedicated namespace hyprneuro observed running. Blur source root cause proven:
+  GTK4.24 empty background-effect region overrides Hyprland0.57 rule. Controlled
+  default/disabled-protocol A/B: edge step24→1; actual screenshots inspected.
+  Installed app runtime-only drop-in at
+  `/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf` sets
+  `GDK_WAYLAND_DISABLE=ext_background_effect_manager_v1` (prior value preserved,
+  empty here). **EXPIRES AT REBOOT**. No renderer/global compositor/env change.
 
-## What is NOT done (in priority order)
+## Next bounded feature work
 
-### 1. Screenshot portal (BLOCKED)
-The portal probe showed `Request.Close` times out on cancellation, leaving
-the `slurp` selector active. This is a **hard cleanup failure** per the
-fail-closed policy. Do not retry until the portal cleanup issue is resolved
-(upstream Hyprland/portal bug or a workaround with guaranteed cleanup).
+User now requests **each** outstanding feature as an individually tested,
+deployed, documented, committed and **pushed iteration**; then actual-interface
+and local-machine workflows, fix findings. Follow FEATURE_ITERATIONS inventory.
+Continue independent safe work; do not call blocked features complete.
 
-### 2. GTK frame-timing blocker
-- The original fatal hide/show invariant is mitigated (toplevel retirement
-  with widget tree reparenting passed 100 cycles).
-- Dropdown/presentation interaction still produces discarded-frame warnings.
-- Fatal-warning runs abort. NOT a production blocker for feature work, but
-  must be resolved before production promotion.
+Recommended next: stabilize narrow GTK/test-driver failures, then native AV
+**file** review/playback with strict bounds and native schema. Local existing
+GtkMediaFile constructs GtkGstMediaFileBuiltin; actual preparation/playback NOT
+accepted yet. No package install required/proven by that construction. Also safe
+independent work: bounded read-only recall/search/memory GTK views via existing
+RPCs. Verify exact current schemas first, no automatic collectors/actions.
+Settings3monitor controls already exist with explicit startup-only consent;
+preserve saved/draft/observed state. Stop-generation, physical hotkey, full
+long-duration/mixed/recovery remain unaccepted as inventoried.
 
-### 3. Blur visual verification
-The Hyprland rule is correct (`^hyprneuro$`, `blur=true`, `blur_popups=true`,
-`ignore_alpha=0.2`). The namespace is set in code. However, the worker's
-controlled-pattern screenshots showed sharp stripes (no visible blur).
-Possible causes to investigate:
-- The layer's `ignore_alpha=0.2` may be interacting with the 90% opacity
-- `decoration:blur:new_optimizations=true` with `xray=false` may skip
-  layer-surface blur in some code paths
-- Check `hyprctl -j layers` shows the surface at the expected level
-- Try `ignore_alpha=true` (boolean) vs `0.2` (number) semantics
-- Check if the blur region is being set (v0.57.2 `LayerSurface.cpp` line 527:
-  `surface->m_blurRegion.empty()` check)
-- Source: `~/Workspace/hyprneuro-blur-debug/` has fetched v0.57.2 files
+## Hard safety/acceptance boundaries
 
-### 4. Deploy and interactive verification
-The latest commits (metrics, video) have NOT been deployed to the running
-service. Deploy the new binary, restart `hyprneuro-ui.service`, and verify:
-- Metrics appear in status bar after a chat turn
-- Video file attachment shows icon + metadata
-- Image attachment still works with thumbnail
-- All existing features (reasoning, settings, monitoring) still work
+- Capture BLOCKED: NO allow-capture/d1-visual/on-demand raw screenshot worker,
+  microphone/camera/background capture consent, raw grim workaround, external
+  egress or autonomous action. Prior advice enabling capture was safe is withdrawn.
+  Portal Request.Close cleanup failed. File AV and capture are distinct.
+- Screenshots only explicit bounded GUI inspection on independently verified
+  same-UID local active unlocked session; check logind AND locker processes
+  (hyprlock was observed while LockedHint=no). Stop/ask unlock if ambiguous.
+  No lock bypass or sensitive-scene capture. Test screenshots never enter models.
+- No package/model/config/residency/compositor-renderer changes. App-only atomic
+  deployment/restarts authorized with rollback for failed deploy only. Preserve
+  newest installed verified binary through test cleanup. Parent does not edit app
+  source concurrently; coordinate any runtime compositor action separately.
+- NOT READY: GTK baseline/presentation warnings; portal architecture; AV UI
+  bounds/review; recall/search/memory; physical hotkey; full mixed/long-duration/
+  actual model-crash recovery. No all-features completion/production claim.
 
-## Key constraints
+## Verification/evidence
 
-- **Do not change** LFM services, model config, or residency
-- **Do not install** packages without approval
-- **Do not enable** capture (camera/mic/video) without working portal cleanup
-- **Do not enable** autonomous actions, browser, or external egress
-- All git commits end with `Co-Authored-By: AI Agent <agent@local>`
-- Evidence goes under `~/Workspace/hyprneuro-audit/` or `~/Workspace/hyprneuro-features/`
-- Use `hyprland-control` skill for screenshots: `grimblast save screen ~/Workspace/screenshots/$(date +%Y-%m-%d)/$(date +%H%M%S)-label.png`
-- Tests: `PYTHONPATH=python/src python3 -m unittest discover -s python/tests`
-- C build: `ninja -C ui/build`
-- C tests: `ui/build/test-ui-history`
-- Sidecar socket: `/run/user/1000/hyprharness/sidecar.sock`
-- UI socket: `/run/user/1000/hyprneuro/ui.sock`
-
-## Suggested first actions
-
-1. Read this file, then `docs/GTK_FEATURE_CHECKPOINT.md` for full feature state
-2. Check running state: `systemctl status hyprneuro.service hyprneuro-ui.service`
-3. Check Omni model: `curl -s localhost:8082/v1/models | python3 -m json.tool`
-4. Start with item 1 (status bar metrics) — it's self-contained UI+sidecar work
-5. Test each feature through the actual GUI before marking complete
+- `PYTHONPATH=python/src python/.venv/bin/python -m pytest python/tests -q`
+- `ninja -C ui/build`; `meson test -C ui/build --print-errorlogs`
+- Sanitizer build `~/Workspace/hyprneuro-repair/sanitize`, address+undefined;
+  helpers ASAN detect_leaks1/abort_on_error1; UBSAN halt_on_error1.
+  GUI detect_leaks0: global/library leak freedom is NOT proven.
+- `python ui/tests/metrics_interactive.py SESSION_ID BINARY --thinking` focuses
+  arrow/telemetry/thinking. Without flag also exercises keyboard/portal images;
+  combined portal-driver stability remains a documented limit. BINARY can be
+  actual installed path; script verifies executed `/proc` hash and restores only
+  current installed service. It never reinstalls a backup or changes models.
+- Opt-in native API probe `.dev/logs/capability_audit.py OUTPUT_DIR SYNTHETIC_WAV`
+  under machine inference lease. No capture/playback/service edits.
+- `~/Workspace/hyprneuro-repair/` logs/identity/backups; screenshots Workspace.
+  Sidecar `/run/user/1000/hyprharness/sidecar.sock`; UI `/run/user/1000/hyprneuro/ui.sock`.
+- Update docs/.dev checkpoint before claiming a result, commit trailer exactly
+  `Co-Authored-By: AI Agent <agent@local>`, HTTPS plain git push after each verified
+  iteration, never merge/main. Verify remote hash. Keep Obsidian auto-open off.

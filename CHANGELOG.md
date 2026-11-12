@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Corrected (2026-11-12; NOT READY)
+- Withdraw prior audio-unsupported/static-video/cache-percentage completion claims;
+  native synthetic speech and contrasting video backend evidence is recorded in
+  [AV/metrics repair](docs/AV_METRICS_REPAIR.md), separately from GTK acceptance.
+- Fail closed MP4/WebM attachment path and IPC AV/invalid-media input.
+- Interpret evaluated/cached/total tokens correctly; finite typed telemetry,
+  valid zero reuse, explicit unknown occupancy, separate monitoring/inference UI.
+
 ### Added
 - Manual stdlib curses history/search/alerts/details/status/settings UI; inert terminal text, bounded pages and no alert-management actions
 - Private atomic feature settings, all optional defaults off, explicit CLI on/off overrides, saved/active/restart visibility and installer config opt-in

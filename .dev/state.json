@@ -1,48 +1,43 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794495906661,
+  "updated_at_ms": 1794514634991,
   "status": "NOT READY",
   "git": {
-    "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
+    "revision": "4f1711ef49df35629cbdde81530d568d6016eeb0",
     "branch": "feat/application-aware-assistant",
-    "dirty": true
+    "dirty": false,
+    "note": "Last tested code revision; subsequent documentation-only checkpoint expected clean after commit. Re-audit actual HEAD/state."
   },
-  "deployed_revision": null,
-  "deployed_source_sha256": "954761e26969c6523cb7f692a3888ac680d88872ec9c00bd5b0af4941351ca23",
-  "deployed_binary_sha256": "f71a55bfc68bc1f600a2bd9b5b14f840347f06712ead4b2bcc2318e441e702b5",
-  "phase": "Bounded reasoning/Settings/monitoring checkpoint; Screenshot portal gate rejected",
-  "current_task": "Authoritative running Omni audio/video capability verification (new user priority)",
-  "active_hypothesis": "Only genuinely supported AV payloads may be enabled after actual local API and GUI proof.",
+  "deployed_revision": "4f1711ef49df35629cbdde81530d568d6016eeb0",
+  "deployed_source_sha256": "59d95192c29c62693b867e6fa0b56a79492bb81bc51bc5493663b69f78ff9c78",
+  "deployed_binary_sha256": "6c23feb4f5ca85ea536703e86f2600f009aadc48af6bc47eedb4ee2cbde13e3d",
+  "phase": "Verified and deployed bounded AV/metrics/thinking/arrow repair; runtime-only blur compatibility verified",
+  "current_task": "Push repair checkpoint, then bounded outstanding feature iterations",
+  "active_hypothesis": "Native AV backend exists; enable file attachments only with reviewed immutable bytes, playback and hard decode/transport/resource bounds.",
   "verified_this_audit": [
-    "baseline GUI ASan crash reproduced",
-    "history/callback/task/stream ownership corrected",
-    "monitoring/settings RPC off main thread; bounded asynchronous control reads",
-    "11 live-model GUI text turns including installed Return/CtrlReturn/KPEnter smoke",
-    "6 actual GUI image-to-Omni submissions across PNG/JPEG/WebP; installed green JPEG->Green, blue WebP->Blue",
-    "25 deterministic GTK input/Send fixture turns with exact history checks",
-    "error/EOF/oversize recovery; stalled/fragmented control client tests",
-    "all visible GTK controls exercised; settings rows inspected; no GTK switches/submenus exist",
-    "capture fails closed with explicit permission-safe unavailability",
-    "Python 253 passed, 1 skipped, 30 subtests; 5 C cases pass with ASan/UBSan including helper leak detection",
-    "installed/build/running-exe hashes match",
-    "Return/KP_Enter send; Ctrl+Return/Ctrl+KP_Enter newline only; empty/busy guards and no stray newline independently fixture-verified twice",
-    "PNG/JPEG/WebP inline thumbnails <=112x72, expanded review <=480x240, metadata; full transcript+review fits 682x799 output layer",
-    "Fixture payload bytes/mime match previews; X removes media payload; immutable reviewed snapshot survives source mutation",
-    "Cancel preserves composer draft and existing image; unsupported text/WAV/MP4, byte/dimension oversize and corrupt image rejected before submission"
+    "Version-matched source/runtime template/model/projector/API inspected;installed binary hashes known;exact source/binary rebuild chain not proven",
+    "Native WAV known synthetic speech exact transcript, malformed audio400;MP4 red-blue and reverse order correct (reverse length-limited)",
+    "Finite typed metrics with total/evaluated/cached, zero reuse vs unknown, no fabricated occupancy",
+    "Actual GTK accessibility reasoning italic/weight400/#b8b8b8;upright answer;answer-only history;split/orphan/only/error/reset passed",
+    "Installed16x16matching arrow/Settings after10hide/show recreations;pointer3states and keyboard focus+Return verified",
+    "Blur controlled A/B and installed runtime override inspected;edge24to1;no renderer/globalcompositorchange",
+    "Installed/build/running hash6c23feb4 match;app-only sidecar restarted;capture_enabledfalse;original model PIDs/start/config/library hashes unchanged"
   ],
   "known_failures": [
-    "GTK frame discarded/duplicate presentation and GtkImage baseline warnings persist; fatal-warning diagnostic abort is not a feature PASS",
-    "Screenshot portal Request.Close timed out leaving selector active until Escape",
-    "Physical hotkey not verified"
+    "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
+    "Screenshot portal Request.Close cleanup failure",
+    "Intermittent combined GUI driver key-input/Atspi/portal selection failures; not counted complete",
+    "Physical hotkey not verified",
+    "Scoped blur runtime workaround expires at reboot"
   ],
   "remaining_criteria": [
-    "GTK presentation/baseline warnings",
-    "Screenshot portal cancellation",
-    "camera/mic/video capture",
-    "audio/video attachments pending new authoritative audit",
-    "recall/search/memory GUI",
-    "physical hotkey",
-    "long-duration/full mixed/recovery acceptance"
+    "GTK warning/test-driver reliability",
+    "Native AV FILE review/playback/duration/decode/resource/transport bounds",
+    "Read-only recall/search/memory GTK workflows",
+    "Remaining explicitly requested Settings/monitor and manual workflow gaps",
+    "Portal cancellation/session/sensitive-scene gate; no capture consent",
+    "Physical hotkey",
+    "Long-duration/full mixed/local-workflow/recovery acceptance"
   ],
   "blockers": [
     "Production NOT READY; capture fail-closed; no blanket all-features PASS"
@@ -127,11 +122,49 @@
     "media_payload_evidence": "/home/ron/Workspace/hyprneuro-audit/keyboard-requests.jsonl",
     "last_installed_gui_log": "/home/ron/Workspace/hyprneuro-audit/deployed-final-gui.log",
     "feature_checkpoint": "docs/GTK_FEATURE_CHECKPOINT.md",
-    "feature_logs": "/home/ron/Workspace/hyprneuro-features/"
+    "feature_logs": "/home/ron/Workspace/hyprneuro-features/",
+    "repair_report": "docs/AV_METRICS_REPAIR.md",
+    "repair_logs": "/home/ron/Workspace/hyprneuro-repair",
+    "feature_inventory": "docs/FEATURE_ITERATIONS.md",
+    "deployment_identity": "/home/ron/Workspace/hyprneuro-repair/deployment/identity.json",
+    "installed_fixture_log": "/home/ron/Workspace/hyprneuro-repair/installed-thinking-fixtures.log",
+    "focused_sanitized_log": "/home/ron/Workspace/hyprneuro-repair/thinking-sanitizer-bounded.log",
+    "post_parser_live_log": "/home/ron/Workspace/hyprneuro-repair/post-parser-live.log"
   },
-  "next_action": "Read running Omni version/model/mmproj/template/source; test synthetic audio/video without changing stack; keep capture blocked.",
-  "verified_this_checkpoint": "269 Python pass/1 skip/30 subtests;6 C ASan/UBSan helper cases with leaks; final full actual GTK reasoning/settings/monitor lifecycle suite completed; actual keyboard regressions pass; final media-only suite12 actual GUI sends completed with exact bytes/remove/cancel/snapshot/rejection checks; initial combined test exceeded120s and was NOT counted complete. Installed final text CEDAR+recall and green JPEG->Green inspected.",
-  "enabled_this_checkpoint": [
+  "next_action": "Follow docs/FEATURE_ITERATIONS.md; continue independent safe feature iterations with per-iteration E2E/deploy/hash/docs/commit/push; capture remains blocked.",
+  "verified_this_checkpoint": "277Python pass/1skip/57subtests;7C release+ASan/UBSan helper cases pass incl helper leaks. Installed full fixture gui150454 passed exact reasoning attrs/history/errors/reset and images. Focused final sanitized gui151247 passed telemetry/thinking/arrow. Earlier full sanitized gui145748 passed keyboard/images/AV rejection. Installed live MAPLE/recall/greenJPEG and post-parser CEDAR passed. Combined expanded GUI-driver failures preserved; NOT full mixed acceptance.",
+  "enabled_this_checkpoint": [],
+  "historical_pre_repair_state": {
+    "git": {
+      "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
+      "branch": "feat/application-aware-assistant",
+      "dirty": true
+    },
+    "deployed_source_sha256": "954761e26969c6523cb7f692a3888ac680d88872ec9c00bd5b0af4941351ca23",
+    "deployed_binary_sha256": "f71a55bfc68bc1f600a2bd9b5b14f840347f06712ead4b2bcc2318e441e702b5",
+    "phase": "Bounded reasoning/Settings/monitoring checkpoint; Screenshot portal gate rejected",
+    "verified_this_audit": [
+      "baseline GUI ASan crash reproduced",
+      "history/callback/task/stream ownership corrected",
+      "monitoring/settings RPC off main thread; bounded asynchronous control reads",
+      "11 live-model GUI text turns including installed Return/CtrlReturn/KPEnter smoke",
+      "6 actual GUI image-to-Omni submissions across PNG/JPEG/WebP; installed green JPEG->Green, blue WebP->Blue",
+      "25 deterministic GTK input/Send fixture turns with exact history checks",
+      "error/EOF/oversize recovery; stalled/fragmented control client tests",
+      "all visible GTK controls exercised; settings rows inspected; no GTK switches/submenus exist",
+      "capture fails closed with explicit permission-safe unavailability",
+      "Python 253 passed, 1 skipped, 30 subtests; 5 C cases pass with ASan/UBSan including helper leak detection",
+      "installed/build/running-exe hashes match",
+      "Return/KP_Enter send; Ctrl+Return/Ctrl+KP_Enter newline only; empty/busy guards and no stray newline independently fixture-verified twice",
+      "PNG/JPEG/WebP inline thumbnails <=112x72, expanded review <=480x240, metadata; full transcript+review fits 682x799 output layer",
+      "Fixture payload bytes/mime match previews; X removes media payload; immutable reviewed snapshot survives source mutation",
+      "Cancel preserves composer draft and existing image; unsupported text/WAV/MP4, byte/dimension oversize and corrupt image rejected before submission"
+    ],
+    "verified_this_checkpoint": "269 Python pass/1 skip/30 subtests;6 C ASan/UBSan helper cases with leaks; final full actual GTK reasoning/settings/monitor lifecycle suite completed; actual keyboard regressions pass; final media-only suite12 actual GUI sends completed with exact bytes/remove/cancel/snapshot/rejection checks; initial combined test exceeded120s and was NOT counted complete. Installed final text CEDAR+recall and green JPEG->Green inspected.",
+    "next_action": "Read running Omni version/model/mmproj/template/source; test synthetic audio/video without changing stack; keep capture blocked."
+  },
+  "last_verified_code_revision": "4f1711ef49df35629cbdde81530d568d6016eeb0",
+  "historical_enabled_previous_checkpoint": [
     "reasoning display without backend thinking changes",
     "9px outer corners and1px black border",
     "transcript size Save/Reload",
@@ -139,5 +172,12 @@
     "journal",
     "passive network",
     "sustained resource monitoring"
+  ],
+  "deployed_this_checkpoint": [
+    "fail-closed static-image-only attachment boundary",
+    "correct finite typed inference metrics and separate monitoring labels",
+    "orphan thinking-control stripping",
+    "matching16x16transparentSettings/arrow",
+    "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
   ]
 }

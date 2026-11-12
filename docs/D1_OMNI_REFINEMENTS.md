@@ -1,5 +1,11 @@
 # D1 / Omni scheduling and screenshot privacy
 
+> **Current privacy gate: capture BLOCKED.** Do not enable `--allow-capture`,
+> `--d1-visual` or raw screenshot/on-demand workers from the historical examples
+> below. Portal cancellation/session/sensitive-scene protection is not accepted;
+> prior advice that enabling capture was safe is withdrawn. Explicit capture
+> consent has NOT been granted. See [current repair checkpoint](AV_METRICS_REPAIR.md).
+
 **Implementation:** merged in `7703618`. Synthetic local endpoint smoke passed
 on 2026-11-06; live capture remains unverified. See `../ROADMAP.md`.
 

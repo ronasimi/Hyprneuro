@@ -1,5 +1,11 @@
 # Installation (user-owned, no sudo)
 
+> **Current privacy gate: capture BLOCKED.** Do not enable `--allow-capture`,
+> `--d1-visual` or raw screenshot/on-demand workers from the historical examples
+> below. Portal cancellation/session/sensitive-scene protection is not accepted;
+> prior advice that enabling capture was safe is withdrawn. Explicit capture
+> consent has NOT been granted. See [current repair checkpoint](AV_METRICS_REPAIR.md).
+
 Run from a trusted checkout. The installer never writes system Python, changes
 PATH, installs OS packages, launches model servers, or installs Pi/Chrome addons.
 It installs a **non-editable snapshot** of `python/` into a private venv; rerun

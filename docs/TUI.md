@@ -1,5 +1,10 @@
 # Manual terminal UI and feature settings
 
+> **Current acceptance is NOT READY.** See [AV/metrics repair](AV_METRICS_REPAIR.md).
+> Capture/background screenshot/on-demand privacy gates are not accepted; do not
+> enable capture from the historical settings/instructions below. Model audio/video
+> capability and GUI attachment acceptance are separate.
+
 Run `hyprneuro tui` in a terminal. The stdlib curses UI does **not** start the
 sidecar, install/restart services, run shell commands, capture a screen or ask
 Pi anything. When the socket is absent, settings remain usable offline.

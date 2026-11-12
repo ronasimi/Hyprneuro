@@ -160,7 +160,8 @@ inference-stack configuration was changed.
 ## GTK recovery audit (2026-11-12)
 
 See [current acceptance](PRODUCTION_ACCEPTANCE.md): **NOT READY**. The GTK
-Settings page is read-only, not the editable curses TUI settings. Snapshot RPCs
+Settings page was read-only at the original recovery audit; the later bounded
+checkpoint added explicitly scoped persisted controls. Snapshot RPCs
 run off the main thread and bounded control commands are read asynchronously.
 Chat history owns builder roots and transfers copies when embedding JSON.
 The file portal is unparented because a layer surface cannot be exported as an
@@ -173,8 +174,10 @@ with consumed key events and unchanged busy/empty send guards. Static PNG,
 JPEG and WebP attachments (≤5 MiB, ≤4096×4096) are decoder-validated, previewed
 inline with bounded thumbnail/expandable review and metadata, and submitted
 from the exact reviewed snapshot. X clears bytes and UI. Cancel preserves draft
-and attachment. Audio/video/document attachments have no verified inference
-path and are rejected; no playback/document preview support is claimed.
+and attachment. Audio/video/document attachments are rejected by GTK and IPC; native backend
+audio/video inference is independently demonstrated but has no accepted bounded
+attachment-review path. See [AV/metrics correction](AV_METRICS_REPAIR.md).
+No playback/document preview support is claimed.
 
 ## Bounded feature checkpoint after recovery
 

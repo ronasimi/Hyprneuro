@@ -1,5 +1,10 @@
 # Hyprneuro Production Testing
 
+> **Current acceptance is NOT READY.** See [AV/metrics repair](AV_METRICS_REPAIR.md).
+> Capture/background screenshot/on-demand privacy gates are not accepted; do not
+> enable capture from the historical settings/instructions below. Model audio/video
+> capability and GUI attachment acceptance are separate.
+
 The testing pyramid for the application-aware assistant. Every production
 iteration runs the relevant levels and records an explicit baseline-versus-
 candidate comparison before a change is accepted.

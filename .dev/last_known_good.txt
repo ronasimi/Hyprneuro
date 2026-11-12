@@ -1,1 +1,4 @@
-71e6d92c3dbf38a6dd244a9264f828b08f60ec4b
+Production acceptance: NOT READY; no production-accepted revision.
+Last verified bounded repair code: 4f1711ef49df35629cbdde81530d568d6016eeb0
+Historical unaccepted pointer (preserved): 71e6d92c3dbf38a6dd244a9264f828b08f60ec4b
+See docs/AV_METRICS_REPAIR.md and docs/FEATURE_ITERATIONS.md.

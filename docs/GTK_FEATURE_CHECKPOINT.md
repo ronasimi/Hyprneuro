@@ -1,5 +1,8 @@
 # GTK feature checkpoint — NOT READY
 
+**Later authoritative AV/metrics correction:** [AV_METRICS_REPAIR.md](AV_METRICS_REPAIR.md).
+The bounded checkpoint below is historical; do not treat it as current HEAD/deployment identity.
+
 2026-11-12, base `8d29242`, existing feature branch; changes **uncommitted**.
 This bounded checkpoint updates only the named controls from the earlier
 [acceptance audit](PRODUCTION_ACCEPTANCE.md). It is not full production acceptance.

@@ -1,5 +1,11 @@
 # Hyprneuro
 
+> **Current privacy gate: capture BLOCKED.** Do not enable `--allow-capture`,
+> `--d1-visual` or raw screenshot/on-demand workers from the historical examples
+> below. Portal cancellation/session/sensitive-scene protection is not accepted;
+> prior advice that enabling capture was safe is withdrawn. Explicit capture
+> consent has NOT been granted. See [current repair checkpoint](docs/AV_METRICS_REPAIR.md).
+
 Pi addon + standalone observational sidecar: recall, logging, and alerting for Hyprland desktops.
 
 Independent user-level process providing metadata storage and read-only, bounded
@@ -114,9 +120,8 @@ Hyprneuro/
 # Opt in to event storage + Hyprland events
 "$SIDECAR" serve --allow-ingest --watch-hyprland
 
-# Enable D1-gated screen capture
-"$SIDECAR" serve --allow-ingest --watch-hyprland --allow-capture \
-  --exclude-app org.gnome.Settings --exclude-app org.mozilla.firefox
+# Historical raw capture is blocked pending the portal privacy gate.
+# Do not add --allow-capture.
 
 # Enable Chrome history ingestion
 "$SIDECAR" serve --allow-ingest --allow-browser

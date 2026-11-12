@@ -150,6 +150,37 @@ class SkillIndexTests(unittest.TestCase):
         idx.register(self._skill(body="B" * 20000))
         self.assertLessEqual(len(idx.load("google-chrome")["body"]), 8192)
 
+    def test_proposed_skill_is_draft_not_discoverable(self):
+        idx = SkillIndex()
+        idx.propose("figma", name="Figma", description="Design tool",
+                    instructions="Use figma tools", source_task="t1")
+        self.assertEqual(idx.status_of("figma"), 0)
+        self.assertEqual(idx.discover(["figma"]), [])   # not discovered
+        self.assertIsNone(idx.load("figma"))            # not loadable
+
+    def test_approve_requires_validation(self):
+        idx = SkillIndex()
+        idx.propose("figma", instructions="x")
+        with self.assertRaises(PermissionError):
+            idx.approve("figma")  # no validation
+        self.assertEqual(idx.status_of("figma"), 0)
+
+    def test_approved_skill_becomes_discoverable_and_loadable(self):
+        idx = SkillIndex()
+        idx.propose("figma", name="Figma", description="Design", instructions="do figma")
+        idx.approve("figma", validated=True)
+        self.assertEqual(idx.status_of("figma"), 1)
+        self.assertEqual(len(idx.discover(["figma"])), 1)
+        self.assertEqual(idx.load("figma")["body"], "do figma")
+
+    def test_retire_makes_skill_inert(self):
+        idx = SkillIndex()
+        idx.register(self._skill("slack-app"))
+        idx.retire("slack-app")
+        self.assertEqual(idx.status_of("slack-app"), 2)
+        self.assertEqual(idx.discover(["slack-app"]), [])
+        self.assertIsNone(idx.load("slack-app"))
+
 
 class TieredMemoryTests(unittest.TestCase):
     def setUp(self):

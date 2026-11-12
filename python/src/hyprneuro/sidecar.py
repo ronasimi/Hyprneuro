@@ -90,6 +90,9 @@ class SidecarServer:
         self.router = None
         self.leases = None
         self.desktop_controller = None
+        self.compactor = None
+        from .telemetry import Telemetry, IdleCompactor
+        self.telemetry = Telemetry()
         if assistant_enabled:
             from .application import AppRegistry, SkillIndex, TieredMemory
             from .authorization import PermissionBroker
@@ -102,6 +105,7 @@ class SidecarServer:
             self.broker = PermissionBroker(store)
             self.router = ModelRouter()
             self.leases = LeaseManager()  # in-memory only: fail-closed on restart
+            self.compactor = IdleCompactor(self.registry, store)
 
     def _assistant(self, request):
         """Versioned assistant IPC. All reads are read-only and bounded.
@@ -112,6 +116,19 @@ class SidecarServer:
         if not self.assistant_enabled:
             raise PermissionError("Assistant features are disabled")
         action = request.get("action")
+        _COUNTER = {
+            "memory_remember": "memory_remember", "memory_recall": "memory_recall",
+            "memory_promote": "memory_promote", "skill_discover": "skill_discover",
+            "skill_load": "skill_load", "skill_propose": "skill_propose",
+            "skill_approve": "skill_approve", "skill_retire": "skill_retire",
+            "task_create": "task_create", "task_update": "task_update",
+            "auth_create": "auth_create", "auth_check": "auth_check",
+            "auth_expand": "auth_expand", "auth_revoke": "auth_revoke",
+            "route": "route", "handoff": "handoff", "desktop_action": "desktop_actions",
+            "lease_acquire": "lease_acquire",
+        }
+        if action in _COUNTER:
+            self.telemetry.bump(_COUNTER[action])
         if action == "app_context":
             return self.registry.context(role=request.get("role", "text"))
         if action == "memory_remember":
@@ -143,6 +160,24 @@ class SidecarServer:
             return skill
         if action == "skill_list":
             return {"schema": "hyprneuro.skills/1", "app_ids": self.skills.app_ids()}
+        if action == "skill_propose":
+            if set(request) - {"action", "app_id", "name", "description", "instructions",
+                               "tags", "source_task"}:
+                raise ValueError("Invalid skill_propose request")
+            return self.skills.propose(
+                request.get("app_id", ""), name=request.get("name", ""),
+                description=request.get("description", ""),
+                instructions=request.get("instructions", ""),
+                tags=request.get("tags") or (), source_task=request.get("source_task"))
+        if action == "skill_approve":
+            if set(request) - {"action", "app_id", "validated"}:
+                raise ValueError("Invalid skill_approve request")
+            return self.skills.approve(request.get("app_id", ""),
+                                       validated=bool(request.get("validated")))
+        if action == "skill_retire":
+            if set(request) - {"action", "app_id"}:
+                raise ValueError("Invalid skill_retire request")
+            return self.skills.retire(request.get("app_id", ""))
         if action == "task_create":
             if set(request) - {"action", "goal", "scope", "state"}:
                 raise ValueError("Invalid task_create request")
@@ -231,6 +266,9 @@ class SidecarServer:
         if not isinstance(request, dict):
             raise ValueError("Expected JSON object")
         action = request.get("action")
+        self.telemetry.bump("ipc_requests")
+        if action == "telemetry":
+            return self.telemetry.snapshot(self.store)
         if action == "health":
             state = {"service": "hyprneuro", "ingest_enabled": self.allow_ingest,
                      "capture_enabled": self.capture_enabled,
@@ -271,6 +309,7 @@ class SidecarServer:
             return self.store.details(request.get("id"))
         if action in ("app_context", "memory_remember", "memory_recall",
                      "skill_discover", "skill_load", "skill_list",
+                     "skill_propose", "skill_approve", "skill_retire",
                      "task_create", "task_update", "task_get", "task_list",
                      "auth_create", "auth_check", "auth_expand", "auth_revoke", "auth_list",
                      "route", "handoff",
@@ -504,6 +543,17 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 # change-only event stream does not leave it empty at startup.
                 producers.append(asyncio.create_task(app_watcher.initial_resolve(), name="app_seed"))
 
+                async def idle_compaction():
+                    # Periodic, bounded: compacts only when idle, no-ops while active.
+                    while True:
+                        await asyncio.sleep(30)
+                        try:
+                            worker.compactor.compact(worker.telemetry)
+                        except Exception:
+                            pass
+
+                producers.append(asyncio.create_task(idle_compaction(), name="idle_compaction"))
+
             async def on_event(name, data):
                 # Both handlers enqueue; the compositor's socket2 loop is
                 # never held up by D1, Omni or SQLite writes. Focus tracking
@@ -513,6 +563,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                     await capture_source.on_event(name, data)
                 if app_watcher is not None:
                     await app_watcher.on_event(name, data)
+                    if "activewindow" in name:
+                        worker.telemetry.bump("focus_events")
 
             producers.extend([asyncio.create_task(source.flush(), name="hyprland_store"),
                               asyncio.create_task(desktop.events(on_event), name="hyprland")])

@@ -252,6 +252,43 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
             r = await request({"action": "route", "task_kind": kind}, socket_path=self.socket)
             self.assertFalse(r["d1_invoked"])
 
+    async def test_telemetry_over_ipc(self):
+        await request({"action": "app_context"}, socket_path=self.socket)
+        await request({"action": "skill_discover", "app_ids": ["x"]}, socket_path=self.socket)
+        snap = await request({"action": "telemetry"}, socket_path=self.socket)
+        self.assertEqual(snap["schema"], "hyprneuro.telemetry/1")
+        self.assertGreaterEqual(snap["counters"]["ipc_requests"], 2)
+        self.assertGreaterEqual(snap["counters"]["skill_discover"], 1)
+        self.assertIn("store", snap)  # row-count probe present
+        self.assertGreaterEqual(snap["store"]["app_memory"], 0)
+
+    async def test_skill_lifecycle_over_ipc(self):
+        # A proposed skill is a draft: not discoverable, not loadable.
+        await request({"action": "skill_propose", "app_id": "figma", "name": "Figma",
+                       "description": "Design", "instructions": "do figma",
+                       "source_task": "t1"}, socket_path=self.socket)
+        disc = await request({"action": "skill_discover", "app_ids": ["figma"]},
+                             socket_path=self.socket)
+        self.assertEqual(disc["manifests"], [])
+        with self.assertRaisesRegex(RuntimeError, "No skill"):
+            await request({"action": "skill_load", "app_id": "figma"}, socket_path=self.socket)
+        # Approve without validation is refused.
+        with self.assertRaisesRegex(RuntimeError, "validation"):
+            await request({"action": "skill_approve", "app_id": "figma"}, socket_path=self.socket)
+        # Approve with validation -> discoverable + loadable.
+        await request({"action": "skill_approve", "app_id": "figma", "validated": True},
+                      socket_path=self.socket)
+        disc = await request({"action": "skill_discover", "app_ids": ["figma"]},
+                             socket_path=self.socket)
+        self.assertEqual(len(disc["manifests"]), 1)
+        loaded = await request({"action": "skill_load", "app_id": "figma"}, socket_path=self.socket)
+        self.assertEqual(loaded["body"], "do figma")
+        # Retire -> inert.
+        await request({"action": "skill_retire", "app_id": "figma"}, socket_path=self.socket)
+        disc = await request({"action": "skill_discover", "app_ids": ["figma"]},
+                             socket_path=self.socket)
+        self.assertEqual(disc["manifests"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

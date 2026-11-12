@@ -555,6 +555,27 @@ class SidecarStore:
                         "app_id": a, "project_id": p, "updated_ms": when})
         return out
 
+    def app_memory_trim(self, keep: int = 64) -> int:
+        """Evict the oldest app-scoped rows beyond `keep`. Returns evicted count.
+        Idle compaction keeps the app tier within a small bounded budget."""
+        if not 8 <= keep <= 1024:
+            raise ValueError("keep must be 8..1024")
+        cur = self.db.execute("DELETE FROM app_memory WHERE scope='app' AND rowid NOT IN "
+                              "(SELECT rowid FROM app_memory WHERE scope='app' "
+                              "ORDER BY updated_ms DESC LIMIT ?)", (keep,))
+        self.db.commit()
+        return cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+
+    def size(self) -> dict:
+        """Bounded row-count probe for telemetry (no data, counts only)."""
+        out = {}
+        for table in ("observations", "app_memory", "skill_manifests", "tasks", "authorizations"):
+            try:
+                out[table] = self.db.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+            except (OSError, sqlite3.OperationalError):
+                out[table] = 0
+        return out
+
     def skill_upsert(self, app_id, manifest_json):
         if not isinstance(app_id, str) or not app_id or len(app_id) > 120:
             raise ValueError("Invalid skill app_id")

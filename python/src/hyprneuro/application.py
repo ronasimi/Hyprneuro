@@ -176,6 +176,16 @@ class AppRegistry:
     def get(self, app_id: str) -> AppProfile | None:
         return self.recent.get(app_id)
 
+    def trim_to(self, n: int) -> int:
+        """Shrink the recent LRU to `n` entries (focused is kept separately).
+        Returns the number of entries evicted. Used by idle compaction."""
+        n = max(0, min(int(n), 16))
+        evicted = 0
+        while len(self.recent) > n:
+            self.recent.popitem(last=False)
+            evicted += 1
+        return evicted
+
     def context(self, *, role: str = "text") -> dict:
         """Compact, stable context block. Bounded so it cannot blow a prompt."""
         if role not in ("text", "omni"):
@@ -257,10 +267,57 @@ class SkillIndex:
         self._skills[app_id] = {
             "app_id": app_id, "name": name, "description": description,
             "version": version, "tags": tags, "body": body[:8192], "tools_schema": schema,
+            "status": int(data.get("status", 1)),  # 1=approved (curated seeds)
         }
 
+    # --- Progressive lifecycle: draft -> approved -> retired ----------------
+    # A generated skill starts as a DRAFT (status 0): it is neither discovered
+    # nor loadable. It becomes APPROVED (status 1) only after validation +
+    # approval. RETIRED (status 2) skills are inert.
+
+    def propose(self, app_id: str, *, name: str = "", description: str = "",
+                instructions: str = "", tags: Iterable[str] = (),
+                source_task: str | None = None) -> dict:
+        """Create a DRAFT skill from a completed task. Not discoverable yet."""
+        aid = normalize_app_id(str(app_id))
+        if not aid:
+            raise ValueError("Invalid app_id")
+        self._skills[aid] = {
+            "app_id": aid,
+            "name": _b64(name or aid, 80),
+            "description": _b64(description, 400),
+            "version": "0", "tags": tuple(_b64(str(t), 40) for t in list(tags)[:16]),
+            "body": str(instructions)[:8192], "tools_schema": None,
+            "status": 0,
+            "source_task": _b64(source_task or "", 80),
+        }
+        return {"app_id": aid, "status": 0}
+
+    def approve(self, app_id: str, *, validated: bool = False) -> dict:
+        """Approve a DRAFT skill (requires validation) so it is discoverable."""
+        aid = normalize_app_id(str(app_id))
+        skill = self._skills.get(aid)
+        if skill is None:
+            raise KeyError("Unknown skill")
+        if not validated:
+            raise PermissionError("Skill approval requires validation")
+        skill["status"] = 1
+        return {"app_id": aid, "status": 1}
+
+    def retire(self, app_id: str) -> dict:
+        aid = normalize_app_id(str(app_id))
+        skill = self._skills.get(aid)
+        if skill is None:
+            raise KeyError("Unknown skill")
+        skill["status"] = 2
+        return {"app_id": aid, "status": 2}
+
+    def status_of(self, app_id: str) -> int | None:
+        skill = self._skills.get(normalize_app_id(str(app_id)))
+        return skill["status"] if skill else None
+
     def discover(self, app_ids: Iterable[str]) -> list[dict]:
-        """Compact manifests for the given apps, in order, deduped."""
+        """Compact manifests for APPROVED skills, in order, deduped."""
         out, seen = [], set()
         for raw in app_ids:
             app_id = normalize_app_id(str(raw))
@@ -268,7 +325,7 @@ class SkillIndex:
                 continue
             seen.add(app_id)
             skill = self._skills.get(app_id)
-            if skill:
+            if skill and skill["status"] == 1:
                 out.append(SkillManifest(
                     app_id=skill["app_id"], name=skill["name"],
                     description=skill["description"], version=skill["version"],
@@ -276,9 +333,9 @@ class SkillIndex:
         return out
 
     def load(self, app_id: str) -> dict | None:
-        """Full skill (manifest + body + schema). Only called when task-relevant."""
+        """Full skill (manifest + body + schema). Only APPROVED skills load."""
         skill = self._skills.get(normalize_app_id(str(app_id)))
-        if skill is None:
+        if skill is None or skill["status"] != 1:
             return None
         return {"schema": "hyprneuro.skill/1", **skill}
 

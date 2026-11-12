@@ -89,8 +89,43 @@ static void busy_enter_consumed(void) {
     g_assert_true(on_input_key(NULL, GDK_KEY_KP_Enter, 0, 0, &app));
     g_assert_false(on_input_key(NULL, GDK_KEY_a, 0, 0, &app));
 }
+static void reasoning_tags(void) {
+    App app = {0};
+    app.current_answer = g_string_new("");
+    GtkTextBuffer *buf = gtk_text_buffer_new(NULL);
+    create_transcript_tags(&app, buf);
+    GtkTextTag *answer = app.tag_asst;
+    GtkTextTag *thinking = gtk_text_tag_table_lookup(gtk_text_buffer_get_tag_table(buf), "thinking");
+    render_delta(&app, buf, "check α", TRUE);
+    render_delta(&app, buf, " then β", TRUE);
+    render_delta(&app, buf, "Answer ✓", FALSE);
+    render_delta(&app, buf, "<literal>", FALSE);
+    g_assert_cmpstr(app.current_answer->str, ==, "Answer ✓<literal>");
+    GtkTextIter begin, end;
+    gtk_text_buffer_get_bounds(buf, &begin, &end);
+    char *text = gtk_text_buffer_get_text(buf, &begin, &end, FALSE);
+    g_assert_cmpstr(text, ==, "\nThinking: check α then β\nAnswer ✓<literal>");
+    GtkTextIter iter;
+    gtk_text_buffer_get_iter_at_offset(buf, &iter, 11);
+    g_assert_true(gtk_text_iter_has_tag(&iter, thinking));
+    g_assert_false(gtk_text_iter_has_tag(&iter, answer));
+    gtk_text_buffer_get_iter_at_offset(buf, &iter, 25);
+    g_assert_true(gtk_text_iter_has_tag(&iter, answer));
+    g_assert_false(gtk_text_iter_has_tag(&iter, thinking));
+    int style, weight;
+    GdkRGBA *color = NULL;
+    g_object_get(thinking, "style", &style, "weight", &weight, "foreground-rgba", &color, NULL);
+    g_assert_cmpint(style, ==, PANGO_STYLE_ITALIC);
+    g_assert_cmpint(weight, ==, PANGO_WEIGHT_NORMAL);
+    g_assert_cmpfloat_with_epsilon(color->red, 184.0/255, .001);
+    g_assert_cmpfloat(color->red, ==, color->green);
+    g_assert_cmpfloat(color->green, ==, color->blue);
+    gdk_rgba_free(color); g_free(text); g_object_unref(buf);
+    g_string_free(app.current_answer, TRUE);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/reasoning-tags", reasoning_tags);
     g_test_add_func("/ui/history-ownership", history_ownership);
     g_test_add_func("/ui/adjustment-callback", adjustment_callback);
     g_test_add_func("/ui/numeric-values", numeric_values);

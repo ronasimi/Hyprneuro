@@ -1,5 +1,10 @@
 # Hyprneuro production acceptance — NOT READY
 
+**Later bounded feature checkpoint:** [GTK_FEATURE_CHECKPOINT.md](GTK_FEATURE_CHECKPOINT.md)
+updates reasoning, actual Settings/monitoring controls, outer CSS and deployment.
+The historical inventory below describes the earlier audit; the newer checkpoint
+supersedes only its named controls and retains NOT READY.
+
 **Audit:** 2026-11-12, branch `feat/application-aware-assistant`, starting HEAD
 `1700710`. This report supersedes the previous **CONDITIONALLY READY** verdict.
 The original report is preserved verbatim in

@@ -175,3 +175,15 @@ inline with bounded thumbnail/expandable review and metadata, and submitted
 from the exact reviewed snapshot. X clears bytes and UI. Cancel preserves draft
 and attachment. Audio/video/document attachments have no verified inference
 path and are rejected; no playback/document preview support is claimed.
+
+## Bounded feature checkpoint after recovery
+
+See [GTK_FEATURE_CHECKPOINT.md](GTK_FEATURE_CHECKPOINT.md). Thinking is
+normalized into answer/reasoning delta channels by `agent.py`; GTK uses a
+distinct italic light-grey tag and keeps reasoning out of history. Text
+thinking kwargs remain unchanged. Settings now edit private persisted transcript
+size/autoscroll and explicit journal/network/resource consents only; monitor
+activation still requires an explicit application restart. Actual observed
+worker state is separate from draft/saved state. Snapshot/setting RPCs remain
+off the GTK thread. Capture remains unavailable: the actual installed Screenshot
+portal's Request.Close cancellation gate failed. No raw capture path was restored.

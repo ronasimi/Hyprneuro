@@ -44,5 +44,11 @@ class ResourceIntakeTests(unittest.IsolatedAsyncioTestCase):
         async def deliver(event):
             rows.append(event)
         with patch('hyprneuro.monitor.Monitor.run', run), patch('hyprneuro.event_stream.time.monotonic', side_effect=[0, 31]):
-            await EventIntake().resource_alerts(deliver)
+            intake = EventIntake()
+            await intake.resource_alerts(deliver)
         self.assertEqual(len(rows), 1)
+        self.assertEqual(intake.resource_status['samples'], 2)
+        self.assertEqual(intake.resource_status['cpu_pct'], 99)
+        self.assertIsNone(intake.resource_status['ram_pct'])
+        self.assertIsNone(intake.resource_status['root_disk_pct'])
+        self.assertIsInstance(intake.resource_status['observed_at_ms'], int)

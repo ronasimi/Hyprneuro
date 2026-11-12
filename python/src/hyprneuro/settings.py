@@ -31,8 +31,15 @@ class Settings:
     assistant_enabled: bool = False
     assistant_recent_apps: int = 5
     assistant_focus_debounce_ms: int = 250
+    ui_transcript_size: str = 'restored'
+    ui_autoscroll: bool = True
+    ui_panel_opacity: float = 0.90
 
     def validate(self, *, prerequisites=False):
+        if type(self.ui_panel_opacity) not in (int, float) or not math.isfinite(self.ui_panel_opacity) or not .2 <= self.ui_panel_opacity <= 1:
+            raise ValueError('ui_panel_opacity must be finite and between 0.2 and 1')
+        if self.ui_transcript_size not in ('compact', 'restored', 'full'):
+            raise ValueError('ui_transcript_size must be compact, restored or full')
         for f in fields(self):
             value = getattr(self, f.name)
             if f.type is bool and type(value) is not bool:

@@ -79,6 +79,7 @@ class SidecarServer:
         self.active_settings = {}
         self.settings_file = None
         self.producers = []
+        self.event_intake = None
         # Application-aware assistant (opt-in). Model-free focus tracking;
         # metadata + tiered memory live outside the model context by default.
         self.assistant_enabled = assistant_enabled
@@ -285,7 +286,34 @@ class SidecarServer:
             state["collectors"] = {task.get_name(): ("running" if not task.done() else
                 "stopped" if task.cancelled() else "failed" if task.exception() else "finished")
                 for task in self.producers}
+            state["network_monitor"] = self.event_intake.network_status if self.event_intake and self.active_settings.get("alert_network") else None
+            state["resource_monitor"] = self.event_intake.resource_status if self.event_intake and self.active_settings.get("alert_resources") else None
             return state
+        if action in ("ui_settings_get", "ui_settings_save"):
+            # Only implemented UI preferences and explicit journal consent.
+            # Saving never starts a collector, grants prerequisites, changes
+            # model configuration or restarts a service.
+            from dataclasses import replace
+            from .settings import Settings
+            if not self.settings_file:
+                raise PermissionError("Settings storage disabled by this sidecar")
+            saved = Settings.load(self.settings_file)
+            editable = ("ui_transcript_size", "ui_autoscroll", "ui_panel_opacity", "alert_journal", "alert_network", "alert_resources")
+            if action == "ui_settings_save":
+                if set(request) != {"action", "expected", *editable}:
+                    raise ValueError("Only implemented appearance and monitoring settings are editable")
+                current = {name: getattr(saved, name) for name in editable}
+                if request["expected"] != current:
+                    raise ValueError("Settings changed on disk; Reload before saving")
+                saved = replace(saved, **{name: request[name] for name in editable})
+                saved.save(self.settings_file)
+            result = {name: getattr(saved, name) for name in editable}
+            for name in ("journal", "network", "resources"):
+                task = next((t for t in self.producers if t.get_name() == name), None)
+                result[name + "_active"] = bool(self.active_settings.get("alert_" + name))
+                result[name + "_task"] = ("off" if task is None else "running" if not task.done() else
+                    "stopped" if task.cancelled() else "failed" if task.exception() else "finished")
+            return result
         if action == "record":
             if not self.allow_ingest:
                 raise PermissionError("Sidecar ingest disabled; opt in explicitly")
@@ -428,15 +456,20 @@ class SidecarServer:
         messages = ([{"role": "system", "content": system[:4000]}] + history +
                     [{"role": "user", "content": user_content}])
         role = "omni" if (media and isinstance(media, dict) and media.get("data")) else "text"
-        full = ""
+        answer = []
+        stream_bytes = 0
         try:
             async for delta in agent.stream_chat(
                     messages, role=role,
                     max_tokens=int(request.get("max_tokens") or 1024)):
-                full += delta
-                await self._write_frame(writer, {"type": "delta", "text": delta})
-            await self._write_frame(writer, {"type": "done", "text": full, "role": role})
-        except (OSError, asyncio.TimeoutError, ValueError) as exc:
+                stream_bytes += len(delta["text"].encode("utf-8"))
+                if stream_bytes > 1024 * 1024:
+                    raise ValueError("Chat stream exceeds 1 MiB")
+                if delta["channel"] == "answer":
+                    answer.append(delta["text"])
+                await self._write_frame(writer, delta)
+            await self._write_frame(writer, {"type": "done", "text": "".join(answer), "role": role})
+        except (OSError, EOFError, asyncio.TimeoutError, ValueError) as exc:
             await self._write_frame(writer, {"type": "error", "error": str(exc)[:300]})
 
     @staticmethod
@@ -711,6 +744,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             router = EscalationRouter(models, store, notifier=Notifier() if notifications else None,
                                       explanation_enabled=explanation_enabled)
             intake = EventIntake(store=store)
+            worker.event_intake = intake
             if alert_journal:
                 await router.recover()
                 producers.append(asyncio.create_task(intake.follow_journal(router.escalate), name="journal"))
@@ -806,7 +840,7 @@ def resolve_settings(args):
     saved = Settings() if args.no_settings else Settings.load(args.config)
     values = asdict(saved)
     for field in fields(Settings):
-        value = getattr(args, field.name)
+        value = getattr(args, field.name, None)
         if value is not None:
             values[field.name] = value
     if args.alert is not None:
@@ -833,6 +867,9 @@ def main():
         values = asdict(settings)
         active = values.copy()
         values.pop("retention_enabled")
+        values.pop("ui_transcript_size")  # Applied by GTK, not collector flags.
+        values.pop("ui_autoscroll")
+        values.pop("ui_panel_opacity")
         if not settings.retention_enabled:
             values["retention_days"] = 0
         from .settings import settings_path

@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794491364595,
+  "updated_at_ms": 1794495906661,
   "status": "NOT READY",
   "git": {
-    "revision": "170071037d56deab5590982f542e3bd4d727410f",
+    "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
     "branch": "feat/application-aware-assistant",
     "dirty": true
   },
   "deployed_revision": null,
-  "deployed_source_sha256": "f1aa1b9f631890fd7d44939c8039b219cc9b2cbc2dc6017641392a15dc4b2b65",
-  "deployed_binary_sha256": "3e23181ef91302e9c7ef4ff6cc45bd2933ac9a563aed3acd827403c502ec3bf6",
-  "phase": "GTK crash recovery and interactive audit; production acceptance rejected",
-  "current_task": "Source review; isolate remaining GTK frame-timing failure",
-  "active_hypothesis": "Reproduced streaming UAF and invalid GTask source explain chat crash; remaining GTK hide/show invariant origin is unproven.",
+  "deployed_source_sha256": "954761e26969c6523cb7f692a3888ac680d88872ec9c00bd5b0af4941351ca23",
+  "deployed_binary_sha256": "f71a55bfc68bc1f600a2bd9b5b14f840347f06712ead4b2bcc2318e441e702b5",
+  "phase": "Bounded reasoning/Settings/monitoring checkpoint; Screenshot portal gate rejected",
+  "current_task": "Authoritative running Omni audio/video capability verification (new user priority)",
+  "active_hypothesis": "Only genuinely supported AV payloads may be enabled after actual local API and GUI proof.",
   "verified_this_audit": [
     "baseline GUI ASan crash reproduced",
     "history/callback/task/stream ownership corrected",
@@ -31,20 +31,21 @@
     "Cancel preserves composer draft and existing image; unsupported text/WAV/MP4, byte/dimension oversize and corrupt image rejected before submission"
   ],
   "known_failures": [
-    "GTK 4.24 gdk_frame_timings_throttling_hint invariant warning during hide/show; fatal-warnings run aborts",
-    "synthetic SUPER+ALT+H did not toggle; physical hotkey unverified",
-    "multiline model response echoed prompt rather than obeying requested phrase"
+    "GTK frame discarded/duplicate presentation and GtkImage baseline warnings persist; fatal-warning diagnostic abort is not a feature PASS",
+    "Screenshot portal Request.Close timed out leaving selector active until Escape",
+    "Physical hotkey not verified"
   ],
   "remaining_criteria": [
-    "isolate/fix remaining GTK frame-timing warning",
-    "real portal capture permission/session/release and hardware tests",
-    "GTK settings editing/save/reload/active-state switches absent",
-    "audio/video/document attachment support and recall/search/memory GUI absent",
-    "physical hotkey validation",
-    "long-duration GUI soak, D1 inference, full mixed/recovery acceptance"
+    "GTK presentation/baseline warnings",
+    "Screenshot portal cancellation",
+    "camera/mic/video capture",
+    "audio/video attachments pending new authoritative audit",
+    "recall/search/memory GUI",
+    "physical hotkey",
+    "long-duration/full mixed/recovery acceptance"
   ],
   "blockers": [
-    "production verdict NOT READY; do not reuse old GUI/media PASS claims"
+    "Production NOT READY; capture fail-closed; no blanket all-features PASS"
   ],
   "last_known_good": null,
   "historical_state_superseded": {
@@ -124,7 +125,19 @@
     "keyboard_tests": "/home/ron/Workspace/hyprneuro-audit/final-keyboard-tests.log",
     "media_tests": "/home/ron/Workspace/hyprneuro-audit/media-tests.log",
     "media_payload_evidence": "/home/ron/Workspace/hyprneuro-audit/keyboard-requests.jsonl",
-    "last_installed_gui_log": "/home/ron/Workspace/hyprneuro-audit/deployed-final-gui.log"
+    "last_installed_gui_log": "/home/ron/Workspace/hyprneuro-audit/deployed-final-gui.log",
+    "feature_checkpoint": "docs/GTK_FEATURE_CHECKPOINT.md",
+    "feature_logs": "/home/ron/Workspace/hyprneuro-features/"
   },
-  "next_action": "Review uncommitted recovery patch; isolate GTK frame-timing invariant before promoting readiness. Portal capture is a separate dependency."
+  "next_action": "Read running Omni version/model/mmproj/template/source; test synthetic audio/video without changing stack; keep capture blocked.",
+  "verified_this_checkpoint": "269 Python pass/1 skip/30 subtests;6 C ASan/UBSan helper cases with leaks; final full actual GTK reasoning/settings/monitor lifecycle suite completed; actual keyboard regressions pass; final media-only suite12 actual GUI sends completed with exact bytes/remove/cancel/snapshot/rejection checks; initial combined test exceeded120s and was NOT counted complete. Installed final text CEDAR+recall and green JPEG->Green inspected.",
+  "enabled_this_checkpoint": [
+    "reasoning display without backend thinking changes",
+    "9px outer corners and1px black border",
+    "transcript size Save/Reload",
+    "autoscroll Save/Reload",
+    "journal",
+    "passive network",
+    "sustained resource monitoring"
+  ]
 }

@@ -85,8 +85,9 @@ class TuiTests(unittest.TestCase):
             for i, f in enumerate(fields(Settings)):
                 if f.type is bool:
                     app.selected = i
+                    before = getattr(app.draft, f.name)
                     app.toggle()
-                    self.assertTrue(getattr(app.draft, f.name))
+                    self.assertEqual(getattr(app.draft, f.name), not before)
             app.draft = Settings(allow_capture=True)
             app.save()
             self.assertTrue(Settings.load(path).allow_capture)

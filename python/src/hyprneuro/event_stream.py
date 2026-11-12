@@ -61,6 +61,8 @@ class EventIntake:
         self.failures = 0
         self.journal_priority = journal_priority
         self.max_message = max_message
+        self.network_status = {"samples": 0, "observed_at_ms": None, "interfaces": {}}
+        self.resource_status = {"samples": 0, "observed_at_ms": None}
 
     # -- journal ----------------------------------------------------------
     async def follow_journal(self, deliver: Deliver):
@@ -201,7 +203,8 @@ class EventIntake:
         prev_state: dict[str, str] = {}
         prev_errors: dict[str, int] = {}
         while True:
-            interfaces = set(_net_interfaces())
+            interfaces = set(_net_interfaces()[:64])  # bounded passive metadata only
+            observed = {}
             prev_state = {k: v for k, v in prev_state.items() if k in interfaces}
             prev_errors = {k: v for k, v in prev_errors.items() if k in interfaces}
             for iface in interfaces:
@@ -215,6 +218,9 @@ class EventIntake:
                     await deliver(event)
                 prev_state[iface] = state
                 prev_errors[iface] = total_err
+                observed[iface] = {"state": state, "errors": total_err}
+            self.network_status = {"samples": self.network_status["samples"] + 1,
+                                   "observed_at_ms": int(time.time()*1000), "interfaces": observed}
             await asyncio.sleep(interval)
 
     def _network_events(self, iface, state, total_err, old_state, old_err):
@@ -234,6 +240,13 @@ class EventIntake:
         from .monitor import Monitor
         detector = ResourceAlerts()
         async def on_sample(snapshot):
+            memory = snapshot.get("memory_kib", {})
+            total = memory.get("MemTotal", 0)
+            self.resource_status = {"samples": self.resource_status["samples"] + 1,
+                "observed_at_ms": int(time.time()*1000),
+                "cpu_pct": snapshot.get("cpu_percent", {}).get("cpu"),
+                "ram_pct": 100*(1-memory["MemAvailable"]/total) if total > 0 and "MemAvailable" in memory else None,
+                "root_disk_pct": snapshot.get("disk_used_percent", {}).get("/")}
             for event in detector.events(snapshot, now=time.monotonic()):
                 await deliver(event)
         await Monitor().run(on_sample)

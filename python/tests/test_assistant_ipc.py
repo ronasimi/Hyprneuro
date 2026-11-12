@@ -9,6 +9,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from hyprneuro.sidecar import serve
 from hyprneuro.sidecar_client import request
@@ -305,6 +306,12 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_agent_chat_streaming(self):
         """agent_chat streams delta frames then a done frame on one connection."""
+        async def fixture_stream(*args, **kwargs):
+            yield {"type": "delta", "channel": "reasoning", "text": "check"}
+            yield {"type": "delta", "channel": "answer", "text": "pong"}
+        mock_stream = patch("hyprneuro.agent.stream_chat", fixture_stream)
+        mock_stream.start()
+        self.addCleanup(mock_stream.stop)
         reader, writer = await asyncio.open_unix_connection(str(self.socket))
         req = json.dumps({"action": "agent_chat", "message": "ping"}) + "\n"
         writer.write(req.encode())
@@ -326,7 +333,9 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
             except (ConnectionError, OSError):
                 pass
         types = [f.get("type") for f in frames]
-        self.assertIn("done", types)  # reached a terminal frame (may be error if no model)
+        self.assertEqual(types, ["delta", "delta", "done"])
+        self.assertEqual(frames[0]["channel"], "reasoning")
+        self.assertEqual(frames[-1]["text"], "pong")  # reasoning is not history
 
 
 if __name__ == "__main__":

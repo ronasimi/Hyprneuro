@@ -34,6 +34,14 @@
 #define DEFAULT_MAX_TOKENS 4096
 
 typedef enum { SIZE_COMPACT, SIZE_RESTORE, SIZE_FULL } TranscriptSize;
+#define N_MONITOR_PREFS 3
+static const char *monitor_names[] = {"journal", "network", "resources"};
+static const char *monitor_keys[] = {"alert_journal", "alert_network", "alert_resources"};
+typedef struct {
+    GtkSwitch *draft;
+    gboolean saved, active;
+    char *task;
+} MonitorPreference;
 
 /* ---- forward declarations for callback data ------------------------------ */
 typedef struct App App;
@@ -41,6 +49,7 @@ typedef struct App App;
 typedef struct {
     App *app;
     char *text;
+    gboolean reasoning;
 } DeltaData;
 
 typedef struct {
@@ -66,6 +75,16 @@ struct App {
     GtkWidget *chat_page;
     GtkWidget *settings_page;
     GtkWidget *settings_scroll;
+    GtkDropDown *prefs_size;
+    GtkSwitch *prefs_autoscroll;
+    GtkSpinButton *prefs_opacity;
+    GtkCssProvider *panel_css;
+    double panel_opacity, saved_opacity;
+    MonitorPreference monitor_prefs[N_MONITOR_PREFS];
+    gboolean autoscroll_enabled, saved_autoscroll;
+    GtkWidget *prefs_save, *prefs_reload, *prefs_status;
+    gboolean prefs_busy, prefs_available, size_changed;
+    TranscriptSize saved_size;
 
     GtkWidget *transcript, *scroller, *composer;
     GtkTextView *input;
@@ -88,6 +107,7 @@ struct App {
     gboolean user_scrolled_up;
 
     GtkTextTag *tag_user, *tag_asst;
+    gboolean last_reasoning;
 
     GString *current_answer;
     char *current_msg;
@@ -113,6 +133,10 @@ static const char *jstr(JsonNode *node) {
         json_node_get_value_type(node) == G_TYPE_STRING ? json_node_get_string(node) : NULL;
 }
 
+static gboolean jboolean(JsonNode *node) {
+    return node && JSON_NODE_HOLDS_VALUE(node) && json_node_get_value_type(node) == G_TYPE_BOOLEAN;
+}
+
 static double jnum(JsonNode *n, double def) {
     if (!n) return def;
     if (JSON_NODE_HOLDS_VALUE(n)) {
@@ -129,8 +153,18 @@ static void set_status(App *a, const char *text) {
 }
 
 /* ---- transcript ---------------------------------------------------------- */
+static void create_transcript_tags(App *a, GtkTextBuffer *buf) {
+    a->tag_user = gtk_text_buffer_create_tag(buf, "user",
+        "foreground", "#f0f0f0", "weight", PANGO_WEIGHT_BOLD, NULL);
+    a->tag_asst = gtk_text_buffer_create_tag(buf, "asst",
+        "foreground", "#9ecbff", "weight", PANGO_WEIGHT_BOLD,
+        "style", PANGO_STYLE_NORMAL, NULL);
+    gtk_text_buffer_create_tag(buf, "thinking", "foreground", "#b8b8b8",
+        "style", PANGO_STYLE_ITALIC, "weight", PANGO_WEIGHT_NORMAL, NULL);
+}
+
 static void transcript_scroll_to_bottom(App *a) {
-    if (a->user_scrolled_up) return;
+    if (!a->autoscroll_enabled || a->user_scrolled_up) return;
     GtkAdjustment *adj = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(a->scroller));
     if (adj)
         gtk_adjustment_set_value(adj, gtk_adjustment_get_upper(adj));
@@ -155,6 +189,14 @@ static void on_scroll_adjustment(GtkAdjustment *adj, App *a) {
 }
 
 static void apply_transcript_size(App *a) {
+    const char *tip = a->size == SIZE_FULL ? "Collapse transcript: Full → Compact" :
+        a->size == SIZE_COMPACT ? "Expand transcript: Compact → Restored" : "Expand transcript: Restored → Full";
+    gtk_button_set_icon_name(GTK_BUTTON(a->size_toggle),
+        a->size == SIZE_FULL ? "go-down-symbolic" : "go-up-symbolic");
+    gtk_widget_set_tooltip_text(a->size_toggle, tip);
+    gtk_accessible_update_property(GTK_ACCESSIBLE(a->size_toggle), GTK_ACCESSIBLE_PROPERTY_LABEL, tip, -1);
+    /* With no canvas in Compact, leave space beside the composer for the overlay. */
+    gtk_widget_set_margin_end(a->composer, a->size == SIZE_COMPACT ? 40 : 0);
     switch (a->size) {
         case SIZE_COMPACT:
             gtk_widget_set_visible(a->scroller, FALSE);
@@ -208,7 +250,7 @@ static char *history_to_json(App *a) {
 /* ---- sidecar IPC (standalone connection per call) ------------------------ */
 /* Connect, send one JSON line, read one JSON line response, return "result"
  * as a JSON string (caller g_free's) or NULL on error. */
-static char *sidecar_call(const char *sock_path, const char *action, GError **err) {
+static char *sidecar_request(const char *sock_path, const char *req, GError **err) {
     GSocketClient *client = g_socket_client_new();
     g_socket_client_set_timeout(client, 5);
     GSocketAddress *addr = g_unix_socket_address_new(sock_path);
@@ -218,27 +260,16 @@ static char *sidecar_call(const char *sock_path, const char *action, GError **er
     g_object_unref(client);
     if (!c) return NULL;
 
-    JsonBuilder *b = json_builder_new();
-    json_builder_begin_object(b);
-    json_builder_set_member_name(b, "action");
-    json_builder_add_string_value(b, action);
-    json_builder_end_object(b);
-    JsonGenerator *g = json_generator_new();
-    JsonNode *root = json_builder_get_root(b);
-    json_generator_set_root(g, root);
-    json_node_unref(root);
-    char *req = json_generator_to_data(g, NULL);
     char *frame = g_strconcat(req, "\n", NULL);
 
     GOutputStream *out = g_io_stream_get_output_stream(G_IO_STREAM(c));
     gsize written;
     if (!g_output_stream_write_all(out, frame, strlen(frame), &written, NULL, err)) {
         g_object_unref(c);
-        g_free(frame); g_free(req);
-        g_object_unref(g); g_object_unref(b);
+        g_free(frame);
         return NULL;
     }
-    g_free(frame); g_free(req);
+    g_free(frame);
 
     GDataInputStream *stream = g_data_input_stream_new(
         g_io_stream_get_input_stream(G_IO_STREAM(c)));
@@ -275,22 +306,44 @@ static char *sidecar_call(const char *sock_path, const char *action, GError **er
         g_free(resp);
     }
     g_object_unref(c);
-    g_object_unref(g);
-    g_object_unref(b);
     return result_str;
+}
+
+static char *sidecar_call(const char *sock_path, const char *action, GError **err) {
+    char *req = g_strdup_printf("{\"action\":\"%s\"}", action);
+    char *result = sidecar_request(sock_path, req, err);
+    g_free(req);
+    return result;
 }
 
 /* ---- chat streaming (GTask worker thread) -------------------------------- */
 /* These callbacks run in the MAIN thread (posted via g_idle_add). */
 
+static void render_delta(App *a, GtkTextBuffer *buf, const char *text, gboolean reasoning) {
+    if (!reasoning) g_string_append(a->current_answer, text);
+    GtkTextIter end;
+    gtk_text_buffer_get_end_iter(buf, &end);
+    if (reasoning != a->last_reasoning) {
+        gtk_text_buffer_insert_with_tags_by_name(buf, &end,
+            reasoning ? "\nThinking: " : "\n", -1,
+            reasoning ? "thinking" : "asst", NULL);
+    }
+    a->last_reasoning = reasoning;
+    /* insert_with_tags adds tags; remove inherited tags first so an answer
+     * after reasoning cannot inherit italic/grey from its left neighbour. */
+    int start = gtk_text_iter_get_offset(&end);
+    gtk_text_buffer_insert(buf, &end, text, -1);
+    GtkTextIter begin;
+    gtk_text_buffer_get_iter_at_offset(buf, &begin, start);
+    gtk_text_buffer_remove_all_tags(buf, &begin, &end);
+    gtk_text_buffer_apply_tag_by_name(buf, reasoning ? "thinking" : "asst", &begin, &end);
+}
+
 static gboolean on_delta(gpointer data) {
     DeltaData *d = data;
     App *a = d->app;
-    g_string_append(a->current_answer, d->text);
     GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
-    GtkTextIter end;
-    gtk_text_buffer_get_end_iter(buf, &end);
-    gtk_text_buffer_insert_with_tags_by_name(buf, &end, d->text, -1, "asst", NULL);
+    render_delta(a, buf, d->text, d->reasoning);
     transcript_scroll_to_bottom(a);
     g_free(d->text);
     g_free(d);
@@ -308,7 +361,7 @@ static gboolean on_chat_done(gpointer data) {
     gtk_widget_set_sensitive(a->attach_strip, TRUE);
 
     if (d->success) {
-        set_status(a, "Hyprneuro · Local");
+        set_status(a, "Hyprneuro - Local");
         clear_attachments(a);
         /* Append a trailing newline after the assistant response. */
         GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
@@ -453,6 +506,7 @@ static void chat_worker(GTask *task, gpointer source, gpointer task_data,
                             DeltaData *dd = g_new0(DeltaData, 1);
                             dd->app = a;
                             dd->text = g_strdup(txt);
+                            dd->reasoning = !g_strcmp0(jstr(jmember(r, "channel")), "reasoning");
                             g_idle_add(on_delta, dd);
                         } else if (type && !g_strcmp0(type, "done")) {
                             ChatDoneData *cd = g_new0(ChatDoneData, 1);
@@ -582,6 +636,7 @@ static void send_message(App *a) {
 
     /* Prepare task data (freed by the worker). */
     a->current_msg = g_strdup(msg);
+    a->last_reasoning = FALSE;
     g_string_set_size(a->current_answer, 0);
 
     ChatTaskData *td = g_new0(ChatTaskData, 1);
@@ -658,6 +713,166 @@ static gboolean poll_monitoring(gpointer data) {
     return G_SOURCE_CONTINUE;
 }
 
+/* UI preferences use the existing private atomic Settings store. Save applies
+ * appearance only; collector/model settings are deliberately not editable here. */
+static const char *size_names[] = {"compact", "restored", "full", NULL};
+static void apply_panel_opacity(App *a, double opacity) {
+    a->panel_opacity = opacity;
+    /* Only the panel's paint is translucent. Never fade window/widget/text. */
+    char alpha[G_ASCII_DTOSTR_BUF_SIZE];
+    g_ascii_dtostr(alpha, sizeof alpha, opacity);
+    char *css = g_strdup_printf(".hn-panel { background-color: rgba(33,33,33,%s); }", alpha);
+    gtk_css_provider_load_from_string(a->panel_css, css);
+    g_free(css);
+}
+static void update_preferences(App *a, const char *error) {
+    guint draft = gtk_drop_down_get_selected(a->prefs_size);
+    GString *text = g_string_new(NULL);
+    g_string_append_printf(text, "Size — active: %s · saved: %s · draft: %s\n"
+        "Autoscroll — active: %s · saved: %s · draft: %s",
+        size_names[a->size], a->prefs_available ? size_names[a->saved_size] : "unknown",
+        draft < 3 ? size_names[draft] : "unknown",
+        a->autoscroll_enabled ? (a->user_scrolled_up ? "paused" : "on") : "off",
+        a->prefs_available ? (a->saved_autoscroll ? "on" : "off") : "unknown",
+        gtk_switch_get_active(a->prefs_autoscroll) ? "on" : "off");
+    char saved_opacity[32];
+    if (a->prefs_available) g_snprintf(saved_opacity, sizeof saved_opacity, "%.0f%%", a->saved_opacity * 100);
+    else g_strlcpy(saved_opacity, "unknown", sizeof saved_opacity);
+    g_string_append_printf(text, "\nPanel opacity — active: %.0f%% · saved: %s · draft: %.0f%%",
+        a->panel_opacity * 100, saved_opacity, gtk_spin_button_get_value(a->prefs_opacity));
+    for (int i = 0; i < N_MONITOR_PREFS; i++) {
+        MonitorPreference *m = &a->monitor_prefs[i];
+        g_string_append_printf(text, "\n%s — observed active: %s (%s) · saved: %s · draft: %s%s",
+            monitor_names[i], a->prefs_available ? (m->active ? "on" : "off") : "unknown",
+            m->task ? m->task : "unknown", a->prefs_available ? (m->saved ? "on" : "off") : "unknown",
+            gtk_switch_get_active(m->draft) ? "on" : "off",
+            a->prefs_available && m->saved != m->active ? " (restart required)" : "");
+        gtk_widget_set_sensitive(GTK_WIDGET(m->draft), !a->prefs_busy && a->prefs_available);
+    }
+    if (error) g_string_append_printf(text, "\n%s", error);
+    gtk_label_set_text(GTK_LABEL(a->prefs_status), text->str);
+    g_string_free(text, TRUE);
+    gtk_widget_set_sensitive(GTK_WIDGET(a->prefs_size), !a->prefs_busy && a->prefs_available);
+    gtk_widget_set_sensitive(GTK_WIDGET(a->prefs_autoscroll), !a->prefs_busy && a->prefs_available);
+    gtk_widget_set_sensitive(GTK_WIDGET(a->prefs_opacity), !a->prefs_busy && a->prefs_available);
+    gtk_widget_set_sensitive(a->prefs_save, !a->prefs_busy && a->prefs_available);
+    gtk_widget_set_sensitive(a->prefs_reload, !a->prefs_busy);
+}
+typedef struct { char *socket, *request; } PreferencesTask;
+static void preferences_task_free(gpointer data) {
+    PreferencesTask *d = data;
+    g_free(d->socket); g_free(d->request); g_free(d);
+}
+static void preferences_worker(GTask *task, gpointer source, gpointer data, GCancellable *cancel) {
+    (void)source; (void)cancel;
+    PreferencesTask *d = data;
+    GError *error = NULL;
+    char *result = sidecar_request(d->socket, d->request, &error);
+    if (result) g_task_return_pointer(task, result, g_free);
+    else g_task_return_error(task, error ? error :
+        g_error_new_literal(G_IO_ERROR, G_IO_ERROR_FAILED, "Preference storage unavailable"));
+}
+static void preferences_ready(GObject *source, GAsyncResult *result, gpointer data) {
+    (void)source;
+    App *a = data;
+    GError *error = NULL;
+    char *response = g_task_propagate_pointer(G_TASK(result), &error);
+    a->prefs_busy = FALSE;
+    if (response) {
+        JsonParser *p = json_parser_new();
+        gboolean valid = json_parser_load_from_data(p, response, -1, NULL);
+        const char *name = valid ? jstr(jmember(json_parser_get_root(p), "ui_transcript_size")) : NULL;
+        int selected = -1;
+        for (int i = 0; i < 3; i++) if (!g_strcmp0(name, size_names[i])) selected = i;
+        JsonNode *auto_node = valid ? jmember(json_parser_get_root(p), "ui_autoscroll") : NULL;
+        for (int i = 0; valid && i < N_MONITOR_PREFS; i++) {
+            char *active_key = g_strconcat(monitor_names[i], "_active", NULL);
+            char *task_key = g_strconcat(monitor_names[i], "_task", NULL);
+            JsonNode *saved = jmember(json_parser_get_root(p), monitor_keys[i]);
+            JsonNode *active = jmember(json_parser_get_root(p), active_key);
+            valid = jboolean(saved) && jboolean(active) && jstr(jmember(json_parser_get_root(p), task_key));
+            g_free(active_key); g_free(task_key);
+        }
+        double opacity = valid ? jnum(jmember(json_parser_get_root(p), "ui_panel_opacity"), -1) : -1;
+        if (valid && selected >= 0 && jboolean(auto_node) && opacity >= .2 && opacity <= 1) {
+            gboolean apply = a->prefs_available || !a->size_changed;
+            a->prefs_available = TRUE;
+            a->saved_size = selected;
+            a->saved_autoscroll = json_node_get_boolean(auto_node);
+            a->saved_opacity = opacity;
+            gtk_spin_button_set_value(a->prefs_opacity, opacity * 100);
+            apply_panel_opacity(a, opacity);
+            for (int i = 0; i < N_MONITOR_PREFS; i++) {
+                MonitorPreference *m = &a->monitor_prefs[i];
+                char *active_key = g_strconcat(monitor_names[i], "_active", NULL);
+                char *task_key = g_strconcat(monitor_names[i], "_task", NULL);
+                m->saved = json_node_get_boolean(jmember(json_parser_get_root(p), monitor_keys[i]));
+                m->active = json_node_get_boolean(jmember(json_parser_get_root(p), active_key));
+                g_free(m->task); m->task = g_strdup(jstr(jmember(json_parser_get_root(p), task_key)));
+                gtk_switch_set_active(m->draft, m->saved);
+                g_free(active_key); g_free(task_key);
+            }
+            gtk_drop_down_set_selected(a->prefs_size, selected);
+            gtk_switch_set_active(a->prefs_autoscroll, a->saved_autoscroll);
+            if (!a->autoscroll_enabled && a->saved_autoscroll) a->user_scrolled_up = FALSE;
+            a->autoscroll_enabled = a->saved_autoscroll;
+            if (apply) { a->size = selected; apply_transcript_size(a); }
+            transcript_scroll_to_bottom(a);
+        } else {
+            g_set_error_literal(&error, G_IO_ERROR, G_IO_ERROR_FAILED, "Invalid preference response");
+        }
+        g_object_unref(p); g_free(response);
+    }
+    update_preferences(a, error ? error->message : NULL);
+    if (!g_strcmp0(gtk_stack_get_visible_child_name(a->stack), "settings"))
+        populate_settings(a);
+    g_clear_error(&error);
+}
+static void request_preferences(App *a, gboolean save) {
+    if (a->prefs_busy) return;
+    PreferencesTask *d = g_new0(PreferencesTask, 1);
+    d->socket = g_strdup(a->sidecar_sock);
+    guint draft = gtk_drop_down_get_selected(a->prefs_size);
+    if (save && draft < 3 && a->prefs_available) {
+        JsonBuilder *b = json_builder_new();
+        json_builder_begin_object(b);
+        json_builder_set_member_name(b, "action"); json_builder_add_string_value(b, "ui_settings_save");
+        for (int expected = 0; expected < 2; expected++) {
+            if (expected) { json_builder_set_member_name(b, "expected"); json_builder_begin_object(b); }
+            json_builder_set_member_name(b, "ui_transcript_size");
+            json_builder_add_string_value(b, size_names[expected ? a->saved_size : draft]);
+            json_builder_set_member_name(b, "ui_autoscroll");
+            json_builder_add_boolean_value(b, expected ? a->saved_autoscroll : gtk_switch_get_active(a->prefs_autoscroll));
+            json_builder_set_member_name(b, "ui_panel_opacity");
+            json_builder_add_double_value(b, expected ? a->saved_opacity : gtk_spin_button_get_value(a->prefs_opacity) / 100);
+            for (int i = 0; i < N_MONITOR_PREFS; i++) {
+                json_builder_set_member_name(b, monitor_keys[i]);
+                json_builder_add_boolean_value(b, expected ? a->monitor_prefs[i].saved : gtk_switch_get_active(a->monitor_prefs[i].draft));
+            }
+        }
+        json_builder_end_object(b); json_builder_end_object(b);
+        JsonNode *root = json_builder_get_root(b);
+        JsonGenerator *g = json_generator_new(); json_generator_set_root(g, root);
+        d->request = json_generator_to_data(g, NULL);
+        json_node_unref(root); g_object_unref(g); g_object_unref(b);
+    } else d->request = g_strdup("{\"action\":\"ui_settings_get\"}");
+    a->prefs_busy = TRUE;
+    update_preferences(a, "Loading…");
+    GTask *task = g_task_new(NULL, NULL, preferences_ready, a);
+    g_task_set_task_data(task, d, preferences_task_free);
+    g_task_run_in_thread(task, preferences_worker);
+    g_object_unref(task);
+}
+static void on_preferences_save(GtkButton *btn, App *a) {
+    (void)btn; request_preferences(a, TRUE);
+}
+static void on_preferences_reload(GtkButton *btn, App *a) {
+    (void)btn; request_preferences(a, FALSE);
+}
+static void on_preferences_draft(GObject *obj, GParamSpec *spec, App *a) {
+    (void)obj; (void)spec; update_preferences(a, NULL);
+}
+
 /* ---- settings view ------------------------------------------------------- */
 static void add_settings_row(GtkListBox *list, const char *label, const char *value) {
     GtkWidget *row = gtk_list_box_row_new();
@@ -696,7 +911,7 @@ static void populate_settings(App *a) {
     gtk_widget_set_margin_bottom(content, 8);
 
     /* Models & Inference */
-    add_settings_section(content, "Status (read-only; no settings switches)");
+    add_settings_section(content, "Status snapshot (read-only)");
     add_settings_section(content, "Models & Inference");
     GtkWidget *model_list = gtk_list_box_new();
     gtk_widget_add_css_class(model_list, "hn-settings");
@@ -782,7 +997,8 @@ static void populate_settings(App *a) {
     const char *size_str = (a->size == SIZE_COMPACT) ? "Compact" :
                            (a->size == SIZE_FULL) ? "Full" : "Restored";
     add_settings_row(GTK_LIST_BOX(app_list), "Transcript size", size_str);
-    add_settings_row(GTK_LIST_BOX(app_list), "Autoscroll", a->user_scrolled_up ? "Paused" : "Active");
+    add_settings_row(GTK_LIST_BOX(app_list), "Autoscroll",
+        !a->autoscroll_enabled ? "Off" : a->user_scrolled_up ? "Paused" : "Active");
     gtk_box_append(GTK_BOX(content), app_list);
 
     /* Application */
@@ -808,7 +1024,9 @@ static void on_settings_open(GtkButton *btn, gpointer data) {
     (void)btn;
     App *a = data;
     populate_settings(a);
+    update_preferences(a, NULL);
     poll_monitoring(a);
+    if (!a->prefs_available) request_preferences(a, FALSE);
     gtk_stack_set_visible_child_name(a->stack, "settings");
 }
 
@@ -834,7 +1052,7 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     App *a = data;
     GError *err = NULL;
     g_clear_object(&a->picker_cancel);
-    gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
+    if (a->win) gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
     gtk_widget_set_sensitive(a->attach_btn, !a->busy);
     GFile *file = gtk_file_dialog_open_finish(GTK_FILE_DIALOG(obj), result, &err);
     if (!file) {
@@ -961,8 +1179,14 @@ static void on_audio(GtkButton *btn, gpointer data) {
 }
 
 /* ---- show / hide / toggle ------------------------------------------------ */
+static void create_window(App *a);
 static void show_ui(App *a) {
     if (a->shown) return;
+    if (!a->win) {
+        create_window(a);
+        gtk_window_set_child(a->win, a->panel);
+        g_object_unref(a->panel); /* hide_ui retained the widget tree */
+    }
     a->shown = TRUE;
     gtk_window_present(a->win);
     gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
@@ -975,6 +1199,13 @@ static void hide_ui(App *a) {
     gtk_widget_set_visible(a->media_preview, FALSE);
     a->shown = FALSE;
     gtk_widget_set_visible(GTK_WIDGET(a->win), FALSE);
+    /* Retire the Wayland surface instead of remapping stale frame timings.
+     * Keep the widget tree (draft, transcript, Settings, attachment snapshot).
+     * Use public window lifecycle APIs, not widget-only unrealize(). */
+    g_object_ref(a->panel);
+    gtk_window_set_child(a->win, NULL);
+    gtk_window_destroy(a->win);
+    a->win = NULL;
 }
 
 static void toggle_ui(App *a) { a->shown ? hide_ui(a) : show_ui(a); }
@@ -992,6 +1223,37 @@ static gboolean on_key(GtkEventControllerKey *c, guint keyval, guint code,
         return TRUE;
     }
     return FALSE;
+}
+
+static gboolean on_close_request(GtkWindow *win, App *a) {
+    (void)win;
+    hide_ui(a);
+    return TRUE;
+}
+static void create_window(App *a) {
+    /* Window: layer-shell TOP, bottom-right, 9px margin, exclusive_zone 0. */
+    a->win = GTK_WINDOW(gtk_window_new());
+    gtk_window_set_title(a->win, "Hyprneuro");
+    gtk_window_set_decorated(a->win, FALSE);
+    gtk_window_set_hide_on_close(a->win, TRUE);
+    gtk_window_set_default_size(a->win, DEFAULT_WIDTH, -1);
+    gtk_widget_add_css_class(GTK_WIDGET(a->win), "hn-transparent");
+    gtk_layer_init_for_window(a->win);
+    gtk_layer_set_namespace(a->win, "hyprneuro");
+    gtk_layer_set_layer(a->win, GTK_LAYER_SHELL_LAYER_TOP);
+    gtk_layer_set_exclusive_zone(a->win, 0);
+    gtk_layer_set_anchor(a->win, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
+    gtk_layer_set_anchor(a->win, GTK_LAYER_SHELL_EDGE_RIGHT, TRUE);
+    gtk_layer_set_margin(a->win, GTK_LAYER_SHELL_EDGE_BOTTOM, MARGIN_PX);
+    gtk_layer_set_margin(a->win, GTK_LAYER_SHELL_EDGE_RIGHT, MARGIN_PX);
+    gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
+
+    /* Escape to hide / go back. */
+    GtkEventController *key = gtk_event_controller_key_new();
+    g_signal_connect(key, "key-pressed", G_CALLBACK(on_key), a);
+    gtk_widget_add_controller(GTK_WIDGET(a->win), key);
+
+    g_signal_connect(a->win, "close-request", G_CALLBACK(on_close_request), a);
 }
 
 /* ---- control socket (ui.sock) -------------------------------------------- */
@@ -1047,10 +1309,11 @@ static gboolean on_control_connect(GSocketService *svc, GSocketConnection *conn,
 /* ---- size toggle --------------------------------------------------------- */
 static void on_size_toggle(GtkButton *btn, gpointer data) {
     App *a = data;
-    a->size = (a->size == SIZE_FULL) ? SIZE_COMPACT : SIZE_FULL;
+    a->size = a->size == SIZE_COMPACT ? SIZE_RESTORE : a->size == SIZE_RESTORE ? SIZE_FULL : SIZE_COMPACT;
+    a->size_changed = TRUE;
     apply_transcript_size(a);
-    gtk_button_set_icon_name(btn,
-        a->size == SIZE_FULL ? "go-down-symbolic" : "go-up-symbolic");
+    update_preferences(a, NULL);
+    (void)btn;
 }
 
 /* ---- builder helper ------------------------------------------------------ */
@@ -1093,6 +1356,8 @@ int main(int argc, char **argv) {
     gtk_init();
     App *a = g_new0(App, 1);
     a->size = SIZE_RESTORE;
+    a->autoscroll_enabled = TRUE;
+    a->panel_opacity = .90;
     a->history = g_ptr_array_new_with_free_func((GDestroyNotify)json_node_unref);
     a->attachments = g_ptr_array_new_with_free_func((GDestroyNotify)g_object_unref);
     a->current_answer = g_string_new("");
@@ -1107,8 +1372,8 @@ int main(int argc, char **argv) {
     GtkCssProvider *css = gtk_css_provider_new();
     gtk_css_provider_load_from_string(css,
         "window.hn-transparent { background: transparent; box-shadow: none; }"
-        ".hn-panel { background-color: alpha(@theme_bg_color,0.96); color: @theme_fg_color;"
-        " border: 1px solid alpha(@theme_fg_color,0.18); border-radius: 16px; padding: 12px; }"
+        ".hn-panel { background-color: rgba(33,33,33,0.90); color: @theme_fg_color;"
+        " border: 1px solid rgba(0,0,0,0.95); border-radius: 9px; padding: 12px; }"
         ".hn-panel textview, .hn-panel textview text { background: transparent; color: @theme_fg_color; }"
         "textview.hn-composer, textview.hn-composer text { background-color: #272727; color: #f0f0f0; caret-color: #f0f0f0; }"
         ".hn-composer { border-radius: 8px; padding: 8px; }"
@@ -1124,48 +1389,46 @@ int main(int argc, char **argv) {
     GtkCssProvider *alpha = gtk_css_provider_new();
     gtk_css_provider_load_from_string(alpha,
         "window.background.hn-transparent { background-color: rgba(0,0,0,0); background-image: none;"
-        " border: none; outline: none; box-shadow: none; }");
+        " border: none; outline: none; box-shadow: none; }"
+        ".hn-panel button.hn-status-action { min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none; }"
+        ".hn-panel button.hn-status-action:focus-visible { outline: 1px solid #9ecbff; outline-offset: 1px; }");
     gtk_style_context_add_provider_for_display(gdk_display_get_default(),
         GTK_STYLE_PROVIDER(alpha), GTK_STYLE_PROVIDER_PRIORITY_USER);
     g_object_unref(css);
     g_object_unref(alpha);
 
-    /* Window: layer-shell TOP, bottom-right, 9px margin, exclusive_zone 0. */
-    a->win = GTK_WINDOW(gtk_window_new());
-    gtk_window_set_title(a->win, "Hyprneuro");
-    gtk_window_set_decorated(a->win, FALSE);
-    gtk_window_set_hide_on_close(a->win, TRUE);
-    gtk_window_set_default_size(a->win, DEFAULT_WIDTH, -1);
-    gtk_widget_add_css_class(GTK_WIDGET(a->win), "hn-transparent");
-    gtk_layer_init_for_window(a->win);
-    gtk_layer_set_layer(a->win, GTK_LAYER_SHELL_LAYER_TOP);
-    gtk_layer_set_exclusive_zone(a->win, 0);
-    gtk_layer_set_anchor(a->win, GTK_LAYER_SHELL_EDGE_BOTTOM, TRUE);
-    gtk_layer_set_anchor(a->win, GTK_LAYER_SHELL_EDGE_RIGHT, TRUE);
-    gtk_layer_set_margin(a->win, GTK_LAYER_SHELL_EDGE_BOTTOM, MARGIN_PX);
-    gtk_layer_set_margin(a->win, GTK_LAYER_SHELL_EDGE_RIGHT, MARGIN_PX);
-    gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
+    a->panel_css = gtk_css_provider_new();
+    gtk_style_context_add_provider_for_display(gdk_display_get_default(), GTK_STYLE_PROVIDER(a->panel_css),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+    apply_panel_opacity(a, a->panel_opacity);
+    create_window(a);
 
     /* Panel with GtkStack (chat page / settings page). */
-    a->panel = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    a->panel = gtk_overlay_new();
     gtk_widget_add_css_class(a->panel, "hn-panel");
     gtk_window_set_child(a->win, a->panel);
 
     a->stack = GTK_STACK(gtk_stack_new());
-    gtk_box_append(GTK_BOX(a->panel), GTK_WIDGET(a->stack));
+    gtk_stack_set_vhomogeneous(a->stack, FALSE);
+    gtk_overlay_set_child(GTK_OVERLAY(a->panel), GTK_WIDGET(a->stack));
+    a->size_toggle = gtk_button_new_from_icon_name("go-up-symbolic");
+    gtk_widget_add_css_class(a->size_toggle, "hn-input-action");
+    gtk_widget_set_halign(a->size_toggle, GTK_ALIGN_END);
+    gtk_widget_set_valign(a->size_toggle, GTK_ALIGN_START);
+    g_signal_connect(a->size_toggle, "clicked", G_CALLBACK(on_size_toggle), a);
+    gtk_overlay_add_overlay(GTK_OVERLAY(a->panel), a->size_toggle);
+    gtk_overlay_set_measure_overlay(GTK_OVERLAY(a->panel), a->size_toggle, FALSE);
 
     /* ---- Chat page ---- */
     a->chat_page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
 
     a->transcript = gtk_text_view_new();
     gtk_text_view_set_editable(GTK_TEXT_VIEW(a->transcript), FALSE);
+    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(a->transcript), 40);
     gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(a->transcript), GTK_WRAP_WORD_CHAR);
     /* Create text tags once (avoids repeated creation warnings). */
     GtkTextBuffer *tbuf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
-    a->tag_user = gtk_text_buffer_create_tag(tbuf, "user",
-        "foreground", "#f0f0f0", "weight", PANGO_WEIGHT_BOLD, NULL);
-    a->tag_asst = gtk_text_buffer_create_tag(tbuf, "asst",
-        "foreground", "#9ecbff", "weight", PANGO_WEIGHT_BOLD, NULL);
+    create_transcript_tags(a, tbuf);
 
     a->scroller = gtk_scrolled_window_new();
     gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(a->scroller), a->transcript);
@@ -1207,7 +1470,7 @@ int main(int argc, char **argv) {
     gtk_widget_set_visible(a->attach_strip, FALSE);
     gtk_box_append(GTK_BOX(a->chat_page), a->attach_strip);
 
-    /* Composer: [attach] [input] [send] [audio] [vision] [size] [settings] */
+    /* Composer: [attach] [input] [send] [audio] [vision]. */
     a->composer = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_widget_add_css_class(a->composer, "hn-composer");
     a->attach_btn = circular(a->composer, "list-add-symbolic",
@@ -1230,23 +1493,31 @@ int main(int argc, char **argv) {
                             G_CALLBACK(on_audio), a, "Audio capture");
     a->vision_btn = circular(a->composer, "camera-photo-symbolic",
                              G_CALLBACK(on_vision), a, "Camera / Vision");
-    a->size_toggle = circular(a->composer, "go-up-symbolic",
-                              G_CALLBACK(on_size_toggle), a, "Transcript size");
-    a->settings_btn = circular(a->composer, "emblem-system-symbolic",
-                               G_CALLBACK(on_settings_open), a, "Settings");
     gtk_box_append(GTK_BOX(a->chat_page), a->composer);
 
     /* Status bar. */
     GtkWidget *statusrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    a->status = gtk_label_new("Hyprneuro · Local");
+    a->status = gtk_label_new("Hyprneuro - Local");
     gtk_widget_set_name(a->status, "hn-status");
     gtk_widget_add_css_class(a->status, "dim-label");
     gtk_label_set_xalign(GTK_LABEL(a->status), 0);
+    gtk_label_set_max_width_chars(GTK_LABEL(a->status), 24);
     gtk_label_set_ellipsize(GTK_LABEL(a->status), PANGO_ELLIPSIZE_END);
-    gtk_widget_set_hexpand(a->status, TRUE);
+
     a->metrics = gtk_label_new("");
     gtk_widget_add_css_class(a->metrics, "dim-label");
-    gtk_box_append(GTK_BOX(statusrow), a->status);
+    gtk_widget_set_hexpand(a->metrics, TRUE);
+    gtk_label_set_xalign(GTK_LABEL(a->metrics), 1);
+    a->settings_btn = gtk_button_new_from_icon_name("emblem-system-symbolic");
+    gtk_widget_add_css_class(a->settings_btn, "hn-status-action");
+    gtk_widget_set_valign(a->settings_btn, GTK_ALIGN_CENTER);
+    gtk_widget_set_tooltip_text(a->settings_btn, "Settings");
+    gtk_accessible_update_property(GTK_ACCESSIBLE(a->settings_btn), GTK_ACCESSIBLE_PROPERTY_LABEL, "Settings", -1);
+    g_signal_connect(a->settings_btn, "clicked", G_CALLBACK(on_settings_open), a);
+    GtkWidget *local = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_append(GTK_BOX(local), a->settings_btn);
+    gtk_box_append(GTK_BOX(local), a->status);
+    gtk_box_append(GTK_BOX(statusrow), local);
     gtk_box_append(GTK_BOX(statusrow), a->metrics);
     gtk_box_append(GTK_BOX(a->chat_page), statusrow);
 
@@ -1263,6 +1534,57 @@ int main(int argc, char **argv) {
     gtk_box_append(GTK_BOX(settings_header), settings_title);
     gtk_box_append(GTK_BOX(a->settings_page), settings_header);
 
+    GtkWidget *preferences = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_append(GTK_BOX(preferences), gtk_label_new("Transcript size"));
+    const char *size_labels[] = {"Compact", "Restored", "Full", NULL};
+    a->prefs_size = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(size_labels));
+    gtk_drop_down_set_selected(a->prefs_size, SIZE_RESTORE);
+    gtk_widget_set_size_request(GTK_WIDGET(a->prefs_size), 120, -1);
+    gtk_box_append(GTK_BOX(preferences), GTK_WIDGET(a->prefs_size));
+    a->prefs_save = gtk_button_new_with_label("Save");
+    a->prefs_reload = gtk_button_new_with_label("Reload");
+    gtk_widget_set_size_request(a->prefs_save, 80, -1);
+    gtk_widget_set_size_request(a->prefs_reload, 80, -1);
+    gtk_box_append(GTK_BOX(preferences), a->prefs_save);
+    gtk_box_append(GTK_BOX(preferences), a->prefs_reload);
+    gtk_box_append(GTK_BOX(preferences), gtk_label_new("Opacity %"));
+    a->prefs_opacity = GTK_SPIN_BUTTON(gtk_spin_button_new_with_range(20, 100, 1));
+    gtk_spin_button_set_value(a->prefs_opacity, 90);
+    gtk_widget_set_tooltip_text(GTK_WIDGET(a->prefs_opacity), "Panel background only; text remains opaque. Save applies.");
+    gtk_box_append(GTK_BOX(preferences), GTK_WIDGET(a->prefs_opacity));
+    gtk_box_append(GTK_BOX(a->settings_page), preferences);
+    GtkWidget *autoscroll_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    gtk_box_append(GTK_BOX(autoscroll_row), gtk_label_new("Autoscroll (draft; Save applies)"));
+    a->prefs_autoscroll = GTK_SWITCH(gtk_switch_new());
+    gtk_switch_set_active(a->prefs_autoscroll, TRUE);
+    gtk_widget_set_valign(GTK_WIDGET(a->prefs_autoscroll), GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(autoscroll_row), GTK_WIDGET(a->prefs_autoscroll));
+    gtk_box_append(GTK_BOX(a->settings_page), autoscroll_row);
+    const char *monitor_labels[] = {"Journal monitoring", "Passive network monitoring", "Sustained resource monitoring"};
+    for (int i = 0; i < N_MONITOR_PREFS; i++) {
+        GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+        char *label = g_strdup_printf("%s (Save; restart to activate)", monitor_labels[i]);
+        GtkWidget *text = gtk_label_new(label);
+        gtk_widget_set_size_request(text, 400, -1);
+        gtk_label_set_xalign(GTK_LABEL(text), 0);
+        gtk_box_append(GTK_BOX(row), text);
+        a->monitor_prefs[i].draft = GTK_SWITCH(gtk_switch_new());
+        gtk_widget_set_valign(GTK_WIDGET(a->monitor_prefs[i].draft), GTK_ALIGN_CENTER);
+        gtk_box_append(GTK_BOX(row), GTK_WIDGET(a->monitor_prefs[i].draft));
+        gtk_box_append(GTK_BOX(a->settings_page), row);
+        g_signal_connect(a->monitor_prefs[i].draft, "notify::active", G_CALLBACK(on_preferences_draft), a);
+        g_free(label);
+    }
+    a->prefs_status = gtk_label_new("");
+    gtk_label_set_xalign(GTK_LABEL(a->prefs_status), 0);
+    gtk_label_set_wrap(GTK_LABEL(a->prefs_status), TRUE);
+    gtk_box_append(GTK_BOX(a->settings_page), a->prefs_status);
+    g_signal_connect(a->prefs_size, "notify::selected", G_CALLBACK(on_preferences_draft), a);
+    g_signal_connect(a->prefs_autoscroll, "notify::active", G_CALLBACK(on_preferences_draft), a);
+    g_signal_connect(a->prefs_opacity, "notify::value", G_CALLBACK(on_preferences_draft), a);
+    g_signal_connect(a->prefs_save, "clicked", G_CALLBACK(on_preferences_save), a);
+    g_signal_connect(a->prefs_reload, "clicked", G_CALLBACK(on_preferences_reload), a);
+
     a->settings_scroll = gtk_scrolled_window_new();
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(a->settings_scroll),
         GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -1273,11 +1595,6 @@ int main(int argc, char **argv) {
     gtk_stack_set_visible_child_name(a->stack, "chat");
 
     apply_transcript_size(a);
-
-    /* Escape to hide / go back. */
-    GtkEventController *key = gtk_event_controller_key_new();
-    g_signal_connect(key, "key-pressed", G_CALLBACK(on_key), a);
-    gtk_widget_add_controller(GTK_WIDGET(a->win), key);
 
     /* Control socket (ui.sock). */
     char *control_dir = g_path_get_dirname(a->control_sock);
@@ -1292,7 +1609,8 @@ int main(int argc, char **argv) {
     }
     g_object_unref(addr);
 
-    /* Monitoring poll. */
+    /* Monitoring and UI preference reads run off the main thread. */
+    request_preferences(a, FALSE);
     poll_monitoring(a);
     a->monitor_timer = g_timeout_add(MONITOR_POLL_MS, poll_monitoring, a);
 
@@ -1307,6 +1625,8 @@ int main(int argc, char **argv) {
     g_object_unref(a->svc);
     g_string_free(a->current_answer, TRUE);
     g_free(a->current_msg);
+    g_object_unref(a->panel_css);
+    for (int i = 0; i < N_MONITOR_PREFS; i++) g_free(a->monitor_prefs[i].task);
     g_ptr_array_free(a->history, TRUE);
     g_ptr_array_free(a->attachments, TRUE);
     g_free(a->attachment_b64);

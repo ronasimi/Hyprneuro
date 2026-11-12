@@ -190,3 +190,81 @@ activation still requires an explicit application restart. Actual observed
 worker state is separate from draft/saved state. Snapshot/setting RPCs remain
 off the GTK thread. Capture remains unavailable: the actual installed Screenshot
 portal's Request.Close cancellation gate failed. No raw capture path was restored.
+
+## Shared application events and approved skill snapshots
+
+`app_events.SharedApplicationEvents` is the service's **single** Hyprland
+socket2 intake when the existing `watch_hyprland` flag is enabled (still requires
+`allow_ingest`). Enabling the assistant alone does not start a collector.
+The reader only validates/bounds metadata and enqueues it; each subscriber has
+an independent, bounded latest-wins mailbox, overflow/error counters, and worker:
+
+- Metadata persistence: 64 pending events, then the existing `HyprlandSource`
+  queue (256). No change to storage consent or deduplication.
+- Recall: subscribed **only** with `allow_capture`, 64 pending events, then the
+  existing `D1CaptureSource` queue (4). Consent, sensitive-app/origin exclusions,
+  lock checks, rate budgets, D1 gate and screenshot checks stay in Recall.
+  Skill availability never enables capture; default remains disabled.
+- Assistant focus: one pending `activewindowv2` event, coalesced over 150 ms.
+  Other events (including titles/keystrokes) cannot displace pending focus.
+  The worker queries current focus; queries never block the socket2 reader or
+  Recall subscriber. A burst's last focus is resolved rather than discarded.
+
+The caller owns all workers in the existing `serve()` producer list, cancelling
+and awaiting them on shutdown. Errors in one subscriber do not stop another.
+A startup focus query seeds `AppRegistry` and `AppSkillContext` even if no new
+focus event arrives. An empty/malformed/unresolvable focus clears active skill
+context rather than carrying another application's skill into a prompt.
+
+### Context lifecycle (not execution authorization)
+
+The first resolved focused app ID (normalized compositor **class**, never title)
+loads its approved skill body and reference tool schema. Changing to another
+application replaces the active snapshot. Same-app windows/title churn and
+ordinary prompts never load it again. Switching back reuses the LRU entry.
+Only the active skill is included, not all recent applications' skills.
+
+`AppSkillContext` caches at most **8** entries keyed by normalized app ID and a
+SHA-256 content revision that includes the declared version and full normalized
+skill contents. Body is bounded to 8192 characters, tool-schema JSON to 4096,
+and the complete serialized snapshot to 16384; an oversized complete snapshot
+is omitted, not partially injected. `loads` and `hits` are model-free counters.
+Missing, draft, retired, and malformed skills contribute no active block.
+Existing curated directory manifests retain the existing default approved
+status when status is omitted; proposed skills always begin as drafts.
+
+`register`, `propose`, literal-boolean validated `approve`, and `retire` notify
+the context synchronously. Changed content/version invalidates that app's cache
+entry; if active, the snapshot is replaced immediately. Identical registration
+or re-approval does not reload. Retirement/replacement by a draft removes the
+active block immediately. Returned skill/schema objects are defensive copies.
+
+External file edits are **explicitly** refreshed, never polled or read during
+prompt generation. The existing private Unix-socket IPC accepts:
+
+```json
+{"action":"skill_refresh"}
+```
+
+This assistant-gated action takes **no path or other arguments** and reloads
+only the configured `skills_dir` (including missing/deleted/malformed files,
+which remove their prior directory-backed skills). With no configured skill
+path it fails closed. Operators can use the existing stdlib client from the
+configured sidecar environment:
+
+```python
+import asyncio
+from hyprneuro.sidecar_client import request
+asyncio.run(request({"action": "skill_refresh"}))
+```
+
+`app_context` adds an optional `active_skill` snapshot. Chat framing reads one
+prebuilt immutable string via `prompt_block()` and appends it once to the
+existing `agent.DEFAULT_SYSTEM` plus bounded client metadata. An echoed client
+`active_skill` field is removed to avoid duplicate blocks. The server block is
+not saved in chat history and performs **no disk I/O, skill load, or inference**
+on the prompt path. It contains no window titles. It is explicitly labelled
+untrusted reference data, with `execution_permission: false`; neither its body
+nor schemas override system/user/privacy rules or register executable tools.
+`PermissionBroker`, leases and desktop action gates remain the only execution
+controls. No model, service, dependency or runtime configuration is changed.

@@ -15,7 +15,11 @@ HYPRLAND_KINDS = frozenset({
 
 
 class HyprlandSource:
-    """Bounded, nonblocking ingress from the existing Hyprland socket2 adapter."""
+    """Opt-in metadata subscriber with its own bounded persistence queue.
+
+    The service fans out one shared socket2 intake (app_events) to this sink,
+    application focus, and independently consent-gated recall.
+    """
 
     def __init__(self, store, *, max_queue=256):
         self.store = store

@@ -947,6 +947,37 @@ static void on_camera_capture(GtkButton *btn, gpointer data) {
         gtk_label_set_text(GTK_LABEL(a->media_label), "Captured · attached");
 }
 
+static void on_screen_capture(GtkButton *btn, gpointer data) {
+    (void)btn;
+    App *a = data;
+    /* Use grim for portal-backed screen capture. */
+    char *path = g_strdup_printf("/tmp/hyprneuro-screen-%ld.png",
+                                  (long)g_get_real_time() / 1000000);
+    char *cmd = g_strdup_printf("grim %s 2>/dev/null", path);
+    if (g_spawn_command_line_sync(cmd, NULL, NULL, NULL, NULL) == 0) {
+        GFile *f = g_file_new_for_path(path);
+        g_ptr_array_add(a->attachments, f);
+        char *name = g_file_get_basename(f);
+        GtkWidget *item = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+        gtk_widget_add_css_class(item, "hn-attach-item");
+        gtk_box_append(GTK_BOX(item), gtk_label_new(name));
+        GtkWidget *rm = gtk_button_new_from_icon_name("window-close-symbolic");
+        g_signal_connect_swapped(rm, "clicked",
+                                 G_CALLBACK(gtk_widget_unparent), item);
+        gtk_box_append(GTK_BOX(item), rm);
+        gtk_box_append(GTK_BOX(a->attach_strip), item);
+        g_free(name);
+        gtk_widget_set_visible(a->attach_strip, TRUE);
+        if (a->media_label)
+            gtk_label_set_text(GTK_LABEL(a->media_label), "Screen captured · attached");
+    } else {
+        if (a->media_label)
+            gtk_label_set_text(GTK_LABEL(a->media_label), "Screen capture failed");
+    }
+    g_free(cmd);
+    g_free(path);
+}
+
 static void on_camera_cancel(GtkButton *btn, gpointer data) {
     (void)btn;
     camera_stop(data);
@@ -1260,6 +1291,9 @@ int main(int argc, char **argv) {
     GtkWidget *astop_btn = gtk_button_new_with_label("Stop");
     g_signal_connect(astop_btn, "clicked", G_CALLBACK(on_audio_stop_btn), a);
     gtk_box_append(GTK_BOX(a->media_controls), astop_btn);
+    GtkWidget *ascreen_btn = gtk_button_new_with_label("Screen");
+    g_signal_connect(ascreen_btn, "clicked", G_CALLBACK(on_screen_capture), a);
+    gtk_box_append(GTK_BOX(a->media_controls), ascreen_btn);
     GtkWidget *acancel_btn = gtk_button_new_with_label("Cancel");
     g_signal_connect(acancel_btn, "clicked", G_CALLBACK(on_camera_cancel), a);
     gtk_box_append(GTK_BOX(a->media_controls), acancel_btn);

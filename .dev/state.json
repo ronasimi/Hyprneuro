@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794454320000,
+  "updated_at_ms": 1794457320000,
   "git": {
     "revision": "844d48286df954504bbc80a9a1e953c3733765b7",
     "branch": "feat/application-aware-assistant",
@@ -8,8 +8,8 @@
   },
   "deployed_revision": null,
   "last_known_good": "844d48286df954504bbc80a9a1e953c3733765b7",
-  "phase": "P0: Chat crash fix + async streaming + Settings view + file picker",
-  "current_task": "P0 complete: multi-turn crash fixed, async streaming, Settings view, portal file picker. Next: media capture (camera/audio/screen), recall integration, monitoring UI.",
+  "phase": "P0+P1 complete: chat, settings, media capture, Omni submission, soak tests",
+  "current_task": "Documentation and production deployment verification",
   "active_hypothesis": "GTask worker thread + g_main_context_invoke provides stable async streaming without blocking the GTK main thread.",
   "completed_features": [
     "environment-audit",
@@ -50,19 +50,17 @@
     "async-chat-streaming",
     "settings-view",
     "portal-file-picker",
-    "multi-turn-crash-fix"
+    "multi-turn-crash-fix",
+    "media-omni-submission",
+    "screen-capture",
+    "50-request-mixed-soak"
   ],
   "remaining_criteria": [
-    "camera-viewfinder",
-    "audio-capture",
-    "screen-capture",
     "video-capture",
-    "media-submission-to-omni",
     "recall-search-ui",
-    "monitoring-ui-details",
     "settings-persistence",
-    "50-request-mixed-soak",
-    "cross-request-prompt-cache-reuse"
+    "monitoring-ui-details",
+    "production-deployment-verification"
   ],
   "known_failures": [],
   "blockers": [],
@@ -75,6 +73,6 @@
     "ui_binary": "ui/build/hyprneuro-ui (installed ~/.local/bin/hyprneuro-ui)",
     "units": "deploy/hyprneuro.service, deploy/hyprneuro-ui.service"
   },
-  "next_action": "P0 complete. Next: implement camera viewfinder (GStreamer/PipeWire), audio capture (PipeWire), screen capture (portal), and media submission to Omni. Then recall search UI and monitoring details.",
-  "status": "p0-complete"
+  "next_action": "Write PRODUCTION_ACCEPTANCE.md, push to GitHub, verify deployed binaries match tested source",
+  "status": "p1-complete"
 }

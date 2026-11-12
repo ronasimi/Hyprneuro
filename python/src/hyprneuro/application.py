@@ -8,8 +8,8 @@ durable task can consume, plus a tiered memory and a staged skill index.
 Design goals (see docs/ARCHITECTURE.md):
   * Event-driven focus tracking with debouncing, never speculative inference.
   * Focused + recent (LRU) applications, metadata kept out of model context.
-  * Staged just-in-time skills: compact manifests on focus, full body only
-    when a task needs it.
+  * Staged skills plus approved active-app snapshots (app_events): compact
+    discovery and bounded body/schema caching without per-prompt reloads.
   * Tiered durable memory: task / app / project / global, with explicit,
     approval-gated cross-scope promotion.
 
@@ -17,6 +17,8 @@ Nothing here captures screenshots or reads sensitive content.
 """
 from __future__ import annotations
 
+import copy
+import hashlib
 import json
 import os
 import re
@@ -132,7 +134,8 @@ class AppRegistry:
         address, cls, title, workspace, pid = self._window_fields(window)
         app_id = normalize_app_id(cls)
         current = self.focused
-        same_window = current is not None and current.address == address
+        same_window = (current is not None and current.address == address
+                       and current.app_id == app_id)
         if same_window and (now_ms - self._last_change_ms) < self.debounce_ms:
             # Debounced: same window, rapid churn. Refresh only the timestamp.
             current.last_focus_ms = now_ms
@@ -228,46 +231,109 @@ class SkillIndex:
 
     def __init__(self):
         self._skills: dict[str, dict] = {}
+        self._listeners = []
+        self._directory: Path | None = None
+        self._directory_apps: set[str] = set()
+
+    def subscribe(self, callback) -> None:
+        self._listeners.append(callback)
+
+    def _changed(self, app_id: str) -> None:
+        for callback in self._listeners:
+            callback(app_id)
+
+    def revision(self, app_id: str) -> str | None:
+        skill = self._skills.get(normalize_app_id(app_id))
+        if skill is None or skill["status"] != 1:
+            return None
+        return hashlib.sha256(json.dumps(skill, sort_keys=True,
+                                         ensure_ascii=True).encode()).hexdigest()
+
+    def refresh_directory(self) -> dict:
+        """Explicit operational reload; never called from a prompt snapshot."""
+        if self._directory is None:
+            raise ValueError("No configured skill directory")
+        fresh = SkillIndex.from_directory(self._directory)
+        affected = self._directory_apps | set(fresh._skills)
+        for aid in affected:
+            old = self._skills.get(aid)
+            new = fresh._skills.get(aid)
+            if old == new:
+                continue
+            if new is None:
+                self._skills.pop(aid, None)
+            else:
+                self._skills[aid] = new
+            self._changed(aid)
+        self._directory_apps = set(fresh._skills)
+        return {"refreshed": True, "app_ids": sorted(self._directory_apps)}
 
     @classmethod
     def from_directory(cls, path: str | Path) -> "SkillIndex":
         index = cls()
         root = Path(path)
+        index._directory = root
         if not root.exists():
             return index
         if root.is_file():
             index._load_file(root)
+            index._directory_apps = set(index._skills)
             return index
         for entry in sorted(root.glob("*.json")):
             index._load_file(entry)
+        index._directory_apps = set(index._skills)
         return index
 
     def _load_file(self, entry: Path) -> None:
-        if entry.is_symlink() or entry.stat().st_size > 262_144:
-            return
         try:
+            if entry.is_symlink() or entry.stat().st_size > 262_144:
+                return
             data = json.loads(entry.read_text())
-        except (OSError, ValueError):
+            if isinstance(data, dict):
+                self.register(data)
+        except (OSError, ValueError, TypeError, RecursionError):
             return
-        if isinstance(data, dict):
-            self.register(data)
 
     def register(self, data: dict) -> None:
         if not isinstance(data, dict):
             raise ValueError("Skill manifest must be an object")
         app_id = normalize_app_id(str(data.get("app_id") or ""))
+        previous = self._skills.get(app_id)
+        try:
+            self._register(app_id, data)
+        except (ValueError, TypeError, RecursionError):
+            self._skills.pop(app_id, None)
+            self._changed(app_id)
+            raise
+        if self._skills[app_id] != previous:
+            self._changed(app_id)
+
+    def _register(self, app_id: str, data: dict) -> None:
+        status = data.get("status", 1)  # bundled curated seeds stay compatible
+        if type(status) is not int or status not in (0, 1, 2):
+            raise ValueError("Invalid skill status")
+        for key in ("name", "description", "version", "body", "instructions"):
+            if key in data and not isinstance(data[key], str):
+                raise ValueError("Skill text must be a string")
+        if not isinstance(data.get("tags", []), (list, tuple)):
+            raise ValueError("Skill tags must be a list")
         name = _b64(str(data.get("name") or app_id), 80)
         description = _b64(str(data.get("description") or ""), 400)
         version = _b64(str(data.get("version") or "0"), 32)
         tags = tuple(_b64(str(t), 40) for t in (data.get("tags") or [])[:16])
         body = str(data.get("body") or data.get("instructions") or "")
         schema = data.get("tools_schema")
-        if not isinstance(schema, (dict, list)):
-            schema = None
+        if schema is not None:
+            if not isinstance(schema, (dict, list)):
+                raise ValueError("Invalid tools schema")
+            encoded = json.dumps(schema, allow_nan=False)
+            if len(encoded) > 4096:
+                raise ValueError("Skill tools schema exceeds 4096 characters")
+            schema = json.loads(encoded)
         self._skills[app_id] = {
             "app_id": app_id, "name": name, "description": description,
             "version": version, "tags": tags, "body": body[:8192], "tools_schema": schema,
-            "status": int(data.get("status", 1)),  # 1=approved (curated seeds)
+            "status": status,
         }
 
     # --- Progressive lifecycle: draft -> approved -> retired ----------------
@@ -291,6 +357,7 @@ class SkillIndex:
             "status": 0,
             "source_task": _b64(source_task or "", 80),
         }
+        self._changed(aid)
         return {"app_id": aid, "status": 0}
 
     def approve(self, app_id: str, *, validated: bool = False) -> dict:
@@ -299,9 +366,11 @@ class SkillIndex:
         skill = self._skills.get(aid)
         if skill is None:
             raise KeyError("Unknown skill")
-        if not validated:
+        if validated is not True:
             raise PermissionError("Skill approval requires validation")
-        skill["status"] = 1
+        if skill["status"] != 1:
+            skill["status"] = 1
+            self._changed(aid)
         return {"app_id": aid, "status": 1}
 
     def retire(self, app_id: str) -> dict:
@@ -310,6 +379,7 @@ class SkillIndex:
         if skill is None:
             raise KeyError("Unknown skill")
         skill["status"] = 2
+        self._changed(aid)
         return {"app_id": aid, "status": 2}
 
     def status_of(self, app_id: str) -> int | None:
@@ -337,7 +407,7 @@ class SkillIndex:
         skill = self._skills.get(normalize_app_id(str(app_id)))
         if skill is None or skill["status"] != 1:
             return None
-        return {"schema": "hyprneuro.skill/1", **skill}
+        return copy.deepcopy({"schema": "hyprneuro.skill/1", **skill})
 
     def has(self, app_id: str) -> bool:
         return normalize_app_id(str(app_id)) in self._skills
@@ -458,15 +528,17 @@ class AppWatcher:
     On an `activewindowv2` event it performs one bounded `activewindow` query
     to obtain the focused window's class/title/workspace, then updates the
     registry. Rapid churn is coalesced to at most one resolve per debounce
-    window so the compositor event callback is never held up by socket I/O.
+    window. The service runs this watcher on its own latest-wins subscriber
+    worker (interval=0 there); no query runs in the socket2 reader callback.
 
     This is deliberately separate from ScreenWatcher: it never captures
     screenshots and never calls d1/Omni. It only tracks identity.
     """
 
-    def __init__(self, desktop, registry, *, min_resolve_interval_ms=150):
+    def __init__(self, desktop, registry, *, min_resolve_interval_ms=150, context=None):
         self.desktop = desktop
         self.registry = registry
+        self.skill_context = context
         if not 0 <= min_resolve_interval_ms <= 5000:
             raise ValueError("min_resolve_interval_ms must be 0..5000")
         self._min_resolve_interval = min_resolve_interval_ms / 1000.0
@@ -484,14 +556,25 @@ class AppWatcher:
             window = await self.desktop.query("activewindow")
         except (OSError, ValueError, RuntimeError):
             self.errors += 1
+            if self.skill_context is not None:
+                self.skill_context.clear()
+            self.registry.focused = None
             return
-        if not window or not window.get("address"):
+        if not isinstance(window, dict) or not window.get("address"):
+            if self.skill_context is not None:
+                self.skill_context.clear()
+            self.registry.focused = None
             return
         try:
             self.registry.on_focus(window)
+            if self.skill_context is not None:
+                self.skill_context.activate(self.registry.focused.app_id)
             self.resolves += 1
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError, AttributeError):
             self.errors += 1
+            if self.skill_context is not None:
+                self.skill_context.clear()
+            self.registry.focused = None
 
     async def on_event(self, name: str, data: str) -> None:
         """Called from the compositor event loop. Never raises to the caller."""
@@ -501,16 +584,4 @@ class AppWatcher:
         if now - self._last_resolve < self._min_resolve_interval:
             return
         self._last_resolve = now
-        try:
-            window = await self.desktop.query("activewindow")
-        except (OSError, ValueError, RuntimeError):
-            self.errors += 1
-            return
-        if not window or not window.get("address"):
-            return
-        try:
-            self.registry.on_focus(window)
-            self.resolves += 1
-        except (ValueError, KeyError):
-            # Malformed window metadata: ignore, never crash the event loop.
-            self.errors += 1
+        await self.initial_resolve()

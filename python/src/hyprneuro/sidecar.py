@@ -89,6 +89,8 @@ class SidecarServer:
         self.memory = None
         self.skills = None
         self.app_watcher = None
+        self.app_skill_context = None
+        self.application_events = None
         self.broker = None
         self.router = None
         self.leases = None
@@ -105,6 +107,8 @@ class SidecarServer:
                                         debounce_ms=assistant_focus_debounce_ms)
             self.memory = TieredMemory(store)
             self.skills = SkillIndex.from_directory(skills_dir) if skills_dir else SkillIndex()
+            from .app_events import AppSkillContext
+            self.app_skill_context = AppSkillContext(self.skills)
             self.broker = PermissionBroker(store)
             self.router = ModelRouter()
             self.leases = LeaseManager()  # in-memory only: fail-closed on restart
@@ -133,7 +137,9 @@ class SidecarServer:
         if action in _COUNTER:
             self.telemetry.bump(_COUNTER[action])
         if action == "app_context":
-            return self.registry.context(role=request.get("role", "text"))
+            context = self.registry.context(role=request.get("role", "text"))
+            context["active_skill"] = self.app_skill_context.snapshot()
+            return context
         if action == "memory_remember":
             if set(request) - {"action", "scope", "key", "value", "task_id", "app_id", "project_id"}:
                 raise ValueError("Invalid memory_remember request")
@@ -161,6 +167,10 @@ class SidecarServer:
             if skill is None:
                 raise LookupError("No skill for application")
             return skill
+        if action == "skill_refresh":
+            if set(request) != {"action"}:
+                raise ValueError("Invalid skill_refresh request")
+            return self.skills.refresh_directory()
         if action == "skill_list":
             return {"schema": "hyprneuro.skills/1", "app_ids": self.skills.app_ids()}
         if action == "skill_propose":
@@ -176,7 +186,7 @@ class SidecarServer:
             if set(request) - {"action", "app_id", "validated"}:
                 raise ValueError("Invalid skill_approve request")
             return self.skills.approve(request.get("app_id", ""),
-                                       validated=bool(request.get("validated")))
+                                       validated=request.get("validated", False))
         if action == "skill_retire":
             if set(request) - {"action", "app_id"}:
                 raise ValueError("Invalid skill_retire request")
@@ -338,7 +348,7 @@ class SidecarServer:
         if action == "details":
             return self.store.details(request.get("id"))
         if action in ("app_context", "memory_remember", "memory_recall",
-                     "skill_discover", "skill_load", "skill_list",
+                     "skill_discover", "skill_load", "skill_list", "skill_refresh",
                      "skill_propose", "skill_approve", "skill_retire",
                      "task_create", "task_update", "task_get", "task_list",
                      "auth_create", "auth_check", "auth_expand", "auth_revoke", "auth_list",
@@ -436,6 +446,9 @@ class SidecarServer:
         context = request.get("context") or {}
         system = agent.DEFAULT_SYSTEM
         if isinstance(context, dict) and context:
+            # The server alone supplies the active skill; an app_context IPC
+            # snapshot echoed by a client must not duplicate that prompt block.
+            context = {k: v for k, v in context.items() if k != "active_skill"}
             system += "\n\nLocal context (untrusted, metadata only): " + json.dumps(context)[:2000]
         history = request.get("history") or []
         if not isinstance(history, list):
@@ -471,7 +484,10 @@ class SidecarServer:
             user_content = [{"type": "text", "text": message[:8000]}, part]
         else:
             user_content = message[:8000]
-        messages = ([{"role": "system", "content": system[:4000]}] + history +
+        # Read the prebuilt server snapshot once. No skill loads or disk I/O
+        # on the prompt path, and never persist the block in chat history.
+        skill_block = self.app_skill_context.prompt_block() if self.app_skill_context else ""
+        messages = ([{"role": "system", "content": system[:4000] + skill_block}] + history +
                     [{"role": "user", "content": user_content}])
         role = "omni" if media is not None else "text"
         answer = []
@@ -715,23 +731,31 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 from .desktop import Hyprland
                 desktop = Hyprland()
             source = HyprlandSource(store)
+            from .app_events import SharedApplicationEvents
+            shared_events = SharedApplicationEvents()
+            worker.application_events = shared_events
+            shared_events.subscribe(source.on_event)
             capture_source = None
             if allow_capture:
                 from .recall_events import D1CaptureSource
                 capture_source = D1CaptureSource(worker.watcher)
                 worker.browser_capture_source = capture_source
+                shared_events.subscribe(capture_source.on_event)
                 producers.append(asyncio.create_task(capture_source.run(), name="capture"))
 
             app_watcher = None
             if assistant_enabled:
                 from .application import AppWatcher
                 from .desktop_control import DesktopController
-                app_watcher = AppWatcher(desktop, worker.registry)
+                app_watcher = AppWatcher(desktop, worker.registry,
+                                         min_resolve_interval_ms=0, context=worker.app_skill_context)
                 worker.app_watcher = app_watcher
                 worker.desktop_controller = DesktopController(desktop, worker.broker, worker.leases)
                 # Seed the registry with the currently focused window so a
                 # change-only event stream does not leave it empty at startup.
-                producers.append(asyncio.create_task(app_watcher.initial_resolve(), name="app_seed"))
+                # Seed before consuming queued changes, avoiding a stale seed
+                # racing a later focus resolution.
+                await app_watcher.initial_resolve()
 
                 async def idle_compaction():
                     # Periodic, bounded: compacts only when idle, no-ops while active.
@@ -744,20 +768,17 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
 
                 producers.append(asyncio.create_task(idle_compaction(), name="idle_compaction"))
 
-            async def on_event(name, data):
-                # Both handlers enqueue; the compositor's socket2 loop is
-                # never held up by D1, Omni or SQLite writes. Focus tracking
-                # is model-free and coalesced, so it never blocks the loop.
-                await source.on_event(name, data)
-                if capture_source is not None:
-                    await capture_source.on_event(name, data)
-                if app_watcher is not None:
+            if app_watcher is not None:
+                async def focus_event(name, data):
                     await app_watcher.on_event(name, data)
-                    if "activewindow" in name:
-                        worker.telemetry.bump("focus_events")
+                    worker.telemetry.bump("focus_events")
 
+                shared_events.subscribe(focus_event, max_queue=1, coalesce_seconds=0.15,
+                                        kinds={"activewindowv2"})
+            producers.extend(asyncio.create_task(sub.run(), name=f"hyprland_subscriber_{i}")
+                             for i, sub in enumerate(shared_events.subscribers))
             producers.extend([asyncio.create_task(source.flush(), name="hyprland_store"),
-                              asyncio.create_task(desktop.events(on_event), name="hyprland")])
+                              asyncio.create_task(shared_events.follow(desktop), name="hyprland")])
         if alert_journal or alert_network or alert_resources:
             from .event_stream import EventIntake
             from .escalation import EscalationRouter

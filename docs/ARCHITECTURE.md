@@ -75,8 +75,26 @@ competing agent runtime and without changing the local LFM inference stack.
     cross-scope promotion. In-memory or `SidecarStore`-backed.
   - `AppWatcher` — resolves compositor focus events into registry updates;
     coalesced; `initial_resolve()` seeds at startup; never calls a model.
-- `python/src/hyprneuro/sidecar_store.py` — schema v2 tables: `app_memory`,
-  `skill_manifests`, `tasks` (additive, migration-safe, `schema_version`→2).
+- `python/src/hyprneuro/sidecar_store.py` — schema **v3** tables: `app_memory`,
+  `skill_manifests`, `tasks`, `authorizations` (additive, migration-safe, plus
+  `app_memory_trim` + `size` for idle compaction/telemetry).
+- `python/src/hyprneuro/authorization.py` — `PermissionBroker`: task-scoped
+  autonomy; ordinary ops in-scope, privileged ops require recorded approval;
+  path containment; in-memory or store-backed.
+- `python/src/hyprneuro/model_router.py` — `ModelRouter`: deterministic
+  text/omni/decision routing (D1 only on explicit classification); bounded
+  structured handoffs (no full-context forwarding).
+- `python/src/hyprneuro/desktop_control.py` — `LeaseManager` (exclusive,
+  time-bounded, pausable, fail-closed on restart), `FocusValidator`, and
+  `DesktopController` (gates every action: authorization → lease → focus →
+  action).
+- `python/src/hyprneuro/telemetry.py` — `Telemetry` (model-free counters +
+  bounded store probe) and `IdleCompactor` (bounded compaction only when idle).
+- `python/src/hyprneuro/assistant_controller.py` — `AssistantController`:
+  model-free facade (status snapshot, task selection, approvals via the broker,
+  bounded streaming, pause, emergency stop).
+- `python/src/hyprneuro/assistant_cli.py` — `hyprneuro-assistant` CLI: the
+  hotkey entry point.
 - `extensions/app-aware.ts` — versioned Pi Durable adapter (tools only; no
   execution logic; no screenshots).
 
@@ -85,21 +103,31 @@ competing agent runtime and without changing the local LFM inference stack.
 | action | reads/writes | notes |
 |---|---|---|
 | `app_context` | read | focused + recent LRU, compact, `untrusted` |
-| `memory_remember` / `memory_recall` | read/write | scoped tiered memory |
-| `skill_discover` / `skill_load` / `skill_list` | read | staged skills |
+| `memory_remember` / `memory_recall` / `memory_promote` | read/write | scoped tiered memory |
+| `skill_discover` / `skill_load` / `skill_list` | read | approved skills only |
+| `skill_propose` / `skill_approve` / `skill_retire` | write | draft→approved→retired lifecycle |
 | `task_create` / `task_update` / `task_get` / `task_list` | read/write | durable task state |
+| `auth_create` / `auth_check` / `auth_expand` / `auth_revoke` / `auth_list` | read/write | task-scoped autonomy |
+| `route` / `handoff` | read | deterministic routing + bounded handoff |
+| `lease_acquire` / `lease_release` / `lease_renew` / `lease_pause` / `lease_resume` / `lease_status` / `lease_emergency_stop` | write | desktop-control lease |
+| `desktop_action` | write | gated action (auth+lease+focus) |
+| `telemetry` | read | counters + bounded store probe (available when disabled) |
 
 All assistant actions are rejected with a clear `disabled` error when
 `--assistant-enabled` is not set. `assistant_enabled` requires `watch_hyprland`.
+`telemetry` is the exception: it is available regardless (read-only counters).
 
-## What this layer does NOT do (yet)
+## What this layer does NOT do
 
-- No desktop-control leases, focus validation, or GUI automation (Phase 5).
-- No hotkey-native interface (Phase 6).
-- No adaptive model residency or idle compaction policy enforcement (Phase 8).
-- No progressive skill *generation* (only staged loading of pre-authored skills).
-
-These are tracked in the remaining acceptance criteria in `.dev/state.json`.
+- No second agent runtime: Pi Durable `subagents` execute; Hyprneuro provides
+  context/state/IPC only.
+- No inference on focus; no model calls in the assistant tracking path.
+- No screenshots or sensitive-data access; no previously-disabled collectors.
+- No native Wayland GUI shell yet: the `hyprneuro-assistant` CLI is the
+  hotkey target and the `AssistantController` is the documented interface a
+  graphical client would drive.
+- Cross-request prompt-cache reuse is an open optimization target; the
+  inference stack is left unchanged.
 
 ## Model coordination (existing, unchanged)
 

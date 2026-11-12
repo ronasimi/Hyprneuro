@@ -1,0 +1,35 @@
+{
+  "ts": 1794452941,
+  "schema": "hyprneuro.scorecard/1",
+  "endpoints": {
+    "text": "{\"status\":\"ok\"}",
+    "omni": "{\"status\":\"ok\"}",
+    "decision": "{\"status\":\"ok\"}"
+  },
+  "latency": {
+    "text": {
+      "p50_ms": 457.49,
+      "p95_ms": 459.0,
+      "n": 4
+    },
+    "decision": {
+      "p50_ms": 172.19,
+      "p95_ms": 181.36,
+      "n": 4
+    }
+  },
+  "routing": {
+    "route_ms": 0.00018,
+    "d1_invoked_for_ordinary_kinds": 0
+  },
+  "tests": "250 passed, 1 skipped, 30 subtests passed in 4.57s",
+  "structural": {
+    "no_llm_on_focus": "AppRegistry/AppWatcher perform zero inference on focus events (metadata only); tested in test_application.py",
+    "unauthorized_actions_blocked": "PermissionBroker: privileged ops require recorded approval; desktop actions gated by auth+lease+focus (test_authorization.py, test_desktop_control.py)",
+    "desktop_control_lease": "Exclusive, time-bounded, pausable, fail-closed on restart (test_desktop_control.py)",
+    "assistant_opt_in": "assistant_enabled defaults False; all assistant IPC raises when disabled (test_assistant_ipc.py)",
+    "no_second_runtime": "Pi Durable subagents execute; Hyprneuro provides context/state/IPC only (extensions/app-aware.ts)",
+    "schema_version": 3,
+    "prompt_cache_reuse": "measured per-benchmark; cross-request KV reuse recorded as optimization target (no model-stack change)"
+  }
+}

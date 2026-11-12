@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794452795242,
+  "updated_at_ms": 1794453272999,
   "git": {
     "revision": "cfc7abb961a4174bbe49e398fc062e0d54272585",
     "branch": "feat/application-aware-assistant",
@@ -8,7 +8,7 @@
   },
   "deployed_revision": null,
   "last_known_good": "cfc7abb961a4174bbe49e398fc062e0d54272585",
-  "phase": "6 hotkey assistant controller + CLI (slice complete)",
+  "phase": "9 production stabilization + final scorecard (COMPLETE)",
   "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
   "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
   "completed_features": [
@@ -38,12 +38,13 @@
     "assistant-controller",
     "hotkey-cli",
     "streaming",
-    "approvals-facade"
+    "approvals-facade",
+    "final-scorecard",
+    "production-stabilization"
   ],
   "remaining_criteria": [
-    "production-stabilization",
-    "final-scorecard",
-    "full-load-recovery-testing"
+    "native-wayland-gui-shell",
+    "cross-request-prompt-cache-reuse"
   ],
   "known_failures": [],
   "blockers": [],
@@ -54,5 +55,6 @@
   "artifacts": {
     "baseline_tests": ".dev/benchmarks/baseline_tests.json"
   },
-  "next_action": "Phase 9: production stabilization + final scorecard (full regression, load, recovery, all acceptance criteria)."
+  "next_action": "Stable milestone. Optional: native Wayland GUI shell over AssistantController; cross-request prompt-cache reuse investigation (no inference-stack change).",
+  "status": "stable-milestone"
 }

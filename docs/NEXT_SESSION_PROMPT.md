@@ -3,7 +3,7 @@
 ## Context
 
 Working on the Hyprneuro GTK4 layer-shell desktop assistant on branch
-`feat/application-aware-assistant` (HEAD `f3e9ecd`). The system consists of:
+`feat/application-aware-assistant` (HEAD `9ac7c1e`). The system consists of:
 - **GTK4 C UI** (`ui/src/hyprneuro.c`, ~1600 lines) — layer-shell overlay
 - **Python sidecar** (`python/src/hyprneuro/`) — IPC, agent routing, monitoring
 - **Three LFM model services** — text:8081, omni:8082, decision:8083 (do not modify)
@@ -14,6 +14,9 @@ Working on the Hyprneuro GTK4 layer-shell desktop assistant on branch
 - All critical GTK chat crashes fixed (ASan/UBSan verified)
 - Enter sends, Ctrl+Enter inserts newline
 - Inline image attachments (PNG/JPEG/WebP) with thumbnails, expand, true removal
+- **Video attachment support** (MP4/WebM, ≤10 MiB): Omni processes video
+  frames correctly (verified: red square, blue-on-white pattern identified)
+- **Audio confirmed NOT supported** (model treats base64 as tokens); rejected
 - Streamed reasoning display: `ThinkingParser` splits `</think>` deltas;
   GTK renders thinking italic `#b8b8b8`, answers blue/upright
 - Sidecar `ui_settings_get/save` IPC: appearance + 3 monitoring consents
@@ -22,6 +25,8 @@ Working on the Hyprneuro GTK4 layer-shell desktop assistant on branch
 - Appearance: `#212121`/90% bg, `#000000`/95% border, 9px radius
 - Top-right overlay up/down arrow size toggle (zero height)
 - Bottom-left transparent Settings icon + "Hyprneuro - Local" label
+- **Status bar metrics**: prefill tok/s, decode tok/s, cache hit % from
+  llama.cpp streaming `timings` field (verified end-to-end: 71.4/22.3/8.3%)
 - Namespace `hyprneuro` set via `gtk_layer_set_namespace`
 - 271 Python tests pass, 6 C tests pass, build clean
 - Journal, passive network, sustained resource monitoring individually tested
@@ -29,43 +34,20 @@ Working on the Hyprneuro GTK4 layer-shell desktop assistant on branch
 
 ## What is NOT done (in priority order)
 
-### 1. Status bar performance metrics
-The `a->metrics` label currently shows only CPU/RAM. Add:
-- **Prefill tok/s** and **decode tok/s** — from llama.cpp response metadata
-  (`prompt_eval_count`/`prompt_eval_duration`, `eval_count`/`eval_duration`
-  in the final completion response). The sidecar must extract these from the
-  non-streaming terminal or the SSE completion metadata and include them in
-  the `done` frame. Display with compact icons + tooltips.
-- **Cache widget**: cache hit % (`prompt_cached_tokens / prompt_tokens`)
-  and cache full % (KV/context occupancy if exposed). Show `—` when unavailable.
-  Never fabricate; verify what the running llama.cpp actually returns.
-
-### 2. Audio/video attachment support
-The worker was told to verify whether the installed Omni model genuinely
-supports audio/video before wiring it up. Steps:
-1. Inspect running Omni: `curl localhost:8082/v1/models` for model info,
-   check `mmproj` (multimodal projector) capabilities.
-2. Test with synthetic audio (e.g., 2s WAV tone) and video (e.g., 1-frame
-   MP4) via the `/v1/chat/completions` API. Record exact supported formats,
-   payload schemas, and actual inference output.
-3. Only wire up formats that actually work end-to-end.
-4. Add inline playback preview for supported audio/video in GTK.
-5. Reject unsupported formats clearly; never send audio as `image_url`.
-
-### 3. Screenshot portal (BLOCKED)
+### 1. Screenshot portal (BLOCKED)
 The portal probe showed `Request.Close` times out on cancellation, leaving
 the `slurp` selector active. This is a **hard cleanup failure** per the
 fail-closed policy. Do not retry until the portal cleanup issue is resolved
 (upstream Hyprland/portal bug or a workaround with guaranteed cleanup).
 
-### 4. GTK frame-timing blocker
+### 2. GTK frame-timing blocker
 - The original fatal hide/show invariant is mitigated (toplevel retirement
   with widget tree reparenting passed 100 cycles).
 - Dropdown/presentation interaction still produces discarded-frame warnings.
 - Fatal-warning runs abort. NOT a production blocker for feature work, but
   must be resolved before production promotion.
 
-### 5. Blur visual verification
+### 3. Blur visual verification
 The Hyprland rule is correct (`^hyprneuro$`, `blur=true`, `blur_popups=true`,
 `ignore_alpha=0.2`). The namespace is set in code. However, the worker's
 controlled-pattern screenshots showed sharp stripes (no visible blur).
@@ -78,6 +60,14 @@ Possible causes to investigate:
 - Check if the blur region is being set (v0.57.2 `LayerSurface.cpp` line 527:
   `surface->m_blurRegion.empty()` check)
 - Source: `~/Workspace/hyprneuro-blur-debug/` has fetched v0.57.2 files
+
+### 4. Deploy and interactive verification
+The latest commits (metrics, video) have NOT been deployed to the running
+service. Deploy the new binary, restart `hyprneuro-ui.service`, and verify:
+- Metrics appear in status bar after a chat turn
+- Video file attachment shows icon + metadata
+- Image attachment still works with thumbnail
+- All existing features (reasoning, settings, monitoring) still work
 
 ## Key constraints
 

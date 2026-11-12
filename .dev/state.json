@@ -1,28 +1,31 @@
 {
   "schema": 1,
-  "updated_at_ms": 0,
+  "updated_at_ms": 1794448206677,
   "git": {
-    "revision": "a6a6316ee78caabcf24968a3b5060464481df016",
+    "revision": "cfc7abb961a4174bbe49e398fc062e0d54272585",
     "branch": "feat/application-aware-assistant",
     "dirty": false
   },
   "deployed_revision": null,
-  "last_known_good": "a6a6316ee78caabcf24968a3b5060464481df016",
-  "phase": "1-environment-audit",
+  "last_known_good": "cfc7abb961a4174bbe49e398fc062e0d54272585",
+  "phase": "2-application-awareness (slice complete)",
   "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
   "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
   "completed_features": [
     "environment-audit",
-    "baseline-regression-suite"
-  ],
-  "remaining_criteria": [
+    "baseline-regression-suite",
     "app-focus-tracking-no-llm",
     "recent-app-lru-cache",
     "tiered-memory",
     "staged-skill-loading",
     "versioned-pi-durable-adapter",
+    "durable-task-state",
+    "cold-start-seed-fix",
+    "live-validation",
+    "durable-task-e2e"
+  ],
+  "remaining_criteria": [
     "permission-broker",
-    "durable-task-persistence",
     "computer-use-leases",
     "hotkey-interface",
     "adaptive-residency",
@@ -38,5 +41,5 @@
   "artifacts": {
     "baseline_tests": ".dev/benchmarks/baseline_tests.json"
   },
-  "next_action": "Implement application.py (AppRegistry, SkillIndex, TieredMemory), store migration, sidecar IPC actions, AppWatcher, settings flags, tests."
+  "next_action": "Phase 3/4: deepen the Pi Durable adapter (durable conversation/checkpoint surface, permission broker) + measure LFM routing/KV reuse; then Phase 5 computer-use leases with disposable test apps."
 }

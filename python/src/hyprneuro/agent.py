@@ -168,6 +168,28 @@ async def stream_chat(messages: list[dict], *, role: str = "text",
                 if isinstance(content, str):
                     for event in parser.feed(content):
                         yield event
+            # Capture timings/usage from the final chunk (present on finish).
+            timings = obj.get("timings")
+            usage = obj.get("usage")
+            if timings or usage:
+                metrics = {}
+                if isinstance(timings, dict):
+                    if "prompt_per_second" in timings:
+                        metrics["prefill_tps"] = round(timings["prompt_per_second"], 1)
+                    if "predicted_per_second" in timings:
+                        metrics["decode_tps"] = round(timings["predicted_per_second"], 1)
+                    cache_n = timings.get("cache_n", 0)
+                    prompt_n = timings.get("prompt_n", 0)
+                    if prompt_n and cache_n:
+                        metrics["cache_hit_pct"] = round(100 * cache_n / prompt_n, 1)
+                if isinstance(usage, dict) and "cache_hit_pct" not in metrics:
+                    pt = usage.get("prompt_tokens_details") or {}
+                    cached = pt.get("cached_tokens", 0)
+                    total_pt = usage.get("prompt_tokens", 0)
+                    if total_pt:
+                        metrics["cache_hit_pct"] = round(100 * cached / total_pt, 1)
+                if metrics:
+                    yield {"type": "metrics", **metrics}
         for event in parser.feed("", final=True):
             yield event
         if not complete:

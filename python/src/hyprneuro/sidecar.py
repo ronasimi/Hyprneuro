@@ -458,17 +458,24 @@ class SidecarServer:
         role = "omni" if (media and isinstance(media, dict) and media.get("data")) else "text"
         answer = []
         stream_bytes = 0
+        metrics = {}
         try:
             async for delta in agent.stream_chat(
                     messages, role=role,
                     max_tokens=int(request.get("max_tokens") or 1024)):
+                if delta.get("type") == "metrics":
+                    metrics = {k: v for k, v in delta.items() if k != "type"}
+                    continue
                 stream_bytes += len(delta["text"].encode("utf-8"))
                 if stream_bytes > 1024 * 1024:
                     raise ValueError("Chat stream exceeds 1 MiB")
                 if delta["channel"] == "answer":
                     answer.append(delta["text"])
                 await self._write_frame(writer, delta)
-            await self._write_frame(writer, {"type": "done", "text": "".join(answer), "role": role})
+            done = {"type": "done", "text": "".join(answer), "role": role}
+            if metrics:
+                done["metrics"] = metrics
+            await self._write_frame(writer, done)
         except (OSError, EOFError, asyncio.TimeoutError, ValueError) as exc:
             await self._write_frame(writer, {"type": "error", "error": str(exc)[:300]})
 

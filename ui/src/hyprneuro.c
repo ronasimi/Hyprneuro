@@ -56,6 +56,7 @@ typedef struct {
     App *app;
     gboolean success;
     char *error;
+    char *metrics;
 } ChatDoneData;
 
 typedef struct {
@@ -372,6 +373,12 @@ static gboolean on_chat_done(gpointer data) {
         /* Record the exchange in bounded history. */
         push_history(a, "user", a->current_msg);
         push_history(a, "assistant", a->current_answer->str);
+        /* Display performance metrics in the status bar if available. */
+        if (d->metrics) {
+            gtk_label_set_text(GTK_LABEL(a->metrics), d->metrics);
+            gtk_widget_set_tooltip_text(a->metrics,
+                "Prefill tok/s · Decode tok/s · Cache hit %");
+        }
     } else {
         set_status(a, "Hyprneuro · error");
         GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
@@ -388,6 +395,7 @@ static gboolean on_chat_done(gpointer data) {
     g_string_set_size(a->current_answer, 0);
     gtk_widget_grab_focus(GTK_WIDGET(a->input));
     g_free(d->error);
+    g_free(d->metrics);
     g_free(d);
     return G_SOURCE_REMOVE;
 }
@@ -511,6 +519,20 @@ static void chat_worker(GTask *task, gpointer source, gpointer task_data,
                         } else if (type && !g_strcmp0(type, "done")) {
                             ChatDoneData *cd = g_new0(ChatDoneData, 1);
                             cd->app = a; cd->success = TRUE;
+                            /* Extract optional performance metrics. */
+                            JsonNode *mn = jmember(r, "metrics");
+                            if (mn && JSON_NODE_HOLDS_OBJECT(mn)) {
+                                JsonObject *mo = json_node_get_object(mn);
+                                GString *ms = g_string_new("");
+                                double pt = jnum(json_object_get_member(mo, "prefill_tps"), -1);
+                                if (pt >= 0) g_string_append_printf(ms, "⚡%.0f", pt);
+                                double dt = jnum(json_object_get_member(mo, "decode_tps"), -1);
+                                if (dt >= 0) g_string_append_printf(ms, " ⚡%.0f/s", dt);
+                                double ch = jnum(json_object_get_member(mo, "cache_hit_pct"), -1);
+                                if (ch >= 0) g_string_append_printf(ms, " 📦%.0f%%", ch);
+                                cd->metrics = ms->len ? g_strdup(ms->str) : NULL;
+                                g_string_free(ms, TRUE);
+                            }
                             g_idle_add(on_chat_done, cd);
                             done = TRUE;
                         } else if (type && !g_strcmp0(type, "error")) {

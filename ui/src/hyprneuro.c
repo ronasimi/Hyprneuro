@@ -636,6 +636,29 @@ static gboolean load_image(GFile *file, char **b64, char **mime,
     return ok;
 }
 
+/* Load a video file for Omni frame-extraction inference. No thumbnail is
+ * generated (no GStreamer dependency); the user sees file metadata only. */
+static gboolean load_video(GFile *file, char **b64, char **mime, gsize *length) {
+    if (!g_file_is_native(file)) return FALSE;
+    GFileInputStream *in = g_file_read(file, NULL, NULL);
+    if (!in) return FALSE;
+    gsize limit = 10 * 1024 * 1024, len = 0; /* 10 MiB video cap */
+    guchar *bytes = g_malloc(limit + 1);
+    gboolean ok = g_input_stream_read_all(G_INPUT_STREAM(in), bytes, limit + 1,
+                                         &len, NULL, NULL);
+    g_object_unref(in);
+    char *type = g_content_type_guess(NULL, bytes, len, NULL);
+    ok = ok && len > 0 && len <= limit &&
+        (!g_strcmp0(type, "video/mp4") || !g_strcmp0(type, "video/webm"));
+    if (ok) {
+        *b64 = g_base64_encode(bytes, len);
+        *mime = g_strdup(type);
+        *length = len;
+    }
+    g_free(type); g_free(bytes);
+    return ok;
+}
+
 static void send_message(App *a) {
     if (a->busy) return;
     GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->input));
@@ -1089,10 +1112,15 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     GdkPixbuf *preview = NULL;
     gsize length = 0;
     ImageSize size = {0};
+    gboolean is_video = FALSE;
     if (!load_image(file, &b64, &mime, &preview, &length, &size)) {
-        set_status(a, "Rejected: static PNG/JPEG/WebP only, ≤5 MiB, ≤4096×4096; decoder required");
-        g_object_unref(file);
-        return;
+        if (load_video(file, &b64, &mime, &length)) {
+            is_video = TRUE;
+        } else {
+            set_status(a, "Rejected: audio unsupported; use PNG/JPEG/WebP image or MP4/WebM video (≤10 MiB)");
+            g_object_unref(file);
+            return;
+        }
     }
     clear_attachments(a);
     a->attachment_b64 = b64; a->attachment_mime = mime;
@@ -1100,32 +1128,37 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     apply_transcript_size(a);
     char *name = g_file_get_basename(file);
     char *formatted_size = g_format_size_full(length, G_FORMAT_SIZE_IEC_UNITS);
-    char *metadata = g_strdup_printf("%s\n%s · %s · %d × %d", name, mime,
+    char *metadata;
+    if (is_video)
+        metadata = g_strdup_printf("%s\n%s · %s · video (frame extraction)", name, mime, formatted_size);
+    else
+        metadata = g_strdup_printf("%s\n%s · %s · %d × %d", name, mime,
                                       formatted_size, size.width, size.height);
     GtkWidget *item = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
     gtk_widget_add_css_class(item, "hn-attach-item");
     GtkWidget *summary = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    double review_scale = MIN(480.0 / gdk_pixbuf_get_width(preview),
-                              240.0 / gdk_pixbuf_get_height(preview));
-    GdkPixbuf *review_pixels = gdk_pixbuf_scale_simple(preview,
-        MAX(1, (int)(gdk_pixbuf_get_width(preview) * review_scale)),
-        MAX(1, (int)(gdk_pixbuf_get_height(preview) * review_scale)), GDK_INTERP_BILINEAR);
-    GdkTexture *texture = preview_texture(review_pixels);
-    g_object_unref(review_pixels);
-    double thumb_scale = MIN(112.0 / gdk_pixbuf_get_width(preview),
-                             72.0 / gdk_pixbuf_get_height(preview));
-    GdkPixbuf *small = gdk_pixbuf_scale_simple(preview,
-        MAX(1, (int)(gdk_pixbuf_get_width(preview) * thumb_scale)),
-        MAX(1, (int)(gdk_pixbuf_get_height(preview) * thumb_scale)), GDK_INTERP_BILINEAR);
-    g_object_unref(preview);
-    GdkTexture *thumb_texture = preview_texture(small);
-    g_object_unref(small);
-    GtkWidget *thumbnail = gtk_picture_new_for_paintable(GDK_PAINTABLE(thumb_texture));
-    g_object_unref(thumb_texture);
-    gtk_picture_set_content_fit(GTK_PICTURE(thumbnail), GTK_CONTENT_FIT_CONTAIN);
-    gtk_widget_set_halign(thumbnail, GTK_ALIGN_CENTER);
-    gtk_widget_set_valign(thumbnail, GTK_ALIGN_CENTER);
-    gtk_box_append(GTK_BOX(summary), thumbnail);
+    if (!is_video && preview) {
+        /* Image: thumbnail + review expander */
+        double thumb_scale = MIN(112.0 / gdk_pixbuf_get_width(preview),
+                                 72.0 / gdk_pixbuf_get_height(preview));
+        GdkPixbuf *small = gdk_pixbuf_scale_simple(preview,
+            MAX(1, (int)(gdk_pixbuf_get_width(preview) * thumb_scale)),
+            MAX(1, (int)(gdk_pixbuf_get_height(preview) * thumb_scale)), GDK_INTERP_BILINEAR);
+        GdkTexture *thumb_texture = preview_texture(small);
+        g_object_unref(small);
+        GtkWidget *thumbnail = gtk_picture_new_for_paintable(GDK_PAINTABLE(thumb_texture));
+        g_object_unref(thumb_texture);
+        gtk_picture_set_content_fit(GTK_PICTURE(thumbnail), GTK_CONTENT_FIT_CONTAIN);
+        gtk_widget_set_halign(thumbnail, GTK_ALIGN_CENTER);
+        gtk_widget_set_valign(thumbnail, GTK_ALIGN_CENTER);
+        gtk_box_append(GTK_BOX(summary), thumbnail);
+    } else {
+        /* Video: icon */
+        GtkWidget *vicon = gtk_image_new_from_icon_name("video-x-generic");
+        gtk_widget_set_size_request(vicon, 32, 32);
+        gtk_widget_set_valign(vicon, GTK_ALIGN_CENTER);
+        gtk_box_append(GTK_BOX(summary), vicon);
+    }
     GtkWidget *label = gtk_label_new(metadata);
     gtk_label_set_xalign(GTK_LABEL(label), 0);
     gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_MIDDLE);
@@ -1137,32 +1170,41 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     g_signal_connect(rm, "clicked", G_CALLBACK(on_attachment_remove), a);
     gtk_box_append(GTK_BOX(summary), rm);
     gtk_box_append(GTK_BOX(item), summary);
-    GtkWidget *review = gtk_expander_new("Review image (bounded preview)");
-    GtkWidget *picture = gtk_picture_new_for_paintable(GDK_PAINTABLE(texture));
-    gtk_picture_set_content_fit(GTK_PICTURE(picture), GTK_CONTENT_FIT_CONTAIN);
-    gtk_widget_set_size_request(picture, gdk_texture_get_width(texture), gdk_texture_get_height(texture));
-    /* A fixed review canvas bounds height-for-width measurement as well as
-     * pixels; GtkPicture alone can make an expanded layer taller than output. */
-    GtkWidget *canvas = gtk_fixed_new();
-    gtk_widget_set_size_request(canvas, 480, 240);
-    gtk_widget_set_halign(canvas, GTK_ALIGN_CENTER);
-    gtk_fixed_put(GTK_FIXED(canvas), picture,
-                  (480 - gdk_texture_get_width(texture)) / 2.0,
-                  (240 - gdk_texture_get_height(texture)) / 2.0);
-    gtk_expander_set_child(GTK_EXPANDER(review), canvas);
-    gtk_box_append(GTK_BOX(item), review);
-    g_object_unref(texture);
+    if (!is_video && preview) {
+        /* Image review expander */
+        double review_scale = MIN(480.0 / gdk_pixbuf_get_width(preview),
+                                  240.0 / gdk_pixbuf_get_height(preview));
+        GdkPixbuf *review_pixels = gdk_pixbuf_scale_simple(preview,
+            MAX(1, (int)(gdk_pixbuf_get_width(preview) * review_scale)),
+            MAX(1, (int)(gdk_pixbuf_get_height(preview) * review_scale)), GDK_INTERP_BILINEAR);
+        GdkTexture *texture = preview_texture(review_pixels);
+        g_object_unref(review_pixels);
+        g_object_unref(preview);
+        GtkWidget *review = gtk_expander_new("Review image (bounded preview)");
+        GtkWidget *picture = gtk_picture_new_for_paintable(GDK_PAINTABLE(texture));
+        gtk_picture_set_content_fit(GTK_PICTURE(picture), GTK_CONTENT_FIT_CONTAIN);
+        gtk_widget_set_size_request(picture, gdk_texture_get_width(texture), gdk_texture_get_height(texture));
+        GtkWidget *canvas = gtk_fixed_new();
+        gtk_widget_set_size_request(canvas, 480, 240);
+        gtk_widget_set_halign(canvas, GTK_ALIGN_CENTER);
+        gtk_fixed_put(GTK_FIXED(canvas), picture,
+                      (480 - gdk_texture_get_width(texture)) / 2.0,
+                      (240 - gdk_texture_get_height(texture)) / 2.0);
+        gtk_expander_set_child(GTK_EXPANDER(review), canvas);
+        gtk_box_append(GTK_BOX(item), review);
+        g_object_unref(texture);
+    }
     gtk_box_append(GTK_BOX(a->attach_strip), item);
     g_free(name); g_free(formatted_size); g_free(metadata);
     gtk_widget_set_visible(a->attach_strip, TRUE);
-    set_status(a, "One reviewed image attached · audio/video/documents unsupported");
+    set_status(a, is_video ? "One reviewed video attached" : "One reviewed image attached");
 }
 
 static void on_attach(GtkButton *btn, gpointer data) {
     (void)btn;
     App *a = data;
     GtkFileDialog *dialog = gtk_file_dialog_new();
-    gtk_file_dialog_set_title(dialog, "Select static image (PNG/JPEG/WebP; ≤5 MiB, ≤4096×4096)");
+    gtk_file_dialog_set_title(dialog, "Select image (PNG/JPEG/WebP) or video (MP4/WebM)");
     /* Layer surfaces are not xdg_toplevels: exporting one as the portal
      * parent disconnects this client on Hyprland. Use an unparented portal. */
     gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);

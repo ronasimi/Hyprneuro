@@ -28,6 +28,7 @@ class RenameTests(unittest.TestCase):
         self.assertEqual(metadata['project']['scripts'], {
             'hyprneuro': 'hyprneuro.sidecar:main',
             'hyprneuro-chrome-host': 'hyprneuro.chrome_host:main',
+            'hyprneuro-assistant': 'hyprneuro.assistant_cli:main',
         })
         package = json.loads((ROOT / 'package.json').read_text())
         self.assertEqual(package['name'], 'hyprneuro')

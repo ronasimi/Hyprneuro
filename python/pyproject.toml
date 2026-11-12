@@ -12,6 +12,7 @@ dependencies = []
 [project.scripts]
 hyprneuro = "hyprneuro.sidecar:main"
 hyprneuro-chrome-host = "hyprneuro.chrome_host:main"
+hyprneuro-assistant = "hyprneuro.assistant_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

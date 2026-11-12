@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794452226115,
+  "updated_at_ms": 1794452795242,
   "git": {
     "revision": "cfc7abb961a4174bbe49e398fc062e0d54272585",
     "branch": "feat/application-aware-assistant",
@@ -8,7 +8,7 @@
   },
   "deployed_revision": null,
   "last_known_good": "cfc7abb961a4174bbe49e398fc062e0d54272585",
-  "phase": "7+8 progressive skills + telemetry + adaptive residency (slice complete)",
+  "phase": "6 hotkey assistant controller + CLI (slice complete)",
   "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
   "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
   "completed_features": [
@@ -34,14 +34,16 @@
     "progressive-skill-lifecycle",
     "telemetry",
     "idle-compaction",
-    "adaptive-residency"
+    "adaptive-residency",
+    "assistant-controller",
+    "hotkey-cli",
+    "streaming",
+    "approvals-facade"
   ],
   "remaining_criteria": [
-    "computer-use-leases",
-    "hotkey-interface",
-    "adaptive-residency",
-    "idle-compaction",
-    "production-stabilization"
+    "production-stabilization",
+    "final-scorecard",
+    "full-load-recovery-testing"
   ],
   "known_failures": [],
   "blockers": [],
@@ -52,5 +54,5 @@
   "artifacts": {
     "baseline_tests": ".dev/benchmarks/baseline_tests.json"
   },
-  "next_action": "Phase 6: hotkey-activated assistant controller (headless, testable) + CLI; Phase 9: production stabilization + final scorecard."
+  "next_action": "Phase 9: production stabilization + final scorecard (full regression, load, recovery, all acceptance criteria)."
 }

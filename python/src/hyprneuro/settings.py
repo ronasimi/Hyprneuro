@@ -27,6 +27,10 @@ class Settings:
     embeddings_model: str = ''
     excluded_apps: tuple = ()
     excluded_origins: tuple = ()
+    # Application-aware assistant (opt-in, model-free focus tracking).
+    assistant_enabled: bool = False
+    assistant_recent_apps: int = 5
+    assistant_focus_debounce_ms: int = 250
 
     def validate(self, *, prerequisites=False):
         for f in fields(self):
@@ -45,9 +49,15 @@ class Settings:
                     any(not isinstance(v, str) or not v or len(v) > 300 or
                         any(ord(c) < 32 or ord(c) == 127 for c in v) for v in values)):
                 raise ValueError(f'Invalid {name}')
+        if not (1 <= self.assistant_recent_apps <= 16):
+            raise ValueError('assistant_recent_apps must be 1..16')
+        if not (0 <= self.assistant_focus_debounce_ms <= 5000):
+            raise ValueError('assistant_focus_debounce_ms must be 0..5000')
         if prerequisites:
             if self.retention_enabled and self.retention_days <= 0:
                 raise ValueError("retention_enabled requires positive retention_days")
+            if self.assistant_enabled and not self.watch_hyprland:
+                raise ValueError('assistant_enabled requires watch_hyprland')
             collectors = (self.watch_hyprland, self.allow_capture, self.allow_on_demand,
                           self.allow_browser, self.alert_journal, self.alert_network, self.alert_resources)
             if any(collectors) and not self.allow_ingest:

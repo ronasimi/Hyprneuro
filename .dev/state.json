@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "updated_at_ms": 0,
+  "git": {
+    "revision": "a6a6316ee78caabcf24968a3b5060464481df016",
+    "branch": "feat/application-aware-assistant",
+    "dirty": false
+  },
+  "deployed_revision": null,
+  "last_known_good": "a6a6316ee78caabcf24968a3b5060464481df016",
+  "phase": "1-environment-audit",
+  "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
+  "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
+  "completed_features": [
+    "environment-audit",
+    "baseline-regression-suite"
+  ],
+  "remaining_criteria": [
+    "app-focus-tracking-no-llm",
+    "recent-app-lru-cache",
+    "tiered-memory",
+    "staged-skill-loading",
+    "versioned-pi-durable-adapter",
+    "permission-broker",
+    "durable-task-persistence",
+    "computer-use-leases",
+    "hotkey-interface",
+    "adaptive-residency",
+    "idle-compaction",
+    "production-stabilization"
+  ],
+  "known_failures": [],
+  "blockers": [],
+  "fingerprints": {
+    "model_runtime": "llama.cpp text:8081 omni:8082 decision:8083 all active; Hyprland 0.57.2",
+    "service": "lfm@text/omni/decision active; hyprneuro sidecar not yet running as user service"
+  },
+  "artifacts": {
+    "baseline_tests": ".dev/benchmarks/baseline_tests.json"
+  },
+  "next_action": "Implement application.py (AppRegistry, SkillIndex, TieredMemory), store migration, sidecar IPC actions, AppWatcher, settings flags, tests."
+}

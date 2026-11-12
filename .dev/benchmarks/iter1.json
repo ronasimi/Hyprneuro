@@ -1,0 +1,9 @@
+{
+  "label": "iter1-candidate",
+  "revision": "working-tree (a6a6316 base)",
+  "tests": {"passed": 176, "failed": 0, "skipped": 1, "subtests": 30, "duration_s": 4.32},
+  "app_context_ipc_ms": {"n": 20, "p50": 0.22, "p95": 0.24, "max": 0.29},
+  "text_ttft_ms": {"n": 5, "p50": 788, "p95": 830, "note": "warm, unchanged model stack"},
+  "endpoints": {"text": "ok", "omni": "ok", "decision": "ok"},
+  "focus_match_live": true
+}

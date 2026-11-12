@@ -13,3 +13,7 @@ build/
 .venv/
 node_modules/
 uv.lock
+# Transient Hyprneuro engineering-ledger runtime artifacts (keep records + reproducible test scripts)
+.dev/logs/*.out
+.dev/logs/*.log
+.dev/state.json.bak

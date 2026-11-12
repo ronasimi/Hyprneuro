@@ -1,0 +1,10 @@
+{
+  "baseline_revision": "a6a6316ee78caabcf24968a3b5060464481df016",
+  "candidate_revision": "working-tree",
+  "regression_tests": {"baseline": "140 passed", "candidate": "176 passed", "delta": "+36 new, 0 failures"},
+  "warm_ttft_p50_ms": {"baseline": "n/a (not measured pre-change; model stack unchanged)", "candidate": 788, "delta": "unchanged model stack"},
+  "app_context_ipc_p50_ms": {"baseline": "n/a (feature did not exist)", "candidate": 0.22},
+  "model_stack_changes": "none",
+  "hard_gates": {"security_regression": false, "data_corruption": false, "uncontrolled_desktop": false, "critical_crash": false, "broken_monitoring": false, "unbounded_growth": false},
+  "decision": "PROMOTE"
+}

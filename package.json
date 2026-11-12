@@ -6,7 +6,8 @@
   "pi": {
     "extensions": [
       "./extensions/recall-browser.ts",
-      "./extensions/omni-observe.ts"
+      "./extensions/omni-observe.ts",
+      "./extensions/app-aware.ts"
     ]
   },
   "peerDependencies": {

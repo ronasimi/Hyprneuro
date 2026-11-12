@@ -62,7 +62,9 @@ async def run_retention(store, days, *, interval_seconds=RETENTION_INTERVAL_SECO
 
 class SidecarServer:
     def __init__(self, store, *, allow_ingest=False, capture_enabled=False,
-                 on_demand=False, browser_ingress=None, alert_enabled=False, resources_enabled=False):
+                 on_demand=False, browser_ingress=None, alert_enabled=False, resources_enabled=False,
+                 assistant_enabled=False, assistant_recent_apps=5, assistant_focus_debounce_ms=250,
+                 skills_dir=None):
         self.store = store
         self.allow_ingest = allow_ingest
         self.capture_enabled = capture_enabled
@@ -77,6 +79,79 @@ class SidecarServer:
         self.active_settings = {}
         self.settings_file = None
         self.producers = []
+        # Application-aware assistant (opt-in). Model-free focus tracking;
+        # metadata + tiered memory live outside the model context by default.
+        self.assistant_enabled = assistant_enabled
+        self.registry = None
+        self.memory = None
+        self.skills = None
+        self.app_watcher = None
+        if assistant_enabled:
+            from .application import AppRegistry, SkillIndex, TieredMemory
+            self.registry = AppRegistry(max_recent=assistant_recent_apps,
+                                        debounce_ms=assistant_focus_debounce_ms)
+            self.memory = TieredMemory(store)
+            self.skills = SkillIndex.from_directory(skills_dir) if skills_dir else SkillIndex()
+
+    def _assistant(self, request):
+        """Versioned assistant IPC. All reads are read-only and bounded.
+
+        These actions expose application context, tiered memory, staged skills
+        and durable-task state to a Pi Durable adapter. None of them invoke a
+        model; inference is a separate, explicitly-authorized decision."""
+        if not self.assistant_enabled:
+            raise PermissionError("Assistant features are disabled")
+        action = request.get("action")
+        if action == "app_context":
+            return self.registry.context(role=request.get("role", "text"))
+        if action == "memory_remember":
+            if set(request) - {"action", "scope", "key", "value", "task_id", "app_id", "project_id"}:
+                raise ValueError("Invalid memory_remember request")
+            return self.memory.remember(request["scope"], request["key"], request.get("value"),
+                                        task_id=request.get("task_id"), app_id=request.get("app_id"),
+                                        project_id=request.get("project_id"))
+        if action == "memory_recall":
+            if set(request) - {"action", "scope", "key", "limit", "task_id", "app_id", "project_id"}:
+                raise ValueError("Invalid memory_recall request")
+            return self.memory.recall(request["scope"], key=request.get("key"),
+                                      limit=request.get("limit", 10), task_id=request.get("task_id"),
+                                      app_id=request.get("app_id"), project_id=request.get("project_id"))
+        if action == "skill_discover":
+            app_ids = request.get("app_ids")
+            if app_ids is None:
+                app_ids = [self.registry.focused.app_id] if self.registry.focused else []
+                app_ids += [p.app_id for p in self.registry.recent.values()]
+            if not isinstance(app_ids, (list, tuple)) or len(app_ids) > 16:
+                raise ValueError("app_ids must be a list of at most 16")
+            return {"schema": "hyprneuro.skills/1", "manifests": self.skills.discover(app_ids)}
+        if action == "skill_load":
+            if set(request) - {"action", "app_id"}:
+                raise ValueError("Invalid skill_load request")
+            skill = self.skills.load(request.get("app_id", ""))
+            if skill is None:
+                raise LookupError("No skill for application")
+            return skill
+        if action == "skill_list":
+            return {"schema": "hyprneuro.skills/1", "app_ids": self.skills.app_ids()}
+        if action == "task_create":
+            if set(request) - {"action", "goal", "scope", "state"}:
+                raise ValueError("Invalid task_create request")
+            return self.store.task_create(request["goal"], scope=request.get("scope", "task"),
+                                          state=request.get("state"))
+        if action == "task_update":
+            if set(request) - {"action", "id", "status", "state"}:
+                raise ValueError("Invalid task_update request")
+            return self.store.task_update(request["id"], status=request.get("status"),
+                                          state=request.get("state"))
+        if action == "task_get":
+            if set(request) - {"action", "id"}:
+                raise ValueError("Invalid task_get request")
+            return self.store.task_get(request.get("id"))
+        if action == "task_list":
+            if set(request) - {"action", "status", "limit"}:
+                raise ValueError("Invalid task_list request")
+            return self.store.task_list(status=request.get("status"), limit=request.get("limit", 20))
+        raise ValueError("Unknown assistant RPC action")
 
     def dispatch(self, request):
         if not isinstance(request, dict):
@@ -90,6 +165,8 @@ class SidecarServer:
             if not self.capture_enabled and not self.on_demand and not self.alert_enabled and not self.resources_enabled and self.embeddings is None:
                 state["models_invoked"] = False  # No model path can run.
             state["browser_enabled"] = self.browser_ingress is not None
+            state["assistant_enabled"] = self.assistant_enabled
+            state["assistant_apps"] = (len(self.registry.recent) if self.registry else 0)
             state["journal"] = self.store.journal_status()
             state["active_settings"] = self.active_settings
             state["settings_file"] = self.settings_file
@@ -118,6 +195,12 @@ class SidecarServer:
             return self.store.alerts(limit=request.get("limit", 20), offset=request.get("offset", 0))
         if action == "details":
             return self.store.details(request.get("id"))
+        if action in ("app_context", "memory_remember", "memory_recall",
+                     "skill_discover", "skill_load", "skill_list",
+                     "task_create", "task_update", "task_get", "task_list"):
+            if not self.assistant_enabled:
+                raise PermissionError("Assistant features are disabled")
+            return self._assistant(request)
         raise ValueError("Unknown sidecar RPC action")
 
     async def dispatch_async(self, request):
@@ -211,7 +294,9 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 active_settings=None, settings_file=None,
                 semantic_enabled=False, embeddings_url="", embeddings_model="", socket_path=None, db_path=None, shutdown=None,
                 desktop=None, models=None, unlock_guard=None, grabber=None,
-                excluded_apps=(), excluded_origins=(), browser_token_file=None):
+                excluded_apps=(), excluded_origins=(), browser_token_file=None,
+                assistant_enabled=False, assistant_recent_apps=5, assistant_focus_debounce_ms=250,
+                skills_dir=None):
     alert_journal = alert or alert_journal
     alert_network = alert or alert_network
     notifications = bool(alert) if notifications is None else notifications
@@ -253,7 +338,9 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
     store = SidecarStore(db_path)
     worker = SidecarServer(store, allow_ingest=allow_ingest,
                            capture_enabled=allow_capture, on_demand=allow_on_demand,
-                           alert_enabled=bool(alert_journal or alert_network), resources_enabled=alert_resources)
+                           alert_enabled=bool(alert_journal or alert_network), resources_enabled=alert_resources,
+                           assistant_enabled=assistant_enabled, assistant_recent_apps=assistant_recent_apps,
+                           assistant_focus_debounce_ms=assistant_focus_debounce_ms, skills_dir=skills_dir)
     from .settings import Settings
     worker.active_settings = active_settings or asdict(Settings(
         allow_ingest=allow_ingest, watch_hyprland=watch_hyprland, allow_capture=allow_capture,
@@ -318,12 +405,24 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 worker.browser_capture_source = capture_source
                 producers.append(asyncio.create_task(capture_source.run(), name="capture"))
 
+            app_watcher = None
+            if assistant_enabled:
+                from .application import AppWatcher
+                app_watcher = AppWatcher(desktop, worker.registry)
+                worker.app_watcher = app_watcher
+                # Seed the registry with the currently focused window so a
+                # change-only event stream does not leave it empty at startup.
+                producers.append(asyncio.create_task(app_watcher.initial_resolve(), name="app_seed"))
+
             async def on_event(name, data):
                 # Both handlers enqueue; the compositor's socket2 loop is
-                # never held up by D1, Omni or SQLite writes.
+                # never held up by D1, Omni or SQLite writes. Focus tracking
+                # is model-free and coalesced, so it never blocks the loop.
                 await source.on_event(name, data)
                 if capture_source is not None:
                     await capture_source.on_event(name, data)
+                if app_watcher is not None:
+                    await app_watcher.on_event(name, data)
 
             producers.extend([asyncio.create_task(source.flush(), name="hyprland_store"),
                               asyncio.create_task(desktop.events(on_event), name="hyprland")])
@@ -386,9 +485,16 @@ def build_parser():
     cmd.add_argument("--no-settings", action="store_true", help="Ignore saved feature settings; all defaults off")
     for name in ("allow_ingest", "watch_hyprland", "allow_capture", "allow_on_demand",
                  "allow_browser", "d1_visual", "alert_journal", "alert_network", "alert_resources",
-                 "notifications", "semantic_enabled", "explanation_enabled", "retention_enabled"):
+                 "notifications", "semantic_enabled", "explanation_enabled", "retention_enabled",
+                 "assistant_enabled"):
         cmd.add_argument("--" + name.replace("_", "-"), action=argparse.BooleanOptionalAction, default=None,
                          help="Explicit on/off override of saved " + name)
+    cmd.add_argument("--assistant-recent-apps", type=int, default=None, dest="assistant_recent_apps",
+                     help="LRU size for recent application context (1..16, default 5)")
+    cmd.add_argument("--assistant-focus-debounce-ms", type=int, default=None, dest="assistant_focus_debounce_ms",
+                     help="Focus debounce window in ms (0..5000, default 250)")
+    cmd.add_argument("--skills-dir", default=None, dest="skills_dir",
+                     help="Directory of JSON skill manifests for staged just-in-time skills")
     cmd.add_argument("--alert", action=argparse.BooleanOptionalAction, default=None,
                      help="Legacy shorthand: journal + network + notifications; granular flags override")
     cmd.add_argument("--exclude-origin", action="append", default=None, dest="excluded_origins")
@@ -454,6 +560,7 @@ def main():
             values["retention_days"] = 0
         from .settings import settings_path
         asyncio.run(serve(**values, active_settings=active,
+                          skills_dir=args.skills_dir,
                           settings_file=None if args.no_settings else args.config or settings_path()))
         return
     from .sidecar_client import request

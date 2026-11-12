@@ -1,0 +1,11 @@
+{
+  "label": "baseline",
+  "revision": "a6a6316ee78caabcf24968a3b5060464481df016",
+  "collected_at": "2026-11-11T19:55:00",
+  "command": "python/.venv/bin/python -m pytest tests/ -q",
+  "passed": 140,
+  "failed": 0,
+  "skipped": 1,
+  "subtests_passed": 22,
+  "duration_s": 4.17
+}

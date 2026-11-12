@@ -161,6 +161,36 @@ class SidecarStore:
                     description=new.description,app_id=new.app_id,url_preview=public_url(new.url) WHERE rowid=new.id;
             END;
         """)
+        self.db.executescript("""
+            CREATE TABLE IF NOT EXISTS app_memory (
+                scope TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value_json TEXT NOT NULL,
+                task_id TEXT,
+                app_id TEXT,
+                project_id TEXT,
+                updated_ms INTEGER NOT NULL,
+                PRIMARY KEY (scope, key)
+            );
+            CREATE INDEX IF NOT EXISTS app_memory_scope_time ON app_memory(scope, updated_ms DESC);
+            CREATE TABLE IF NOT EXISTS skill_manifests (
+                app_id TEXT PRIMARY KEY,
+                manifest_json TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS tasks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                goal TEXT NOT NULL,
+                scope TEXT NOT NULL DEFAULT 'task',
+                status TEXT NOT NULL DEFAULT 'active',
+                state_json TEXT NOT NULL DEFAULT '{}',
+                created_ms INTEGER NOT NULL,
+                updated_ms INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS tasks_status_time ON tasks(status, updated_ms DESC);
+        """)
+        with self.db:
+            self.db.execute("INSERT INTO sidecar_meta VALUES ('schema_version','2') "
+                            "ON CONFLICT(key) DO UPDATE SET value='2'")
         if not self.db.execute("SELECT 1 FROM sidecar_meta WHERE key='search_v2'").fetchone():
             with self.db:
                 self.db.execute("DELETE FROM search_fts")
@@ -464,6 +494,149 @@ class SidecarStore:
         with self.db:
             cur = self.db.execute("DELETE FROM observations WHERE last_seen_ms<?", (before_ms,))
             return {"deleted": cur.rowcount}
+
+    # -- Application-aware assistant persistence (schema v2) ----------------
+
+    _MEMORY_SCOPES = frozenset({"task", "app", "project", "global"})
+    _TASK_STATUS = frozenset({"active", "suspended", "done", "failed", "cancelled"})
+
+    def app_memory_remember(self, scope, key, value_json, *, task_id=None, app_id=None, project_id=None):
+        if scope not in self._MEMORY_SCOPES:
+            raise ValueError("Invalid memory scope")
+        if not isinstance(key, str) or not key or len(key) > 128:
+            raise ValueError("Invalid memory key")
+        if not isinstance(value_json, str) or len(value_json) > 16_384:
+            raise ValueError("Invalid memory value")
+        when = int(time.time() * 1000)
+        for name, value in (("task_id", task_id), ("app_id", app_id), ("project_id", project_id)):
+            if value is not None and (not isinstance(value, str) or len(value) > 128):
+                raise ValueError(f"Invalid {name}")
+        with self.db:
+            self.db.execute(
+                "INSERT INTO app_memory(scope,key,value_json,task_id,app_id,project_id,updated_ms) "
+                "VALUES(?,?,?,?,?,?,?) ON CONFLICT(scope,key) DO UPDATE SET value_json=excluded.value_json,"
+                "task_id=excluded.task_id,app_id=excluded.app_id,project_id=excluded.project_id,updated_ms=excluded.updated_ms",
+                (scope, key, value_json, task_id, app_id, project_id, when))
+        return {"stored": True, "scope": scope, "key": key, "updated_ms": when}
+
+    def app_memory_recall(self, scope, *, key=None, limit=10, task_id=None, app_id=None, project_id=None):
+        if scope not in self._MEMORY_SCOPES:
+            raise ValueError("Invalid memory scope")
+        if not 1 <= limit <= 50:
+            raise ValueError("limit must be 1..50")
+        where, args = ["scope=?"], [scope]
+        if key is not None:
+            where.append("key=?"); args.append(key)
+        if app_id is not None:
+            where.append("app_id=?"); args.append(app_id)
+        if task_id is not None:
+            where.append("task_id=?"); args.append(task_id)
+        if project_id is not None:
+            where.append("project_id=?"); args.append(project_id)
+        rows = self.db.execute(
+            "SELECT scope,key,value_json,task_id,app_id,project_id,updated_ms FROM app_memory "
+            "WHERE " + " AND ".join(where) + " ORDER BY updated_ms DESC LIMIT ?", [*args, limit]).fetchall()
+        out = []
+        for (s, k, v, t, a, p, when) in rows:
+            try:
+                value = json.loads(v)
+            except (ValueError, TypeError):
+                value = v
+            out.append({"scope": s, "key": k, "value": value, "task_id": t,
+                        "app_id": a, "project_id": p, "updated_ms": when})
+        return out
+
+    def skill_upsert(self, app_id, manifest_json):
+        if not isinstance(app_id, str) or not app_id or len(app_id) > 120:
+            raise ValueError("Invalid skill app_id")
+        if not isinstance(manifest_json, str) or len(manifest_json) > 262_144:
+            raise ValueError("Invalid skill manifest")
+        with self.db:
+            self.db.execute(
+                "INSERT INTO skill_manifests(app_id,manifest_json) VALUES(?,?) "
+                "ON CONFLICT(app_id) DO UPDATE SET manifest_json=excluded.manifest_json", (app_id, manifest_json))
+        return {"stored": True, "app_id": app_id}
+
+    def skill_get(self, app_id, *, full=True):
+        if not isinstance(app_id, str) or not app_id:
+            raise ValueError("Invalid skill app_id")
+        row = self.db.execute("SELECT manifest_json FROM skill_manifests WHERE app_id=?", (app_id,)).fetchone()
+        if not row:
+            return None
+        manifest = json.loads(row[0])
+        if not full:
+            return {k: manifest.get(k) for k in ("app_id", "name", "description", "version", "tags")}
+        return manifest
+
+    def skill_list(self):
+        rows = self.db.execute("SELECT app_id,manifest_json FROM skill_manifests ORDER BY app_id").fetchall()
+        out = []
+        for (app_id, manifest_json) in rows:
+            manifest = json.loads(manifest_json)
+            out.append({"app_id": manifest.get("app_id", app_id), "name": manifest.get("name"),
+                        "description": (manifest.get("description") or "")[:200],
+                        "version": manifest.get("version"), "tags": manifest.get("tags")})
+        return out
+
+    def task_create(self, goal, *, scope="task", state=None):
+        if not isinstance(goal, str) or not goal.strip() or len(goal) > 500:
+            raise ValueError("Invalid task goal")
+        if scope not in self._MEMORY_SCOPES:
+            raise ValueError("Invalid task scope")
+        state = state or {}
+        if not isinstance(state, dict):
+            raise ValueError("Task state must be an object")
+        encoded = json.dumps(state, ensure_ascii=False)
+        if len(encoded) > 16_384:
+            raise ValueError("Task state exceeds limit")
+        when = int(time.time() * 1000)
+        with self.db:
+            cur = self.db.execute(
+                "INSERT INTO tasks(goal,scope,status,state_json,created_ms,updated_ms) VALUES(?,?,?, ?,?,?)",
+                (goal[:500], scope, "active", encoded, when, when))
+        return {"id": cur.lastrowid, "goal": goal[:500], "scope": scope, "status": "active",
+                "created_ms": when, "updated_ms": when}
+
+    def task_update(self, ident, *, status=None, state=None):
+        if type(ident) is not int or ident < 1:
+            raise ValueError("Invalid task id")
+        if status is not None and status not in self._TASK_STATUS:
+            raise ValueError("Invalid task status")
+        when = int(time.time() * 1000)
+        with self.db:
+            row = self.db.execute("SELECT status,state_json FROM tasks WHERE id=?", (ident,)).fetchone()
+            if not row:
+                raise LookupError("Task not found")
+            new_status = status or row[0]
+            new_state = state if state is not None else json.loads(row[1])
+            encoded = json.dumps(new_state, ensure_ascii=False)
+            if len(encoded) > 16_384:
+                raise ValueError("Task state exceeds limit")
+            self.db.execute("UPDATE tasks SET status=?,state_json=?,updated_ms=? WHERE id=?",
+                            (new_status, encoded, when, ident))
+        return {"id": ident, "status": new_status, "state": new_state, "updated_ms": when}
+
+    def task_get(self, ident):
+        if type(ident) is not int or ident < 1:
+            raise ValueError("Invalid task id")
+        row = self.db.execute("SELECT id,goal,scope,status,state_json,created_ms,updated_ms FROM tasks WHERE id=?", (ident,)).fetchone()
+        if not row:
+            raise LookupError("Task not found")
+        return {"id": row[0], "goal": row[1], "scope": row[2], "status": row[3],
+                "state": json.loads(row[4]), "created_ms": row[5], "updated_ms": row[6]}
+
+    def task_list(self, *, status=None, limit=20):
+        if not 1 <= limit <= 50:
+            raise ValueError("limit must be 1..50")
+        if status is not None and status not in self._TASK_STATUS:
+            raise ValueError("Invalid task status")
+        if status is not None:
+            rows = self.db.execute("SELECT id,goal,scope,status,updated_ms FROM tasks WHERE status=? "
+                                    "ORDER BY updated_ms DESC LIMIT ?", (status, limit)).fetchall()
+        else:
+            rows = self.db.execute("SELECT id,goal,scope,status,updated_ms FROM tasks "
+                                    "ORDER BY updated_ms DESC LIMIT ?", (limit,)).fetchall()
+        return [{"id": i, "goal": g[:200], "scope": s, "status": st, "updated_ms": u} for (i, g, s, st, u) in rows]
 
 
 def _one_edit(a, b):

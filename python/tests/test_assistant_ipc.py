@@ -289,6 +289,45 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
                              socket_path=self.socket)
         self.assertEqual(disc["manifests"], [])
 
+    async def test_monitoring_over_ipc(self):
+        snap = await request({"action": "monitoring", "limit": 5}, socket_path=self.socket)
+        self.assertEqual(snap["schema"], "hyprneuro.monitoring/1")
+        self.assertIn("cpu_pct", snap)
+        self.assertIn("ram", snap)
+        self.assertIn("models", snap)
+        self.assertIn("apps", snap)
+
+    async def test_ui_status_over_ipc(self):
+        status = await request({"action": "ui_status"}, socket_path=self.socket)
+        self.assertEqual(status["schema"], "hyprneuro.ui_status/1")
+        self.assertTrue(status["assistant_enabled"])
+        self.assertIn("models", status)
+
+    async def test_agent_chat_streaming(self):
+        """agent_chat streams delta frames then a done frame on one connection."""
+        reader, writer = await asyncio.open_unix_connection(str(self.socket))
+        req = json.dumps({"action": "agent_chat", "message": "ping"}) + "\n"
+        writer.write(req.encode())
+        await writer.drain()
+        frames = []
+        try:
+            while True:
+                line = await asyncio.wait_for(reader.readline(), 20)
+                if not line:
+                    break
+                obj = json.loads(line)
+                frames.append(obj)
+                if obj.get("type") in ("done", "error"):
+                    break
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except (ConnectionError, OSError):
+                pass
+        types = [f.get("type") for f in frames]
+        self.assertIn("done", types)  # reached a terminal frame (may be error if no model)
+
 
 if __name__ == "__main__":
     unittest.main()

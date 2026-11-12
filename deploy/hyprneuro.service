@@ -1,0 +1,23 @@
+# Hyprneuro sidecar: monitoring, app awareness, tiered memory, skills,
+# authorization broker, model router, desktop control, and assistant IPC.
+# User-level service (runs inside the user's Wayland session).
+[Unit]
+Description=Hyprneuro sidecar (monitoring + application-aware assistant)
+Documentation=file:///home/ron/Projects/Hyprneuro/docs/ARCHITECTURE.md
+After=graphical-session.target wayland-session.target
+Wants=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ron/Projects/Hyprneuro/python
+ExecStart=/home/ron/Projects/Hyprneuro/python/.venv/bin/python -m hyprneuro serve --allow-ingest --watch-hyprland --assistant-enabled
+Restart=on-failure
+RestartSec=3
+# The sidecar needs the user's XDG_RUNTIME_DIR and Wayland session.
+Environment=XDG_RUNTIME_DIR=%t
+# No network egress needed; keep it local.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=graphical-session.target

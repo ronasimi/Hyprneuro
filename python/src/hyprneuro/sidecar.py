@@ -348,6 +348,15 @@ class SidecarServer:
             return await self.desktop_controller.perform(
                 request["task_id"], request["token"], request["op"],
                 request.get("value"), expected_window=request.get("expected_window"))
+        if request.get("action") == "monitoring":
+            limit = request.get("limit", 12)
+            if not isinstance(limit, int) or not 1 <= limit <= 50:
+                raise ValueError("limit must be 1..50")
+            return await self._monitoring_snapshot(limit)
+        if request.get("action") == "ui_status":
+            return {"schema": "hyprneuro.ui_status/1", "pid": os.getpid(),
+                    "assistant_enabled": self.assistant_enabled,
+                    "models": await self._model_health()}
         if request.get("action") != "omni_observe":
             return self.dispatch(request)
         # The native Pi tool must show user approval for EVERY foreground
@@ -378,6 +387,113 @@ class SidecarServer:
             answer["description"] = row["description"][:650]
         return answer
 
+    async def _write_frame(self, writer, obj) -> None:
+        data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        writer.write(data + b"\n")
+        await writer.drain()
+
+    async def _stream_agent_chat(self, writer, request) -> None:
+        """Stream an agent_chat request: delta lines then a done line.
+
+        Model-free framing; the LLM call is delegated to the agent module, which
+        reuses the running LFM endpoints. Bounded inputs; no screenshots.
+        """
+        from . import agent
+        message = str(request.get("message") or "")
+        if not message.strip():
+            await self._write_frame(writer, {"type": "error", "error": "Empty message"})
+            return
+        context = request.get("context") or {}
+        system = agent.DEFAULT_SYSTEM
+        if isinstance(context, dict) and context:
+            system += "\n\nLocal context (untrusted, metadata only): " + json.dumps(context)[:2000]
+        history = request.get("history") or []
+        if not isinstance(history, list):
+            history = []
+        history = [{"role": ("user" if str(h.get("role", "user")) == "user" else "assistant"),
+                    "content": str(h.get("content", ""))[:4000]}
+                   for h in history[-20:] if isinstance(h, dict)]
+        messages = ([{"role": "system", "content": system[:4000]}] + history +
+                    [{"role": "user", "content": message[:8000]}])
+        role = "omni" if request.get("media") else "text"
+        full = ""
+        try:
+            async for delta in agent.stream_chat(
+                    messages, role=role,
+                    max_tokens=int(request.get("max_tokens") or 1024)):
+                full += delta
+                await self._write_frame(writer, {"type": "delta", "text": delta})
+            await self._write_frame(writer, {"type": "done", "text": full, "role": role})
+        except (OSError, asyncio.TimeoutError, ValueError) as exc:
+            await self._write_frame(writer, {"type": "error", "error": str(exc)[:300]})
+
+    @staticmethod
+    def _read_cpu_times() -> tuple[int, int]:
+        with open("/proc/stat") as fh:
+            parts = fh.readline().split()
+        vals = [int(x) for x in parts[1:]]
+        idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
+        return idle, sum(vals)
+
+    async def _model_health(self) -> dict:
+        from . import agent
+        out = {}
+        for role in ("text", "omni"):
+            try:
+                out[role] = await asyncio.wait_for(agent.health(role), 2)
+            except (OSError, asyncio.TimeoutError):
+                out[role] = False
+        return out
+
+    async def _monitoring_snapshot(self, limit: int) -> dict:
+        """Bounded, model-free system + app monitoring snapshot for the UI."""
+        # CPU over a short sample.
+        cpu_pct = None
+        try:
+            idle0, total0 = self._read_cpu_times()
+            import time as _t
+            _t.sleep(0.1)
+            idle1, total1 = self._read_cpu_times()
+            d_total, d_idle = total1 - total0, idle1 - idle0
+            if d_total > 0:
+                cpu_pct = round(100.0 * (1.0 - d_idle / d_total), 1)
+        except (OSError, ValueError):
+            pass
+        # RAM from /proc/meminfo.
+        ram = None
+        try:
+            info = {}
+            with open("/proc/meminfo") as fh:
+                for line in fh:
+                    key, _, rest = line.partition(":")
+                    info[key.strip()] = int(rest.split()[0])  # kB
+            total = info.get("MemTotal", 0)
+            avail = info.get("MemAvailable", 0)
+            if total > 0:
+                used = total - avail
+                ram = {"total_mb": round(total / 1024), "used_mb": round(used / 1024),
+                       "pct": round(100.0 * used / total, 1)}
+        except (OSError, ValueError, IndexError):
+            pass
+        # App context (focused + recent) if the assistant layer is active.
+        apps = None
+        if self.registry is not None:
+            try:
+                ctx = self.registry.context(role="text")
+                apps = {"focused": ctx.get("focused"), "recent": ctx.get("recent", [])[:5]}
+            except (ValueError, AttributeError):
+                apps = None
+        # Recent monitoring observations (bounded, untrusted titles).
+        recent = []
+        try:
+            recent = self.store.search(query="", limit=limit)
+        except (OSError, ValueError, TypeError, AttributeError):
+            recent = []
+        return {"schema": "hyprneuro.monitoring/1", "ts_ms": int(__import__("time").time() * 1000),
+                "cpu_pct": cpu_pct, "ram": ram, "apps": apps,
+                "models": await self._model_health(),
+                "recent_events": recent[:limit]}
+
     async def handle(self, reader, writer):
         task = asyncio.current_task()
         self.handlers.add(task)
@@ -388,10 +504,14 @@ class SidecarServer:
                                                                 socket.SO_PEERCRED, 12))
                 if uid != os.getuid():
                     raise PermissionError("Wrong peer UID")
-                raw = await asyncio.wait_for(reader.readline(), 5)
+                raw = await asyncio.wait_for(reader.readline(), 10)
                 if not raw.endswith(b"\n") or len(raw) > MAX_REQUEST:
                     raise ValueError("Invalid or oversized RPC frame")
-                response = {"ok": True, "result": await self.dispatch_async(json.loads(raw))}
+                request = json.loads(raw)
+                if request.get("action") == "agent_chat":
+                    await self._stream_agent_chat(writer, request)
+                    return  # streaming path wrote its own frames
+                response = {"ok": True, "result": await self.dispatch_async(request)}
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -663,6 +783,9 @@ def build_parser():
     context.add_argument("--start-ms", type=int)
     context.add_argument("--end-ms", type=int)
     context.add_argument("--source")
+    ui = sub.add_parser("ui", help="Control the Hyprneuro overlay (toggle/show/hide)")
+    ui.add_argument("ui_command", choices=("toggle", "show", "hide"))
+    ui.add_argument("--socket", default=None, help="UI control socket path")
     return parser
 
 
@@ -704,6 +827,23 @@ def main():
         asyncio.run(serve(**values, active_settings=active,
                           skills_dir=args.skills_dir,
                           settings_file=None if args.no_settings else args.config or settings_path()))
+        return
+    if args.command == "ui":
+        import socket as _socket
+        path = args.socket or os.path.join(
+            os.environ.get("XDG_RUNTIME_DIR", ""), "hyprneuro", "ui.sock")
+        if not os.path.exists(path):
+            print(json.dumps({"ok": False,
+                "error": f"UI control socket not found at {path} (is the overlay running?)"}))
+            return
+        sock = _socket.socket(_socket.AF_UNIX, _socket.SOCK_STREAM)
+        try:
+            sock.connect(path)
+            sock.sendall((args.ui_command + "\n").encode())
+            sock.close()
+            print(json.dumps({"ok": True, "result": args.ui_command}))
+        except OSError as exc:
+            print(json.dumps({"ok": False, "error": str(exc)}))
         return
     from .sidecar_client import request
     query = vars(args).copy()

@@ -1,0 +1,20 @@
+# Hyprneuro UI: transparent GTK4 layer-shell overlay (bottom-right).
+# A thin client of the Hyprneuro sidecar; talks to it over the Unix socket for
+# monitoring (status bar), agent_chat (streaming), and ui_status.
+# Toggled by the SUPER+ALT+H hotkey via `hyprneuro ui toggle`.
+[Unit]
+Description=Hyprneuro overlay (GTK4 layer-shell, bottom-right)
+Documentation=file:///home/ron/Projects/Hyprneuro/docs/ARCHITECTURE.md
+After=hyprneuro.service wayland-session.target
+Wants=hyprneuro.service
+
+[Service]
+Type=simple
+ExecStart=/home/ron/.local/bin/hyprneuro-ui
+Restart=on-failure
+RestartSec=2
+Environment=GDK_BACKEND=wayland
+# WAYLAND_DISPLAY and XDG_RUNTIME_DIR are inherited from the user session.
+
+[Install]
+WantedBy=graphical-session.target

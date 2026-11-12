@@ -97,6 +97,18 @@ competing agent runtime and without changing the local LFM inference stack.
   hotkey entry point.
 - `extensions/app-aware.ts` — versioned Pi Durable adapter (tools only; no
   execution logic; no screenshots).
+- `ui/src/hyprneuro.c` — transparent **GTK4 layer-shell** overlay (bottom-right,
+  `exclusive_zone=0`, Jeevus composer design rebranded). A thin client of the
+  sidecar: polls `monitoring` for the status bar, streams `agent_chat` into the
+  transcript, and reads `ui_status`. A control socket (`ui.sock`) accepts
+  `toggle`/`show`/`hide`. Built standalone with meson (`ui/meson.build`); no
+  external Python deps (stdlib-only `agent.py` SSE client).
+- `python/src/hyprneuro/agent.py` — stdlib-only streaming LFM client (raw
+  asyncio TCP + manual SSE parsing); routes text/omni; no inference-stack
+  changes.
+- `deploy/hyprneuro.service`, `deploy/hyprneuro-ui.service` — systemd **user**
+  units (start on graphical login). Hotkey `SUPER+ALT+H` → `hyprneuro ui
+  toggle`.
 
 ## Versioned IPC actions
 
@@ -112,6 +124,9 @@ competing agent runtime and without changing the local LFM inference stack.
 | `lease_acquire` / `lease_release` / `lease_renew` / `lease_pause` / `lease_resume` / `lease_status` / `lease_emergency_stop` | write | desktop-control lease |
 | `desktop_action` | write | gated action (auth+lease+focus) |
 | `telemetry` | read | counters + bounded store probe (available when disabled) |
+| `monitoring` | read | CPU/RAM/apps/model-health snapshot for the overlay status bar |
+| `ui_status` | read | pid + assistant flag + model health |
+| `agent_chat` | read (LLM) | **streaming**: `delta` frames then `done`/`error`; text/omni via `agent.py` |
 
 All assistant actions are rejected with a clear `disabled` error when
 `--assistant-enabled` is not set. `assistant_enabled` requires `watch_hyprland`.
@@ -123,9 +138,9 @@ All assistant actions are rejected with a clear `disabled` error when
   context/state/IPC only.
 - No inference on focus; no model calls in the assistant tracking path.
 - No screenshots or sensitive-data access; no previously-disabled collectors.
-- No native Wayland GUI shell yet: the `hyprneuro-assistant` CLI is the
-  hotkey target and the `AssistantController` is the documented interface a
-  graphical client would drive.
+- No second execution runtime in the GUI: the overlay is a thin client of the
+  sidecar (monitoring, `agent_chat` streaming, status). Durable task execution
+  stays in Pi Durable `subagents`.
 - Cross-request prompt-cache reuse is an open optimization target; the
   inference stack is left unchanged.
 

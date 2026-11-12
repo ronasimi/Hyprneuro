@@ -8,8 +8,8 @@
   },
   "deployed_revision": null,
   "last_known_good": "cfc7abb961a4174bbe49e398fc062e0d54272585",
-  "phase": "9 production stabilization + final scorecard (COMPLETE)",
-  "current_task": "Phase 2 vertical slice: application awareness + versioned Pi Durable adapter",
+  "phase": "10 GTK4 layer-shell UI + streaming agent IPC + services + hotkey (COMPLETE)",
+  "current_task": "Phase 10: port Jeevus overlay into a transparent Hyprneuro GTK4 layer-shell UI, wire streaming agent chat + monitoring IPC, systemd user services, SUPER+ALT+H hotkey",
   "active_hypothesis": "A compact AppRegistry (focused + LRU) + tiered memory + skill index wired through existing sidecar IPC, with no LLM on focus, yields a testable application-aware context backbone for durable tasks.",
   "completed_features": [
     "environment-audit",
@@ -40,21 +40,28 @@
     "streaming",
     "approvals-facade",
     "final-scorecard",
-    "production-stabilization"
+    "production-stabilization",
+    "streaming-agent-ipc",
+    "monitoring-ipc",
+    "ui-control-socket",
+    "gtk-layer-shell-ui",
+    "systemd-user-services",
+    "hyprland-hotkey"
   ],
   "remaining_criteria": [
-    "native-wayland-gui-shell",
     "cross-request-prompt-cache-reuse"
   ],
   "known_failures": [],
   "blockers": [],
   "fingerprints": {
     "model_runtime": "llama.cpp text:8081 omni:8082 decision:8083 all active; Hyprland 0.57.2",
-    "service": "lfm@text/omni/decision active; hyprneuro sidecar not yet running as user service"
+    "service": "lfm@text/omni/decision active; hyprneuro.service + hyprneuro-ui.service enabled (systemd user, start on graphical login); overlay is a thin sidecar client"
   },
   "artifacts": {
-    "baseline_tests": ".dev/benchmarks/baseline_tests.json"
+    "baseline_tests": ".dev/benchmarks/baseline_tests.json",
+    "ui_binary": "ui/build/hyprneuro-ui (installed ~/.local/bin/hyprneuro-ui)",
+    "units": "deploy/hyprneuro.service, deploy/hyprneuro-ui.service"
   },
-  "next_action": "Stable milestone. Optional: native Wayland GUI shell over AssistantController; cross-request prompt-cache reuse investigation (no inference-stack change).",
+  "next_action": "Stable milestone. Live-verified: overlay renders bottom-right, show/hide via control socket, monitoring status bar, agent_chat streaming IPC. Optional: cross-request prompt-cache reuse (no inference-stack change); richer transcript markdown; attach/audio/vision popovers (stubs).",
   "status": "stable-milestone"
 }

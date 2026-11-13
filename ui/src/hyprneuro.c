@@ -788,6 +788,7 @@ static void attach_audio(App *a, GFile *file, GBytes *bytes, const AudioInfo *in
     gtk_widget_set_hexpand(label, TRUE);
     gtk_box_append(GTK_BOX(row), label);
     GtkWidget *remove = gtk_button_new_from_icon_name("window-close-symbolic");
+    gtk_widget_add_css_class(remove, "hn-attachment-remove");
     gtk_widget_set_tooltip_text(remove, "Remove attachment (also removes it from submission)");
     g_signal_connect(remove, "clicked", G_CALLBACK(on_attachment_remove), a);
     gtk_box_append(GTK_BOX(row), remove);
@@ -1491,6 +1492,7 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     gtk_widget_set_hexpand(label, TRUE);
     gtk_box_append(GTK_BOX(summary), label);
     GtkWidget *rm = gtk_button_new_from_icon_name("window-close-symbolic");
+    gtk_widget_add_css_class(rm, "hn-attachment-remove");
     gtk_widget_set_tooltip_text(rm, "Remove attachment (also removes it from submission)");
     g_signal_connect(rm, "clicked", G_CALLBACK(on_attachment_remove), a);
     gtk_box_append(GTK_BOX(summary), rm);
@@ -1775,6 +1777,11 @@ int main(int argc, char **argv) {
     gtk_css_provider_load_from_string(alpha,
         "window.background.hn-transparent { background-color: rgba(0,0,0,0); background-image: none;"
         " border: none; outline: none; box-shadow: none; }"
+        ".hn-panel button, .hn-panel button:hover, .hn-panel button:active { box-shadow: none; }"
+        ".hn-panel button.hn-attachment-remove, .hn-panel button.hn-attachment-remove:hover,"
+        " .hn-panel button.hn-attachment-remove:active { background: transparent; background-image: none;"
+        " border: 0; outline: none; box-shadow: none; min-width: 32px; min-height: 32px; padding: 4px; }"
+        ".hn-panel button.hn-attachment-remove:focus-visible { outline: 1px solid #9ecbff; outline-offset: 1px; }"
         ".hn-panel button.hn-status-action { min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; outline: none; background: transparent; box-shadow: none; }"
         ".hn-panel button.hn-status-action:focus-visible { outline: 1px solid #9ecbff; outline-offset: 1px; }");
     gtk_style_context_add_provider_for_display(gdk_display_get_default(),

@@ -12,6 +12,14 @@ Independent user-level process providing metadata storage and read-only, bounded
 context feeds for local LFM3 text and Omni models. Not an agent, not part of any
 Pi conversation, and not a Pi Durable replacement.
 
+## Opt-in Pi-backed desktop source
+
+The GTK observed `/moe` switch, fresh host-consent UI and native text/tool route
+are **source/mock-only, disabled by default and NOT production ready**. They
+connect to one existing authenticated Pi owner, never start another owner/model.
+Legacy image/WAV remain explicitly tool-free. See the
+[GTK source checkpoint and blocked acceptance](docs/GTK_PI_OWNER.md).
+
 ## Install
 
 ```sh

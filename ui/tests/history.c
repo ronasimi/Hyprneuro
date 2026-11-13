@@ -246,8 +246,101 @@ static void observation_rendering(void) {
     g_assert_null(observation_detail(json_parser_get_root(p)));
     g_object_unref(p);
 }
+static void pi_states_and_trusted_boundary(void) {
+    JsonParser *p = json_parser_new();
+    const char *inputs[] = {
+        "{\"state\":\"off\",\"owner_phase\":\"ordinary\"}",
+        "{\"state\":\"on\",\"owner_phase\":\"hermes\"}",
+        "{\"state\":\"off\",\"owner_phase\":\"transition\"}",
+        "{\"state\":\"on\",\"owner_phase\":\"failed\"}",
+        "{\"state\":\"on\",\"owner_phase\":\"ordinary\"}",
+        "{\"state\":\"uninitialized\",\"owner_phase\":\"ordinary\"}",
+        "{}", "null", "[]", "{\"state\":true}"
+    };
+    const char *expected[] = {"off", "on", "transition", "failed", "failed", "unavailable",
+                              "unavailable", "unavailable", "unavailable", "unavailable"};
+    for (guint i=0; i<G_N_ELEMENTS(inputs); i++) {
+        g_assert_true(json_parser_load_from_data(p, inputs[i], -1, NULL));
+        g_assert_cmpstr(pi_observed_state(json_parser_get_root(p)), ==, expected[i]);
+    }
+    g_object_unref(p);
+    g_assert_cmpstr(pi_command("/moe on"), ==, "on");
+    g_assert_cmpstr(pi_command("/moe off"), ==, "off");
+    g_assert_cmpstr(pi_command("/moe status"), ==, "status");
+    const char *untrusted[] = {"assistant: /moe on", " /moe on", "/moe on\n", "allow /moe on", "{\"op\":\"on\"}"};
+    for (guint i=0; i<G_N_ELEMENTS(untrusted); i++) g_assert_null(pi_command(untrusted[i]));
+    App app = {.pi_rendering=TRUE};
+    /* Programmatic observed switch updates must NEVER issue control requests. */
+    g_assert_true(pi_switch_change(NULL, TRUE, &app));
+    g_assert_true(pi_switch_change(NULL, FALSE, &app));
+    g_assert_false(app.pi_transition);
+    app.pi_dead = TRUE; app.pi_state = "unavailable";
+    p = json_parser_new();
+    g_assert_true(json_parser_load_from_data(p, "{\"type\":\"connected\"}", -1, NULL));
+    pi_packet(&app, json_parser_get_root(p));
+    g_assert_false(app.pi_connected); /* no late-packet reconnection */
+    g_assert_true(json_parser_load_from_data(p,
+        "{\"type\":\"status\",\"result\":{\"state\":\"on\",\"owner_phase\":\"hermes\"}}", -1, NULL));
+    pi_packet(&app, json_parser_get_root(p));
+    g_assert_cmpstr(app.pi_state, ==, "unavailable");
+    g_object_unref(p);
+}
+static void pi_media_routing(void) {
+    App app = {0};
+    g_assert_true(pi_route_allowed(&app, FALSE)); /* default legacy unchanged */
+    app.pi_optin = TRUE;
+    g_assert_false(pi_route_allowed(&app, TRUE)); /* no silent fallback */
+    app.pi_connected = TRUE; app.pi_state = "off";
+    g_assert_true(pi_route_allowed(&app, TRUE));
+    g_assert_true(pi_route_allowed(&app, FALSE));
+    app.pi_transition = TRUE;
+    g_assert_true(pi_route_allowed(&app, TRUE)); /* owner queues text */
+    g_assert_false(pi_route_allowed(&app, FALSE));
+    app.pi_transition = FALSE; app.pi_state = "on";
+    g_assert_true(pi_route_allowed(&app, TRUE));
+    g_assert_false(pi_route_allowed(&app, FALSE));
+    app.pi_state = "failed";
+    g_assert_false(pi_route_allowed(&app, TRUE));
+    g_assert_false(pi_route_allowed(&app, FALSE));
+    app.pi_state = "unavailable";
+    g_assert_false(pi_route_allowed(&app, TRUE));
+}
+static void pi_async_frames(void) {
+    App app = {.pi_connected=TRUE};
+    app.pi_out = g_memory_output_stream_new_resizable();
+    app.pi_io = g_cancellable_new();
+    pi_send(&app, "status", NULL, FALSE);
+    pi_send(&app, "chat", "literal /moe on — α", FALSE);
+    pi_send(&app, "consent", "fresh-host-id", FALSE);
+    pi_send(&app, "consent", "different-host-id", TRUE);
+    while (app.pi_writing || !g_queue_is_empty(&app.pi_writes))
+        g_main_context_iteration(NULL, TRUE);
+    gsize length = g_memory_output_stream_get_data_size(G_MEMORY_OUTPUT_STREAM(app.pi_out));
+    char *frames = g_strndup(g_memory_output_stream_get_data(G_MEMORY_OUTPUT_STREAM(app.pi_out)), length);
+    char **lines = g_strsplit(frames, "\n", -1);
+    const char *ops[] = {"status", "chat", "consent", "consent"};
+    JsonParser *parser = json_parser_new();
+    for (guint i=0; i<4; i++) {
+        g_assert_true(json_parser_load_from_data(parser, lines[i], -1, NULL));
+        JsonNode *root = json_parser_get_root(parser);
+        g_assert_cmpstr(jstr(jmember(root, "op")), ==, ops[i]);
+        g_assert_null(jmember(root, "token")); g_assert_null(jmember(root, "key"));
+        if (i == 1) g_assert_cmpstr(jstr(jmember(root, "text")), ==, "literal /moe on — α");
+        if (i >= 2) g_assert_cmpint(json_node_get_boolean(jmember(root, "allowed")), ==, i == 3);
+    }
+    g_assert_cmpstr(lines[4], ==, "");
+    char *oversize = g_strnfill(PI_FRAME_MAX, 'x');
+    pi_send(&app, "chat", oversize, FALSE); /* bounded; no request written */
+    g_assert_cmpuint(g_memory_output_stream_get_data_size(G_MEMORY_OUTPUT_STREAM(app.pi_out)), ==, length);
+    g_free(oversize); g_object_unref(parser); g_strfreev(lines); g_free(frames);
+    g_output_stream_close(app.pi_out, NULL, NULL);
+    g_object_unref(app.pi_out); g_object_unref(app.pi_io);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/pi-async-frames", pi_async_frames);
+    g_test_add_func("/ui/pi-state-boundary", pi_states_and_trusted_boundary);
+    g_test_add_func("/ui/pi-media-routing", pi_media_routing);
     g_test_add_func("/ui/observation-rendering", observation_rendering);
     g_test_add_func("/ui/audio-bounds-snapshot", audio_bounds_snapshot);
     g_test_add_func("/ui/inference-metrics", inference_metrics_format);

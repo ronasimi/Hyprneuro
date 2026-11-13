@@ -76,15 +76,26 @@ test('real single Pi session loads native Durable; persistent chat + command wor
     host.runtime.registerProvider('hn-mock',{baseUrl:model.baseUrl,api:'openai-completions',apiKey:'local',models:[{...model,name:'mock'}]});
     host.owner.listeners.add(event=>{if(event.type==='consent')host.owner.consent(event.id,true);});
     assert.equal(host.session.sessionManager.getSessionId(),id);
-    const script=`import asyncio,sys
-from hyprneuro.pi_owner_client import PiOwnerClient
+    const script=`import asyncio,sys,json,os
 async def main():
- c=await PiOwnerClient.connect(sys.argv[1],trusted=True)
- assert (await c.call('chat',text='after orderly restart'))['settled']
+ env=dict(os.environ,HYPRNEURO_PI_UI='1',HYPRNEURO_PI_OWNER_DIR=sys.argv[1])
+ p=await asyncio.create_subprocess_exec(sys.executable,'-m','hyprneuro.pi_desktop_bridge',env=env,
+   stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+ assert json.loads(await p.stdout.readline())['type']=='connected'
+ # Status can be uninitialized in this fixture; never initialize/adopt it.
+ assert json.loads(await p.stdout.readline())['type']=='status'
+ p.stdin.write(b'{"op":"chat","text":"after orderly restart"}\\n');await p.stdin.drain()
  events=[]
- while not c.events.empty(): events.append(c.events.get_nowait())
- assert any(e.get('event',{}).get('type')=='delta' for e in events)
- await c.close()
+ while True:
+  packet=json.loads(await asyncio.wait_for(p.stdout.readline(),5))
+  if packet['type']=='event':events.append(packet['event'])
+  if packet['type']=='result' and packet['op']=='chat':
+   assert packet['result']['settled'];break
+  assert packet['type'] not in ('error','unavailable'),packet
+ assert ''.join(e.get('text','') for e in events if e.get('channel')=='answer')=='native Pi answer'
+ assert any(e['type']=='turn_end' for e in events)
+ p.stdin.close();assert await asyncio.wait_for(p.wait(),5)==0
+ assert await p.stderr.read()==b''
 asyncio.run(main())
 `;
     const p=spawn('/usr/bin/python3',['-c',script,ownerRoot],{env:{...process.env,PYTHONPATH:resolve('python/src')},stdio:['ignore','pipe','pipe']});

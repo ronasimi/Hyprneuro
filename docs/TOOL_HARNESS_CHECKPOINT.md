@@ -262,3 +262,28 @@ Failures/expected-uncertainty native journals and per-run logs are retained, wit
 committed baseline evidence/hash manifest. No live acceptance, deployment or UI
 edits. The opt-in remains disabled/not production-ready; the review's model-child,
 D1, all-client/live residency, GTK/media, native MCP and live-provider gates remain.
+
+
+## Opt-in ordinary desktop source phase — NOT READY
+
+Isolated base `6ba627f` now includes asynchronous GTK → established Python client
+→ one existing Pi owner text/control forwarding. No owner/API/bootstrap changes.
+Observed accessible switch, exact trusted composer commands, fresh bounded host
+consent (deny/default/close/cancel/expiry), native reasoning/tool/error events and
+chat-only disconnect cancellation are source-wired. Legacy image/WAV retain the
+existing explicit tool-free route; Pi media parity is not claimed. No persisted
+activation preference, startup switch, D1 recommendation, fallback/retry, second
+owner/model launch or installed config change.
+
+See [GTK_PI_OWNER.md](GTK_PI_OWNER.md) for exact inputs, semantics, validation
+commands and outstanding gates. Final non-GUI suite:361 Python passed,1 skipped,
+80 subtests;33 Node passed;12 C helpers normal + ASan/UBSan/leak detection.
+The real installed-Pi mock-HTTP persistent-owner test now exercises the stdio
+adapter, not just a direct socket client. Actual GTK fixture is prepared and
+syntax checked but NOT executed: logind unlocked was contradicted by a running
+locker, and parent selected source/non-GUI-only checks. No GUI/focus/capture,
+provider/live-model/service/residency operations, deployment or push.
+
+Next dependency: parent/user confirms an unlocked3–5 minute offline GTK window,
+then independent no-locker check. Production remains NOT READY; separately
+coordinated all-client deployment and leased live acceptance remain gated.

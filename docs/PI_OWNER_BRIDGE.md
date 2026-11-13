@@ -2,9 +2,9 @@
 
 **Not deployed or authorized for live activation.** The owner can perform real
 handoffs if deliberately enabled and approved; this checkpoint is source/mock
-validation, not a runtime sandbox or permission to activate it. No GTK/sidecar
-chat forwarding, installed launcher/unit/config change, or live acceptance has
-been performed. The separate UI worktree is untouched.
+validation, not a runtime sandbox or permission to activate it. Opt-in GTK text/control forwarding is now implemented in source only; see
+[GTK_PI_OWNER.md](GTK_PI_OWNER.md). No installed launcher/unit/config change,
+GUI acceptance or live activation has been performed. Default routing stays legacy.
 
 ## One owner, actual runtimes
 
@@ -109,8 +109,9 @@ SIGTERM/SIGINT perform the same orderly cleanup. SIGKILL/power loss retains the
 guard/checkpoint and requires manual review; no auto-adoption/replay.
 
 This bridge is currently **text-only**. Legacy media, metrics and original system
-prompt paths are unchanged, but full GTK/media presentation parity has not been
-wired or accepted. Cancellation after a possible side effect may leave a failed
+prompt paths are unchanged, and opted-in GTK text/control forwarding is source-wired. Native Pi media
+parity and actual GTK acceptance remain pending; legacy attachments are explicitly
+routed tool-free, not dropped. Cancellation after a possible side effect may leave a failed
 owner/checkpoint intentionally; do not hide it with automatic retries.
 
 ## Actual Durable integration and permission boundary
@@ -182,10 +183,10 @@ Verified against installed Pi1.5.1/Durable1.4.3 with local mock HTTP only:
 
 **Not verified/implemented:** live D1 schema compatibility/calibration, any real
 model inference, live residency handoff, actual model-agent child execution,
-all-client deployment, GTK switch/chat forwarding, full media parity, native MCP,
+all-client deployment, actual GTK acceptance, native media parity, native MCP,
 or live retrieval. No live providers, service/capture operations, GUI acceptance,
 package installs, deployment or push. Next: parent review of this owner source,
-coordinate GTK forwarding in its owned tree, then separately authorized leased
+review source GTK forwarding and coordinate unlocked offline acceptance, then separately authorized leased
 live acceptance—not blind activation of this entry point.
 
 ### Independent shutdown review follow-up
@@ -198,3 +199,12 @@ the dedicated cache is also explicitly scoped. See
 [DURABLE_DRAIN_REVIEW.md](DURABLE_DRAIN_REVIEW.md) for retained failure evidence,
 negative regression and repeated bounded checks. Source/mock-only; all broader
 acceptance and parent-coordinated GTK work above remain pending.
+
+### Opt-in GTK source follow-up
+
+[GTK_PI_OWNER.md](GTK_PI_OWNER.md) records the implemented asynchronous adapter,
+observed control switch, fresh host consent UI, native text/tool events and
+explicit legacy-media boundary. The existing owner API is unchanged; chat socket
+disconnect supplies cancellation without dropping trusted control authentication.
+Source/mock and sanitizer helpers are verified; actual GTK is blocked on parent/
+user unlock confirmation plus independent safety check. No live activation.

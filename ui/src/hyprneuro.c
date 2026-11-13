@@ -104,6 +104,21 @@ struct App {
 
     GtkWidget *status, *metrics, *monitoring;
 
+    gboolean pi_optin, pi_connected, pi_transition, pi_chat, pi_native_error, pi_rendering;
+    gboolean pi_on_pending, pi_off_pending, pi_dead;
+    char *pi_state, *pi_consent_id;
+    GtkSwitch *pi_switch;
+    GtkWidget *pi_label, *pi_route, *pi_cancel;
+    GtkWindow *pi_dialog;
+    GSubprocess *pi_process;
+    GInputStream *pi_in;
+    GOutputStream *pi_out;
+    GCancellable *pi_io;
+    GString *pi_frame;
+    char pi_buffer[4096];
+    GQueue pi_writes;
+    gboolean pi_writing;
+
     char *sidecar_sock;
     char *control_sock;
     GSocketService *svc;
@@ -403,6 +418,7 @@ static gboolean on_delta(gpointer data) {
 }
 
 static void clear_attachments(App *a);
+static void pi_route_update(App *a);
 
 static gboolean on_chat_done(gpointer data) {
     ChatDoneData *d = data;
@@ -414,7 +430,7 @@ static gboolean on_chat_done(gpointer data) {
 
     if (!d->success && a->audio_stream) clear_attachments(a);
     if (d->success) {
-        set_status(a, "Hyprneuro - Local");
+        set_status(a, a->pi_chat ? "Pi owner · settled (not tool success)" : "Legacy sidecar · tool-free");
         clear_attachments(a);
         /* Append a trailing newline after the assistant response. */
         GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
@@ -423,8 +439,11 @@ static gboolean on_chat_done(gpointer data) {
         gtk_text_buffer_insert(buf, &end, "\n", -1);
         transcript_scroll_to_bottom(a);
         /* Record the exchange in bounded history. */
-        push_history(a, "user", a->current_msg);
-        push_history(a, "assistant", a->current_answer->str);
+        /* Pi owns its persisted conversation; never copy it to legacy media. */
+        if (!a->pi_chat) {
+            push_history(a, "user", a->current_msg);
+            push_history(a, "assistant", a->current_answer->str);
+        }
         gtk_label_set_text(GTK_LABEL(a->metrics), d->metrics ? d->metrics : "Prefill — · Decode — · Hit — · Full —");
         gtk_widget_set_tooltip_text(a->metrics, d->token_counts);
     } else {
@@ -439,6 +458,8 @@ static gboolean on_chat_done(gpointer data) {
         transcript_scroll_to_bottom(a);
     }
 
+    if (a->pi_cancel) gtk_widget_set_sensitive(a->pi_cancel, FALSE);
+    a->pi_chat = FALSE;
     g_free(a->current_msg);
     a->current_msg = NULL;
     g_string_set_size(a->current_answer, 0);
@@ -626,6 +647,7 @@ static void clear_attachments(App *a) {
     g_ptr_array_set_size(a->attachments, 0);
     g_clear_pointer(&a->attachment_b64, g_free);
     g_clear_pointer(&a->attachment_mime, g_free);
+    pi_route_update(a);
     GtkWidget *child;
     while ((child = gtk_widget_get_first_child(a->attach_strip)))
         gtk_box_remove(GTK_BOX(a->attach_strip), child);
@@ -773,6 +795,7 @@ static void attach_audio(App *a, GFile *file, GBytes *bytes, const AudioInfo *in
     const guchar *p = g_bytes_get_data(bytes, &n);
     a->attachment_b64 = g_base64_encode(p, n);
     a->attachment_mime = g_strdup("audio/wav");
+    pi_route_update(a);
     g_ptr_array_add(a->attachments, g_object_ref(file));
     a->audio_duration = (gint64)info->frames * 1000000 / info->rate;
     GtkWidget *item = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
@@ -813,7 +836,10 @@ static void attach_audio(App *a, GFile *file, GBytes *bytes, const AudioInfo *in
     g_free(name); g_free(metadata);
 }
 
+#include "pi-desktop.inc"
+
 static void send_message(App *a) {
+    if (pi_typed_command(a)) return;
     if (a->busy || a->picker_cancel) return;
     if (a->audio_stream) {
         if (!a->audio_ready || !a->audio_played || !gtk_check_button_get_active(GTK_CHECK_BUTTON(a->audio_review))) {
@@ -827,12 +853,25 @@ static void send_message(App *a) {
     gtk_text_buffer_get_bounds(buf, &s, &e);
     char *msg = gtk_text_buffer_get_text(buf, &s, &e, FALSE);
     if (!msg || !*msg) { g_free(msg); return; }
+    gboolean native = a->pi_optin && !a->attachment_b64;
+    if (!pi_route_allowed(a, native)) {
+        set_status(a, "Route unavailable · media requires observed ordinary/off; no fallback");
+        g_free(msg); return;
+    }
+    if (native && g_utf8_strlen(msg, -1) > 16000) {
+        set_status(a, "Pi text exceeds 16000 characters; draft retained");
+        g_free(msg); return;
+    }
     gtk_text_buffer_set_text(buf, "", -1);
     transcript_append(a, "you", msg);
 
     a->busy = TRUE;
     gtk_widget_set_sensitive(a->send, FALSE);
-    set_status(a, "Hyprneuro · thinking…");
+    a->pi_chat = native;
+    a->pi_native_error = FALSE;
+    set_status(a, native ? "Pi owner · queued/working" : "Legacy sidecar · tool-free media/chat");
+    gtk_label_set_text(GTK_LABEL(a->pi_route), native ?
+        "Text → Pi owner · native tools need fresh consent" : "Legacy sidecar → media/chat · NO Pi tools/history");
     gtk_label_set_text(GTK_LABEL(a->metrics), "Inference pending · Full —");
     gtk_widget_set_tooltip_text(a->metrics, NULL);
 
@@ -846,6 +885,15 @@ static void send_message(App *a) {
     a->current_msg = g_strdup(msg);
     a->last_reasoning = FALSE;
     g_string_set_size(a->current_answer, 0);
+
+    if (native) {
+        gtk_widget_set_sensitive(a->attach_btn, FALSE);
+        gtk_widget_set_sensitive(a->attach_strip, FALSE);
+        gtk_widget_set_sensitive(a->pi_cancel, TRUE);
+        pi_send_text(a, msg);
+        g_free(msg);
+        return;
+    }
 
     ChatTaskData *td = g_new0(ChatTaskData, 1);
     td->app = a;
@@ -1455,6 +1503,7 @@ static void on_file_dialog_open(GObject *obj, GAsyncResult *result, gpointer dat
     }
     clear_attachments(a);
     a->attachment_b64 = b64; a->attachment_mime = mime;
+    pi_route_update(a);
     g_ptr_array_add(a->attachments, file);
     apply_transcript_size(a);
     char *name = g_file_get_basename(file);
@@ -1580,6 +1629,7 @@ static void show_ui(App *a) {
 static void hide_ui(App *a) {
     if (!a->shown) return;
     if (a->picker_cancel) g_cancellable_cancel(a->picker_cancel);
+    if (a->pi_consent_id) pi_consent_close(a->pi_dialog, a);
     if (a->audio_stream) clear_attachments(a);
     gtk_widget_set_visible(a->media_preview, FALSE);
     a->shown = FALSE;
@@ -1745,6 +1795,8 @@ int main(int argc, char **argv) {
     a->size = SIZE_RESTORE;
     a->autoscroll_enabled = TRUE;
     a->panel_opacity = .90;
+    a->pi_optin = !g_strcmp0(g_getenv("HYPRNEURO_PI_UI"), "1");
+    a->pi_state = g_strdup("unavailable");
     a->history = g_ptr_array_new_with_free_func((GDestroyNotify)json_node_unref);
     a->attachments = g_ptr_array_new_with_free_func((GDestroyNotify)g_object_unref);
     a->current_answer = g_string_new("");
@@ -1752,7 +1804,8 @@ int main(int argc, char **argv) {
     if (!a->sidecar_sock)
         a->sidecar_sock = g_build_filename(
             g_get_user_runtime_dir(), "hyprharness", "sidecar.sock", NULL);
-    a->control_sock = g_build_filename(
+    a->control_sock = g_strdup(g_getenv("HYPRNEURO_UI_SOCKET"));
+    if (!a->control_sock) a->control_sock = g_build_filename(
         g_get_user_runtime_dir(), "hyprneuro", "ui.sock", NULL);
 
     /* CSS. */
@@ -1886,6 +1939,7 @@ int main(int argc, char **argv) {
     a->vision_btn = circular(a->composer, "camera-photo-symbolic",
                              G_CALLBACK(on_vision), a, "Camera / Vision");
     gtk_box_append(GTK_BOX(a->chat_page), a->composer);
+    pi_build(a);
 
     /* Status bar. */
     GtkWidget *statusrow = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
@@ -2069,10 +2123,12 @@ int main(int argc, char **argv) {
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
     a->loop = loop;
     show_ui(a);
+    pi_start(a);
     g_main_loop_run(loop);
     g_main_loop_unref(loop);
 
     /* Cleanup. */
+    pi_stop(a);
     g_source_remove(a->monitor_timer);
     g_object_unref(a->svc);
     g_string_free(a->current_answer, TRUE);

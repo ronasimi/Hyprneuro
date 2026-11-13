@@ -1,0 +1,73 @@
+{
+  "schema": "hyprneuro.p12-passive-evidence/1",
+  "source": "python/src/hyprneuro/monitor.py",
+  "source_sha256": "e732f1ca3f3b364e704458c599022e7623e4283c2903a7e614107fc62c7e486a",
+  "observed_at": "2026-11-13T23:30:05.440872+00:00",
+  "method": "Two read-only snapshots, 0.3s apart; ordinary observation, not a benchmark.",
+  "availability": {
+    "cpu_frequency_khz": "available",
+    "memory_kib": "available",
+    "pressure": "available",
+    "gpu": "available",
+    "disk_io": "available",
+    "disk_used_percent": "available",
+    "network": "available",
+    "temperatures_millicelsius": "available",
+    "cpu_percent": "available",
+    "model_processes": "unavailable"
+  },
+  "cpu_percent": 3.9164490861618773,
+  "cpu_core_readings": 12,
+  "frequency_khz": {
+    "count": 12,
+    "min": 1645972,
+    "max": 3045067
+  },
+  "memory_kib": {
+    "MemTotal": 15564600,
+    "MemAvailable": 4999632,
+    "SwapTotal": 24559096,
+    "SwapFree": 21954924
+  },
+  "memory_used_estimate_kib": 10564968,
+  "swap_used_kib": 2604172,
+  "root_disk_used_percent": 83.69820249531132,
+  "disk_devices": 5,
+  "valid_disk_rate_pairs": 5,
+  "pressure": {
+    "cpu": "some avg10=0.00 avg60=0.00 avg300=0.00 total=550348994\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0",
+    "memory": "some avg10=0.00 avg60=0.00 avg300=0.00 total=231466254\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=229003048",
+    "io": "some avg10=0.00 avg60=0.06 avg300=0.10 total=693834590\nfull avg10=0.00 avg60=0.06 avg300=0.10 total=666311499"
+  },
+  "network_interfaces": 8,
+  "network_counter_totals": {
+    "rx_bytes": 140444086688,
+    "tx_bytes": 13055639680,
+    "rx_errors": 0,
+    "tx_errors": 0
+  },
+  "temperatures_millicelsius": {
+    "k10temp/temp1_input": 59875,
+    "thinkpad/temp6_input": 0,
+    "thinkpad/temp3_input": 0,
+    "thinkpad/temp7_input": 0,
+    "thinkpad/temp4_input": 0,
+    "thinkpad/temp1_input": 50000,
+    "thinkpad/temp5_input": 0,
+    "thinkpad/temp2_input": 0,
+    "iwlwifi_1/temp1_input": 55000,
+    "amdgpu/temp1_input": 46000,
+    "nvme/temp1_input": 43850,
+    "nvme/temp2_input": 43850,
+    "acpitz/temp1_input": 50000
+  },
+  "gpu": {
+    "card1": {
+      "mem_info_vram_used": 466083840,
+      "mem_info_gtt_used": 4133527552,
+      "gpu_busy_percent": 9
+    }
+  },
+  "gpu_note": "Global DRM driver memory counters (bytes), not Vulkan allocations or per-model memory. VRAM and GTT are separate accounting domains; backing/overlap depends on hardware. No KV/cache occupancy is inferred.",
+  "model_processes": {}
+}

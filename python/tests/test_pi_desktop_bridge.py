@@ -45,7 +45,7 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
 
     async def launch(self, **overrides):
         env = dict(os.environ, PYTHONPATH=str(REPO / 'python/src'), HYPRNEURO_PI_UI='1',
-                   HYPRNEURO_PI_OWNER_DIR=str(self.owner_dir))
+                   HYPRNEURO_PI_OWNER_DIR=str(self.owner_dir), PYTHONWARNINGS='error')
         env.update(overrides)
         self.bridge = await asyncio.create_subprocess_exec(
             '/usr/bin/python3', '-m', 'hyprneuro.pi_desktop_bridge', env=env,

@@ -1,0 +1,116 @@
+Watcher integration source checkpoint (source/mock only, NOT DEPLOYED)
+UTC: 2026-11-13T12:35:57Z
+Worktree: /home/ron/Workspace/hyprneuro-completion-docs
+Branch: docs/production-completion-plan
+Baseline: e403da3d478c2984f38ef6aff9245d9f05bc2d13
+Cherry-picks:
+07768cd55c53719b389420a98ff14bde2ce91a88 fix: preserve trusted lock authority and recheck before capture
+e2ed6a5ebfbbae1f5992eefc51fb280217358d3b feat: pause Recall visual admission on session lock or uncertainty
+Tested source commit: 8bc7312b44fbe5eff0fe8b2a3d449f5a9670b81d
+Tested git tree: 12e00a08ab1321defcc8f3fe2b517980ae0da734
+Source was committed clean before evidence creation. Status while writing this manifest:
+?? docs/evidence/watcher-integration-manifest.txt
+
+Source-only approval supplied by parent/user: 01M7AE3BTHWR2R9X8RQMXXF67Y
+Original watcher commits:
+1b78f829be583bd3e2ba512e4e00bffca1904920 fix: preserve trusted lock authority and recheck before capture
+e4ab16eb898d16bc555af7cf478d61c7afde193f feat: pause Recall visual admission on session lock or uncertainty
+Original versus cherry-picked Python/checkpoint/evidence content: identical for both commits (git diff --exit-code).
+
+Destination diff from planning baseline:
+A	docs/WATCHER_LOCK_CHECKPOINT.md
+A	docs/evidence/watcher-lock-async-tests.txt
+A	docs/evidence/watcher-lock-pillow-tests.txt
+A	docs/evidence/watcher-lock-python-tests.txt
+A	docs/evidence/watcher-lock-review-regressions-before.txt
+A	docs/evidence/watcher-lock-review.txt
+A	docs/evidence/watcher-lock-sha256.txt
+A	docs/evidence/watcher-lock-sidecar.patch
+M	python/src/hyprneuro/pi_desktop_bridge.py
+M	python/src/hyprneuro/recall.py
+M	python/src/hyprneuro/recall_events.py
+A	python/src/hyprneuro/recall_transport.py
+A	python/src/hyprneuro/session_lock.py
+M	python/src/hyprneuro/sidecar.py
+M	python/tests/test_pi_desktop_bridge.py
+A	python/tests/test_watcher_lock.py
+
+Destination complete binary diff SHA256 (git diff --binary e403da3..8bc7312):
+aae57719e4ca6b80add8a977e4e89ae1b44057f51bcee9a60a52962a52746289  -
+
+Historical watcher manifest verification:
+python/src/hyprneuro/recall.py: OK
+python/src/hyprneuro/recall_events.py: OK
+python/src/hyprneuro/session_lock.py: OK
+python/src/hyprneuro/recall_transport.py: OK
+python/src/hyprneuro/sidecar.py: OK
+python/tests/test_watcher_lock.py: OK
+docs/WATCHER_LOCK_CHECKPOINT.md: OK
+docs/evidence/watcher-lock-python-tests.txt: OK
+docs/evidence/watcher-lock-async-tests.txt: OK
+docs/evidence/watcher-lock-pillow-tests.txt: OK
+docs/evidence/watcher-lock-sidecar.patch: OK
+docs/evidence/watcher-lock-review.txt: OK
+docs/evidence/watcher-lock-review-regressions-before.txt: OK
+Exact sidecar diff: git diff --unified=0 e403da3..8bc7312 -- python/src/hyprneuro/sidecar.py matches docs/evidence/watcher-lock-sidecar.patch.
+Range whitespace check: git diff --check e403da3..8bc7312 PASS.
+
+Combined changed Python source/tests and destination socket inputs SHA256:
+f67952ede8a13cbf366af26aa11e908e23c8d36b2a3f0aac483a6d524c9846e4  extensions/pi-owner/durable.mjs
+76b0e68c512e2dff0a29ac9f5ebf1967f93956ee313706fd5e3ea819c326f052  extensions/pi-owner/owner.mjs
+1094a8382393ba7424412dc2463d73c9102dfdcbbdd0c989177ed041c88df70f  extensions/pi-owner/socket.mjs
+c067ca1e8d28035e7b65ff1524fed7573bc7d1eb31172de0459ab4e7b6da3aff  python/src/hyprneuro/pi_desktop_bridge.py
+5b96f04ab7101d766fc1852f3ed6931b5f5cc0f147bebfe44851f89e520cfbec  python/src/hyprneuro/pi_owner_client.py
+938e538c36fbaef3cbd0a6cc86e3cf1812c3ed3f4e1bfe177fb74b8a4157a4b9  python/src/hyprneuro/recall_events.py
+5b8303baa88aa7ea03fc3546f0cdd8c1f87a277eeb45a984038234dab5ac57a9  python/src/hyprneuro/recall.py
+af94fdfc22938cd768ba58f338ff26737403f9bcaf2516dbb5ebc58eddcafa8b  python/src/hyprneuro/recall_transport.py
+f90435e32c4f12e86b0f61371fa97187349eb27fc3a77b6f84827d991bb3334b  python/src/hyprneuro/session_lock.py
+216c7e67fd964c833634fdaabe8c644fcc534e1769056b8537cd8550bf33f6df  python/src/hyprneuro/sidecar.py
+56336134ca1d5f50b367d8ed0d690d214b8b2a5a4e1b58130d6aebfa60ac0836  python/tests/test_pi_desktop_bridge.py
+94c6e248a5c3a221c83d9b8ba33e7e430d8a66d6c5e4c3d2ed921eed191ed298  python/tests/test_watcher_lock.py
+8e9102a0c2591007fa3632b33cd3545d8a7f29fc63e91674e11ac5c65c5a7d46  tests/pi-owner-socket.mjs
+
+Existing dependency/runtime identities (no installs):
+Python executable: /home/ron/Projects/Hyprneuro/python/.venv/bin/python
+Python version: 3.13.15
+pytest: 9.2.0 (built-in subtests; no pytest-subtests distribution)
+hyprneuro.recall: /home/ron/Workspace/hyprneuro-completion-docs/python/src/hyprneuro/recall.py
+hyprneuro.recall_events: /home/ron/Workspace/hyprneuro-completion-docs/python/src/hyprneuro/recall_events.py
+hyprneuro.session_lock: /home/ron/Workspace/hyprneuro-completion-docs/python/src/hyprneuro/session_lock.py
+hyprneuro.recall_transport: /home/ron/Workspace/hyprneuro-completion-docs/python/src/hyprneuro/recall_transport.py
+hyprneuro.sidecar: /home/ron/Workspace/hyprneuro-completion-docs/python/src/hyprneuro/sidecar.py
+hyprneuro.pi_desktop_bridge: /home/ron/Workspace/hyprneuro-completion-docs/python/src/hyprneuro/pi_desktop_bridge.py
+System Python: 3.14.9
+Pillow: 13.0.0
+v26.13.0
+SDK/Durable installed packages were not needed/invoked by the socket suite; owner workflow suites intentionally not run.
+
+Private offline run root: /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9
+Isolation: env -i; mode0700 private HOME/TMPDIR/XDG*/DSA_HOME/DSA_CACHE_HOME/PI_CODING_AGENT_DIR; DSA_SCOPE=off; OBSIDIAN_AUTO_OPEN=false; UV_OFFLINE=1; PIP_NO_INDEX=1; bytecode/cache disabled; PYTHONWARNINGS=error.
+No parent Pi home/workflow operations, lifecycle operations, package installs, inference, GUI or actual capture. Installer tests use fake installers/systemctl and temporary --without-pip venvs.
+
+Exact executed commands (final committed source):
+COMMAND: env -i PATH=/usr/bin:/bin LANG=C.UTF-8 USER=ron LOGNAME=ron HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/home TMPDIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/tmp XDG_CONFIG_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/config XDG_STATE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/state XDG_DATA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/data XDG_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/cache XDG_RUNTIME_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/runtime DSA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable DSA_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable/cache DSA_SCOPE=off PI_CODING_AGENT_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/agent OBSIDIAN_AUTO_OPEN=false PYTHONDONTWRITEBYTECODE=1 PYTHONWARNINGS=error PYTHONPATH=python/src JITI_FS_CACHE=false UV_OFFLINE=1 PIP_NO_INDEX=1 timeout --signal=TERM --kill-after=5s 180s /home/ron/Projects/Hyprneuro/python/.venv/bin/python -m pytest -p no:cacheprovider python/tests/test_watcher_lock.py -q -ra -W error
+COMMAND: env -i PATH=/usr/bin:/bin LANG=C.UTF-8 USER=ron LOGNAME=ron HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/home TMPDIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/tmp XDG_CONFIG_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/config XDG_STATE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/state XDG_DATA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/data XDG_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/cache XDG_RUNTIME_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/runtime DSA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable DSA_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable/cache DSA_SCOPE=off PI_CODING_AGENT_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/agent OBSIDIAN_AUTO_OPEN=false PYTHONDONTWRITEBYTECODE=1 PYTHONWARNINGS=error PYTHONPATH=python/src JITI_FS_CACHE=false UV_OFFLINE=1 PIP_NO_INDEX=1 timeout --signal=TERM --kill-after=5s 180s /home/ron/Projects/Hyprneuro/python/.venv/bin/python -m pytest -p no:cacheprovider python/tests/test_pi_desktop_bridge.py -q -ra -W error
+COMMAND: env -i PATH=/usr/bin:/bin LANG=C.UTF-8 USER=ron LOGNAME=ron HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/home TMPDIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/tmp XDG_CONFIG_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/config XDG_STATE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/state XDG_DATA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/data XDG_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/cache XDG_RUNTIME_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/runtime DSA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable DSA_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable/cache DSA_SCOPE=off PI_CODING_AGENT_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/agent OBSIDIAN_AUTO_OPEN=false PYTHONDONTWRITEBYTECODE=1 PYTHONWARNINGS=error PYTHONPATH=python/src JITI_FS_CACHE=false UV_OFFLINE=1 PIP_NO_INDEX=1 timeout --signal=TERM --kill-after=5s 180s /home/ron/Projects/Hyprneuro/python/.venv/bin/python -m pytest -p no:cacheprovider python/tests -q -ra -W error
+COMMAND: env -i PATH=/usr/bin:/bin LANG=C.UTF-8 USER=ron LOGNAME=ron HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/home TMPDIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/tmp XDG_CONFIG_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/config XDG_STATE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/state XDG_DATA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/data XDG_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/cache XDG_RUNTIME_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/runtime DSA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable DSA_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable/cache DSA_SCOPE=off PI_CODING_AGENT_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/agent OBSIDIAN_AUTO_OPEN=false PYTHONDONTWRITEBYTECODE=1 PYTHONWARNINGS=error PYTHONPATH=python/src JITI_FS_CACHE=false UV_OFFLINE=1 PIP_NO_INDEX=1 timeout --signal=TERM --kill-after=5s 180s /usr/bin/python3 -W error -m unittest discover -s python/tests -p test_event_handoff.py -v
+COMMAND: env -i PATH=/usr/bin:/bin LANG=C.UTF-8 USER=ron LOGNAME=ron HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/home TMPDIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/tmp XDG_CONFIG_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/config XDG_STATE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/state XDG_DATA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/data XDG_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/cache XDG_RUNTIME_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/runtime DSA_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable DSA_CACHE_HOME=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/durable/cache DSA_SCOPE=off PI_CODING_AGENT_DIR=/home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/agent OBSIDIAN_AUTO_OPEN=false PYTHONDONTWRITEBYTECODE=1 PYTHONWARNINGS=error PYTHONPATH=python/src JITI_FS_CACHE=false UV_OFFLINE=1 PIP_NO_INDEX=1 timeout --signal=TERM --kill-after=5s 180s node --test tests/pi-owner-socket.mjs
+
+Final result exits and absent suite:
+focused exit=0
+bridge exit=0
+full-python exit=0
+pillow exit=0
+owner-readonly NOT RUN: tests/pi-owner-readonly.mjs absent; worker integration pending (not PASS)
+owner-socket exit=0
+Owned leaked fixtures from first failed run were stopped using exact fixture paths in this private root; final owned bridge fixture count: 0.
+
+Raw local artifact SHA256 (retained outside Git):
+2c66afe0952d97ee7cf46a217006972ffc251d4ffd4b1e68474076aa30b7f656  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/run.sh
+2ef02bda9b25ad5af31165e4d6433c581730a1ce209860561281c5f73e9d8397  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/full-python-before.txt
+8a6e916f3ff30f4d77c02371c4f53f722ddc1e836aa59ef869cbb31def9e861f  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/bridge-pipe-reproduction-before.txt
+60cabbd4d154be0cc081311dbbc9b315e87a515218f75dd9c429db6596f76866  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/focused.txt
+72af864a7d84b1dc3d2ee33e1f697e6347880e56e4da66c8d04826f12711e3c2  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/bridge.txt
+c0f36c9ddf1ea80856539f4943d7ff5a85bcd13470368a7d34c59c1e944012ef  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/full-python.txt
+7aebbaf410c84867b60f4a3278fbdf07d0a50b204353b726dbdb56da9bdba82a  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/pillow.txt
+8759e138096e115393aa771f0cb75e46909200f7cccad2b9bdf4a1cd0990bbfe  /home/ron/Workspace/hyprneuro-watcher-integration-7d6qf9/owner-socket.txt

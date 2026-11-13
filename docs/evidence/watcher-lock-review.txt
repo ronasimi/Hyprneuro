@@ -1,0 +1,55 @@
+## Verdict: BLOCK
+
+Reviewed committed range `5446e9c..e4ab16eb898d16bc555af7cf478d61c7afde193f`. The watcher worktree was clean before and after review. Two privacy-boundary defects reproduced using only temporary, synthetic fixtures.
+
+### P1 — Any same-UID RPC client can clear an explicit compositor-lock latch
+
+**Paths:** `python/src/hyprneuro/sidecar.py:284–293,600–613`; `python/src/hyprneuro/session_lock.py:47–58,136–151`.
+
+The new RPC forwards `locked:false` to `session_lock_event()`, which clears `_explicit_lock`. Socket authentication establishes only the peer UID—not that the caller is the trusted compositor/session producer. Matching the session string supplies no additional authority.
+
+**Verified reproduction:** set a trusted explicit lock while synthetic logind reports unlocked and procfs contains no recognized locker. Reconciliation correctly denies. Send `locked:false` through an actual same-UID Unix connection without a producer credential: the next reconciliation grants verification using the **unchanged** logind/procfs evidence.
+
+This does not bypass those independent checks. It defeats the explicit latch precisely for hook-only lock mechanisms those checks cannot detect.
+
+**Smallest correction:** make ordinary RPC notifications revocation-only; reserve clearing the explicit latch for the trusted host interface. Add a regression proving an untrusted false notification cannot clear a trusted lock even when logind/procfs otherwise appear unlocked.
+
+### P1 — Verification can expire during the final focus query, yet capture still starts
+
+**Path:** `python/src/hyprneuro/recall.py:368–375`; expiry implementation at `python/src/hyprneuro/session_lock.py:64–71`.
+
+After checking permission, `_observe_once()` awaits a compositor query. Its new `_require_visual()` check then checks only pause/generation state—not verification expiry. Expiry invalidates that generation only when `unlocked()` is called.
+
+**Verified reproduction:** use the supported 100 ms reconciliation interval, producing a 250 ms verification lifetime; delay the final foreground focus query by 300 ms with reconciliation stalled. The fake grabber still runs **once after expiry**. The subsequent permission check rejects the result; there are zero Omni calls and zero stored observations. Discarding afterward does not prevent capture during uncertainty.
+
+**Smallest correction:** recheck session admission immediately after the final focus query and before `grab()`. Add this delayed-query regression; the existing expiry test covers model-lane admission, not capture admission.
+
+## Verified boundaries and coverage limits
+
+- Strict RPC fields and boolean/null validation are present; wrong-session notifications are rejected. **False does not immediately resume**, but has the latch-clearing defect above.
+- Logind reconciliation validates session ID, UID, active/unlocked/local graphical user-session properties, seat and leader. Monitor disconnect invalidates verification; polling fallback can subsequently reverify.
+- Procfs filtering handles UID, locker names/truncation, cgroup sessions and POSIX session IDs. Process-count and elapsed-time checks are present, but the 250 ms bound is cooperative between entries—not a hard deadline interrupting filesystem reads.
+- Synthetic tests exercise generation invalidation, queued-candidate dropping, D1/capture/visual-D1/Omni cancellation, cancellation-resistant late results, foreground revocation, child cleanup, real loopback HTTP disconnects, and fresh-event-only resume without an unlock burst.
+- Metadata/search behavior remains separate and passed the existing integration tests.
+- Tests do **not** establish real busctl packet delivery, actual desktop/session mapping, live locker detection latency, or real inference-server cancellation. No runtime-capture acceptance follows from these results.
+
+## Tests run
+
+Using disposable Workspace temporary directories, disabled bytecode/pytest cache writes, and isolated environment paths:
+
+- `pytest -p no:cacheprovider python/tests/test_watcher_lock.py -q -W error` — **37 passed**
+- `pytest -p no:cacheprovider python/tests -q -ra` — **404 passed, 1 skipped, 86 subtests passed**
+- System-Python `unittest discover -s python/tests -p test_event_handoff.py -v` — **12 passed**, including the optional Pillow test skipped above.
+- Committed-range `git diff --check` and all **11 evidence-manifest hashes** passed.
+
+No live locks, screenshots, GUI, models, service lifecycle operations, repository edits or publication were performed.
+
+## Integration and publication
+
+There are **no current textual sidecar conflicts** with the inspected read-only-owner worktree: its HEAD is `5446e9c`, and its local changes are in extensions/tests, not `sidecar.py`.
+
+The watcher’s exact sidecar integration areas are initialization at line 77, RPC dispatch at 284–293, Recall transport/guard setup at 735–751, visual-subscriber removal near 765, and direct visual intake at 802–810. Preserve the owner’s read/control-role separation; it does not authenticate this new sidecar hook.
+
+No capture defaults were enabled and no configuration/service files changed. Added evidence contains synthetic test output, hashes and patch text; no private runtime captures or secrets were found.
+
+**Recommendation:** fix both findings, integrate with the latest owner work, then rerun the focused/full Python suites and owner `pi-owner-readonly.mjs` / `pi-owner-socket.mjs` tests. Publish **source only after combined verification**—not as deployment or runtime-capture approval.

@@ -1,0 +1,65 @@
+F.                                                                     [100%]
+=================================== FAILURES ===================================
+__ PauseTests.test_verification_expiring_during_final_focus_query_never_grabs __
+
+self = <test_watcher_lock.PauseTests testMethod=test_verification_expiring_during_final_focus_query_never_grabs>
+
+    async def test_verification_expiring_during_final_focus_query_never_grabs(self):
+        # No guard.run(): reconciliation is stalled, but its original TTL stays.
+        self.guard.interval = .1
+        await self.guard.reconcile()
+        query = self.watcher.desktop.query
+        async def delayed_query(kind):
+            window = await query(kind)
+            if self.watcher.desktop.queries == 2:  # final foreground focus await
+                await asyncio.sleep(.3)  # original verification expires at .25 s
+            return window
+        self.watcher.desktop.query = delayed_query
+        try:
+            await self.watcher.observe_requested(EVENT)
+        except (PermissionError, RuntimeError):
+            pass
+>       self.assertEqual(self.grabber.grabs, 0)
+E       AssertionError: 1 != 0
+
+python/tests/test_watcher_lock.py:420: AssertionError
+_ WiredTests.test_ordinary_socket_events_cannot_clear_trusted_unknown_locker_latch (locked=False) _
+
+self = <test_watcher_lock.WiredTests testMethod=test_ordinary_socket_events_cannot_clear_trusted_unknown_locker_latch>
+
+    async def test_ordinary_socket_events_cannot_clear_trusted_unknown_locker_latch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # A hook-only locker is intentionally absent from the known names.
+            process = root / '123'
+            process.mkdir()
+            (process / 'comm').write_text('custom-locker\n')
+            guard = LoginSessionGuard(session='c17', proc_root=root)
+            guard._snapshot = AsyncMock(return_value=snapshot())
+            self.assertTrue(await guard.reconcile())  # independent evidence misses it
+            store = SidecarStore(':memory:')
+            worker = SidecarServer(store)
+            worker.session_lock_guard = guard
+            server = await asyncio.start_unix_server(worker.handle, path=str(root/'rpc.sock'))
+            try:
+                for locked in (False, None):
+                    with self.subTest(locked=locked):
+                        guard.session_lock_event('c17', True)  # trusted in-process authority
+                        self.assertFalse(await guard.reconcile())
+                        reader, writer = await asyncio.open_unix_connection(root/'rpc.sock')
+                        try:
+                            writer.write(json.dumps({'action': 'session_lock', 'session': 'c17',
+                                                     'locked': locked}).encode() + b'\n')
+                            await writer.drain()
+                            self.assertTrue(json.loads(await reader.readline())['ok'])
+                        finally:
+                            writer.close()
+                            await writer.wait_closed()
+>                       self.assertFalse(await guard.reconcile())
+E                       AssertionError: True is not false
+
+python/tests/test_watcher_lock.py:532: AssertionError
+=========================== short test summary info ============================
+FAILED python/tests/test_watcher_lock.py::PauseTests::test_verification_expiring_during_final_focus_query_never_grabs
+SUBFAILED(locked=False) python/tests/test_watcher_lock.py::WiredTests::test_ordinary_socket_events_cannot_clear_trusted_unknown_locker_latch
+2 failed, 1 passed, 37 deselected, 1 subtests passed in 0.44s

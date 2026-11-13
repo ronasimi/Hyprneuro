@@ -1,0 +1,59 @@
+diff --git a/python/src/hyprneuro/sidecar.py b/python/src/hyprneuro/sidecar.py
+index 1ce79d9..30c74fb 100644
+--- a/python/src/hyprneuro/sidecar.py
++++ b/python/src/hyprneuro/sidecar.py
+@@ -76,0 +77 @@ class SidecarServer:
++        self.session_lock_guard = None
+@@ -282,0 +284,10 @@ class SidecarServer:
++        if action == "session_lock":
++            if set(request) != {"action", "session", "locked"} or (
++                    request["locked"] is not None and type(request["locked"]) is not bool):
++                raise ValueError("Expected session_lock session and boolean/null locked")
++            if self.session_lock_guard is None:
++                raise PermissionError("Session lock hook unavailable; capture consent unchanged")
++            if not self.session_lock_guard.session_lock_hint(request["session"], request["locked"]):
++                raise ValueError("Session lock event does not target this session")
++            return {"schema": "hyprneuro.session-lock/1", "paused": True,
++                    "verification_pending": True}
+@@ -631,0 +643 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
++                session_lock_producer=None,
+@@ -634,0 +647,3 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
++    if session_lock_producer is not None and (not callable(session_lock_producer)
++            or not (allow_capture or allow_on_demand) or unlock_guard is not None):
++        raise ValueError("Trusted lock producer requires an enabled observation guard")
+@@ -724,2 +739,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
+-            model_scheduler = ScheduledModels(models)
+-            guard = unlock_guard or LoginSessionGuard().unlocked
++            # Recall owns cancellable streams, not the shared Models HTTP threads.
++            from .models import Models
++            from .recall_transport import RecallModels
++            recall_models = RecallModels(models.c) if type(models) is Models else models
++            model_scheduler = ScheduledModels(recall_models)
++            session_guard = None if unlock_guard else LoginSessionGuard()
++            guard = unlock_guard or session_guard.unlocked
+@@ -729 +749,11 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
+-            worker.watcher = ScreenWatcher(desktop, model_scheduler, store, policy, grabber)
++            worker.watcher = ScreenWatcher(desktop, model_scheduler, store, policy, grabber,
++                                           session_guard=session_guard)
++            worker.session_lock_guard = session_guard  # trusted session/compositor hook
++            if session_guard is not None:
++                if session_lock_producer is not None:
++                    session_guard.session_lock_event(session_guard.session, None)
++                    producers.append(asyncio.create_task(
++                        session_guard.follow_trusted_producer(session_lock_producer),
++                        name="session_lock_producer"))
++                await session_guard.reconcile()  # already locked startup stays closed
++                producers.append(asyncio.create_task(session_guard.run(), name="session_lock"))
+@@ -745 +774,0 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
+-                shared_events.subscribe(capture_source.on_event)
+@@ -781,0 +811,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
++            async def compositor_event(name, data):
++                # Stamp visual admission at intake, not after a subscriber mailbox
++                # delay that could carry locked events into an unlocked generation.
++                if capture_source is not None:
++                    await capture_source.on_event(name, data)
++                await shared_events.on_event(name, data)
++
+@@ -783 +819 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
+-                              asyncio.create_task(shared_events.follow(desktop), name="hyprland")])
++                              asyncio.create_task(desktop.events(compositor_event), name="hyprland")])

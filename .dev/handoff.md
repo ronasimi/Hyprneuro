@@ -1,3 +1,31 @@
+# Current persistent owner source milestone (2026-11-13)
+
+Uncommitted single-writer changes on2be64a4. No commit/push/deploy by this worker.
+441 Python/1skip/92subtests;52 Node;17 source-matched normal+sanitized C helpers;
+rendered unit syntax verified. Native error/abort now fails closed and terminal
+events drain on rejection. Empty native publication is deterministically pending,
+not a sealed child; exact grant/content/path assertions retained. Original231
+precise cause UNKNOWN; initial private fixture gone; review transcript + new
+failure journals retained. Source-only review of new changes required.
+
+Release helpers stage persistent private descriptor/inert template, pin descriptor
+and effective unit/no drop-ins, allow replacement ONLY of hash-verified backed-up
+current app overrides, never start/enable owner. Synthetic full cutover starts
+only two app units. No new immutable bundle, installation, permissions or GUI.
+
+Fresh normal-trio metadata/health IDs good, MoE inactive; no model operations.
+Installed/running UI remains1a6fb74/f6de29a2…76b5a5, launch opt-in0/no owner;
+old installed pi-status query returned EOF, not runtime GUI proof. Preserve it.
+Parent: checkpoint/review, reconcile remote87a2f68 catalog and separately reviewed
+P06/P12 siblings before push; freeze/review exact immutable release next. Any live
+GUI requires fresh user unlock + maintained independent guard; real activation
+and exact-read consents are user-only. No video/capture/provider/child expansion.
+
+Exact evidence: docs/evidence/persistent-release-corrections.json and
+/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/.
+
+--- Historical handoff retained below ---
+
 # Safe integration handoff — 2026-11-12
 
 - Work only `/home/ron/Workspace/hyprneuro-safe-integration` /

@@ -30,6 +30,24 @@ def atomic_copy(src,dst,mode):
     finally:os.close(fd)
 
 
+def release_targets(bundle, manifest, unit_home):
+    """Replace only hash-pinned current app overrides; add an inert template."""
+    baseline={entry['path']:entry['sha256'] for entry in manifest['units']}
+    targets=[]
+    for unit,file in [('hyprneuro.service','sidecar.conf'),('hyprneuro-ui.service','ui.conf')]:
+        dest=unit_home/(unit+'.d')/'95-reviewed-readonly-release.conf'
+        if dest.exists() or dest.is_symlink():
+            if str(dest) not in baseline or digest(private_file(dest))!=baseline[str(dest)]:
+                raise RuntimeError('Unreviewed release override; no overwrite/adoption')
+        targets.append((bundle/'staged'/file,dest))
+    if manifest.get('persistent_owner'):
+        dest=unit_home/'hyprneuro-pi-owner@.service'
+        if dest.exists() or dest.is_symlink():
+            raise RuntimeError('Existing owner template; separate review required')
+        targets.append((bundle/'staged'/dest.name,dest))
+    return targets
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('bundle',type=Path);p.add_argument('--session',required=True)
@@ -41,11 +59,7 @@ def main():
     os.umask(0o077)
     desktop_safe(a.session);verify(a.bundle)
     m=json.loads((a.bundle/'manifest.json').read_text())
-    targets=[]
-    for unit,file in [('hyprneuro.service','sidecar.conf'),('hyprneuro-ui.service','ui.conf')]:
-        dest=Path.home()/'.config/systemd/user'/(unit+'.d')/'95-reviewed-readonly-release.conf'
-        if dest.exists() or dest.is_symlink():raise RuntimeError('Existing release override; no overwrite/adoption')
-        targets.append((a.bundle/'staged'/file,dest))
+    targets=release_targets(a.bundle,m,Path.home()/'.config/systemd/user')
     # Once-only: partial operation is manual recovery, never automatic replay.
     with (a.bundle/'apply.started').open('x') as f:f.write(str(time.time())+'\n')
     def ctl(*args):

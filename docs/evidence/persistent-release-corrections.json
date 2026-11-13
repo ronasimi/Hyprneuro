@@ -1,0 +1,139 @@
+{
+  "base": "2be64a4d9194c85b754ca2f9ddb22f5e5f6f8200",
+  "scope": "uncommitted source-only correction and deployment-helper candidates; NOT release/activation approval",
+  "deployed": false,
+  "immutable_release_prepared": false,
+  "owner_installed_started_enabled": false,
+  "new_tool_grants": false,
+  "old_p1_review": "01M7BF8Q9JFQ6G8Y38H62AJTFG: source-approved2be64a4; no remaining original P1s",
+  "regressions": {
+    "native_error": "Actual installed SDK + loopback HTTP disconnect: prompt resolves with native error; before fix f.chat reports2 unconsumed responses; after fix rejected/chat-unknown/guard retained/no retry/no second activation",
+    "terminal_event": "Real authenticated stdio bridge now drains queued native error event before error reply; source regression caught missing event before fix",
+    "publication_race": "Observed false seal on empty calls at filename case3 line250 after9 passing four-case runs; deterministic pending-publication injection and exact1call checks prevent early close",
+    "original231": "UNKNOWN precise original cause: reviewer retained fixture no longer exists; review transcript retained; same signature deterministically reproduced by HTTP error is not proof of original transport cause",
+    "parallel_mcp250": "Parent reports unchanged case3 grantCount0 at250; consistent with observed publication race; raw MCP log not supplied yet"
+  },
+  "validation": {
+    "python": 441,
+    "skipped": 1,
+    "subtests": 92,
+    "warnings_as_errors": true,
+    "node": 52,
+    "c_helpers": 17,
+    "c_sanitized_helpers": 17,
+    "c_rebuilt": false,
+    "unit_syntax_verify_exit": 0,
+    "live_inference": false,
+    "GUI": false,
+    "commands": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/check.sh"
+  },
+  "repetition_diagnostic_not_release_acceptance": {
+    "four_filename_cases_runs_before_fix": {
+      "pass": 9,
+      "fail": 1,
+      "failure": "case3 premature empty-call seal"
+    },
+    "focused_index0_pre_runtimefix": {
+      "pass": 25,
+      "fail": 0
+    },
+    "readonly_six_full_pre_runtimefix": {
+      "pass": 6,
+      "fail": 0,
+      "tool_timeout_note": "outer inspection hit120s during6; command completed independently before next work; six15-test logs complete"
+    }
+  },
+  "source_sha256": {
+    "extensions/pi-owner/owner.mjs": "90533c0bd163608c999489c6509153fd5d19a47095b35a78bb84deb84cf0b910",
+    "python/src/hyprneuro/pi_desktop_bridge.py": "9d43cecfd0b3d4d1bc62513d42634eeae344c54debd5216fef0dbb7f406773d3",
+    "python/tests/test_app_release_ops.py": "1501e048993ca2f16fa462f82698959e246ac5acef97ccd934c384ce0a456c6d",
+    "python/tests/test_pi_desktop_bridge.py": "fb2fb44531e67e61a77a59b13163cce5290967dd7e6d0b41ca51ad89c331d094",
+    "scripts/prepare_app_release.py": "7660955d2f138f52aea1b6675734ee75b2c74583ad98e097086099fa860a0a02",
+    "scripts/apply_app_release.py": "558f57553d62cbeadce77c44b9c0aae076b13fb8baf72129013d7fad4526e47f",
+    "scripts/verify_app_release.py": "dfac69f4cb15162ddfb12fb2e2e68cfbef96c1898eeb5133c4de56798aba9dbc",
+    "tests/pi-owner-readonly.mjs": "ba7567628201f8db1ddc350f57a0c24dedf50cd4ed88a9dc20298c4e1c4add9a"
+  },
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/check.sh",
+      "sha256": "28f5c4e209915f9fe1929d3ea3d49faf8be094382733b253a56031061bb1d292"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/python.log",
+      "sha256": "7ac3eedcee91e3ae578428a547e80dfbfdb273591dd0c82bb582d74172f8ad8f"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/node.log",
+      "sha256": "d1a6c56654977cbfa95d0b9ea5366fe4df424f33df523bb2df167bd5966d6c62"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/c.log",
+      "sha256": "8a1a2f8bfeecbe1f2d299d92271a1b340882ef0f48dba486688615f1d451dc27"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/c-sanitized.log",
+      "sha256": "075928152ec3685db37483c2236f2e40d4de98df16c1c36a6a79795f9c563931"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/c-detail.log",
+      "sha256": "13779200dedbc90f306998cb69183621eba2338275da68e31dbbe6a4812628df"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/c-sanitized-detail.log",
+      "sha256": "5ce4b64a2ee7a94894efd7b0a98429e98edf67789fdacfe4c78ecd4a53afbabd"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/native-error-before.json",
+      "sha256": "1161cc727ec5a17af0bcc9f004194e85dd777fdb172c81d63198205a878bcfe6"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/native-error-after.log",
+      "sha256": "ee77c3c30754551a549ff5f0d8b2bbdb9244c9c0b86f651365a721065468750a"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/python-initial-error-contract.log",
+      "sha256": "c9ba402b45aa3828cdc8c14868b62ec43b31adcf2e9408ff2844627856a8e8bd"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/python-before-error-drain.log",
+      "sha256": "5f10fd66ba4138e76c2cc47bfb2e58ccb1b3427b7667ce326f45b5ec8754ce22"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/python-initial-cutover-fixture.log",
+      "sha256": "10d9e5a4dc7ec4957a179dac0aadd183c7a81859297a387a5e6d3d0c18129dd0"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/python-cutover-missing-fixture-dir.log",
+      "sha256": "802f045f8e879e96ca116538201cc3fea1e5971b92c2510d3da4133e2f8a3543"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/runtime-metadata.log",
+      "sha256": "8f8782be4680d100456372c3e1290f192b89d01cfaf0020fdc348b18fde0cd12"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/installed-read-only-metadata.json",
+      "sha256": "185438c924a2aecc42e0018d27473666fcbe8788a138fa67e287c77df9024b9b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/retained-review-initial-node-failure.txt",
+      "sha256": "90a26c158f272ffcc04e97659083644ee7a6afc5edbeeb3c68b0c67e5e6ee2e2"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/unit-prepare.log",
+      "sha256": "7f3244377f27fdb94226adf292a5b2478ac6a3ed4605368bb6eabe2e91426106"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/unit-verify.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/hyprneuro-pi-owner@.service",
+      "sha256": "eb404f870098b35aee281b6fd0f0fe08c21d32ac06a78d1fc33b713ce4c1632b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/repro-10.log",
+      "sha256": "1b6d36768d786278ad09f57da010b6a2f4f6399f30144f79ac7c9fa402c6ff6e"
+    }
+  ],
+  "next": "Parent review/commit source changes, account for remote87a2f68 catalog and sibling source-only milestones, independent critical review; only then freeze exact descendant release and review private descriptor/template/app-only cutover. No user activation/read consent may be automated."
+}

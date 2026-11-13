@@ -1,20 +1,19 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794529224605,
+  "updated_at_ms": 1794613339734,
   "status": "NOT READY",
   "git": {
-    "revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
-    "branch": "feat/verified-ui-backend-integration",
+    "revision": "2be64a4d9194c85b754ca2f9ddb22f5e5f6f8200",
+    "branch": "feat/pi-owner-gtk",
     "dirty": true,
-    "base": "0c197b4faa738f00160876ac63ddcc3bb6e0435b",
-    "note": "Style/backend committed as requested; combined regression and current docs/.dev handoff uncommitted for parent review. No push/deploy."
+    "note": "Uncommitted single-writer source milestone; parent publishes. Parent reports remote87a2f68 catalog-only descendant; not integrated here."
   },
-  "deployed_revision": "2ac35fa bounded WAV/search baseline; installed/running hash rechecked; not integration",
+  "deployed_revision": "1a6fb74: new installed UI/sidecar, user-selected legacy; persistent owner NOT installed",
   "deployed_source_sha256": "2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121",
-  "deployed_binary_sha256": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
-  "phase": "Isolated source/headless style committed; backend cherry-picked; combined tests passed; NOT DEPLOYED",
-  "current_task": "Parent reviews/commits combined regression/checkpoint, then safely publishes tested descendant to existing feature branch without touching original dirty tree",
-  "active_hypothesis": "Reviewed style-only extraction and backend integration are separable from quarantined video lifecycle; headless evidence does not establish GUI acceptance.",
+  "deployed_binary_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+  "phase": "Persistent source correction and inert release staging; no deployment",
+  "current_task": "Parent checkpoint/critical review; reconcile87a2f68 catalog and separately approved siblings; freeze exact immutable app-only release, review descriptor/template install WITHOUT start/enable; user-only GUI activation/read consent",
+  "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
     "Screenshot portal Request.Close cleanup failure",
@@ -32,13 +31,10 @@
     "Video remains absent from isolated integration; original candidate lifecycle/play gate/locator are blocked"
   ],
   "blockers": [
-    "Production NOT READY; no capture grants",
-    "Quarantined video GstPlay teardown ASan SEGV unresolved; GtkVideo substitution not proof",
-    "Video paused seek bypasses timestamp-only play-first gate; require actual playback progression regression",
-    "Video generic accessibility subtree/chooser locator failures; no complete final GUI workflow",
-    "New style rendered/installed focus/removal/16px verification pending independent unlock and UI-worker coordination",
-    "Models inactive; live inference blocked, no start/restart authority",
-    "GTK warnings; portal cleanup/privacy architecture; physical hotkey; memory UI; full mixed/soak"
+    "New source + release-helper critical review and parent checkpoint before immutable freeze",
+    "Original line231 exact cause UNKNOWN, initial private fixture unavailable",
+    "Persistent installed Connect/activation/exact-read/idle/reconnect/revoke/restart/legacy+media pending",
+    "P01\u201314 remaining production acceptance; video stays blocked; no new capture/provider/child/exec grants"
   ],
   "last_known_good": null,
   "historical_state_superseded": {
@@ -140,7 +136,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Parent review/commit remaining test/checkpoint; remote-tip/ancestry check then non-force publish existing feature ref from isolated tree. Do not move local feature ref checked out in dirty original. No isolated-branch push/deploy.",
+  "next_action": "Parent checkpoint/critical review; reconcile87a2f68 catalog and separately approved siblings; freeze exact immutable app-only release, review descriptor/template install WITHOUT start/enable; user-only GUI activation/read consent",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -215,7 +211,7 @@
     "matching16x16transparentSettings/arrow",
     "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
   ],
-  "verified_this_checkpoint": "323 Python passed/1 skipped/68 subtests; focused19/11subtests;9C release+ASan/UBSan incl helper leaks; actual headless CSS parse; prompt unchanged;20 original dirty path/hashes unchanged",
+  "verified_this_checkpoint": "441 Python/1 skip/92 subtests;52 Node;17 existing normal+sanitized C helpers; rendered unit syntax pass",
   "verified_this_audit": [
     "Shared focus through actual disposable Unix chat IPC injects current skill exactly once, preserves complete DEFAULT_SYSTEM, exact native WAV; MP4 and malformed WAV rejected before mocked inference",
     "Approved skill snapshot with ingest/capture off and no execution grants; existing live-focus ingest consent gate preserved",
@@ -243,15 +239,16 @@
     "verification": "Original path/SHA256 manifests identical; no edits or cherry-pick there"
   },
   "models": {
-    "text": "inactive/dead",
-    "omni": "inactive/dead",
-    "decision": "inactive/dead",
-    "MainPID": 0,
-    "Result": "success",
-    "exit_timestamp": "2026-11-12 18:11:45 EST",
-    "checked_at": "2026-11-12 19:18 EST",
-    "policy": "Do not start/restart; no live inference while inactive"
+    "text": "active PID2689094",
+    "omni": "active PID2689096",
+    "decision": "active PID2689099",
+    "moe": "inactive MainPID0",
+    "checked_at": "2026-11-13T18:42:19.734963-05:00",
+    "health_ids": "8081lfm-text/8082lfm-omni/8083lfm-decision healthy",
+    "policy": "Metadata/health only; no inference or service operation"
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
-  "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip"
+  "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
+  "evidence_current": "docs/evidence/persistent-release-corrections.json",
+  "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint."
 }

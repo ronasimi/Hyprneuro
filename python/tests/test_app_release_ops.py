@@ -14,6 +14,8 @@ def load(name):
 ops=load('prepare_app_release')
 with patch.dict(sys.modules,{'prepare_app_release':ops}):
     verifier=load('verify_app_release')
+    with patch.dict(sys.modules,{'verify_app_release':verifier}):
+        apply=load('apply_app_release')
 
 
 class ReleaseOpsTests(unittest.TestCase):
@@ -73,3 +75,89 @@ class ReleaseOpsTests(unittest.TestCase):
                     finally:thread.join(3)
                     self.assertFalse(thread.is_alive());self.assertIn(received[0],[b'pi-status\n',b''])
                 path.unlink()
+
+
+    def test_persistent_preparation_creates_private_descriptor_and_inert_template_only(self):
+        import tempfile
+        from hyprneuro.pi_owner_service import load_config
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);staged=base/'staged';staged.mkdir()
+            task=ops.prepare_parent_owner(ROOT,base/'owner',Path(sys.executable),staged)
+            config=load_config(base/'owner')
+            self.assertEqual(config['task_id'],task)
+            self.assertEqual(config['source'],str(ROOT))
+            self.assertEqual(config['read_paths'],['fixture.txt'])
+            self.assertEqual(list((base/'owner/home/workspace').iterdir()),[])
+            self.assertFalse((base/'owner/owner.guard').exists())
+            unit=(staged/'hyprneuro-pi-owner@.service').read_text()
+            self.assertNotIn('[Install]',unit)
+            self.assertIn('Restart=no',unit)
+            self.assertEqual({p.name for p in staged.iterdir()},{'hyprneuro-pi-owner@.service'})
+
+    def test_cutover_targets_preserve_only_verified_existing_app_override_and_inert_unit(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);home=base/'units';home.mkdir()
+            override=home/'hyprneuro-ui.service.d/95-reviewed-readonly-release.conf'
+            override.parent.mkdir();override.write_text('current installed release')
+            manifest={'persistent_owner':True,'units':[{'path':str(override),'sha256':ops.digest(override)}]}
+            targets=apply.release_targets(base,manifest,home)
+            self.assertEqual([dst for _,dst in targets],[home/'hyprneuro.service.d/95-reviewed-readonly-release.conf',override,home/'hyprneuro-pi-owner@.service'])
+            self.assertEqual(override.read_text(),'current installed release')
+            self.assertFalse(targets[-1][1].exists(),'Selection never installs or starts')
+            override.write_text('unreviewed edit')
+            with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
+            override.unlink();override.symlink_to(base/'missing')
+            with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
+            override.unlink()
+            owner=home/'hyprneuro-pi-owner@.service';owner.write_text('ambient unit')
+            with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
+            owner.unlink();owner.symlink_to(base/'missing')
+            with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
+
+
+    def test_app_cutover_installs_template_but_never_starts_or_enables_owner(self):
+        import json
+        import sqlite3
+        import tempfile
+        from contextlib import closing
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);staged=base/'staged';staged.mkdir();(base/'backup').mkdir()
+            (base/'.config/systemd/user').mkdir(parents=True)
+            for file in ['sidecar.conf','ui.conf','hyprneuro-pi-owner@.service']:
+                (staged/file).write_text('reviewed '+file)
+            binary=base/'candidate';binary.write_bytes(b'verified binary')
+            db=base/'fixture.sqlite3'
+            with closing(sqlite3.connect(db)) as conn:conn.execute('CREATE TABLE fixture (id)');conn.commit()
+            manifest={'persistent_owner':True,'units':[],'database':{'path':str(db)},'binary':str(binary),
+                      'installed_ui':str(base/'installed-ui'),'installed_mode':0o700}
+            (base/'manifest.json').write_text(json.dumps(manifest));(base/'sidecar-origin.json').write_text('{}')
+            argv=['apply',str(base),'--session','synthetic','--parent-authorized','--fresh-user-unlock-confirmed']
+            with patch.object(sys,'argv',argv),patch.object(Path,'home',return_value=base),patch.object(apply,'desktop_safe'),patch.object(apply,'verify'),patch.object(apply.subprocess,'run') as run:
+                apply.main()
+            self.assertEqual([call.args[0] for call in run.call_args_list],[
+                ['systemctl','--user','stop','hyprneuro-ui.service','hyprneuro.service'],
+                ['systemctl','--user','daemon-reload'],
+                ['systemctl','--user','start','hyprneuro.service'],
+                ['systemctl','--user','start','hyprneuro-ui.service']])
+            self.assertTrue((base/'.config/systemd/user/hyprneuro-pi-owner@.service').is_file())
+            self.assertEqual(db.stat().st_size,(base/'backup/pre-apply.sqlite3').stat().st_size)
+            self.assertTrue((base/'apply.completed').is_file())
+
+
+    def test_installed_owner_unit_requires_exact_fragment_no_effective_dropins(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            unit=Path(directory)/'hyprneuro-pi-owner@.service';unit.write_text('reviewed template')
+            sha=ops.digest(unit);instance='hyprneuro-pi-owner@synthetic.service'
+            with patch.object(verifier,'run',return_value=f'FragmentPath={unit}\nDropInPaths=') as run:
+                verifier.check_owner_unit(unit,sha,instance)
+                self.assertEqual(run.call_args.args,('systemctl','--user','show',instance,'-p','FragmentPath','-p','DropInPaths'))
+            for effective in [f'FragmentPath={unit}\nDropInPaths=/unexpected.conf',
+                              'FragmentPath=/ambient.service\nDropInPaths=']:
+                with patch.object(verifier,'run',return_value=effective):
+                    with self.assertRaises(RuntimeError):verifier.check_owner_unit(unit,sha,instance)
+            unit.write_text('unreviewed edit')
+            with patch.object(verifier,'run') as run:
+                with self.assertRaises(RuntimeError):verifier.check_owner_unit(unit,sha,instance)
+                run.assert_not_called()

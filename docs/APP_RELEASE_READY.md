@@ -4,6 +4,19 @@
 selected final legacy mode, owner closed/scope revoked, no current tools. No stale
 restore. Details below; staging checklist retained as historical. **Do not reapply.**
 
+## Next persistent release is not frozen yet
+
+New source-only release-helper candidates prepare a private persistent
+normal-only/read-only/parent-only descriptor and inert unit, omit the old bounded
+start script, pin its descriptor/effective unit and refuse unreviewed overrides.
+Cutover tests prove no owner start/enable. They support replacement of the exact
+backed-up current app overrides without stale UI/data restoration. They have
+**not been applied**, and no new immutable bundle exists. Parent must checkpoint
+and independently review the native-error/event-drain corrections and these
+operation candidates before freezing/reviewing the exact next release. See
+[PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md). The historical installed
+bundle/instructions below are not authorization to replay apply or start owner.
+
 Runtime source: **`1a6fb74f4953092f03beeeb55d21c9d173e37ef8`**, descendant of
 actual parent merge `5c6446f`. Not the earlier disposable combined test tree.
 

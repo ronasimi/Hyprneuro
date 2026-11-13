@@ -90,3 +90,19 @@ git -c advice.detachedHead=false checkout $(cat .dev/last_known_good.txt)
 # The assistant layer is opt-in (--assistant-enabled); with it off the
 # sidecar behaves exactly as the baseline. No inference-stack changes were made.
 ```
+
+
+## Persistent owner source correction / inert release staging (2026-11-13)
+
+- Native SDK terminal error was falsely returned as settled; deterministic actual
+  SDK/HTTP regression now fails closed, retains unknown checkpoint/guard and no
+  replay. Authenticated bridge preserves/drains error terminal events.
+- Filename-case3 completion race: empty published call list incorrectly passed
+  `every()`. Require exactly one sealed call + one successful receipt; inject
+  empty publication deterministically; retain grants/content/path assertions.
+- Original review line231 precise cause UNKNOWN; missing original private fixture
+  prevents a root-cause claim. Retained review + new failed journals preserved.
+- Persistent descriptor/unit and app-only override replacement candidates tested;
+  no install/start/enable, grants, GUI or model operation. Frozen release pending
+  parent checkpoint/review.441 Python/1 skip/92 subtests,52 Node,17 normal and
+  sanitized C helpers; exact evidence in persistent-release-corrections.json.

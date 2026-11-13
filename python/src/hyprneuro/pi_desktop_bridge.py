@@ -105,9 +105,12 @@ class DesktopBridge:
                 done, _ = await asyncio.wait([call, pump], return_when=asyncio.FIRST_COMPLETED)
                 if pump in done:
                     await pump
-                result = await call
-                await client.events.join()
-                return result
+                try:
+                    return await call
+                finally:
+                    # Native errors still carry authoritative terminal events.
+                    # Drain them before the error reply/cleanup drops the pump.
+                    await client.events.join()
         finally:
             # Revoke transport admission before any asynchronous cleanup wait.
             if client:

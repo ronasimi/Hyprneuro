@@ -55,6 +55,19 @@ def unit_identity(name):
             time.sleep(.02)
 
 
+def prepare_parent_owner(source, owner, python, staged):
+    """Stage the reviewed persistent descriptor/unit only; no start or grant."""
+    env = {**os.environ, 'PYTHONPATH': str(source/'python/src'), 'PYTHONDONTWRITEBYTECODE': '1'}
+    subprocess.run([str(python), '-m', 'hyprneuro.pi_owner_service', str(owner), '--prepare',
+        '--source', str(source), '--node', '/usr/bin/node',
+        '--sdk', '/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js',
+        '--durable', '/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents',
+        '--pi', '/home/ron/.pi/agent/bin/pi', '--read-path', 'fixture.txt',
+        '--python', str(python), '--unit-output', str(staged/'hyprneuro-pi-owner@.service')],
+        env=env, check=True)
+    return json.loads(private_file(owner/'owner.json').read_text())['task_id']
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--commit', required=True)
@@ -129,19 +142,24 @@ print(json.dumps({'executable':sys.executable,'modules':files}))"""
     origins=json.loads(run(str(python),'-c',probe,str(source/'python/src'),env=env_probe))
     bin_dir=dest/'bin';bin_dir.mkdir(mode=0o700)
     shutil.copyfile(build/'hyprneuro-ui',bin_dir/'hyprneuro-ui');(bin_dir/'hyprneuro-ui').chmod(0o500)
-    # New fixture only. No scope, owner, model, credentials or consent is created.
-    owner=dest/'owner'; workspace=owner/'home/workspace';workspace.mkdir(parents=True,mode=0o700)
+    # New synthetic fixture only. Descriptor preparation grants no permission.
+    explicit_ui=(source/'python/src/hyprneuro/pi_managed_bridge.py').is_file()
+    owner=dest/'owner'; workspace=owner/'home/workspace'
+    if explicit_ui:
+        task=prepare_parent_owner(source,owner,python,staged)
+    else:
+        workspace.mkdir(parents=True,mode=0o700)
+        task='hn-ro-'+secrets.token_hex(12)
     (workspace/'fixture.txt').write_text('MAPLE_READ_ONLY_FIXTURE\n')
     if len(str(workspace))>128:
         raise RuntimeError('Workspace exceeds broker file-prefix bound')
-    task='hn-ro-'+secrets.token_hex(12)
     # Read-only collision check, never authorization or consent.
     broker_path=Path(runtime)/'hyprharness/sidecar.sock'
     if broker_path.stat().st_uid!=os.getuid():
         raise RuntimeError('Wrong broker UID')
     with socket.socket(socket.AF_UNIX) as client:
         client.settimeout(5);client.connect(str(broker_path))
-        client.sendall((json.dumps(dict(action='auth_check',task_id=task,op='read',app_id='hn-ro-parent-fixture',path=str(workspace/'fixture.txt')))+'\n').encode())
+        client.sendall((json.dumps(dict(action='auth_check',task_id=task,op='read',app_id='hyprneuro-parent-read' if explicit_ui else 'hn-ro-parent-fixture',path=str(workspace/'fixture.txt')))+'\n').encode())
         packet=bytearray()
         while b'\n' not in packet:
             chunk=client.recv(4096)
@@ -167,7 +185,6 @@ main()
     (staged/'sidecar-entry.py').write_text(entry);(staged/'sidecar-entry.py').chmod(0o500)
     (staged/'sidecar.conf').write_text('[Service]\nWorkingDirectory='+str(source/'python')+'\n'+common+
         'ExecStart=\nExecStart='+str(python)+' '+str(staged/'sidecar-entry.py')+' serve --allow-ingest --watch-hyprland --assistant-enabled --no-allow-capture --no-allow-on-demand --no-allow-browser --no-d1-visual --no-retention-enabled\n')
-    explicit_ui=(source/'python/src/hyprneuro/pi_managed_bridge.py').is_file()
     ui_mode=(f'Environment="HYPRNEURO_PI_UI=0" "HYPRNEURO_PI_BRIDGE_PYTHON={python}"\nUnsetEnvironment=HYPRNEURO_PI_OWNER_DIR\n' if explicit_ui else
         f'Environment="HYPRNEURO_PI_UI=1" "HYPRNEURO_PI_OWNER_DIR={owner}" "HYPRNEURO_PI_BRIDGE_PYTHON={python}"\n')
     (staged/'ui.conf').write_text('[Service]\n'+common+ui_mode)
@@ -185,7 +202,8 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
  HYPRNEURO_DURABLE_PACKAGE=/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents \\
  HYPRNEURO_PI_BIN=/home/ron/.pi/agent/bin/pi /usr/bin/node '{source}/extensions/pi-owner/host.mjs'
 '''
-    (staged/'start-owner.sh').write_text(launch);(staged/'start-owner.sh').chmod(0o500)
+    if not explicit_ui:
+        (staged/'start-owner.sh').write_text(launch);(staged/'start-owner.sh').chmod(0o500)
     for identity in (ui,sidecar,*models):
         assert unit_identity(identity['unit'])==identity, 'Running identity changed during preparation'
     if run('systemctl','--user','show','lfm@moe.service','-p','MainPID','--value')!='0' or run('systemctl','--user','show','lfm@moe.service','-p','ActiveState','--value')!='inactive':
@@ -198,12 +216,14 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
             raise RuntimeError('Unexpected release symlink')
         p.chmod(0o500 if p.is_dir() or p.stat().st_mode&0o111 else 0o400)
     source.chmod(0o500)
-    manifest=dict(explicit_ui=explicit_ui,commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,
+    manifest=dict(explicit_ui=explicit_ui,persistent_owner=explicit_ui,commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,
         python=str(python),import_origins=origins,installed_ui=str(installed),installed_mode=stat.S_IMODE(installed.stat().st_mode),
         installed_sha256=digest(installed),binary=str(bin_dir/'hyprneuro-ui'),binary_sha256=digest(bin_dir/'hyprneuro-ui'),
         database=dict(path=str(db),backup=str(backup/'observations.sqlite3'),backup_sha256=digest(backup/'observations.sqlite3'),quick_check='ok'),
         editable_metadata=dict(path='/home/ron/Projects/Hyprneuro/python/.venv/lib/python3.13/site-packages/__editable__.hyprneuro-0.1.0.pth',sha256=digest('/home/ron/Projects/Hyprneuro/python/.venv/lib/python3.13/site-packages/__editable__.hyprneuro-0.1.0.pth')),
         settings=settings_receipt,task=task,owner=str(owner),workspace=str(workspace),runtime=runtime,
+        owner_descriptor_sha256=digest(owner/'owner.json') if explicit_ui else None,
+        owner_unit='hyprneuro-pi-owner@'+run('systemd-escape','--path',str(owner))+'.service' if explicit_ui else None,
         staged_files={p.name:digest(p) for p in staged.iterdir() if p.is_file()},
         source_files={str(p.relative_to(source)):digest(p) for p in source.rglob('*') if p.is_file()},
         gate='NOT applied/started; require final review + parent start relay + fresh user unlock and independent maintained GUI checks; actual human tool consents only; child-read0/parent-only1')

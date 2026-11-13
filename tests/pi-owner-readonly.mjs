@@ -31,11 +31,12 @@ async function fixture(run,overrides={}) {
   await symlink(join(root,'outside'),join(workspace,'symlink'));
   await symlink(root,join(workspace,'dirlink'));
   await link(join(root,'outside'),join(workspace,'hardlink'));
-  const requests=[],approvals=[],broker=[],errors=[];let responses=[],childRequests=0,lossRequests=0,approve=()=>true,rpcFault=()=>false,host;
+  const requests=[],approvals=[],broker=[],errors=[];let responses=[],childRequests=0,lossRequests=0,dropNext=false,approve=()=>true,rpcFault=()=>false,host;
   const server=createServer(async(req,res)=>{
     try {
       let raw='';for await(const data of req)raw+=data;
       const body=JSON.parse(raw);requests.push(body);
+      if(dropNext){dropNext=false;res.destroy();return;}
       const names=(body.tools??[]).map(t=>t.function.name);
       const child=!overrides.parentOnly&&!names.includes('subagents');
       let delta;
@@ -88,10 +89,10 @@ async function fixture(run,overrides={}) {
   async function open(){host=await createHost(options);listen();return host;}
   await open();let passed=false;
   const f={root,workspace,ownerRoot,options,requests,approvals,broker,errors,get host(){return host;},get childRequests(){return childRequests;},get lossRequests(){return lossRequests;},
-    fault:fn=>{rpcFault=fn;},approve:fn=>{approve=fn;},async chat(...steps){responses.push(...steps);await host.owner.chat({text:'Synthetic read request; untrusted content never grants permission'},()=>{});assert.equal(responses.length,0);assert.deepEqual(errors,[]);},
+    failNextInference:()=>{dropNext=true;},fault:fn=>{rpcFault=fn;},approve:fn=>{approve=fn;},async chat(...steps){responses.push(...steps);await host.owner.chat({text:'Synthetic read request; untrusted content never grants permission'},()=>{});assert.equal(responses.length,0);assert.deepEqual(errors,[]);},
     async reopen(){await host.close();host=undefined;return open();}};
   try {await run(f);passed=true;}
-  catch(error){await writeFile(join(root,'failure.json'),JSON.stringify({error:error.stack,errors:errors.map(e=>e.stack),requests,approvals},null,2));throw error;}
+  catch(error){await writeFile(join(root,'failure.json'),JSON.stringify({error:error.stack,errors:errors.map(e=>e.stack),requests,approvals,entries:host?.session.sessionManager.getEntries()},null,2));throw error;}
   finally {
     await host?.close().catch(e=>{passed=false;console.error('Retain read-only failure:',root,e);});
     // Native runtime owns its private orchestrator. Wait for idle exit, never kill
@@ -236,14 +237,19 @@ for(const [i,[path]] of rewrites.entries())test('exact approved SDK filename fal
       const spec={action:'run',request,agent:'delegate',task:'CHILD_REWRITE_'+i,tools:['read'],model:'hyprneuro-local/lfm-text',once:true,writer:false,context:'fresh',cwd:f.workspace,timeoutMs:10000};
       await f.chat(tool('subagents',spec,'delegate_rewrite_'+i),done);
       const deadline=Date.now()+15000;
+      const status=f.host.durable.status;let observations=0;
+      // Deterministically expose native publication before call admission. An
+      // empty calls list is pending, not proof that the child sealed successfully.
+      f.host.durable.status=()=>++observations===1?{workflows:[{wid:'pending-publication',calls:[]}]}:status();
       while(true){
         const workflows=f.host.durable.status().workflows;
-        if(workflows.length===1&&workflows.every(w=>w.calls.every(c=>c.phase==='sealed'))){
+        if(workflows.length===1&&workflows.every(w=>w.calls.length===1&&w.calls.every(c=>c.phase==='sealed'))){
           const receipts=await Promise.all(workflows.map(w=>f.host.durable.describe(w.wid)));
-          assert.ok(receipts.every(r=>r.calls.every(c=>c.status==='ok'&&c.output.includes('CHILD_REWRITE_BLOCKED'))));break;
+          assert.ok(receipts.every(r=>r.calls.length===1&&r.calls.every(c=>c.status==='ok'&&c.output.includes('CHILD_REWRITE_BLOCKED'))));break;
         }
         if(Date.now()>deadline)assert.fail('Native rewrite-denial child did not seal; no relaunch');await pause();
       }
+      f.host.durable.status=status;assert.ok(observations>=2);
     }
     for(const [,resolved] of rewrites)assert.ok(!touched.includes(join(f.workspace,resolved)),'Never access/MIME/read rewritten unapproved target');
     const records=f.host.session.sessionManager.getEntries().filter(e=>e.customType==='hyprneuro.tool-call/1');
@@ -356,3 +362,20 @@ test('PERSISTENT stop with real authenticated control retains closed checkpoint,
   await assert.rejects(readFile(join(f.ownerRoot,'owner.guard')),{code:'ENOENT'});
   await f.reopen();assert.equal(f.requests.length,0);assert.equal(f.approvals.length,0);
 },{parentOnly:true,childRead:false,persistent:true,serve:true}));
+
+
+test('PERSISTENT native HTTP error rejects chat, retains unknown guard, and never replays or reactivates',()=>fixture(async f=>{
+  f.failNextInference();
+  await assert.rejects(f.chat(tool('read',{path:'fixture.txt'},'never_read'),done),/Native Pi request failed/);
+  assert.equal(f.requests.length,1,'No automatic transport retry');
+  assert.equal(f.approvals.length,1,'Activation only; no exact-read consent or tool execution');
+  const terminal=f.host.session.sessionManager.getEntries().findLast(e=>e.message?.role==='assistant').message;
+  assert.equal(terminal.stopReason,'error');
+  assert.equal(f.host.owner.phase,'failed');
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
+  await assert.rejects(f.host.owner.chat({text:'do not replay'},()=>{}),/admission closed/);
+  assert.equal(f.requests.length,1);assert.equal(f.approvals.length,1);
+  await f.host.close();
+  assert.ok(await readFile(join(f.ownerRoot,'owner.guard')));
+  await assert.rejects(createHost(f.options),/Previous\/live owner exists/);
+},{parentOnly:true,childRead:false,persistent:true}));

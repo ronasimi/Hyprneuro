@@ -8,7 +8,28 @@ installed but live compositor-hook/capture acceptance remains blocked. Earlier
 5446e9c/e403da3/8bc7312 receipts below remain historical, not current totals.
 Completion order remains in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
-## Persistent owner correction — first review BLOCK retained, targeted review pending
+## Current source correction and release-preparation gate
+
+The targeted2be64a4 review **01M7BF8Q9JFQ6G8Y38H62AJTFG approved source only**;
+both original P1s are closed. Subsequent native-error/terminal-event corrections
+and persistent-release helper candidates are **uncommitted, not deployed and
+awaiting critical review**. They reject resolved-but-failed native Pi turns and
+prevent empty native call lists from falsely satisfying child completion.
+The original line231 cause remains UNKNOWN; HTTP failure deterministically
+reproduces its two-unconsumed-response signature but does not prove that cause.
+Parent's parallel MCP case3/line250 report matches the separately reproduced
+empty-publication race; assertions are retained, not suppressed.
+
+Final checks: **441 Python/1 skip/92 subtests;52 Node;17 normal +17 sanitized C
+helpers**; candidate unit syntax verified. No C edit/rebuild, GUI, inference,
+service/model operation, permission, immutable release or deployment. Normal
+trio health/API IDs freshly rechecked; MoE inactive; installed/running UI hash
+still f6de29a2…76b5a5/launch opt-in0. Full findings, retained failures, exact
+commands and next gates: [PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md#current-source-checkpoint--native-error-correction-and-inert-release-staging)
+and [evidence/persistent-release-corrections.json](evidence/persistent-release-corrections.json).
+**Source checkpoint/review must precede freezing the next release. NOT READY.**
+
+## Historical persistent owner correction — BLOCK retained, targeted review approved above
 
 Independent pinned5884ee3 review `01M7BE1PP522BHDDG9ZB04787F/persistent-review`
 found **two P1s** (ineffective whole-chat timeout; ACK-dependent lock cleanup).

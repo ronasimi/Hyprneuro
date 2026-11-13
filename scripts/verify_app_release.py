@@ -6,7 +6,7 @@ import os
 import socket
 import struct
 from pathlib import Path
-from prepare_app_release import digest, private_file, unit_identity
+from prepare_app_release import digest, private_file, unit_identity, run
 
 
 def check_ui_mode(env, manifest, legacy):
@@ -39,6 +39,12 @@ def ui_status(path, pid):
         return value
 
 
+def check_owner_unit(unit, sha, instance):
+    if digest(private_file(unit))!=sha:raise RuntimeError('Installed owner template mismatch')
+    effective=dict(line.split('=',1) for line in run('systemctl','--user','show',instance,'-p','FragmentPath','-p','DropInPaths').splitlines())
+    if effective!={'FragmentPath':str(unit),'DropInPaths':''}:raise RuntimeError('Unreviewed effective owner unit/drop-ins')
+
+
 def verify(bundle, installed=False, legacy=False):
     if legacy and not installed:raise ValueError('--legacy requires installed phase')
     m=json.loads(private_file(bundle/'manifest.json').read_text())
@@ -49,6 +55,8 @@ def verify(bundle, installed=False, legacy=False):
     if actual!=set(m['source_files']):raise RuntimeError('Unexpected/missing source files')
     for rel,sha in m['source_files'].items():
         if digest(private_file(source/rel))!=sha:raise RuntimeError('Release source changed: '+rel)
+    if m.get('persistent_owner') and digest(private_file(Path(m['owner'])/'owner.json'))!=m['owner_descriptor_sha256']:
+        raise RuntimeError('Persistent owner descriptor changed; no adoption')
     if digest(private_file(m['binary']))!=m['binary_sha256']:raise RuntimeError('Candidate binary changed')
     if digest(private_file(bundle/'backup/hyprneuro-ui'))!=m['installed_sha256']:raise RuntimeError('UI rollback changed')
     if digest(private_file(m['database']['backup']))!=m['database']['backup_sha256']:raise RuntimeError('DB rollback changed')
@@ -56,7 +64,6 @@ def verify(bundle, installed=False, legacy=False):
         if digest(private_file(bundle/'staged'/name))!=sha:raise RuntimeError('Staged operations changed')
     for identity in m['models']:
         if unit_identity(identity['unit'])!=identity:raise RuntimeError('Model identity changed')
-    from prepare_app_release import run
     for unit in ['hyprneuro.service','hyprneuro-ui.service','lfm@text.service','lfm@omni.service','lfm@decision.service','lfm@moe.service']:
         if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value')!='no':raise RuntimeError('Pending unit configuration change: '+unit)
     if run('systemctl','--user','show','lfm@moe.service','-p','MainPID','--value')!='0' or run('systemctl','--user','show','lfm@moe.service','-p','ActiveState','--value')!='inactive':raise RuntimeError('MoE active/unknown')
@@ -68,6 +75,9 @@ def verify(bundle, installed=False, legacy=False):
             if digest(private_file(unit['path']))!=unit['sha256']:raise RuntimeError('Unit configuration changed')
         if m['settings'] and digest(private_file(m['settings']['path']))!=m['settings']['sha256']:raise RuntimeError('Settings changed; reprepare, never restore stale settings')
     else:
+        if m.get('persistent_owner'):
+            unit=Path.home()/'.config/systemd/user/hyprneuro-pi-owner@.service'
+            check_owner_unit(unit,m['staged_files'][unit.name],m['owner_unit'])
         if unit_identity('hyprneuro-ui.service')['exe_sha256']!=m['binary_sha256'] or digest(m['installed_ui'])!=m['binary_sha256']:raise RuntimeError('Running/installed UI mismatch')
         for unit in ['hyprneuro-ui.service','hyprneuro.service']:
             process=Path('/proc')/str(unit_identity(unit)['pid'])

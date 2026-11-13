@@ -5,6 +5,52 @@ new UI/sidecar in user-selected legacy mode. Source tests below are not human
 consent or live production acceptance. No model configs/services, provider,
 residency, capture, package, parent Pi or global Durable change is authorized here.
 
+## Current source checkpoint — native-error correction and inert release staging
+
+Original P1 correction2be64a4 was independently **source-approved** by
+`01M7BF8Q9JFQ6G8Y38H62AJTFG`; live activation was not approved. New changes are
+**uncommitted, source-only and awaiting critical review**. Installed1a6fb74 remains
+untouched; no service/template installation, startup, enable, tool grant or GUI.
+
+- Actual SDK `prompt()` resolves on native transport error too. A deterministic
+  loopback HTTP disconnect reproduced **two unconsumed scripted responses** before
+  the fix. Owner now rejects error/aborted native turns, checkpoints chat-unknown,
+  retains its guard and blocks replay/reactivation. Bridge drains authoritative
+  terminal events even when the call rejects; its prior success-only drain lost
+  the error event, independently reproduced and corrected.
+- A separate filename-case3 failure was reproduced: native workflow publication
+  can precede call admission. `every([])` falsely proved completion, causing early
+  owner teardown before the read. Checks now require **one actual sealed call**
+  and one successful receipt, with deterministic empty-publication injection.
+  All exact-path, native-content and grant-count assertions remain.
+- The original review line231 failure's **precise cause remains UNKNOWN**: its
+  retained temporary fixture is no longer present. The retained review transcript
+  and new failure journals are preserved. Same-signature HTTP reproduction and
+  passing repetitions are **not proof of the original transport cause**. Parent's
+  parallel MCP line250 report is consistent with the separate publication race;
+  its raw artifact has not yet been supplied to this worker.
+- Release helpers now prepare the actual private persistent descriptor/template,
+  not a bounded-owner launcher; hash-pin descriptor and effective unit/no drop-ins;
+  permit replacing only the backed-up hash-matching app overrides; install the
+  inert template without start/enable. Synthetic cutover test proves **only two
+  app units are started**. Existing owner templates/unreviewed changes refuse.
+
+Final source checks: **441 Python/1 skip/92 subtests;52 Node;17 existing normal +
+ASan/UBSan/leak C helpers**, warnings-as-errors. C/GTK unchanged/not rebuilt.
+Candidate private empty descriptor and rendered unit passed syntax verification;
+**no immutable release was frozen or deployed**. Initial native/error-drain/test-
+fixture failures remain in the evidence. Exact hashes/commands/limits:
+[evidence/persistent-release-corrections.json](evidence/persistent-release-corrections.json).
+
+Fresh read-only checks: normal Text8081/Omni8082/D18083 active and healthy with
+expected API IDs; MoE inactive. No model operation/inference. Installed/running
+UI still f6de29a2…76b5a5, launch opt-in0/no owner binding; old installed UI lacks
+`pi-status` and returned EOF, so no new active-mode/GUI acceptance is claimed.
+Next: parent source checkpoint + critical review, reconcile remote catalog87a2f68
+and separately reviewed sibling work, then freeze/review the exact app-only
+release. Genuine Connect/activation/exact-read consent, idle/reconnect/revoke/
+restart and legacy/media installed acceptance remain pending. **NOT READY.**
+
 ## Contract
 
 - Each new GTK process starts **Legacy**, regardless of the old opt-in setting or

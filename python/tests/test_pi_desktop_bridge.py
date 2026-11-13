@@ -115,8 +115,14 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([r for r in self.requests() if r['op'] == 'native_prompt'],
                          [{'op': 'native_prompt', 'text': 'tool'}, {'op': 'native_prompt', 'text': 'injection'}])
         await self.send('chat', text='error')
-        await self.until('result', 'chat')
+        await self.until('error', 'chat')
         self.assertTrue(any(p.get('event', {}).get('stopReason') == 'error' for p in self.packets))
+        await self.send('status')
+        self.assertEqual((await self.until('status'))['result']['owner_phase'], 'failed')
+        await self.send('chat', text='never replay failed native request')
+        await self.until('error', 'chat')
+        self.assertEqual([r['text'] for r in self.requests() if r['op'] == 'native_prompt'],
+                         ['tool', 'injection', 'error'])
 
     async def test_chat_during_pending_on_is_serialized_and_off_cancels(self):
         await self.launch()

@@ -121,18 +121,24 @@ export class PiOwner {
       }
       signal?.throwIfAborted();
       await this.checkpoint('chat-intent');
+      let nativeFailed=false;
       const unsub=this.session.subscribe(event=>{
         const update=event.assistantMessageEvent;
         if(event.type==='message_update'&&['text_delta','thinking_delta'].includes(update?.type)) {
           for(let i=0;i<update.delta.length;i+=4000)emit({type:'delta',channel:update.type==='text_delta'?'answer':'reasoning',text:update.delta.slice(i,i+4000)});
         } else if(event.type==='message_end'&&event.message?.role==='assistant') {
+          if(['error','aborted'].includes(event.message.stopReason))nativeFailed=true;
           const usage=Object.fromEntries(['input','output','cacheRead','cacheWrite','totalTokens'].filter(k=>
             Number.isFinite(event.message.usage?.[k])&&event.message.usage[k]>=0).map(k=>[k,event.message.usage[k]]));
           emit({type:'turn_end',stopReason:event.message.stopReason,usage});
         } else if(['agent_settled','tool_execution_start','tool_execution_end'].includes(event.type))
           emit({type:event.type,tool:event.toolName,isError:event.isError});
       });
-      try {await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});await this.session.waitForIdle();signal?.throwIfAborted();await this.checkpoint(this.phase);return {settled:true};}
+      try {await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});await this.session.waitForIdle();signal?.throwIfAborted();
+        // Pi resolves prompt() on native error/abort as well as success. Settled
+        // is not successful: retain the unknown guard and never replay it.
+        if(nativeFailed)throw new Error('Native Pi request failed; inspect checkpoint, no replay');
+        await this.checkpoint(this.phase);return {settled:true};}
       catch(error){this.phase='failed';await this.checkpoint('chat-unknown');throw error;}
       finally{unsub();}
       } finally {clearTimeout(timer);signal.removeEventListener('abort',interrupt);originalSignal?.removeEventListener('abort',external);}

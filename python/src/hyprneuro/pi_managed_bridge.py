@@ -93,28 +93,30 @@ class ManagedDesktopBridge(DesktopBridge):
                 await asyncio.sleep(.25)
         except Exception:
             self.failed = True
-            await self.detach()
-            await self.send({'type': 'unavailable', 'text': 'Pi disconnected/locked; inspect native checkpoint. Explicit disconnect required; no fallback or replay.'})
+            notice = asyncio.create_task(self.send({'type': 'unavailable', 'text': 'Pi disconnected/locked; inspect native checkpoint. Explicit disconnect required; no fallback or replay.'}))
+            try:
+                await self.detach()
+            finally:
+                await notice
 
     async def detach(self):
         async with self.connection_lock:
             monitor, self.monitor = self.monitor, None
-            if monitor and monitor is not asyncio.current_task():
-                monitor.cancel()
-                await asyncio.gather(monitor, return_exceptions=True)
-            await self.deny_pending()  # revocation only, even when locked
-            if self.chat_client:
-                await self.chat_client.close()
-            if self.chat_task and self.chat_task is not asyncio.current_task():
-                self.chat_task.cancel()
-                await asyncio.gather(self.chat_task, return_exceptions=True)
-            workers, self.workers = self.workers, []
-            for task in workers:
-                task.cancel()
-            await asyncio.gather(*workers, return_exceptions=True)
             control, self.control = self.control, None
-            if control:
-                await control.close()  # owner aborts/settles/revokes; does NOT exit
+            chat, self.chat_client = self.chat_client, None
+            timers = list(self.consents.values())
+            self.consents.clear()
+            workers, self.workers = self.workers, []
+            # Drop BOTH transports before awaiting any task/close completion.
+            # Owner-side control EOF denies pending consent and revokes scope.
+            clients = [client for client in (chat, control) if client is not None]
+            for client in clients:
+                client.disconnect()
+            tasks = set(timers + workers + [monitor, self.chat_task]) - {None, asyncio.current_task()}
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*(client.close() for client in clients))
 
     async def request(self, packet):
         op = packet.get('op')

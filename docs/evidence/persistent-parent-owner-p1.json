@@ -1,0 +1,106 @@
+{
+  "base": "5884ee3462881c93de7c4a47c5838760abaff191",
+  "source_only": true,
+  "deployed": false,
+  "pushed": false,
+  "production_ready": false,
+  "installed_mode": "unchanged Legacy;1a6fb74",
+  "original_review": {
+    "run": "01M7BE1PP522BHDDG9ZB04787F/persistent-review",
+    "verdict": "BLOCK activation/release; two P1s retained",
+    "findings": [
+      "Whole chat deadline starts too late after indefinite FIRST_COMPLETED wait",
+      "Lock/disconnect waits on consent-denial ACK before dropping sockets or notifying UI"
+    ],
+    "cosmetic": "Trailing whitespace pi_owner_service.py41 removed"
+  },
+  "reproduction": {
+    "real_af_unix": true,
+    "real_PiOwnerClient_HMAC_auth": true,
+    "peer": "synthetic stalled owner only; no model/service/GUI",
+    "before_fix_failed": 2,
+    "external_watchdog_chat_seconds": 0.5,
+    "intended_injected_chat_seconds": 0.05
+  },
+  "correction": {
+    "chat": "Single310s timeout wraps authentication, request/response/pump and event drain; cleanup first aborts socket, cancels tasks, bounded close, no replay",
+    "lock_disconnect": "Clear references/cancel local timers and synchronously abort chat/control before any awaited cleanup; owner-side EOF denies/revokes; UI unavailable queued independently; no remote consent ACK dependency",
+    "client": "Synchronous abort/cancel; wait_closed capped1s; failed authentication cleanup also bounded",
+    "expiry": "Keep expired timer tracked while waiting for denial ACK so lock cleanup can cancel it"
+  },
+  "focused_regressions": [
+    "silent authenticated chat deadline and EOF/single submission",
+    "authentication covered by same deadline; no request sent",
+    "event drain after result covered by same deadline",
+    "lock closes chat/control with3 pending consents, no ACK, unavailable delivered",
+    "real transport closes while wait_closed is deliberately stalled",
+    "caller cancellation closes chat with1 submission",
+    "concurrent disconnect/cancellation with3 pending questions; EOF remains immediate",
+    "unavailable and EOF delivered while local close completion stalls",
+    "in-flight expired denial remains tracked/cancellable on lock; no approval"
+  ],
+  "validation": {
+    "run": "01M7BF0YGFTT25A27VPA83G5SH",
+    "focused": 9,
+    "python": 437,
+    "skipped": 1,
+    "subtests": 92,
+    "warnings_as_errors": true,
+    "node": 51,
+    "c_normal": 17,
+    "c_asan_ubsan_leaks": 17,
+    "c_rebuilt": false,
+    "reason": "No GTK/C changes since source-matched5884ee3 helpers"
+  },
+  "source_sha256": {
+    "python/src/hyprneuro/pi_desktop_bridge.py": "206bcafb451f604442ff5989693d3a43445a9fbc90e1fe813ccee2a8cc860748",
+    "python/src/hyprneuro/pi_managed_bridge.py": "5eeaf5b5f8aaf58d82be5669f1a56d1e41395671fab2d7223bc89f39f1df4363",
+    "python/src/hyprneuro/pi_owner_client.py": "3c8af6f20b85d5bc2a5d6a6ab862c88f05b8c4f243e7125d42e77baf5a26a69c",
+    "python/src/hyprneuro/pi_owner_service.py": "8ab92a7bf0841f89e2de86dee4f7d821d71785cd487191dfa995ce37200795d1",
+    "python/tests/test_pi_managed_bridge.py": "c6e0721bc883327d9085af56f32b91851741601bd319dff4e496535f3272c6a5",
+    "python/tests/test_pi_bridge_stalls.py": "058fbc4dcd48925d765af1fae09f4261de0796a14df1da4c1449c7e2a152a99d"
+  },
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/review-5884ee3.txt",
+      "sha256": "dfc46c59b95b2b3be0da84a64579a507b485e1d6681af6ffee2e526003a7b645"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/reproduced-before-fix.log",
+      "sha256": "fbdae0a5254a696e7d1cc1b7da306e15d081ebe920d6dab708c7e5bd415a3870"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/focused-after-fix.log",
+      "sha256": "546260af822296611e7bb3141c252ebb14e40699ab238aee03ff1f8c9b7c951a"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/python.log",
+      "sha256": "eee1dcc8b9fc99ce15c660b35fed3490d327229013146428704e5376974e213c"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/node.log",
+      "sha256": "0e8504687c26ff1c69d62064bffb9c24cb085d3dbccfe2a8f892cb6518173d59"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/c.log",
+      "sha256": "8a1a2f8bfeecbe1f2d299d92271a1b340882ef0f48dba486688615f1d451dc27"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/c-sanitized.log",
+      "sha256": "2ab018dddc84c98a0e781101b20768d68a705f9fb5223626b5864b1c193116ab"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/c-detail.log",
+      "sha256": "62371bcbbdc6ce662010200861eca59dc9d96c5c38b209cf8beaa42e7b42b0bc"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/c-sanitized-detail.log",
+      "sha256": "9f17bf0944dac9d37c8e6ec32b305f8a9ae8c0fae296502c09433f2d0839ac95"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-p1/check.sh",
+      "sha256": "f5b9f129dedc054dd9451139f4e7f7e875301f013f95bd34ca7c8714ff73b7a7"
+    }
+  ],
+  "next": "Targeted independent re-review required before any publication/deployment/activation. No push or runtime operations; preserve installed Legacy, do not touch uncertain Hermes/provider ownership or video."
+}

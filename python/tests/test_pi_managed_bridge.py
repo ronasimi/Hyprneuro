@@ -22,8 +22,10 @@ class Client:
     async def call(self,op,**fields):
         self.calls.append((op,fields))
         return self.status
+    def disconnect(self):
+        self.closed=True;self.read_task.cancel()
     async def close(self):
-        self.closed=True;self.read_task.cancel();await asyncio.gather(self.read_task,return_exceptions=True)
+        self.disconnect();await asyncio.gather(self.read_task,return_exceptions=True)
 
 
 class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):

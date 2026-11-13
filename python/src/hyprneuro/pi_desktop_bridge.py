@@ -12,8 +12,9 @@ from .pi_owner_client import MAX_FRAME, PiOwnerClient
 
 
 class DesktopBridge:
-    def __init__(self, root, send, connect=PiOwnerClient.connect):
+    def __init__(self, root, send, connect=PiOwnerClient.connect, *, chat_timeout=310):
         self.root, self.send, self.connect = root, send, connect
+        self.chat_timeout = chat_timeout
         self.control = self.chat_client = None
         self.chat_task = None
         self.consents = {}
@@ -60,12 +61,12 @@ class DesktopBridge:
 
     async def expire(self, cid):
         await asyncio.sleep(110)  # before the owner's 120s deadline
-        self.consents.pop(cid, None)
         try:
             await self.control.call('consent', answer_id=cid, allowed=False)
         except Exception:
             pass  # owner may already have expired/denied it; never retry
         finally:
+            self.consents.pop(cid, None)
             await self.send({'type': 'consent_closed', 'answer_id': cid})
 
     async def deny_pending(self):
@@ -90,30 +91,35 @@ class DesktopBridge:
             await asyncio.sleep(2)
 
     async def chat(self, text):
-        client = await self.connect(self.root)
-        self.chat_client = client
-        if self.cancel_requested:
-            await client.close()
-            self.chat_client = None
-            raise ConnectionError('Chat cancelled before submission')
-        pump = asyncio.create_task(self.events(client))
+        client = call = pump = None
         try:
-            call = asyncio.create_task(client.call('chat', text=text))
-            done, _ = await asyncio.wait([call, pump], return_when=asyncio.FIRST_COMPLETED)
-            if pump in done:
-                await pump
-            result = await asyncio.wait_for(call, 310)
-            await client.events.join()
-            return result
+            # One budget includes authentication, response/pump and event drain.
+            # A timeout only after FIRST_COMPLETED cannot bound a silent owner.
+            async with asyncio.timeout(self.chat_timeout):
+                client = await self.connect(self.root)
+                self.chat_client = client
+                if self.cancel_requested:
+                    raise ConnectionError('Chat cancelled before submission')
+                pump = asyncio.create_task(self.events(client))
+                call = asyncio.create_task(client.call('chat', text=text))
+                done, _ = await asyncio.wait([call, pump], return_when=asyncio.FIRST_COMPLETED)
+                if pump in done:
+                    await pump
+                result = await call
+                await client.events.join()
+                return result
         finally:
-            if 'call' in locals():
-                if not call.done():
-                    call.cancel()
-                await asyncio.gather(call, return_exceptions=True)
-            pump.cancel()
-            await asyncio.gather(pump, return_exceptions=True)
-            await client.close()
-            self.chat_client = None
+            # Revoke transport admission before any asynchronous cleanup wait.
+            if client:
+                client.disconnect()
+            if self.chat_client is client:
+                self.chat_client = None
+            pending = [task for task in (call, pump) if task is not None]
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            if client:
+                await client.close()
 
     async def request(self, packet):
         op = packet.get('op')

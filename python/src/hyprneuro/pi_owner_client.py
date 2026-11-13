@@ -50,8 +50,12 @@ class PiOwnerClient:
                 raise ConnectionError('Pi bridge authentication failed')
             return cls(reader, writer, trusted)
         except BaseException:
-            writer.close()
-            await writer.wait_closed()
+            writer.transport.abort()
+            try:
+                async with asyncio.timeout(1):
+                    await writer.wait_closed()
+            except (TimeoutError, ConnectionError):
+                pass
             raise
 
     async def call(self, op, **fields):
@@ -103,8 +107,18 @@ class PiOwnerClient:
                     future.set_exception(error)
             self.writer.close()
 
-    async def close(self):
-        self.writer.close()
-        await self.writer.wait_closed()
+    def disconnect(self):
+        # Synchronous local abort discards queued frames and drops authority;
+        # neither peer acknowledgements nor wait_closed may delay revocation.
+        self.writer.transport.abort()
         self.read_task.cancel()
-        await asyncio.gather(self.read_task, return_exceptions=True)
+
+    async def close(self, *, timeout=1):
+        self.disconnect()
+        try:
+            async with asyncio.timeout(timeout):
+                await self.writer.wait_closed()
+        except (TimeoutError, ConnectionError):
+            pass
+        finally:
+            await asyncio.gather(self.read_task, return_exceptions=True)

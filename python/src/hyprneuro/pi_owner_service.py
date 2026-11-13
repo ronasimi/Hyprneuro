@@ -38,7 +38,7 @@ def load_config(root):
         if not isinstance(value, str) or not Path(value).is_absolute() or any(ord(c) < 32 for c in value):
             raise ValueError('Explicit absolute installed runtime paths required')
     paths = config['read_paths']
-    if (not isinstance(paths, list) or not 1 <= len(paths) <= 32 
+    if (not isinstance(paths, list) or not 1 <= len(paths) <= 32
             or any(not isinstance(p, str) or not p or len(p) > 4096 or Path(p).is_absolute()
                    or any(part in ('', '.', '..') for part in p.split('/')) or any(ord(c) < 32 for c in p) for p in paths) or len(set(paths)) != len(paths)):
         raise ValueError('Exact relative read allowlist required; no broad directory scope')

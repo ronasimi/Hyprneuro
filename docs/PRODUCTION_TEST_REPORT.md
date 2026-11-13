@@ -8,6 +8,22 @@ installed but live compositor-hook/capture acceptance remains blocked. Earlier
 5446e9c/e403da3/8bc7312 receipts below remain historical, not current totals.
 Completion order remains in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
+## Persistent owner correction — first review BLOCK retained, targeted review pending
+
+Independent pinned5884ee3 review `01M7BE1PP522BHDDG9ZB04787F/persistent-review`
+found **two P1s** (ineffective whole-chat timeout; ACK-dependent lock cleanup).
+Both reproduced with real private authenticated AF_UNIX transports:2 failed before
+fix. Source now wraps auth/response/pump/drain in one deadline and aborts both
+transports before waits; local timers canceled, no remote ACK needed for EOF or
+unavailable notification, bounded wait_closed. No grant/replay/fallback added.
+
+Correction checks: **9 socket regressions;437 Python/1 skip/92 subtests;51 Node;
+17 existing normal+sanitized C helpers**. GTK/C unchanged, not rebuilt. Exact
+receipt: [evidence/persistent-parent-owner-p1.json](evidence/persistent-parent-owner-p1.json).
+**Source-only, awaiting targeted independent re-review; no push/deploy/live claim.**
+Installed1a6fb74 Legacy retained; no model, GUI, service or video operation. External
+Hermes/provider ownership is still not assumed or changed. Production NOT READY.
+
 ## Next iteration in progress — persistent parent service source, not activated
 
 After7b2f632, explicit GTK connect/disconnect and a private, permission-gated

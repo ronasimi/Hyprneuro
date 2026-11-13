@@ -14,6 +14,22 @@ Pending branches are not implicitly merged or deployed.
 At that earlier checkpoint the read-only-owner profile was pending. Current
 installed/bounded-fixture results supersede that state below; P01 remains partial.
 
+## Persistent owner correction — first review BLOCK retained, targeted review pending
+
+Independent pinned5884ee3 review `01M7BE1PP522BHDDG9ZB04787F/persistent-review`
+found **two P1s** (ineffective whole-chat timeout; ACK-dependent lock cleanup).
+Both reproduced with real private authenticated AF_UNIX transports:2 failed before
+fix. Source now wraps auth/response/pump/drain in one deadline and aborts both
+transports before waits; local timers canceled, no remote ACK needed for EOF or
+unavailable notification, bounded wait_closed. No grant/replay/fallback added.
+
+Correction checks: **9 socket regressions;437 Python/1 skip/92 subtests;51 Node;
+17 existing normal+sanitized C helpers**. GTK/C unchanged, not rebuilt. Exact
+receipt: [evidence/persistent-parent-owner-p1.json](evidence/persistent-parent-owner-p1.json).
+**Source-only, awaiting targeted independent re-review; no push/deploy/live claim.**
+Installed1a6fb74 Legacy retained; no model, GUI, service or video operation. External
+Hermes/provider ownership is still not assumed or changed. Production NOT READY.
+
 ## Next iteration in progress — persistent parent service source, not activated
 
 After7b2f632, explicit GTK connect/disconnect and a private, permission-gated

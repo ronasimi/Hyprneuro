@@ -120,3 +120,38 @@ the refusal. This is an external operating condition, not a source test failure.
 Installed UI2534881/sidecar2516798 remain1a6fb74/Legacy; no new source is deployed.
 Parent retains provider/window authority. Independent source review next; live
 normal inference/human GTK acceptance waits for separately cleared prerequisites.
+
+## Pinned5884ee3 review BLOCK and source-only correction
+
+Full independent review **01M7BE1PP522BHDDG9ZB04787F/persistent-review** blocked
+activation on two P1s. They are not relabelled successful or erased: an intended
+310s timeout only ran after an indefinite response/pump wait; lock cleanup waited
+for a denial ACK before closing transports/reporting unavailable. Both reproduced
+against real private AF_UNIX sockets and actual HMAC-authenticated PiOwnerClient
+with a synthetic stalled owner. Initial new regressions: **2 failed**.
+
+Correction: one timeout now covers authentication, response/pump AND event drain.
+Cleanup synchronously aborts transport before awaiting anything. Managed lock/
+disconnect cancels local questions and aborts BOTH transports without sending or
+waiting on denial acknowledgements; owner-side control EOF denies/revokes. The
+unavailable notification runs independently of cleanup completion. wait_closed
+has a separate1s cap (including authentication-failure cleanup), and already
+expiring denial tasks stay tracked until their ACK/finalization. No grant, replay,
+implicit reconnect or automatic Legacy fallback was added. Cosmetic whitespace41
+is fixed. No GTK/C change in this correction.
+
+**9 socket regressions passed**: silent chat, auth stall, event-drain stall, lock
+with three pending questions and silent chat/control, stalled local close, caller
+cancellation, concurrent disconnect/cancellation, unavailable independent of close
+completion, and cancellation of an expired denial waiting for ACK. Assertions
+check actual peer EOF, bounded completion, no approval and no repeat submission.
+
+Full correction run **01M7BF0YGFTT25A27VPA83G5SH**: **437 Python passed,1 skipped,
+92 subtests;51 Node;17 existing source-matched C helpers normal+ASan/UBSan/leaks**.
+No C rebuild needed/performed because GTK is unchanged. Exact source and retained
+review/reproduction/final log hashes: [evidence/persistent-parent-owner-p1.json](evidence/persistent-parent-owner-p1.json).
+
+This is a new **source-only correction pending targeted independent re-review**,
+not release approval or live GTK/service/human acceptance. No push, deployment,
+GUI, model/service operations, video integration or provider workaround. Installed
+1a6fb74 remains Legacy; current Hermes ownership remains uncertain.

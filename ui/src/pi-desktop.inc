@@ -22,6 +22,14 @@ static gboolean pi_normal_only_ready(JsonNode *status) {
         !g_strcmp0(jstr(jmember(status, "owner_phase")), "ordinary");
 }
 
+static gboolean pi_parent_only_ready(JsonNode *status) {
+    JsonNode *mode=jmember(status,"parent_only"), *tools=jmember(status,"tools");
+    return pi_normal_only_ready(status) && mode && JSON_NODE_HOLDS_VALUE(mode) &&
+        json_node_get_value_type(mode)==G_TYPE_BOOLEAN && json_node_get_boolean(mode) &&
+        tools && JSON_NODE_HOLDS_ARRAY(tools) && json_array_get_length(json_node_get_array(tools))==1 &&
+        !g_strcmp0(jstr(json_array_get_element(json_node_get_array(tools),0)),"read");
+}
+
 static gboolean pi_route_allowed(App *a, gboolean native) {
     if (!a->pi_optin) return TRUE;
     if (!a->pi_connected) return FALSE;
@@ -34,6 +42,7 @@ static void pi_route_update(App *a) {
     if (!a->pi_route) return;
     gtk_label_set_text(GTK_LABEL(a->pi_route), a->attachment_b64 ?
         "Attachment → legacy sidecar · NO Pi tools/history · requires ordinary owner" :
+        a->pi_parent_only ? "Text → Pi owner · tools: read only · no helpers · fresh consent per read" :
         "Text → Pi owner · native tools require fresh host consent");
 }
 
@@ -60,18 +69,19 @@ static void pi_render(App *a) {
     gtk_widget_set_sensitive(GTK_WIDGET(a->pi_switch), a->pi_connected &&
         !a->pi_transition && (!g_strcmp0(a->pi_state, "off") || on));
     char *label = g_strdup_printf("MoE · %s%s", a->pi_state,
-        a->pi_transition ? " · transition request pending" : a->pi_normal_only ? " · normal-only" : "");
+        a->pi_transition ? " · transition request pending" : a->pi_parent_only ? " · normal-only · read only · no helpers" : a->pi_normal_only ? " · normal-only" : "");
     gtk_label_set_text(GTK_LABEL(a->pi_label), label);
     gtk_accessible_update_property(GTK_ACCESSIBLE(a->pi_switch),
         GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, label, -1);
     g_free(label);
+    pi_route_update(a);
 }
 
 static void pi_unavailable(App *a) {
     if (a->pi_dead) return;
     a->pi_dead = TRUE;
     if (a->pi_io) g_cancellable_cancel(a->pi_io);
-    a->pi_normal_only = FALSE; a->pi_connected = FALSE; a->pi_transition = FALSE;
+    a->pi_parent_only = FALSE; a->pi_normal_only = FALSE; a->pi_connected = FALSE; a->pi_transition = FALSE;
     a->pi_on_pending = a->pi_off_pending = FALSE;
     g_free(a->pi_state); a->pi_state = g_strdup("unavailable");
     pi_close_dialog(a); pi_render(a);
@@ -282,6 +292,7 @@ static void pi_packet(App *a, JsonNode *packet) {
     const char *op = jstr(jmember(packet, "op"));
     if (!g_strcmp0(type, "connected")) { a->pi_connected = TRUE; pi_render(a); }
     else if (!g_strcmp0(type, "status")) {
+        a->pi_parent_only = pi_parent_only_ready(jmember(packet, "result"));
         a->pi_normal_only = pi_normal_only_ready(jmember(packet, "result"));
         g_free(a->pi_state); a->pi_state = g_strdup(pi_observed_state(jmember(packet, "result")));
         pi_render(a);

@@ -8,7 +8,8 @@ const FILE_TOOLS = ['read', 'write', 'edit', 'bash'];
 const props = {read:['path','offset','limit'], write:['path','content'], edit:['path','edits'], bash:['command','timeout']};
 
 // Factory injected with Pi's public exports: no separate model client or loop.
-export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, readOnly = false, normalOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
+export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, readOnly = false, normalOnly = false, parentOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
+  if(parentOnly&&(!readOnly||!normalOnly))throw new Error('Parent-only requires normal-only READ-ONLY');
   if(normalOnly&&!readOnly)throw new Error('Normal-only mode requires READ-ONLY profile');
   if(readOnly)providers=undefined;
   return function(pi) {
@@ -37,7 +38,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         previous ??= pi.getActiveTools();
         active = {workspace:root, taskId, appId, allowed};
         outcomes = new Outcomes(pi, ctx);
-        pi.setActiveTools([...fileTools, ...(providers?.names ?? []), ...(durableGuard&&pi.getAllTools().some(t=>t.name==='subagents')?['subagents']:[])]);
+        pi.setActiveTools([...fileTools, ...(providers?.names ?? []), ...(!parentOnly&&durableGuard&&pi.getAllTools().some(t=>t.name==='subagents')?['subagents']:[])]);
       } catch (e) { await root.close(); throw e; }
     }
     pi.on('session_start', async (_e, ctx) => {
@@ -176,6 +177,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     });
     // No model-facing approval, scope expansion or subprocess-delegation APIs.
     pi.on('tool_call', async event => {
+      if(parentOnly&&event.toolName!=='read')return {block:true,reason:'Parent-only owner permits read only; no helpers or delegation',terminate:true};
       if(readOnly&&!active)return {block:true,reason:'READ-ONLY tools not activated',terminate:true};
       if(event.toolName==='subagents'&&durableGuard) {
         try {

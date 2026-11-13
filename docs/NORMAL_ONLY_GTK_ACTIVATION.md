@@ -40,6 +40,7 @@ env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
   HYPRNEURO_PI_OWNER_PROFILE=read-only \
   HYPRNEURO_PI_OWNER_MODE=normal-only \
   HYPRNEURO_PI_CHILD_READ=0 \
+  HYPRNEURO_PI_PARENT_ONLY=1 \
   HYPRNEURO_PI_READ_PATHS='["fixture.txt"]' \
   HYPRNEURO_PI_OWNER_DIR="$OWNER_ROOT" \
   HYPRNEURO_WORKSPACE="$FIXTURE_WORKSPACE" \
@@ -62,7 +63,7 @@ Native Durable idle-boundary liveness is still unresolved, not fixed by this UI.
 4. Only when ready, get fresh unlock confirmation plus independent active-local,
    same-user unlocked/no-locker checks maintained throughout. Launch the integrated
    UI with `HYPRNEURO_PI_UI=1`, matching `HYPRNEURO_PI_OWNER_DIR`, explicit release
-   `PYTHONPATH` and `HYPRNEURO_PYTHON` (existing absolute venv). Capture permission
+   `PYTHONPATH` and `HYPRNEURO_PI_BRIDGE_PYTHON` (existing absolute venv). Capture permission
    is separate. Never read/log credentials; the adapter authenticates directly.
 5. Send text asking the real model to **use `read` on `fixture.txt`** and report
    its canary. Human reviews the actual activation dialog: exact app/task/workspace
@@ -101,3 +102,15 @@ merge, installed acceptance or deployment. Receipts:
 `docs/evidence/read-only-p1.json`. Next: fast independent re-review, clean parent
 integration, immutable app-only release/rollback, then explicitly authorized
 live parent `read` fixture + genuine GTK approval/continuation (child-read0).
+
+Parent-only delta against actual merge `5c6446f`: opt in with
+`HYPRNEURO_PI_PARENT_ONLY=1` (requires read-only + normal-only + child-read0).
+Native model schema/callable loadout is **read only**, no Durable extension/tool
+or command loaded. A separate tool-call execution hook hard-denies delegation
+even if forged/registered. Authenticated status publishes actual callable tools;
+GTK reports `tools: read only · no helpers`, never merely a prompt assertion.
+General reviewed profile behavior remains unchanged when this flag is absent.
+Configuration is pinned; changing this option requires fresh root/manual review.
+Actual-merge suites: **412 Python/1 skipped/92 subtests;45 Node;16 C normal and
+ASan/UBSan/leaks**. No live activation. Parent review `01M7AWNTXRJZYRWJGQSCAB4ED9`
+must include this delta before launch.

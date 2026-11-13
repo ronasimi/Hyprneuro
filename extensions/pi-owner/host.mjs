@@ -37,10 +37,11 @@ async function readWorkspace(workspace,root) {
 // Explicit paths; no package install, auto-discovery, existing auth/token stores,
 // service setup, or independent conversation framework.
 export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId,appId,
-    rpc=sidecar,model,native,providers,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
+    rpc=sidecar,model,native,providers,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,parentOnly=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
   if(process.env.HYPRNEURO_PI_OWNER_ENABLE!=='1')throw new Error('Pi owner is opt-in and source/mock-only, not activated');
-  if(!['standard','read-only'].includes(profile)||typeof normalOnly!=='boolean'||typeof childRead!=='boolean')throw new Error('Explicit supported owner profile/mode required');
+  if(!['standard','read-only'].includes(profile)||typeof normalOnly!=='boolean'||typeof childRead!=='boolean'||typeof parentOnly!=='boolean')throw new Error('Explicit supported owner profile/mode required');
   const readOnly=profile==='read-only';
+  if(parentOnly&&(!readOnly||!normalOnly||childRead))throw new Error('Parent-only requires normal-only READ-ONLY and child-read disabled');
   if(normalOnly&&!readOnly||childRead&&!readOnly)throw new Error('Normal-only/child read require explicit READ-ONLY profile');
   if(readOnly&&(model||!Array.isArray(readPaths)||!readPaths.length||readPaths.length>32||workspace!==await realpath(workspace)))throw new Error('READ-ONLY requires canonical workspace, exact read allowlist and fixed local text model');
   if(readOnly){
@@ -51,7 +52,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
   if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||textBaseUrl!==url.origin+'/v1'||url.username||url.password||url.pathname!=='/v1'||url.search||url.hash)throw new Error('Explicit loopback text endpoint required');
   if(normalOnly&&process.env.HYPRNEURO_RESIDENCY_DIR)throw new Error('Normal-only owner cannot claim coordinator admission; use a separate explicit launch environment');
   if(!normalOnly&&!process.env.HYPRNEURO_RESIDENCY_DIR)throw new Error('All clients must explicitly share residency directory');
-  const configuration={profile,normalOnly,workspace,taskId,appId,readPaths:readOnly?[...readPaths].sort():[],childRead,textBaseUrl};
+  const configuration={profile,normalOnly,workspace,taskId,appId,readPaths:readOnly?[...readPaths].sort():[],childRead,parentOnly,textBaseUrl};
   process.umask(0o077); // Dedicated owner and its native children create private files/dirs.
   await privateDirectory(root);
   const rel=relative(workspace,root);
@@ -113,7 +114,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const policy=durablePolicy({workspace,preflight:()=>readWorkspace(workspace,root),readOnly,childRead,onReadApproved:request=>approvedChildReads.add(request),phase:()=>owner?.closing?'closed':owner?.phase??'closed',
       broker:op=>checkBroker(rpc,taskId,appId,op,workspace),approve:request=>owner.approve(request)});
     providers=readOnly?undefined:providers??await Providers.load();
-    const extension=harnessExtension(sdk,{rpc,providers,native,readOnly,normalOnly,readPaths,textBaseUrl,binding:Object.freeze({workspace,taskId,appId}),confirm:request=>owner.approve(request),durableGuard:policy,
+    const extension=harnessExtension(sdk,{rpc,providers,native,readOnly,normalOnly,parentOnly,readPaths,textBaseUrl,binding:Object.freeze({workspace,taskId,appId}),confirm:request=>owner.approve(request),durableGuard:policy,
       toolAdmission:()=>{if(owner?.closing||!['ordinary','hermes'].includes(owner?.phase))throw new Error('Owner transition blocks new tool side effects');},
       inferenceGate:(role,token)=>{
         if(owner?.closing||!['ordinary','hermes'].includes(owner?.phase))throw new Error('Owner transition blocks native background inference');
@@ -128,7 +129,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const decision=(await import(new URL('./api/typesafe-system-one.js',aiURL))).classify;
     const loader=new sdk.DefaultResourceLoader({cwd:workspace,agentDir,settingsManager:settings,
       noExtensions:true,noSkills:true,noThemes:true,noPromptTemplates:true,noContextFiles:true,
-      additionalExtensionPaths:[join(durableDir,'index.js')],extensionFactories:[extension,...(normalOnly?[]:[pi=>{
+      additionalExtensionPaths:parentOnly?[]:[join(durableDir,'index.js')],extensionFactories:[extension,...(normalOnly?[]:[pi=>{
         pi.registerProvider('hyprneuro-decision',{apiKey:'local-no-credential',classifiers:{'typesafe-system-one':{classify:decision}},
           models:[{type:'classifier',id:'d1-omni-600m',name:'D1 advisory',api:'typesafe-system-one',baseUrl:'http://127.0.0.1:8083/v1',
             contextWindow:1024,input:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}]});
@@ -139,11 +140,12 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     model??={id:'lfm-text',provider:'hyprneuro-local',api:'openai-completions',name:'lfm-text',baseUrl:textBaseUrl,reasoning:false,
       input:['text'],contextWindow:131072,maxTokens:2048,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}};
     ({session}=await sdk.createAgentSession({cwd:workspace,agentDir,modelRuntime:runtime,model,sessionManager:manager,settingsManager:settings,
-      resourceLoader:loader,thinkingLevel:'off',tools:readOnly?['read','subagents']:['read','write','edit','bash','subagents']}));
+      resourceLoader:loader,thinkingLevel:'off',tools:parentOnly?['read']:readOnly?['read','subagents']:['read','write','edit','bash','subagents']}));
     const singleSession=async()=>{throw new Error('Single owner session; reset/fork/reload requires trusted restart/review');};
     let errors=[];await session.bindExtensions({onError:error=>errors.push(error),commandContextActions:{
       waitForIdle:()=>session.waitForIdle(),newSession:singleSession,fork:singleSession,navigateTree:singleSession,switchSession:singleSession,reload:singleSession}});
-    if(errors.length||!session.extensionRunner.getCommand('subagents')&&!session.getActiveToolNames().includes('subagents'))
+    if(parentOnly)session.setActiveToolsByName(['read']);
+    if(errors.length||!parentOnly&&!session.extensionRunner.getCommand('subagents')&&!session.getActiveToolNames().includes('subagents'))
       throw new Error('Native Durable unavailable in owner session: '+JSON.stringify(errors));
     const context=()=>session.extensionRunner.createCommandContext();
     async function activate() {
@@ -151,7 +153,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       await session.extensionRunner.getCommand('hn-tools').handler(`${workspace} ${taskId} ${appId}`,context());activated=true;
     }
     const command=async value=>{
-      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true}:status;}
+      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true,parent_only:parentOnly,tools:session.getCallableToolNames()}:status;}
       if(normalOnly)throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');
       await activate();
       if(value==='on'&&owner.cancelOn)throw new Error('Pending on cancelled by trusted off');
@@ -194,7 +196,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const host=await createHost({sdkPath:required('HYPRNEURO_PI_SDK'),durableDir:required('HYPRNEURO_DURABLE_PACKAGE'),piBin:required('HYPRNEURO_PI_BIN'),
     root:required('HYPRNEURO_PI_OWNER_DIR'),workspace:required('HYPRNEURO_WORKSPACE'),taskId:required('HYPRNEURO_TASK_ID'),appId:required('HYPRNEURO_APP_ID'),
     profile:process.env.HYPRNEURO_PI_OWNER_PROFILE??'standard',normalOnly:mode==='normal-only',
-    childRead:process.env.HYPRNEURO_PI_CHILD_READ==='1',readPaths:JSON.parse(process.env.HYPRNEURO_PI_READ_PATHS??'[]')});
+    childRead:process.env.HYPRNEURO_PI_CHILD_READ==='1',parentOnly:process.env.HYPRNEURO_PI_PARENT_ONLY==='1',readPaths:JSON.parse(process.env.HYPRNEURO_PI_READ_PATHS??'[]')});
   let closing=false;
   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{if(!closing){closing=true;host.close().then(()=>process.exit(),()=>process.exit(1));}});
 }

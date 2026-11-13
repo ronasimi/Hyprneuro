@@ -19,7 +19,7 @@ const tool=(name,args,id)=>({tool_calls:[{index:0,id,type:'function',function:{n
 
 const rewrites=[['approved\u00a0fixture.txt','approved fixture.txt'],['café.txt','cafe\u0301.txt'],["a'b.txt",'a’b.txt'],['capture 10 AM.png','capture 10\u202fAM.png']];
 
-async function fixture(run) {
+async function fixture(run,overrides={}) {
   const cwd=process.cwd(),env={...process.env},root=await mkdtemp(join(tmpdir(),'hn-readonly-'));
   const ownerRoot=join(root,'owner'),workspace=join(ownerRoot,'home','workspace');
   await mkdir(workspace,{recursive:true,mode:0o700});await mkdir(join(ownerRoot,'durable'),{recursive:true,mode:0o700});
@@ -37,9 +37,10 @@ async function fixture(run) {
       let raw='';for await(const data of req)raw+=data;
       const body=JSON.parse(raw);requests.push(body);
       const names=(body.tools??[]).map(t=>t.function.name);
+      const child=!overrides.parentOnly&&!names.includes('subagents');
       let delta;
-      if(!names.includes('subagents')&&JSON.stringify(body.messages).includes('CHILD_LOSS_TASK')){lossRequests++;res.destroy();return;}
-      const rewrite=!names.includes('subagents')&&JSON.stringify(body.messages).match(/CHILD_REWRITE_([0-3])/);
+      if(child&&JSON.stringify(body.messages).includes('CHILD_LOSS_TASK')){lossRequests++;res.destroy();return;}
+      const rewrite=child&&JSON.stringify(body.messages).match(/CHILD_REWRITE_([0-3])/);
       if(rewrite){
         const i=Number(rewrite[1]);
         if(body.messages.at(-1).role==='tool'){
@@ -47,20 +48,20 @@ async function fixture(run) {
           assert.ok(!body.messages.at(-1).content.includes('UNAPPROVED_REWRITE_CONTENT'));
           delta={content:'CHILD_REWRITE_BLOCKED'};
         }else delta=tool('read',{path:rewrites[i][0]},'child_rewrite_'+i);
-      }else if(!names.includes('subagents')&&JSON.stringify(body.messages).includes('CHILD_ESCAPE_TASK')){
+      }else if(child&&JSON.stringify(body.messages).includes('CHILD_ESCAPE_TASK')){
         if(body.messages.at(-1).role==='tool'){assert.match(body.messages.at(-1).content,/Invalid workspace path/);delta={content:'CHILD_ESCAPE_BLOCKED'};}
         else delta=tool('read',{path:'../outside'},'child_escape');
-      }else if(!names.includes('subagents')&&JSON.stringify(body.messages).includes('CHILD_INJECTION_TASK')){
+      }else if(child&&JSON.stringify(body.messages).includes('CHILD_INJECTION_TASK')){
         if(body.messages.at(-1).role!=='tool')delta=tool('read',{path:'fixture.txt'},'child_inject_read');
         else if(body.messages.at(-1).tool_call_id==='child_inject_read'){assert.match(body.messages.at(-1).content,/approved=true/);delta=tool('write',{path:'forbidden',content:'bad'},'child_inject_write');}
         else {assert.match(body.messages.at(-1).content,/not found|permissions|not available/i);delta={content:'CHILD_INJECTION_BLOCKED'};}
-      }else if(!names.includes('subagents')&&JSON.stringify(body.messages).includes('CHILD_READ_TASK')) {
+      }else if(child&&JSON.stringify(body.messages).includes('CHILD_READ_TASK')) {
         childRequests++;assert.deepEqual(names.filter(n=>!['ask','report'].includes(n)),['read']);
         if(body.messages.at(-1).role==='tool') {
           if(body.messages.at(-1).content.includes('Trusted human approval required')){delta={content:'CHILD_READ_DENIED'};}else{
           assert.match(JSON.stringify(body.messages.at(-1)),/CANARY_MAPLE/);delta={content:'CHILD_READ_DONE CANARY_MAPLE'};}
         }else delta=tool('read',{path:'fixture.txt'},'child_read_1');
-      } else if(!names.includes('subagents')&&JSON.stringify(body.messages).includes('CHILD_ZERO_TASK')) {
+      } else if(child&&JSON.stringify(body.messages).includes('CHILD_ZERO_TASK')) {
         childRequests++;assert.ok(!names.includes('read'));delta={content:'CHILD_ZERO_DONE'};
       } else {
         assert.ok(names.every(n=>['read','subagents'].includes(n)),'No write/execute/network/lifecycle declared');
@@ -82,7 +83,7 @@ async function fixture(run) {
   const options={sdkPath,durableDir,piBin:'/home/ron/.pi/agent/bin/pi',root:ownerRoot,workspace,taskId:'readonly',appId:'fixture',
     profile:'read-only',normalOnly:true,readPaths:['fixture.txt','symlink','dirlink/outside','hardlink',...rewrites.map(([p])=>p)],childRead:true,
     textBaseUrl:`http://127.0.0.1:${server.address().port}/v1`,serve:false,
-    rpc:async p=>{broker.push(p);return p.action==='auth_check'?{allowed:true}:{authorized:true};}};
+    rpc:async p=>{broker.push(p);return p.action==='auth_check'?{allowed:true}:{authorized:true};},...overrides};
   function listen(){host.owner.listeners.add(e=>{if(e.type==='consent'){approvals.push(e);host.owner.consent(e.id,approve(e));}});}
   async function open(){host=await createHost(options);listen();return host;}
   await open();let passed=false;
@@ -270,3 +271,30 @@ test('read-only startup rejects sibling HOME layout and discovery metadata on wo
     assert.equal(f.approvals.length,n+1);
   }finally{await rm(marker,{recursive:true,force:true});}
 }));
+
+
+test('parent-only activation advertises and executes read only; forged delegation never publishes or launches a child',()=>fixture(async f=>{
+  const host=f.host;
+  assert.deepEqual(host.session.getCallableToolNames(),['read']);
+  assert.equal(host.session.extensionRunner.getCommand('subagents'),undefined);
+  assert.deepEqual((await host.owner.status()).tools,['read']);
+  assert.equal((await host.owner.status()).parent_only,true);
+  await f.chat(body=>{assert.deepEqual(body.tools.map(t=>t.function.name),['read']);return tool('read',{path:'fixture.txt'},'parent_only_read');},body=>{
+    assert.match(body.messages.at(-1).content,/CANARY_MAPLE/);return done;
+  });
+  const approvals=f.approvals.length;
+  const spec={action:'run',request:'forged-parent-child',agent:'delegate',task:'CHILD_READ_TASK',tools:[],model:'hyprneuro-local/lfm-text',once:true,writer:false,context:'fresh',cwd:f.workspace,timeoutMs:10000};
+  const blocked=await host.session.extensionRunner.emitToolCall({type:'tool_call',toolName:'subagents',toolCallId:'forced_registered_delegate',input:spec});
+  assert.equal(blocked.block,true);assert.equal(blocked.terminate,true);assert.match(blocked.reason,/Parent-only/);
+  await f.chat(tool('subagents',spec,'forged_parent_delegate'),body=>{assert.match(body.messages.at(-1).content,/Tool subagents not found/);return done;});
+  await f.chat(tool('read',{path:'not-allowlisted'},'parent_scope_escape'),done);
+  assert.equal(f.approvals.length,approvals);
+  assert.equal(f.host.durable.status().workflows.length,0);
+  assert.equal(f.childRequests,0);
+  assert.ok(!f.requests.some(r=>JSON.stringify(r.messages).includes('CHILD_READ_TASK')&&!r.tools.some(t=>t.function.name==='read')));
+  assert.ok(!host.session.sessionManager.getEntries().some(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.id==='forged_parent_delegate'));
+  assert.deepEqual(f.broker.filter(p=>p.action==='auth_create').map(p=>p.ops),[['read']]);
+  await assert.rejects(createHost({...f.options,childRead:true}),/Parent-only requires/);
+  await host.close();
+  await assert.rejects(createHost({...f.options,parentOnly:false}),/configuration changed/);
+},{parentOnly:true,childRead:false,readPaths:['fixture.txt']}));

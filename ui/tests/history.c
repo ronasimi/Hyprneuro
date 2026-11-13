@@ -275,6 +275,17 @@ static void pi_states_and_trusted_boundary(void) {
         g_assert_true(json_parser_load_from_data(p, normal[i], -1, NULL));
         g_assert_cmpint(pi_normal_only_ready(json_parser_get_root(p)), ==, i==0);
     }
+    const char *parent[] = {
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\",\"normal_only\":true,\"parent_only\":true,\"tools\":[\"read\"]}",
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\",\"normal_only\":true,\"parent_only\":true,\"tools\":[\"read\",\"subagents\"]}",
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\",\"normal_only\":true,\"parent_only\":true}",
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\",\"normal_only\":true,\"parent_only\":\"true\",\"tools\":[\"read\"]}",
+        "{}", "null"
+    };
+    for(guint i=0;i<G_N_ELEMENTS(parent);i++){
+        g_assert_true(json_parser_load_from_data(p,parent[i],-1,NULL));
+        g_assert_cmpint(pi_parent_only_ready(json_parser_get_root(p)),==,i==0);
+    }
     g_object_unref(p);
     g_assert_cmpstr(pi_command("/moe on"), ==, "on");
     g_assert_cmpstr(pi_command("/moe off"), ==, "off");

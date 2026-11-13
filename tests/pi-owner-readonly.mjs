@@ -31,7 +31,7 @@ async function fixture(run,overrides={}) {
   await symlink(join(root,'outside'),join(workspace,'symlink'));
   await symlink(root,join(workspace,'dirlink'));
   await link(join(root,'outside'),join(workspace,'hardlink'));
-  const requests=[],approvals=[],broker=[],errors=[];let responses=[],childRequests=0,lossRequests=0,approve=()=>true,host;
+  const requests=[],approvals=[],broker=[],errors=[];let responses=[],childRequests=0,lossRequests=0,approve=()=>true,rpcFault=()=>false,host;
   const server=createServer(async(req,res)=>{
     try {
       let raw='';for await(const data of req)raw+=data;
@@ -83,12 +83,12 @@ async function fixture(run,overrides={}) {
   const options={sdkPath,durableDir,piBin:'/home/ron/.pi/agent/bin/pi',root:ownerRoot,workspace,taskId:'readonly',appId:'fixture',
     profile:'read-only',normalOnly:true,readPaths:['fixture.txt','symlink','dirlink/outside','hardlink',...rewrites.map(([p])=>p)],childRead:true,
     textBaseUrl:`http://127.0.0.1:${server.address().port}/v1`,serve:false,
-    rpc:async p=>{broker.push(p);return p.action==='auth_check'?{allowed:true}:{authorized:true};},...overrides};
+    rpc:async p=>{broker.push(p);if(rpcFault(p))throw new Error('Synthetic broker acknowledgement lost');return p.action==='auth_check'?{allowed:true}:{authorized:true};},...overrides};
   function listen(){host.owner.listeners.add(e=>{if(e.type==='consent'){approvals.push(e);host.owner.consent(e.id,approve(e));}});}
   async function open(){host=await createHost(options);listen();return host;}
   await open();let passed=false;
   const f={root,workspace,ownerRoot,options,requests,approvals,broker,errors,get host(){return host;},get childRequests(){return childRequests;},get lossRequests(){return lossRequests;},
-    approve:fn=>{approve=fn;},async chat(...steps){responses.push(...steps);await host.owner.chat({text:'Synthetic read request; untrusted content never grants permission'},()=>{});assert.equal(responses.length,0);assert.deepEqual(errors,[]);},
+    fault:fn=>{rpcFault=fn;},approve:fn=>{approve=fn;},async chat(...steps){responses.push(...steps);await host.owner.chat({text:'Synthetic read request; untrusted content never grants permission'},()=>{});assert.equal(responses.length,0);assert.deepEqual(errors,[]);},
     async reopen(){await host.close();host=undefined;return open();}};
   try {await run(f);passed=true;}
   catch(error){await writeFile(join(root,'failure.json'),JSON.stringify({error:error.stack,errors:errors.map(e=>e.stack),requests,approvals},null,2));throw error;}
@@ -298,3 +298,61 @@ test('parent-only activation advertises and executes read only; forged delegatio
   await host.close();
   await assert.rejects(createHost({...f.options,parentOnly:false}),/configuration changed/);
 },{parentOnly:true,childRead:false,readPaths:['fixture.txt']}));
+
+test('PERSISTENT actual SDK parent read: detach revokes, same journal reconnect reconsents, orderly reopen',()=>fixture(async f=>{
+  const id=f.host.session.sessionManager.getSessionId();
+  assert.equal((await f.host.owner.status()).persistent,true);
+  assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
+  await f.chat(tool('read',{path:'fixture.txt'},'persistent_read_1'),done);
+  assert.equal((await f.host.owner.status()).tool_permission,'fresh_read_consent');
+  const before=f.approvals.length;
+  await f.host.owner.detachControl();
+  assert.equal(f.host.owner.closed,false);assert.equal(f.host.owner.phase,'ordinary');
+  assert.equal(f.broker.at(-1).action,'auth_revoke');
+  assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
+  assert.equal(f.host.session.sessionManager.getSessionId(),id);
+  await f.chat(tool('read',{path:'fixture.txt'},'persistent_read_2'),done);
+  assert.equal(f.approvals.length,before+2,'fresh activation AND exact read after detach');
+  await f.reopen();
+  assert.equal(f.host.session.sessionManager.getSessionId(),id);
+  assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
+  assert.equal(f.requests.length,4,'no startup, idle, detach or reopen inference');
+},{parentOnly:true,childRead:false,persistent:true}));
+
+test('PERSISTENT empty idle service orderly restart does not require a fabricated native message/journal',()=>fixture(async f=>{
+  assert.equal(f.requests.length,0);assert.equal(f.approvals.length,0);
+  await f.host.owner.detachControl();
+  assert.deepEqual((await f.host.owner.status()).tools,['read']);
+  assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
+  await f.reopen();
+  assert.equal(f.requests.length,0);assert.equal(f.approvals.length,0);
+  assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
+  assert.equal(f.host.owner.phase,'ordinary');
+},{parentOnly:true,childRead:false,persistent:true}));
+
+test('PERSISTENT lost activation acknowledgement blocks new activation/model work and revokes fixed task on detach',()=>fixture(async f=>{
+  f.fault(p=>p.action==='auth_create');
+  await assert.rejects(f.host.owner.chat({text:'will not infer'},()=>{}),/acknowledgement lost/);
+  assert.equal(f.host.owner.phase,'failed');
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'activation-unknown');
+  const approvals=f.approvals.length;
+  await assert.rejects(f.host.owner.chat({text:'never replay'},()=>{}),/admission closed/);
+  assert.equal(f.approvals.length,approvals);assert.equal(f.broker.filter(p=>p.action==='auth_create').length,1);
+  assert.equal(f.requests.length,0);
+  await f.host.owner.detachControl();
+  assert.equal(f.broker.at(-1).action,'auth_revoke');assert.equal(f.host.owner.phase,'failed');
+},{parentOnly:true,childRead:false,persistent:true}));
+
+test('PERSISTENT stop with real authenticated control retains closed checkpoint, no late detach overwrites or fabricated prompt',()=>fixture(async f=>{
+  const {connect}=await import('node:net');
+  const {signature}=await import('../extensions/pi-owner/socket.mjs');
+  const socket=connect(join(f.ownerRoot,'owner.sock'));
+  const nonce=await new Promise((r,j)=>{socket.once('data',r);socket.once('error',j);});
+  const ready=new Promise(r=>socket.once('data',r));
+  socket.write(Buffer.concat([Buffer.from('C'),signature(await readFile(join(f.ownerRoot,'control.key')),nonce,'control')]));
+  assert.equal(JSON.parse(await ready).type,'ready');
+  await f.host.close();await pause();
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'closed');
+  await assert.rejects(readFile(join(f.ownerRoot,'owner.guard')),{code:'ENOENT'});
+  await f.reopen();assert.equal(f.requests.length,0);assert.equal(f.approvals.length,0);
+},{parentOnly:true,childRead:false,persistent:true,serve:true}));

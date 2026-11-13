@@ -12,7 +12,7 @@ export async function privateDirectory(root) {
   const st=await lstat(root);
   if(await realpath(root)!==root||!st.isDirectory()||st.uid!==process.getuid()||(st.mode&0o077))throw new Error('Unsafe owner directory');
 }
-export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disconnectControl(),read}={}) {
+export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disconnectControl(),singleControl=false,read}={}) {
   await privateDirectory(root);
   const keys={};
   for(const role of (read?['chat','control','read']:['chat','control'])) {
@@ -61,6 +61,7 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
         if(buffer.length<33)return;
         role=buffer[0]===67?'control':buffer[0]===84?'chat':buffer[0]===82&&read?'read':undefined;
         if(!role||!timingSafeEqual(buffer.subarray(1,33),signature(keys[role],nonce,role))){socket.destroy();return;}
+        if(role==='control'&&singleControl&&(controls||owner.detaching||owner.closing)){socket.destroy();return;}
         buffer=buffer.subarray(33);authenticated=true;clearTimeout(timer);
         if(role==='control') {
           controls++;const listener=event=>send({type:'host_event',event});owner.listeners.add(listener);

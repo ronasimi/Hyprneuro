@@ -2,8 +2,8 @@
 import { randomUUID } from 'node:crypto';
 
 export class PiOwner {
-  constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable}) {
-    Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable});
+  constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,callTimeoutMs=300000}) {
+    Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,callTimeoutMs});
     this.phase='ordinary';this.queue=Promise.resolve();this.listeners=new Set();this.consents=new Map();this.closed=false;
   }
   emit(event){for(const listener of this.listeners)listener(event);}
@@ -13,11 +13,11 @@ export class PiOwner {
   }
   async approve(request) {
     request.signal?.throwIfAborted();
-    if(!this.listeners.size)throw new Error('No authenticated trusted control UI; denied');
+    if(!this.listeners.size)throw Object.assign(new Error('No authenticated trusted control UI; denied'),{code:'HUMAN_DENIED'});
     const id=randomUUID();let timer,abort;
     try {
       return await new Promise((resolve,reject)=>{
-        timer=setTimeout(()=>{this.consents.delete(id);reject(new Error('Trusted consent timed out'));},120000);
+        timer=setTimeout(()=>{this.consents.delete(id);reject(Object.assign(new Error('Trusted consent timed out'),{code:'HUMAN_DENIED'}));},120000);
         abort=()=>resolve(false);request.signal?.addEventListener('abort',abort,{once:true});
         this.consents.set(id,resolve);this.emit({type:'consent',id,title:request.title,detail:request.detail});
       });
@@ -28,6 +28,19 @@ export class PiOwner {
     this.consents.get(id)(allowed);this.consents.delete(id);
   }
   disconnectControl(){for(const resolve of this.consents.values())resolve(false);this.consents.clear();}
+  detachControl(){
+    if(this.closing||this.closed)return this.shutdown??Promise.resolve();
+    if(this.detaching)return this.detaching;
+    this.disconnectControl();
+    this.detaching=(async()=>{
+      try {
+        this.session.clearQueue?.();await this.session.abort();await this.queue;
+        await this.detach?.();await this.checkpoint(this.phase);
+      } catch(error){this.phase='failed';await this.checkpoint('detach-unknown');throw error;}
+      finally{this.detaching=undefined;}
+    })();
+    return this.detaching;
+  }
   async status(){
     const observed=await this.command('status');
     return {...observed,...(['failed','transition'].includes(this.phase)?{state:this.phase}:{}),owner_phase:this.phase};
@@ -73,7 +86,15 @@ export class PiOwner {
   chat({text,recommend=false},emit,signal) {
     if(typeof text!=='string'||!text.trim()||text.length>16000||typeof recommend!=='boolean')throw new Error('Bounded text/recommend required');
     return this.serial(async()=>{
+      const originalSignal=signal,deadline=new AbortController(),external=()=>deadline.abort(originalSignal.reason);
+      signal?.addEventListener('abort',external,{once:true});if(signal?.aborted)external();
+      signal=deadline.signal;
+      const timer=setTimeout(()=>deadline.abort(new Error('Pi request deadline; inspect checkpoint, no replay')),this.callTimeoutMs);
+      const interrupt=()=>{this.disconnectControl();this.session.clearQueue?.();void Promise.resolve(this.session.abort?.()).catch(()=>{});};
+      signal.addEventListener('abort',interrupt,{once:true});
+      try {
       signal?.throwIfAborted();
+      if(['failed','transition'].includes(this.phase))throw new Error('Pi conversation admission closed');
       await this.prepare?.();
       signal?.throwIfAborted();
       if(['failed','transition'].includes(this.phase))throw new Error('Pi conversation admission closed');
@@ -111,20 +132,22 @@ export class PiOwner {
         } else if(['agent_settled','tool_execution_start','tool_execution_end'].includes(event.type))
           emit({type:event.type,tool:event.toolName,isError:event.isError});
       });
-      const abort=()=>{this.session.clearQueue?.();void this.session.abort();};signal?.addEventListener('abort',abort,{once:true});
       try {await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});await this.session.waitForIdle();signal?.throwIfAborted();await this.checkpoint(this.phase);return {settled:true};}
       catch(error){this.phase='failed';await this.checkpoint('chat-unknown');throw error;}
-      finally{signal?.removeEventListener('abort',abort);unsub();}
+      finally{unsub();}
+      } finally {clearTimeout(timer);signal.removeEventListener('abort',interrupt);originalSignal?.removeEventListener('abort',external);}
     });
   }
   close(){
     return this.shutdown??=(async()=>{
       this.closing=true;this.disconnectControl();
       try {
+        await this.detaching;
         if(this.transitionKind==='on'){this.cancelOn=true;await this.cancelTransition?.().catch(()=>{});}
         this.session.clearQueue?.();await this.session.abort();await this.queue;
         if(this.phase==='hermes')await this._transition('off');
         await this.durable.quiesce();
+        await this.detach?.();
         const safe=this.phase==='ordinary';await this.checkpoint(safe?'closed':'failed');this.closed=true;return safe;
       } catch(error) {
         this.phase='failed';

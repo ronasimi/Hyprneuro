@@ -167,8 +167,10 @@ main()
     (staged/'sidecar-entry.py').write_text(entry);(staged/'sidecar-entry.py').chmod(0o500)
     (staged/'sidecar.conf').write_text('[Service]\nWorkingDirectory='+str(source/'python')+'\n'+common+
         'ExecStart=\nExecStart='+str(python)+' '+str(staged/'sidecar-entry.py')+' serve --allow-ingest --watch-hyprland --assistant-enabled --no-allow-capture --no-allow-on-demand --no-allow-browser --no-d1-visual --no-retention-enabled\n')
-    (staged/'ui.conf').write_text('[Service]\n'+common+
+    explicit_ui=(source/'python/src/hyprneuro/pi_managed_bridge.py').is_file()
+    ui_mode=(f'Environment="HYPRNEURO_PI_UI=0" "HYPRNEURO_PI_BRIDGE_PYTHON={python}"\nUnsetEnvironment=HYPRNEURO_PI_OWNER_DIR\n' if explicit_ui else
         f'Environment="HYPRNEURO_PI_UI=1" "HYPRNEURO_PI_OWNER_DIR={owner}" "HYPRNEURO_PI_BRIDGE_PYTHON={python}"\n')
+    (staged/'ui.conf').write_text('[Service]\n'+common+ui_mode)
     launch=f'''#!/bin/sh
 set -eu
 # Parent must first approve review, machine lease, source deployment and fresh
@@ -196,7 +198,7 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
             raise RuntimeError('Unexpected release symlink')
         p.chmod(0o500 if p.is_dir() or p.stat().st_mode&0o111 else 0o400)
     source.chmod(0o500)
-    manifest=dict(commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,
+    manifest=dict(explicit_ui=explicit_ui,commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,
         python=str(python),import_origins=origins,installed_ui=str(installed),installed_mode=stat.S_IMODE(installed.stat().st_mode),
         installed_sha256=digest(installed),binary=str(bin_dir/'hyprneuro-ui'),binary_sha256=digest(bin_dir/'hyprneuro-ui'),
         database=dict(path=str(db),backup=str(backup/'observations.sqlite3'),backup_sha256=digest(backup/'observations.sqlite3'),quick_check='ok'),

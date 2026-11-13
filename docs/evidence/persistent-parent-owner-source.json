@@ -1,0 +1,123 @@
+{
+  "base": "7b2f632159d269e0d9ccadb4a0c38c13abb8201f",
+  "source_only": true,
+  "independent_review": "PENDING parent assignment",
+  "deployed": false,
+  "live_human_acceptance": false,
+  "production_ready": false,
+  "validation": {
+    "run": "01M7B40XHHSTPRASDT36A80Z8C",
+    "python": 428,
+    "skipped": 1,
+    "subtests": 92,
+    "python_warnings_as_errors": true,
+    "node": 51,
+    "c_normal": 17,
+    "c_asan_ubsan_leaks": 17,
+    "unit_syntax": "systemd-analyze --user verify passed; no install/start/enable"
+  },
+  "source_sha256": {
+    "extensions/pi-owner/host.mjs": "7b083dd2bf2d583640c6b4c66f02d65a0f7809156609387d67d1772abc9a032c",
+    "extensions/pi-owner/owner.mjs": "db014ce8983da5ea37fc33dbd6dfcbf2693c1c39f9a6ae778e0cf721fb381ac8",
+    "extensions/pi-owner/socket.mjs": "0fab57a2521c1d81e00d9457c7214bb09d7e16f8e8740b7d0e42f98406b26e47",
+    "extensions/tool-harness/index.mjs": "3ac93d2f7bc4638b3b6f48bd8b35e82edc870ba7cfb4b71923c3a757218cac35",
+    "python/src/hyprneuro/pi_desktop_bridge.py": "cea8b2942de9e7d8cf96c8bdf1e5e7ed5c24ee02351e72c50a70cfee378fc0d0",
+    "python/src/hyprneuro/pi_managed_bridge.py": "2c4ba74f2d4bf0db93ec07d0b976d93feb682aecf4a1c15a4ffbae7355d203c5",
+    "python/src/hyprneuro/pi_owner_service.py": "eb30f3167ca649a1b58659a0c04841e2f24bd6169ce2179ecda799dc0eb9e1d3",
+    "python/src/hyprneuro/session_lock.py": "ffeab27d0b99095cd362f40da5f3e94aa95547264019b028d55d5c83468c7c4b",
+    "python/tests/test_app_release_ops.py": "f587a87fbf27933614c73ee1216ff20d81df6594c3c9b4790894097f51f49e5f",
+    "python/tests/test_pi_managed_bridge.py": "83d138471fd7dd24ba1371eac65010dd07f0d37d5e1a971424c774139eed2854",
+    "python/tests/test_pi_owner_service.py": "68ebd519ffc12e3e92686cd5672b690efc6e20cf355de06e504052ca9f8d5f92",
+    "scripts/prepare_app_release.py": "152ca3f43fd3719884453cd94be468110c4059480434e9217e282047576f9553",
+    "scripts/verify_app_release.py": "a23d1a1321f34db0bb51d0a16fa493583c9a154299806c6abe7511e1e22e529a",
+    "tests/pi-owner-readonly.mjs": "6c513a97bbd85a60b1a867266c28c336a7e2df2e01e95ccd2ae05b8007273780",
+    "tests/pi-owner-socket.mjs": "bef0d6d87194249fd161f7fadd97de934a19af4c96b468180d19d3f8741d84e1",
+    "ui/src/hyprneuro.c": "7b288a8d1fa285c0e35cd78d83befbcf23b6233063861bde71f5b77f468eb7a7",
+    "ui/src/pi-desktop.inc": "1aa0c4ce43ef3bff889e5f31cdaada5b8e347a71d08931b61f013c4866900814",
+    "ui/tests/history.c": "075e9c9cb0c0aab47f46e891be5bb266a87a2ee06ec634a8d8b1af5c7a0b9c6a"
+  },
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/python.log",
+      "sha256": "0b0212fc4fe1dd1cab041cc7b5aa12bb651799a102354a7536d5302ac35c68bd"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/node.log",
+      "sha256": "7a6ff842f9a1635307a086b32ba0fde9775842ee86f198718f33e0dcd6fafea6"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/c.log",
+      "sha256": "3b07b844f2930409fb78732f259424486e0dd31a6fc9c999ae8312b4d32b6273"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/c-sanitized.log",
+      "sha256": "f2fbccc82668476eb6f0a5feac4ab966c35ff27b2f66d615c0b07c8a92aa20a4"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/c-detail.log",
+      "sha256": "88df68dcd36c5dcd812807c715885440c26db65fda2bd2f2e7ffdf561d3f1cc6"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/c-sanitized-detail.log",
+      "sha256": "94e5554b2a8285314dc9f5c810472607ced201a68505253e1dea6b7d5efa2299"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/unit-verify.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/external-model-state.txt",
+      "sha256": "b48fcc54d24f770e5c8974089ab33237e9b83f4396ec48970e7eb7a9f682547f"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/initial-abort-mock-failure.log",
+      "sha256": "72caafdba3f9f6616f33ed26c665a232248eb7b309bf58ece568a42fff7d3b5d"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-owner-source/hyprneuro-pi-owner@.service",
+      "sha256": "eb404f870098b35aee281b6fd0f0fe08c21d32ac06a78d1fc33b713ce4c1632b"
+    }
+  ],
+  "installed": {
+    "mode": "legacy unchanged; new persistent source NOT installed",
+    "ui": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 2534881,
+      "start": "35935071",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "sidecar": {
+      "unit": "hyprneuro.service",
+      "pid": 2516798,
+      "start": "35839218",
+      "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+      "exe_sha256": "20a5569a1bac8de02122347777b6cf2ae12ec1eafd42db990c6a0c5407f96b8e",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro.service",
+      "dropins": [
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "frozen_runtime": "1a6fb74",
+    "frozen_manifest_sha256": "d24f79ec25cdff69d762a38d9042856d2c520c0bfece05fc5969efe785e53606"
+  },
+  "current_external_condition": {
+    "normal_stack": "inactive; normal-only inference blocked",
+    "moe": "externally active PID2608154; provider ownership unknown; NOT touched",
+    "normal_exit_time": "2026-11-13 14:54:54 EST",
+    "old_frozen_baseline_verifier": "correctly refused Expected active unit: lfm@text.service; no retry/override",
+    "classification": "external operating condition, not project test failure"
+  },
+  "retained_regression": {
+    "initial_abort_mock": "old synthetic session omitted abort; new listener threw asynchronously; fixed optional abort and removed duplicate abort handler; full rerun passes",
+    "activation_unknown": "synthetic lost auth-create acknowledgement retains activation-unknown; failed phase blocks new grants/model work; fixed-task revocation remains possible",
+    "close_race": "inspection identified late control-disconnect could overwrite closed; real authenticated socket regression confirms closed survives shutdown",
+    "empty_idle": "no invented model message/file to persist setup-only session; orderly reopen passes"
+  },
+  "next": "Independent permission/lifetime review of this immutable source checkpoint, then parent-authorized app-only deployment and provider-safe coordinated GTK window with genuine human consent. No push/deployment yet; no model operations or video integration."
+}

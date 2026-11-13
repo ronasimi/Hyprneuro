@@ -196,3 +196,28 @@ test('read bridge binary role cannot obtain chat, consent or lifecycle authority
   const approval=o.approve({title:'Read?',signal:cancel.signal});cancel.abort();
   assert.equal(await approval,false);assert.equal(o.consents.size,0);
 });
+
+test('persistent socket admits one trusted control, refuses second without detaching first, permits explicit reconnect',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'hn-one-control-'));let server,c1,c2,detaches=0;
+  try {
+    server=await serveOwner(root,fake(),{singleControl:true,onControlDisconnect:()=>{detaches++;}});
+    c1=await client(root,'control');
+    const socket=connect(join(root,'owner.sock'));
+    const nonce=await new Promise(r=>socket.once('data',r));
+    socket.write(Buffer.concat([Buffer.from('C'),signature(await readFile(join(root,'control.key')),nonce,'control')]));
+    await new Promise(r=>socket.once('close',r));assert.equal(detaches,0);
+    c1.send({op:'status',id:'first'});assert.equal((await c1.next()).result.state,'off');
+    c1.close();await new Promise(r=>setTimeout(r,30));assert.equal(detaches,1);
+    c2=await client(root,'control');c2.send({op:'status',id:'new'});assert.equal((await c2.next()).result.state,'off');
+  }finally{c1?.close();c2?.close();await server?.close();await rm(root,{recursive:true,force:true});}
+});
+
+test('individual native request deadline aborts and retains unknown outcome, not automatic replay',async()=>{
+  let end;const phases=[];let calls=0;
+  const owner=new PiOwner({callTimeoutMs:20,command:async()=>({state:'off'}),checkpoint:async p=>phases.push(p),
+    session:{subscribe:()=>()=>{},prompt:()=>{calls++;return new Promise(r=>{end=r;});},abort:async()=>end?.(),waitForIdle:async()=>{}},durable:{quiesce:async()=>{}}});
+  await assert.rejects(owner.chat({text:'bounded call'},()=>{}),/deadline/);
+  assert.equal(calls,1);assert.equal(owner.phase,'failed');assert.equal(phases.at(-1),'chat-unknown');
+  await assert.rejects(owner.chat({text:'not replay'},()=>{}),/admission closed/);assert.equal(calls,1);
+  assert.equal(await owner.close(),false);
+});

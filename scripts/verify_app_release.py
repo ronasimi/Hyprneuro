@@ -3,11 +3,17 @@
 import argparse
 import json
 import os
+import socket
+import struct
 from pathlib import Path
 from prepare_app_release import digest, private_file, unit_identity
 
 
 def check_ui_mode(env, manifest, legacy):
+    if manifest.get('explicit_ui'):
+        if env.get(b'HYPRNEURO_PI_UI') != b'0' or b'HYPRNEURO_PI_OWNER_DIR' in env or env.get(b'HYPRNEURO_PI_BRIDGE_PYTHON') != manifest['python'].encode():
+            raise RuntimeError('Explicit-connect UI must launch legacy with pinned adapter and no ambient owner binding')
+        return
     if env.get(b'HYPRNEURO_PI_UI') != (b'0' if legacy else b'1'):
         raise RuntimeError('Unexpected explicit GTK mode')
     if legacy:
@@ -15,6 +21,22 @@ def check_ui_mode(env, manifest, legacy):
             raise RuntimeError('Legacy mode retains fixture owner binding')
     elif env.get(b'HYPRNEURO_PI_OWNER_DIR') != manifest['owner'].encode() or env.get(b'HYPRNEURO_PI_BRIDGE_PYTHON') != manifest['python'].encode():
         raise RuntimeError('GTK owner binding or bridge interpreter mismatch')
+
+
+def ui_status(path, pid):
+    with socket.socket(socket.AF_UNIX) as client:
+        client.settimeout(3);client.connect(str(path))
+        peer,uid,_=struct.unpack('3i',client.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
+        if peer!=pid or uid!=os.getuid():raise RuntimeError('Wrong UI metadata peer')
+        client.sendall(b'pi-status\n');raw=b''
+        while b'\n' not in raw:
+            chunk=client.recv(1024)
+            if not chunk or len(raw)+len(chunk)>1024:raise RuntimeError('Invalid UI metadata response')
+            raw+=chunk
+        value=json.loads(raw)
+        if set(value)!={'mode','connected','read_callable','fresh_consent_required'} or value['mode'] not in ['pi','legacy'] or any(type(value[k]) is not bool for k in ['connected','read_callable','fresh_consent_required']) or value['fresh_consent_required'] is not True:
+            raise RuntimeError('Invalid UI mode metadata')
+        return value
 
 
 def verify(bundle, installed=False, legacy=False):
@@ -51,7 +73,11 @@ def verify(bundle, installed=False, legacy=False):
             process=Path('/proc')/str(unit_identity(unit)['pid'])
             env=dict(x.split(b'=',1) for x in (process/'environ').read_bytes().split(b'\0') if b'=' in x)
             if env.get(b'PYTHONPATH')!=str(source/'python/src').encode() or b'HYPRNEURO_RESIDENCY_DIR' in env:raise RuntimeError('Loaded app environment/source mismatch')
-            if unit=='hyprneuro-ui.service':check_ui_mode(env,m,legacy)
+            if unit=='hyprneuro-ui.service':
+                check_ui_mode(env,m,legacy)
+                if m.get('explicit_ui'):
+                    mode=ui_status(env.get(b'HYPRNEURO_UI_SOCKET',str(Path(m['runtime'])/'hyprneuro/ui.sock').encode()).decode(),int(process.name))
+                    if legacy and (mode['mode']!='legacy' or mode['connected'] or mode['read_callable']):raise RuntimeError('Running UI is not disconnected legacy; no auto-disconnect')
         pid=unit_identity('hyprneuro.service')['pid']
         origin=json.loads(private_file(bundle/'sidecar-origin.json').read_text())
         if origin['pid']!=pid or origin['modules']!=m['import_origins']['modules']:raise RuntimeError('Loaded sidecar origin not attested')

@@ -14,6 +14,22 @@ Pending branches are not implicitly merged or deployed.
 At that earlier checkpoint the read-only-owner profile was pending. Current
 installed/bounded-fixture results supersede that state below; P01 remains partial.
 
+## Next iteration in progress — persistent parent service source, not activated
+
+After7b2f632, explicit GTK connect/disconnect and a private, permission-gated
+parent-only normal-read service are implemented in source. Legacy remains the
+installed/runtime default; no deployment, startup, model change, broader right
+or human/live acceptance is implied. Source covers persistent idle native session,
+fresh reconnect consent/revocation, one service/control, bounded individual calls
+and unknown-outcome/no-replay recovery. See
+[PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md). Final source regression: **428 Python/1 skip/92 subtests;51 Node;17 C normal +
+ASan/UBSan/leaks**, plus rendered-unit syntax verification. Independent boundary
+review/deployment/live human acceptance remain pending; production NOT READY.
+External current model condition: normal trio inactive, MoE active (not operated
+by this worker). Frozen baseline verifier refused; no override or model restart.
+This is a live-test prerequisite, not a project test failure. See
+[evidence/persistent-parent-owner-source.json](evidence/persistent-parent-owner-source.json).
+
 ## Current installed checkpoint — bounded parent read accepted, final legacy mode
 
 Supersedes the older present-tense integration-pending notes below. Actual merge

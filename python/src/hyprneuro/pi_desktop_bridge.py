@@ -102,7 +102,7 @@ class DesktopBridge:
             done, _ = await asyncio.wait([call, pump], return_when=asyncio.FIRST_COMPLETED)
             if pump in done:
                 await pump
-            result = await call
+            result = await asyncio.wait_for(call, 310)
             await client.events.join()
             return result
         finally:
@@ -197,7 +197,8 @@ class DesktopBridge:
 
 
 async def run():
-    if os.environ.get('HYPRNEURO_PI_UI') != '1' or not os.environ.get('HYPRNEURO_PI_OWNER_DIR'):
+    explicit = sys.argv[1:] == ['--explicit-connect']
+    if not explicit and (os.environ.get('HYPRNEURO_PI_UI') != '1' or not os.environ.get('HYPRNEURO_PI_OWNER_DIR')):
         return 2
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(limit=MAX_FRAME + 1)
@@ -214,12 +215,20 @@ async def run():
             writer.write(data)
             await asyncio.wait_for(writer.drain(), 5)
 
-    bridge = DesktopBridge(os.environ['HYPRNEURO_PI_OWNER_DIR'], send)
+    if explicit:
+        from .pi_managed_bridge import ManagedDesktopBridge
+        bridge = ManagedDesktopBridge(send)
+    else:
+        bridge = DesktopBridge(os.environ['HYPRNEURO_PI_OWNER_DIR'], send)
     workers = []
     try:
-        await bridge.start()
-        workers = [asyncio.create_task(bridge.read(reader)), asyncio.create_task(bridge.events(bridge.control, host=True)),
-                   asyncio.create_task(bridge.poll())]
+        if explicit:
+            await send({'type': 'disconnected'})
+            workers = [asyncio.create_task(bridge.read(reader))]
+        else:
+            await bridge.start()
+            workers = [asyncio.create_task(bridge.read(reader)), asyncio.create_task(bridge.events(bridge.control, host=True)),
+                       asyncio.create_task(bridge.poll())]
         done, _ = await asyncio.wait(workers, return_when=asyncio.FIRST_COMPLETED)
         for task in done:
             await task

@@ -8,6 +8,22 @@ installed but live compositor-hook/capture acceptance remains blocked. Earlier
 5446e9c/e403da3/8bc7312 receipts below remain historical, not current totals.
 Completion order remains in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
+## Next iteration in progress — persistent parent service source, not activated
+
+After7b2f632, explicit GTK connect/disconnect and a private, permission-gated
+parent-only normal-read service are implemented in source. Legacy remains the
+installed/runtime default; no deployment, startup, model change, broader right
+or human/live acceptance is implied. Source covers persistent idle native session,
+fresh reconnect consent/revocation, one service/control, bounded individual calls
+and unknown-outcome/no-replay recovery. See
+[PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md). Final source regression: **428 Python/1 skip/92 subtests;51 Node;17 C normal +
+ASan/UBSan/leaks**, plus rendered-unit syntax verification. Independent boundary
+review/deployment/live human acceptance remain pending; production NOT READY.
+External current model condition: normal trio inactive, MoE active (not operated
+by this worker). Frozen baseline verifier refused; no override or model restart.
+This is a live-test prerequisite, not a project test failure. See
+[evidence/persistent-parent-owner-source.json](evidence/persistent-parent-owner-source.json).
+
 ## Current installed normal-only fixture receipt (2026-11-13)
 
 - Exact frozen manifestd24f79ec…53606 and installed/running UI

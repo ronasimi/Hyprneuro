@@ -455,8 +455,28 @@ static void restore_glyph_exact(void) {
     g_assert_cmpint(g_utf8_strlen(RESTORE_GLYPH, -1), ==, 1);
     g_assert_cmpuint(g_utf8_get_char(RESTORE_GLYPH), ==, 0xF0BCE);
 }
+static void pi_explicit_mode_frames(void) {
+    char *frame = pi_encode_frame("connect", "/private/owner", FALSE);
+    JsonParser *parser = json_parser_new();
+    g_assert_true(json_parser_load_from_data(parser, frame, -1, NULL));
+    JsonNode *packet = json_parser_get_root(parser);
+    g_assert_cmpstr(jstr(jmember(packet, "op")), ==, "connect");
+    g_assert_cmpstr(jstr(jmember(packet, "root")), ==, "/private/owner");
+    g_assert_null(jmember(packet, "allowed"));
+    g_assert_null(jmember(packet, "text"));
+    g_free(frame);g_object_unref(parser);
+    App app = {0};
+    char *metadata = pi_status_frame(&app);
+    g_assert_nonnull(strstr(metadata, "\"mode\":\"legacy\""));
+    g_assert_nonnull(strstr(metadata, "\"read_callable\":false"));g_free(metadata);
+    g_assert_true(pi_route_allowed(&app, FALSE)); /* default legacy */
+    app.pi_optin = TRUE;
+    g_assert_false(pi_route_allowed(&app, TRUE));
+    g_assert_false(pi_route_allowed(&app, FALSE)); /* never fallback */
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/pi-explicit-mode-frames", pi_explicit_mode_frames);
     g_test_add_func("/ui/two-transcript-sizes", two_transcript_sizes);
     g_test_add_func("/ui/exact-restore-glyph", restore_glyph_exact);
     g_test_add_func("/ui/pi-unicode-preflight-preserves-draft", pi_unicode_preflight_preserves_draft);

@@ -37,10 +37,11 @@ async function readWorkspace(workspace,root) {
 // Explicit paths; no package install, auto-discovery, existing auth/token stores,
 // service setup, or independent conversation framework.
 export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId,appId,
-    rpc=sidecar,model,native,providers,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,parentOnly=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
+    rpc=sidecar,model,native,providers,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,parentOnly=false,persistent=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
   if(process.env.HYPRNEURO_PI_OWNER_ENABLE!=='1')throw new Error('Pi owner is opt-in and source/mock-only, not activated');
   if(!['standard','read-only'].includes(profile)||typeof normalOnly!=='boolean'||typeof childRead!=='boolean'||typeof parentOnly!=='boolean')throw new Error('Explicit supported owner profile/mode required');
   const readOnly=profile==='read-only';
+  if(typeof persistent!=='boolean'||persistent&&(!parentOnly||!normalOnly||!readOnly||childRead))throw new Error('Persistent service requires normal-only parent READ-ONLY; no children');
   if(parentOnly&&(!readOnly||!normalOnly||childRead))throw new Error('Parent-only requires normal-only READ-ONLY and child-read disabled');
   if(normalOnly&&!readOnly||childRead&&!readOnly)throw new Error('Normal-only/child read require explicit READ-ONLY profile');
   if(readOnly&&(model||!Array.isArray(readPaths)||!readPaths.length||readPaths.length>32||workspace!==await realpath(workspace)))throw new Error('READ-ONLY requires canonical workspace, exact read allowlist and fixed local text model');
@@ -52,7 +53,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
   if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||textBaseUrl!==url.origin+'/v1'||url.username||url.password||url.pathname!=='/v1'||url.search||url.hash)throw new Error('Explicit loopback text endpoint required');
   if(normalOnly&&process.env.HYPRNEURO_RESIDENCY_DIR)throw new Error('Normal-only owner cannot claim coordinator admission; use a separate explicit launch environment');
   if(!normalOnly&&!process.env.HYPRNEURO_RESIDENCY_DIR)throw new Error('All clients must explicitly share residency directory');
-  const configuration={profile,normalOnly,workspace,taskId,appId,readPaths:readOnly?[...readPaths].sort():[],childRead,parentOnly,textBaseUrl};
+  const configuration={profile,normalOnly,workspace,taskId,appId,readPaths:readOnly?[...readPaths].sort():[],childRead,parentOnly,textBaseUrl,...(persistent?{persistent:true,runtime:{sdkPath,durableDir,piBin,host:fileURLToPath(import.meta.url)}}:{})};
   process.umask(0o077); // Dedicated owner and its native children create private files/dirs.
   await privateDirectory(root);
   const rel=relative(workspace,root);
@@ -62,12 +63,13 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
   await guard.sync();await syncDirectory(root); // durable guard BEFORE any runtime effect
   let owner,session,socket;
   const checkpoint=async phase=>{
+    let persistedSession;
     if(session?.sessionManager.getSessionFile()) {
       session.sessionManager.appendCustomEntry('hyprneuro.pi-owner/1',{phase});
       try {
         const file=session.sessionManager.getSessionFile();
         const fd=await open(file,'r+');try{await fd.sync();}finally{await fd.close();}
-        await syncDirectory(dirname(file));
+        await syncDirectory(dirname(file));persistedSession=file;
       } catch(error) {
         // Native Pi intentionally keeps setup-only sessions in memory. Never
         // fabricate an assistant reply merely to force persistence.
@@ -75,10 +77,15 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       }
     }
     const fd=await open(join(root,'checkpoint.json'),'w',0o600);
-    try {await fd.writeFile(JSON.stringify({phase,session:session?.sessionManager.getSessionFile(),configuration}));await fd.sync();}finally{await fd.close();}
+    try {await fd.writeFile(JSON.stringify({phase,session:persistedSession,configuration}));await fd.sync();}finally{await fd.close();}
     await syncDirectory(root);
   };
   try {
+    // Validate restart identity BEFORE loading an SDK/provider from the runtime
+    // descriptor. Never adopt a changed configuration or uncertain journal.
+    let previous;try{previous=JSON.parse(await readFile(join(root,'checkpoint.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
+    if(previous&&(previous.configuration?JSON.stringify(previous.configuration)!==JSON.stringify(configuration):readOnly))throw new Error('Owner configuration changed; fresh root or explicit manual review required');
+    if(previous&&previous.phase!=='closed')throw new Error('Uncertain prior owner checkpoint; manual review required');
     const agentDir=join(root,'agent'),home=join(root,'durable');
     await privateDirectory(agentDir);await privateDirectory(home);
     if(readOnly){
@@ -121,10 +128,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
         if(normalOnly){if(role!=='text'||token)throw new Error('Normal-only owner permits existing text only; no exclusive admission');return async()=>{};}
         return admit(role,token);
       },ownerControl:value=>value==='status'?owner.status():owner.transition(value),exposeCommands:value=>{commands=value;}});
-    // Always reuse the single native session on a verified orderly restart.
-    let previous;try{previous=JSON.parse(await readFile(join(root,'checkpoint.json'),'utf8'));}catch(e){if(e.code!=='ENOENT')throw e;}
-    if(previous&&(previous.configuration?JSON.stringify(previous.configuration)!==JSON.stringify(configuration):readOnly))throw new Error('Owner configuration changed; fresh root or explicit manual review required');
-    if(previous&&previous.phase!=='closed')throw new Error('Uncertain prior owner checkpoint; manual review required');
+    if(parentOnly&&durable.status().workflows.length)throw new Error('Parent-only root contains unexpected Durable work; manual review required');
     if(!previous&&durable.status().workflows.length)throw new Error('Existing Durable workflows without an owner checkpoint; never adopt');
     const decision=(await import(new URL('./api/typesafe-system-one.js',aiURL))).classify;
     const loader=new sdk.DefaultResourceLoader({cwd:workspace,agentDir,settingsManager:settings,
@@ -153,7 +157,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       await session.extensionRunner.getCommand('hn-tools').handler(`${workspace} ${taskId} ${appId}`,context());activated=true;
     }
     const command=async value=>{
-      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true,parent_only:parentOnly,tools:session.getCallableToolNames()}:status;}
+      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true,parent_only:parentOnly,persistent,tools:session.getCallableToolNames(),task_id:taskId,app_id:appId,tool_permission:activated?'fresh_read_consent':'activation_required',workspace,read_paths:readPaths,session_id:session.sessionManager.getSessionId()}:status;}
       if(normalOnly)throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');
       await activate();
       if(value==='on'&&owner.cancelOn)throw new Error('Pending on cancelled by trusted off');
@@ -163,7 +167,16 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       return commands.moe(value==='on'?'start':'finish',context());
     };
     const recommend=route??((text,signal)=>recommendHermes(runtime,runtime.getAllModels().find(m=>m.provider==='hyprneuro-decision'),text,admit,signal));
-    owner=new PiOwner({session,durable,command,lifecycleUnavailable:normalOnly?'Lifecycle unavailable: normal-only owner; all-client cooperation unverified':undefined,checkpoint,route:recommend,settleParent:()=>session.waitForIdle(),cancelTransition:()=>commands.cancel(),prepare:async()=>{await activate();await context().waitForIdle();}});
+    owner=new PiOwner({session,durable:parentOnly?{...durable,quiesce:async()=>{if(durable.status().workflows.length)throw new Error('Unexpected parent-only Durable work; no automatic drain/adoption');}}:durable,command,lifecycleUnavailable:normalOnly?'Lifecycle unavailable: normal-only owner; all-client cooperation unverified':undefined,checkpoint,route:recommend,settleParent:()=>session.waitForIdle(),cancelTransition:()=>commands.cancel(),prepare:async()=>{
+        if(persistent&&(!owner.listeners.size||owner.detaching))throw new Error('Trusted UI required; owner idle/disconnected');
+        if(persistent&&!activated){
+          await checkpoint('activation-intent');
+          try{await activate();await checkpoint('ordinary');}
+          catch(error){if(error.code!=='HUMAN_DENIED')owner.phase='failed';await checkpoint(owner.phase==='failed'?'activation-unknown':'ordinary');throw error;}
+        }else await activate();
+        await context().waitForIdle();
+      },
+      detach:persistent?async()=>{activated=false;await commands.disable();session.setActiveToolsByName(['read']);}:undefined});
     await checkpoint('ordinary');
     let shutdown;
     const close=()=>shutdown??=(async()=>{
@@ -174,14 +187,14 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
         if(safe){await unlink(join(root,'owner.guard'));await syncDirectory(root);}
       }
     })();
-    if(serve||childRead)socket=await serveOwner(root,owner,{read:childRead?async(packet,signal)=>{
+    if(serve||childRead)socket=await serveOwner(root,owner,{singleControl:persistent,read:childRead?async(packet,signal)=>{
       if(owner.closing||owner.phase!=='ordinary')throw new Error('Owner read admission closed');
       if(typeof packet.call!=='string'||packet.call.length>256||typeof packet.exec!=='string'||!packet.exec.startsWith(packet.call+'#')||!/^\d+\.\d+$/.test(packet.exec.slice(packet.call.length+1))||typeof packet.tool_id!=='string'||!/^[\w-]{1,128}$/.test(packet.tool_id))throw new Error('Bounded native child identity required');
       await durable.readChild(packet.call,packet.exec,approvedChildReads,workspace);
       const result=await commands.read('child:'+packet.call+':'+packet.tool_id,packet.args,signal,context());
       if(Buffer.byteLength(JSON.stringify(result))>60000)throw new Error('Child read result exceeds bridge bound; inspect journal, never replay');
       return result;
-    }:undefined,onControlDisconnect:()=>{void close().catch(error=>console.error('Pi owner shutdown failed; inspect retained checkpoint:',root,error.message));}});
+    }:undefined,onControlDisconnect:()=>{if(owner.closing||owner.closed)return;void (persistent?owner.detachControl():close()).catch(()=>console.error('Pi owner cleanup failed; manual checkpoint review required'));}});
     return {owner,session,runtime,durable,socket,close};
   } catch(error) {
     await socket?.close();if(session){await session.extensionRunner.emit({type:'session_shutdown',reason:'quit'});session.dispose();}
@@ -196,7 +209,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)) {
   const host=await createHost({sdkPath:required('HYPRNEURO_PI_SDK'),durableDir:required('HYPRNEURO_DURABLE_PACKAGE'),piBin:required('HYPRNEURO_PI_BIN'),
     root:required('HYPRNEURO_PI_OWNER_DIR'),workspace:required('HYPRNEURO_WORKSPACE'),taskId:required('HYPRNEURO_TASK_ID'),appId:required('HYPRNEURO_APP_ID'),
     profile:process.env.HYPRNEURO_PI_OWNER_PROFILE??'standard',normalOnly:mode==='normal-only',
-    childRead:process.env.HYPRNEURO_PI_CHILD_READ==='1',parentOnly:process.env.HYPRNEURO_PI_PARENT_ONLY==='1',readPaths:JSON.parse(process.env.HYPRNEURO_PI_READ_PATHS??'[]')});
+    childRead:process.env.HYPRNEURO_PI_CHILD_READ==='1',parentOnly:process.env.HYPRNEURO_PI_PARENT_ONLY==='1',persistent:process.env.HYPRNEURO_PI_PERSISTENT==='1',readPaths:JSON.parse(process.env.HYPRNEURO_PI_READ_PATHS??'[]')});
   let closing=false;
   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{if(!closing){closing=true;host.close().then(()=>process.exit(),()=>process.exit(1));}});
 }

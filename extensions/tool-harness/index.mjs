@@ -21,7 +21,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       signal?.throwIfAborted();
       const ok = confirm ? await confirm({title, detail, signal}) : ctx.hasUI && await ctx.ui.confirm(title, detail, {signal, timeout:120000});
       signal?.throwIfAborted();
-      if (ok !== true) throw new Error('Trusted human approval required');
+      if (ok !== true) throw Object.assign(new Error('Trusted human approval required'),{code:'HUMAN_DENIED'});
     };
     async function activate(ctx, workspace, taskId, appId) {
       if(readOnly&&(!binding||workspace!==binding.workspace||taskId!==binding.taskId||appId!==binding.appId))throw new Error('READ-ONLY owner scope is fixed; cannot rebind');
@@ -142,7 +142,15 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         handoff=undefined;throw e;
       } finally {if(pendingHandoff===owner)pendingHandoff=undefined;}
     }};
-    exposeCommands?.({read:(id,args,signal,ctx)=>readDefinition.execute(id,args,signal,undefined,ctx),
+    async function disable() {
+      // Fixed read binding is known even if auth_create's acknowledgement was
+      // lost before active was assigned. Revocation never broadens authority.
+      const task=active?.taskId??(readOnly?binding?.taskId:undefined);
+      if(task)await rpc({action:'auth_revoke',task_id:task});
+      await active?.workspace.close();active=undefined;outcomes=undefined;
+      pi.setActiveTools(previous??[]);previous=undefined;
+    }
+    exposeCommands?.({disable,read:(id,args,signal,ctx)=>readDefinition.execute(id,args,signal,undefined,ctx),
       moe:normalOnly?async()=>{throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');}:hermesCommand.handler,
       status:normalOnly?async()=>({state:'unavailable',available:false,reason:'Normal-only owner; exclusive lifecycle disabled; all-client cooperation unverified'}):observedState,cancel:async()=>{
       if(pendingHandoff){pendingHandoff.expectedClose=true;await pendingHandoff.stop();}
@@ -160,9 +168,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       handler: async (args, ctx) => {
         await ctx.waitForIdle();
         if (args === 'off') {
-          if (active) await rpc({action:'auth_revoke', task_id:active.taskId});
-          await active?.workspace.close(); active = undefined;
-          pi.setActiveTools(previous ?? []); previous = undefined;
+          await disable();
         } else if (args === 'network') {
           if(readOnly)throw new Error('READ-ONLY profile cannot expand network or IO permissions');
           if (!active) throw new Error('Enable a workspace first');

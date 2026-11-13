@@ -40,6 +40,19 @@ static gboolean pi_route_allowed(App *a, gboolean native) {
 }
 static void pi_route_update(App *a) {
     if (!a->pi_route) return;
+    if (a->pi_connect) {
+        gtk_button_set_label(GTK_BUTTON(a->pi_connect), a->pi_optin ? "Disconnect Pi → Legacy" : "Connect Pi owner…");
+        gtk_widget_set_sensitive(a->pi_connect, !a->pi_dead && !a->pi_selecting);
+    }
+    if (a->pi_row) gtk_widget_set_visible(a->pi_row, a->pi_optin);
+    if (!a->pi_optin) {
+        gtk_label_set_text(GTK_LABEL(a->pi_route), "Legacy sidecar · tool-free chat/media · Pi disconnected");
+        return;
+    }
+    if (!a->pi_connected) {
+        gtk_label_set_text(GTK_LABEL(a->pi_route), "Pi disconnected/connecting · no tools available · no fallback; Disconnect returns to Legacy");
+        return;
+    }
     gtk_label_set_text(GTK_LABEL(a->pi_route), a->attachment_b64 ?
         "Attachment → legacy sidecar · NO Pi tools/history · requires ordinary owner" :
         a->pi_parent_only ? "Text → Pi owner · tools: read only · no helpers · fresh consent per read" :
@@ -77,16 +90,19 @@ static void pi_render(App *a) {
     pi_route_update(a);
 }
 
-static void pi_unavailable(App *a) {
-    if (a->pi_dead) return;
-    a->pi_dead = TRUE;
-    if (a->pi_io) g_cancellable_cancel(a->pi_io);
+static void pi_owner_unavailable(App *a) {
     a->pi_parent_only = FALSE; a->pi_normal_only = FALSE; a->pi_connected = FALSE; a->pi_transition = FALSE;
     a->pi_on_pending = a->pi_off_pending = FALSE;
     g_free(a->pi_state); a->pi_state = g_strdup("unavailable");
     pi_close_dialog(a); pi_render(a);
     pi_finish_chat(a, FALSE, "Pi disconnected/unavailable; outcome may be unknown. No retry/fallback.");
-    if (a->pi_out) g_output_stream_close(a->pi_out, NULL, NULL); /* EOF → owner cleanup */
+}
+static void pi_unavailable(App *a) {
+    if (a->pi_dead) return;
+    a->pi_dead = TRUE;
+    if (a->pi_io) g_cancellable_cancel(a->pi_io);
+    pi_owner_unavailable(a);
+    if (a->pi_out) g_output_stream_close(a->pi_out, NULL, NULL);
 }
 
 static void pi_write_next(App *a);
@@ -106,7 +122,7 @@ static void pi_written(GObject *object, GAsyncResult *result, gpointer data) {
     pi_write_next(a);
 }
 static void pi_write_next(App *a) {
-    if (a->pi_writing || g_queue_is_empty(&a->pi_writes) || !a->pi_connected) return;
+    if (a->pi_writing || g_queue_is_empty(&a->pi_writes) || a->pi_dead || !a->pi_out) return;
     GBytes *bytes = g_queue_peek_head(&a->pi_writes);
     gsize size; const void *data = g_bytes_get_data(bytes, &size);
     a->pi_writing = TRUE;
@@ -119,7 +135,7 @@ static char *pi_encode_frame(const char *op, const char *text, gboolean allowed)
     json_builder_begin_object(b);
     json_builder_set_member_name(b, "op"); json_builder_add_string_value(b, op);
     if (text) {
-        json_builder_set_member_name(b, !strcmp(op, "consent") ? "answer_id" : "text");
+        json_builder_set_member_name(b, !strcmp(op, "consent") ? "answer_id" : !strcmp(op, "connect") ? "root" : "text");
         json_builder_add_string_value(b, text);
     }
     if (!strcmp(op, "consent")) {
@@ -161,7 +177,8 @@ static gboolean pi_clear_valid_draft(GtkTextBuffer *composer, const char *text) 
 }
 
 static void pi_send(App *a, const char *op, const char *text, gboolean allowed) {
-    if (!a->pi_connected || g_queue_get_length(&a->pi_writes) >= 8) {
+    gboolean mode = !strcmp(op, "connect") || !strcmp(op, "disconnect");
+    if (a->pi_dead || !a->pi_out || (!a->pi_connected && !mode) || g_queue_get_length(&a->pi_writes) >= 8) {
         pi_unavailable(a); return;
     }
     char *line = pi_encode_frame(op, text, allowed);
@@ -290,7 +307,10 @@ static void pi_packet(App *a, JsonNode *packet) {
     if (a->pi_dead) return; /* Late buffered status/events cannot resurrect a disconnect. */
     const char *type = jstr(jmember(packet, "type"));
     const char *op = jstr(jmember(packet, "op"));
-    if (!g_strcmp0(type, "connected")) { a->pi_connected = TRUE; pi_render(a); }
+    if (!g_strcmp0(type, "disconnected")) {
+        pi_owner_unavailable(a); a->pi_optin = FALSE; pi_render(a);
+        set_status(a, "Legacy mode explicitly selected · Pi tools unavailable");
+    } else if (!g_strcmp0(type, "connected")) { a->pi_connected = TRUE; pi_render(a); }
     else if (!g_strcmp0(type, "status")) {
         a->pi_parent_only = pi_parent_only_ready(jmember(packet, "result"));
         a->pi_normal_only = pi_normal_only_ready(jmember(packet, "result"));
@@ -336,7 +356,7 @@ static void pi_packet(App *a, JsonNode *packet) {
         if (!ok) set_status(a, "Pi request failed · review owner/checkpoint · no retry");
     } else if (!g_strcmp0(type, "notice")) {
         set_status(a, "Pi consent denied: action details exceeded display bound");
-    } else if (!g_strcmp0(type, "unavailable")) pi_unavailable(a);
+    } else if (!g_strcmp0(type, "unavailable")) pi_owner_unavailable(a);
 }
 
 static void pi_read_next(App *a);
@@ -366,11 +386,10 @@ static void pi_read_next(App *a) {
         G_PRIORITY_DEFAULT, a->pi_io, pi_read, a);
 }
 static void pi_start(App *a) {
-    if (!a->pi_optin) return;
     const char *python = g_getenv("HYPRNEURO_PI_BRIDGE_PYTHON");
     if (!python) python = "python3";
     a->pi_process = g_subprocess_new(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-        G_SUBPROCESS_FLAGS_STDERR_SILENCE, NULL, python, "-m", "hyprneuro.pi_desktop_bridge", NULL);
+        G_SUBPROCESS_FLAGS_STDERR_SILENCE, NULL, python, "-m", "hyprneuro.pi_desktop_bridge", "--explicit-connect", NULL);
     if (!a->pi_process) { pi_unavailable(a); return; }
     a->pi_in = g_subprocess_get_stdout_pipe(a->pi_process);
     a->pi_out = g_subprocess_get_stdin_pipe(a->pi_process);
@@ -383,8 +402,40 @@ static void pi_stop(App *a) {
     if (a->pi_out) g_output_stream_close(a->pi_out, NULL, NULL);
     /* EOF is deliberate last-control disconnect cleanup, not a forced kill. */
 }
+/* Read-only operator metadata: never a connection/permission/control action. */
+static char *pi_status_frame(App *a) {
+    return g_strdup_printf("{\"mode\":\"%s\",\"connected\":%s,\"read_callable\":%s,\"fresh_consent_required\":true}\n",
+        a->pi_optin ? "pi" : "legacy", a->pi_connected ? "true" : "false",
+        a->pi_connected && a->pi_parent_only ? "true" : "false");
+}
+static void pi_owner_selected(GObject *object, GAsyncResult *result, gpointer data) {
+    App *a = data; a->pi_selecting = FALSE; pi_route_update(a);
+    GFile *file = gtk_file_dialog_select_folder_finish(GTK_FILE_DIALOG(object), result, NULL);
+    if (!file) return; /* chooser cancellation leaves Legacy/draft untouched */
+    char *root = g_file_get_path(file); g_object_unref(file);
+    if (root && !a->busy && !a->pi_optin) {
+        a->pi_optin = TRUE; pi_render(a); /* explicit intent; never fallback on failure */
+        pi_send(a, "connect", root, FALSE);
+    }
+    g_free(root);
+}
+static void pi_connect_clicked(GtkButton *button, gpointer data) {
+    (void)button; App *a = data;
+    if (a->busy) { set_status(a, "Cancel/settle current chat before changing mode; no replay"); return; }
+    if (a->pi_optin) { pi_send(a, "disconnect", NULL, FALSE); return; }
+    if (a->pi_selecting) return;
+    a->pi_selecting = TRUE; pi_route_update(a);
+    GtkFileDialog *dialog = gtk_file_dialog_new();
+    gtk_file_dialog_set_title(dialog, "Select prepared private Pi owner root — not personal files");
+    gtk_file_dialog_select_folder(dialog, a->win, NULL, pi_owner_selected, a);
+    g_object_unref(dialog);
+}
 static void pi_build(App *a) {
-    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    a->pi_connect = gtk_button_new_with_label("Connect Pi owner…");
+    gtk_widget_set_tooltip_text(a->pi_connect, "Explicitly select a prepared private parent-read owner. No permissions from settings; fresh human activation/read consent required.");
+    g_signal_connect(a->pi_connect, "clicked", G_CALLBACK(pi_connect_clicked), a);
+    gtk_widget_add_css_class(a->pi_connect, "hn-status-action");
+    GtkWidget *row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8); a->pi_row = row;
     a->pi_switch = GTK_SWITCH(gtk_switch_new());
     gtk_accessible_update_property(GTK_ACCESSIBLE(a->pi_switch), GTK_ACCESSIBLE_PROPERTY_LABEL, "MoE observed switch", -1);
     gtk_widget_set_tooltip_text(GTK_WIDGET(a->pi_switch), "Observed MoE state; each handoff needs fresh host consent");
@@ -405,6 +456,6 @@ static void pi_build(App *a) {
     gtk_label_set_wrap(GTK_LABEL(a->pi_route), TRUE);
     gtk_widget_add_css_class(a->pi_route, "dim-label");
     gtk_box_append(GTK_BOX(a->chat_page), a->pi_route);
-    gtk_widget_set_visible(a->pi_route, a->pi_optin);
+    gtk_widget_set_visible(a->pi_route, TRUE);
     pi_render(a);
 }

@@ -13,12 +13,13 @@ class LoginSessionGuard:
     LOCKERS = frozenset({"hyprlock", "swaylock", "swaylock-effects", "waylock",
                          "gtklock", "i3lock", "i3lock-color", "betterlockscreen"})
 
-    def __init__(self, *, session=None, uid=None, proc_root=Path('/proc'), interval=1.0):
+    def __init__(self, *, session=None, uid=None, proc_root=Path('/proc'), interval=1.0, wayland_only=False):
         self.session = os.environ.get('XDG_SESSION_ID', '') if session is None else session
         self.uid = os.getuid() if uid is None else uid
         self.proc_root = Path(proc_root)
         if not .1 <= interval <= 5:
             raise ValueError('Invalid reconciliation interval')
+        self.wayland_only = wayland_only
         self.interval = interval
         self._verified = False
         self._expires = 0.0
@@ -164,7 +165,7 @@ class LoginSessionGuard:
                     leader = int(row.get('Leader', '0'))
                     verified = (row.get('Id') == self.session and row.get('User') == str(self.uid)
                         and row.get('Active') == 'yes' and row.get('LockedHint') == 'no'
-                        and row.get('Remote') == 'no' and row.get('Type') in ('wayland', 'x11')
+                        and row.get('Remote') == 'no' and row.get('Type') in (('wayland',) if self.wayland_only else ('wayland', 'x11'))
                         and row.get('Class') == 'user' and bool(row.get('Seat')) and leader > 0)
                     if verified:
                         verified = await asyncio.to_thread(self._no_locker, leader)

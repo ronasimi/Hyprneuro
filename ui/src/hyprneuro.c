@@ -124,10 +124,10 @@ struct App {
     GtkWidget *status, *metrics, *monitoring;
 
     gboolean pi_parent_only, pi_normal_only, pi_optin, pi_connected, pi_transition, pi_chat, pi_native_error, pi_rendering;
-    gboolean pi_on_pending, pi_off_pending, pi_dead;
+    gboolean pi_on_pending, pi_off_pending, pi_dead, pi_selecting;
     char *pi_state, *pi_consent_id;
     GtkSwitch *pi_switch;
-    GtkWidget *pi_label, *pi_route, *pi_cancel;
+    GtkWidget *pi_label, *pi_route, *pi_cancel, *pi_connect, *pi_row;
     GtkWindow *pi_dialog;
     GSubprocess *pi_process;
     GInputStream *pi_in;
@@ -1733,6 +1733,14 @@ static void control_ready(GObject *source, GAsyncResult *result, gpointer data) 
             if (!strcmp(r->buffer, "toggle")) toggle_ui(r->app);
             else if (!strcmp(r->buffer, "show")) show_ui(r->app);
             else if (!strcmp(r->buffer, "hide")) hide_ui(r->app);
+            else if (!strcmp(r->buffer, "pi-status")) {
+                char *packet = pi_status_frame(r->app);
+                GSocket *socket = g_socket_connection_get_socket(r->conn);
+                g_socket_set_blocking(socket, FALSE);
+                /* Tiny bounded metadata; EAGAIN/partial fails the reader closed. */
+                g_socket_send(socket, packet, strlen(packet), NULL, NULL);
+                g_free(packet);
+            }
         } else if (r->used < sizeof r->buffer) {
             g_input_stream_read_async(G_INPUT_STREAM(source), r->buffer + r->used,
                 sizeof r->buffer - r->used, G_PRIORITY_DEFAULT, r->cancel, control_ready, r);
@@ -1809,7 +1817,7 @@ int main(int argc, char **argv) {
     a->size = SIZE_NORMAL;
     a->autoscroll_enabled = TRUE;
     a->panel_opacity = .90;
-    a->pi_optin = !g_strcmp0(g_getenv("HYPRNEURO_PI_UI"), "1");
+    a->pi_optin = FALSE; /* Each app start is legacy until a trusted UI connect. */
     a->pi_state = g_strdup("unavailable");
     a->history = g_ptr_array_new_with_free_func((GDestroyNotify)json_node_unref);
     a->attachments = g_ptr_array_new_with_free_func((GDestroyNotify)g_object_unref);
@@ -1986,6 +1994,7 @@ int main(int argc, char **argv) {
     gtk_accessible_update_property(GTK_ACCESSIBLE(a->settings_btn), GTK_ACCESSIBLE_PROPERTY_LABEL, "Settings", -1);
     g_signal_connect(a->settings_btn, "clicked", G_CALLBACK(on_settings_open), a);
     GtkWidget *local = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
+    gtk_box_append(GTK_BOX(local), a->pi_connect);
     gtk_box_append(GTK_BOX(local), a->settings_btn);
     gtk_box_append(GTK_BOX(local), a->status);
     gtk_box_append(GTK_BOX(statusrow), local);

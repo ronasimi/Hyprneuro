@@ -43,3 +43,33 @@ class ReleaseOpsTests(unittest.TestCase):
         verifier.check_ui_mode(good,m,False)
         for env in [{b'HYPRNEURO_PI_UI':b'0'},{**good,b'HYPRNEURO_PI_OWNER_DIR':b'/wrong'},{**good,b'HYPRNEURO_PI_BRIDGE_PYTHON':b'/wrong'}]:
             with self.assertRaises(RuntimeError):verifier.check_ui_mode(env,m,False)
+
+    def test_explicit_connect_ui_launch_ignores_startup_optin_but_requires_pinned_adapter(self):
+        m={'explicit_ui':True,'python':'/synthetic/python'}
+        good={b'HYPRNEURO_PI_UI':b'0',b'HYPRNEURO_PI_BRIDGE_PYTHON':b'/synthetic/python'}
+        verifier.check_ui_mode(good,m,True)
+        verifier.check_ui_mode(good,m,False)  # active mode is checked via real peer metadata
+        for env in [{**good,b'HYPRNEURO_PI_UI':b'1'},{**good,b'HYPRNEURO_PI_OWNER_DIR':b'/stale'},{}]:
+            with self.assertRaises(RuntimeError):verifier.check_ui_mode(env,m,True)
+
+    def test_readonly_ui_metadata_bound_to_running_pid_no_control_or_permission_action(self):
+        import socket
+        import tempfile
+        import threading
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'ui.sock'
+            for expected in [os.getpid(),os.getpid()+100000]:
+                with socket.socket(socket.AF_UNIX) as server:
+                    server.bind(str(path));server.listen(1);received=[]
+                    def serve():
+                        with server.accept()[0] as client:
+                            data=client.recv(1024);received.append(data)
+                            if data:client.sendall(b'{"mode":"legacy","connected":false,"read_callable":false,"fresh_consent_required":true}\n')
+                    thread=threading.Thread(target=serve);thread.start()
+                    try:
+                        if expected==os.getpid():self.assertEqual(verifier.ui_status(path,expected)['mode'],'legacy')
+                        else:
+                            with self.assertRaises(RuntimeError):verifier.ui_status(path,expected)
+                    finally:thread.join(3)
+                    self.assertFalse(thread.is_alive());self.assertIn(received[0],[b'pi-status\n',b''])
+                path.unlink()

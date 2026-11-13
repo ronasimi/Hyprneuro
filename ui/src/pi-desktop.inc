@@ -93,10 +93,8 @@ static void pi_write_next(App *a) {
     g_output_stream_write_all_async(a->pi_out, data, size, G_PRIORITY_DEFAULT,
         a->pi_io, pi_written, a);
 }
-static void pi_send(App *a, const char *op, const char *text, gboolean allowed) {
-    if (!a->pi_connected || g_queue_get_length(&a->pi_writes) >= 8) {
-        pi_unavailable(a); return;
-    }
+/* The pipe frame uses this same encoder for preflight and submission. */
+static char *pi_encode_frame(const char *op, const char *text, gboolean allowed) {
     JsonBuilder *b = json_builder_new();
     json_builder_begin_object(b);
     json_builder_set_member_name(b, "op"); json_builder_add_string_value(b, op);
@@ -112,11 +110,45 @@ static void pi_send(App *a, const char *op, const char *text, gboolean allowed) 
     JsonGenerator *g = json_generator_new(); json_generator_set_root(g, root);
     char *json = json_generator_to_data(g, NULL);
     char *line = g_strconcat(json, "\n", NULL);
+    g_free(json); json_node_unref(root); g_object_unref(g); g_object_unref(b);
+    return line;
+}
+
+/* Match Python ensure_ascii=False/default separators and the owner's JS .length.
+ * The owner envelope includes its fixed32-byte hex request ID and final newline.
+ * Count JSON control/quote/backslash escapes, not just raw UTF-8 text bytes. */
+static gboolean pi_clear_valid_draft(GtkTextBuffer *composer, const char *text) {
+    if (!g_utf8_validate(text, -1, NULL)) return FALSE;
+    gsize bytes = sizeof("{\"op\": \"chat\", \"id\": \"00000000000000000000000000000000\", \"text\": \"\"}\n") - 1;
+    guint units = 0;
+    gboolean nonblank = FALSE;
+    for (const char *p = text; *p; p = g_utf8_next_char(p)) {
+        gunichar ch = g_utf8_get_char(p);
+        units += ch > 0xffff ? 2 : 1;
+        if (ch == '"' || ch == '\\' || ch == '\b' || ch == '\f' || ch == '\n' || ch == '\r' || ch == '\t')
+            bytes += 2;
+        else bytes += ch < 0x20 ? 6 : g_utf8_next_char(p) - p;
+        if (units > 16000 || bytes > PI_FRAME_MAX) return FALSE;
+        /* Reject Python-strip or ECMAScript-trim-only drafts before clearing. */
+        if (!g_unichar_isspace(ch) && ch != 0xfeff && !(ch >= 0x1c && ch <= 0x1f)) nonblank = TRUE;
+    }
+    if (!nonblank) return FALSE;
+    char *frame = pi_encode_frame("chat", text, FALSE);
+    gboolean fits = strlen(frame) <= PI_FRAME_MAX;
+    g_free(frame);
+    if (fits) gtk_text_buffer_set_text(composer, "", -1);
+    return fits;
+}
+
+static void pi_send(App *a, const char *op, const char *text, gboolean allowed) {
+    if (!a->pi_connected || g_queue_get_length(&a->pi_writes) >= 8) {
+        pi_unavailable(a); return;
+    }
+    char *line = pi_encode_frame(op, text, allowed);
     if (strlen(line) <= PI_FRAME_MAX) {
         g_queue_push_tail(&a->pi_writes, g_bytes_new_take(line, strlen(line)));
         pi_write_next(a);
     } else { g_free(line); pi_finish_chat(a, FALSE, "Pi frame exceeds bound; draft was not submitted"); }
-    g_free(json); json_node_unref(root); g_object_unref(g); g_object_unref(b);
 }
 static void pi_send_text(App *a, const char *text) { pi_send(a, "chat", text, FALSE); }
 

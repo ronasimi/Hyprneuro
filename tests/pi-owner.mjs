@@ -84,7 +84,7 @@ async def main():
  assert json.loads(await p.stdout.readline())['type']=='connected'
  # Status can be uninitialized in this fixture; never initialize/adopt it.
  assert json.loads(await p.stdout.readline())['type']=='status'
- p.stdin.write(b'{"op":"chat","text":"after orderly restart"}\\n');await p.stdin.drain()
+ p.stdin.write((json.dumps({'op':'chat','text':'漢'*11000},ensure_ascii=False)+'\\n').encode('utf-8'));await p.stdin.drain()
  events=[]
  while True:
   packet=json.loads(await asyncio.wait_for(p.stdout.readline(),5))
@@ -101,6 +101,8 @@ asyncio.run(main())
     const p=spawn('/usr/bin/python3',['-c',script,ownerRoot],{env:{...process.env,PYTHONPATH:resolve('python/src')},stdio:['ignore','pipe','pipe']});
     let error='';p.stderr.on('data',data=>error+=data);
     assert.equal(await new Promise(r=>p.on('close',r)),0,error);
+    assert.ok(host.session.sessionManager.getEntries().some(e=>e.type==='message'&&e.message.role==='user'&&
+      e.message.content.some(part=>part.type==='text'&&part.text==='漢'.repeat(11000))));
     await host.close();host=undefined;
     // Native orchestrator idle-exits; do not remove journals while it still owns them.
     const {pathToFileURL}=await import('node:url');

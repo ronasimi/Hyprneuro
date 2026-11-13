@@ -308,3 +308,23 @@ push. Fixtures exited and lease released. Existing GTK baseline warnings retaine
 artifact hash manifest record exact scope, runtime identities, failure and rerun.
 This supersedes the prior blocked local GTK gate only. Next: parent source/evidence
 review; production remains NOT READY and separately leased live gates remain.
+
+
+## Review P2 Unicode follow-up — non-GUI/source only
+
+Full review `01M7AAS7FVYTNKG5R7KX1S843Q/gtk-review` read; its multibyte draft-loss
+finding is fixed before parent publication. Client requests use UTF-8 JSON with
+newline-inclusive65536-byte validation. GTK preflights the real frame budgets and
+JS UTF-16 unit count before clearing native drafts; adapter count matches owner.
+Actual text-buffer regressions preserve invalid drafts; media route untouched.
+11000 Chinese characters now reach the actual installed-Pi mock-HTTP native
+session journal. Exact64KiB/+1-byte and8000/8001 supplementary-scalar tests pass.
+
+Final:365 Python passed,1 skipped,80 subtests;33 Node;14 C helpers normal and
+ASan/UBSan/leak detection. No GUI/live/model/provider/service/residency operation
+for this serialization correction. The previous18 GTK checks remain tied to
+`7d0514d` and its old tested candidate, not this descendant. See
+[PI_OWNER_UNICODE_REVIEW.md](PI_OWNER_UNICODE_REVIEW.md) for evidence and exact
+parent all-client admission audit prerequisite, then leased bounded normal-stack
+Pi/tool acceptance. No exclusive switching absent separate parent coordination;
+old installed sidecar participation is NOT assumed. Production stays NOT READY.

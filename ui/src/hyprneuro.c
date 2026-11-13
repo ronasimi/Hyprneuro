@@ -858,11 +858,12 @@ static void send_message(App *a) {
         set_status(a, "Route unavailable · media requires observed ordinary/off; no fallback");
         g_free(msg); return;
     }
-    if (native && g_utf8_strlen(msg, -1) > 16000) {
-        set_status(a, "Pi text exceeds 16000 characters; draft retained");
-        g_free(msg); return;
-    }
-    gtk_text_buffer_set_text(buf, "", -1);
+    if (native) {
+        if (!pi_clear_valid_draft(buf, msg)) {
+            set_status(a, "Pi text must be nonblank, ≤16000 UTF-16 units and fit the 65536-byte frame; draft retained");
+            g_free(msg); return;
+        }
+    } else gtk_text_buffer_set_text(buf, "", -1);
     transcript_append(a, "you", msg);
 
     a->busy = TRUE;

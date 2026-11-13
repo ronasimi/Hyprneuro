@@ -130,8 +130,8 @@ class DesktopBridge:
                 if self.chat_task is not None:
                     raise ValueError('One pending chat only; native owner serializes requests')
                 text = packet.get('text')
-                if not isinstance(text, str) or not text.strip() or len(text) > 16000:
-                    raise ValueError('Text must be 1–16000 characters')
+                if not isinstance(text, str) or not text.strip() or len(text.encode('utf-16-le')) > 32000:
+                    raise ValueError('Text must be nonblank and at most 16000 UTF-16 code units')
                 self.cancel_requested = False
                 self.chat_task = asyncio.current_task()
                 try:

@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from hyprneuro.pi_owner_client import PiOwnerClient, MAX_FRAME
 from hyprneuro.pi_desktop_bridge import DesktopBridge
@@ -51,7 +52,7 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
 
     async def send(self, op, **fields):
-        self.bridge.stdin.write((json.dumps(dict(op=op, **fields))+'\n').encode())
+        self.bridge.stdin.write((json.dumps(dict(op=op, **fields), ensure_ascii=False)+'\n').encode())
         await self.bridge.stdin.drain()
 
     async def until(self, kind, op=None):
@@ -218,6 +219,73 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(original.closed)
         self.assertFalse(later.closed)
         self.assertEqual(packets[-1]['type'], 'result')
+
+    async def test_utf8_multibyte_text_reaches_native_submission(self):
+        await self.launch()
+        await self.until('status')
+        texts = ['漢' * 11000, '漢' * 16000, '😀' * 8000]
+        for text in texts:
+            await self.send('chat', text=text)
+            self.assertTrue((await self.until('result', 'chat'))['result']['settled'])
+        self.assertEqual([r['text'] for r in self.requests() if r['op'] == 'native_prompt'], texts)
+
+    async def test_utf8_frame_exact_limit_includes_newline_and_rejects_before_write(self):
+        # Supplementary scalar + escaped controls + ASCII reaches exactly64KiB
+        # while remaining below the independent16000 UTF-16-unit owner limit.
+        text = '😀' + '\x01' * 10910 + 'abc'
+        client = await PiOwnerClient.connect(self.owner_dir)
+        try:
+            with patch.object(client.writer, 'write', wraps=client.writer.write) as write:
+                self.assertTrue((await client.call('chat', text=text))['settled'])
+                data = write.call_args.args[0]
+                self.assertEqual(len(data), MAX_FRAME)
+                self.assertTrue(data.endswith(b'\n'))
+                self.assertIn('😀'.encode('utf-8'), data)
+                self.assertEqual(json.loads(data)['text'], text)
+                writes = write.call_count
+                with self.assertRaisesRegex(ValueError, 'frame exceeds bound'):
+                    await client.call('chat', text=text + 'x')
+                self.assertEqual(write.call_count, writes)
+                self.assertEqual(client.pending, {})
+            self.assertEqual([r['text'] for r in self.requests() if r['op'] == 'native_prompt'], [text])
+        finally:
+            await client.close()
+
+    async def test_supplementary_limit_is_owner_utf16_units_not_python_codepoints(self):
+        await self.launch()
+        await self.until('status')
+        text = '😀' * 8001
+        self.assertLess(len(text), 16000)
+        self.assertEqual(len(text.encode('utf-16-le')) // 2, 16002)
+        await self.send('chat', text=text)
+        await self.until('error', 'chat')
+        self.assertFalse(any(r['op'] == 'native_prompt' for r in self.requests()))
+        # Independently confirm the actual JS owner refuses the same bounded
+        # byte frame; Python and GTK preflight do not redefine its text limit.
+        client = await PiOwnerClient.connect(self.owner_dir)
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'Bounded text'):
+                await client.call('chat', text=text)
+        finally:
+            await client.close()
+        await self.send('chat', text='still usable')
+        await self.until('result', 'chat')
+        self.assertEqual([r['text'] for r in self.requests() if r['op'] == 'native_prompt'], ['still usable'])
+
+    async def test_adapter_owner_byte_overflow_has_no_native_submission(self):
+        await self.launch()
+        await self.until('status')
+        text = '😀' + '\x01' * 10910 + 'abcx'
+        frame = (json.dumps({'op': 'chat', 'id': '0'*32, 'text': text}, ensure_ascii=False)+'\n').encode('utf-8')
+        self.assertEqual(len(frame), MAX_FRAME + 1)
+        self.assertLess(len(text.encode('utf-16-le')) // 2, 16000)
+        # This fits the shorter GTK→adapter envelope, but not adapter→owner.
+        await self.send('chat', text=text)
+        await self.until('error', 'chat')
+        self.assertFalse(any(r['op'] == 'native_prompt' for r in self.requests()))
+        await self.send('chat', text='after byte rejection')
+        await self.until('result', 'chat')
+        self.assertEqual([r['text'] for r in self.requests() if r['op'] == 'native_prompt'], ['after byte rejection'])
 
     async def test_client_refuses_unsafe_key_and_oversize_request(self):
         key = self.owner_dir / 'control.key'

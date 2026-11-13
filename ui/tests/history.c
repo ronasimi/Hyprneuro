@@ -360,8 +360,46 @@ static void pi_escape_denies_before_hiding_panel(void) {
     g_output_stream_close(app.pi_out, NULL, NULL);
     g_object_unref(app.pi_out); g_object_unref(app.pi_io);
 }
+static char *repeat_utf8(const char *unit, guint count) {
+    GString *text = g_string_new(NULL);
+    for (guint i=0; i<count; i++) g_string_append(text, unit);
+    return g_string_free(text, FALSE);
+}
+static void pi_unicode_preflight_preserves_draft(void) {
+    GtkTextBuffer *composer = gtk_text_buffer_new(NULL);
+    char *texts[] = {repeat_utf8("漢", 11000), repeat_utf8("漢", 16000),
+        repeat_utf8("😀", 8000), repeat_utf8("😀", 8001), repeat_utf8("漢", 16001),
+        g_strdup(" \t\n"), g_strdup("\357\273\277"), g_strdup("\x1c"),
+        repeat_utf8("\"\\/\n\t", 3000)};
+    gboolean valid[] = {TRUE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE};
+    for (guint i=0; i<G_N_ELEMENTS(texts); i++) {
+        gtk_text_buffer_set_text(composer, texts[i], -1);
+        g_assert_cmpint(pi_clear_valid_draft(composer, texts[i]), ==, valid[i]);
+        GtkTextIter start, end; gtk_text_buffer_get_bounds(composer, &start, &end);
+        char *remaining = gtk_text_buffer_get_text(composer, &start, &end, FALSE);
+        g_assert_cmpstr(remaining, ==, valid[i] ? "" : texts[i]);
+        g_free(remaining); g_free(texts[i]);
+    }
+    /* Same exact owner-frame boundary as the real authenticated Python test:
+     * 69 envelope bytes (including newline),4 UTF-8 emoji bytes,10910*6
+     * escaped-control bytes and3 ASCII bytes =65536. The pipe frame also fits. */
+    GString *boundary = g_string_new("😀");
+    for (guint i=0; i<10910; i++) g_string_append_c(boundary, 1);
+    g_string_append(boundary, "abc");
+    gtk_text_buffer_set_text(composer, boundary->str, -1);
+    g_assert_true(pi_clear_valid_draft(composer, boundary->str));
+    g_assert_cmpint(gtk_text_buffer_get_char_count(composer), ==, 0);
+    g_string_append_c(boundary, 'x');
+    gtk_text_buffer_set_text(composer, boundary->str, -1);
+    g_assert_false(pi_clear_valid_draft(composer, boundary->str));
+    GtkTextIter start, end; gtk_text_buffer_get_bounds(composer, &start, &end);
+    char *remaining = gtk_text_buffer_get_text(composer, &start, &end, FALSE);
+    g_assert_cmpstr(remaining, ==, boundary->str);
+    g_free(remaining); g_string_free(boundary, TRUE); g_object_unref(composer);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/pi-unicode-preflight-preserves-draft", pi_unicode_preflight_preserves_draft);
     g_test_add_func("/ui/pi-escape-denies-before-hide", pi_escape_denies_before_hiding_panel);
     g_test_add_func("/ui/pi-async-frames", pi_async_frames);
     g_test_add_func("/ui/pi-state-boundary", pi_states_and_trusted_boundary);

@@ -185,3 +185,15 @@ See [actual acceptance, identities, failure and evidence](GTK_PI_OWNER_ACCEPTANC
 Only the isolated sanitizer candidate was tested; the current installed binary and
 running service were untouched. Production/live acceptance remains NOT READY;
 parent evidence review is next. No push or runtime deployment.
+
+
+## Reviewed Unicode boundary correction
+
+Review P2 is corrected before publication: the established client writes UTF-8
+JSON, not ASCII-escaped Unicode, and GTK validates whole-frame bytes and the
+owner's16000 UTF-16-unit limit before clearing native drafts. Rejection preserves
+the actual composer buffer; legacy attachments bypass native text preflight.
+[Exact boundaries/tests and proposed live prerequisites](PI_OWNER_UNICODE_REVIEW.md)
+record365 Python/1skip/80subtests,33 Node and14 C helpers normal+ASan/UBSan. This
+follow-up is non-GUI only; the prior18 GTK checks still describe their original
+candidate. No live activation or publication/push by this worker.

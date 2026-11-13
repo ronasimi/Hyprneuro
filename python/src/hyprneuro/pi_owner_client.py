@@ -65,7 +65,7 @@ class PiOwnerClient:
         if self.read_task.done() or len(self.pending) >= 8:
             raise ConnectionError('Pi owner disconnected or request bound reached')
         rid = uuid.uuid4().hex
-        data = (json.dumps({'op': op, 'id': rid, **fields}) + '\n').encode()
+        data = (json.dumps({'op': op, 'id': rid, **fields}, ensure_ascii=False) + '\n').encode('utf-8')
         if len(data) > MAX_FRAME:
             raise ValueError('Pi owner frame exceeds bound')
         future = asyncio.get_running_loop().create_future()

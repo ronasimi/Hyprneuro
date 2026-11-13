@@ -77,7 +77,7 @@ Every request has a bounded unique correlation `id` and an exact `op`:
 | op | Additional fields | Role |
 |---|---|---|
 | `status` | none | either |
-| `chat` | `text` (nonempty≤16000 characters), optional `recommend` boolean | either; `recommend:true` **control only** |
+| `chat` | `text` (nonempty≤16000 UTF-16 code units, JS `text.length`), optional `recommend` boolean | either; `recommend:true` **control only** |
 | `on`, `off` | none | control |
 | `consent` | `answer_id` (pending host question ID), `allowed` boolean | control |
 
@@ -210,3 +210,12 @@ disconnect supplies cancellation without dropping trusted control authentication
 Source/mock and sanitizer helpers are verified; parent-authorized offline GTK
 also passed after independent safety checks and an Escape regression fix.
 See [actual evidence](GTK_PI_OWNER_ACCEPTANCE.md). No live activation.
+
+
+### Reviewed Unicode transport follow-up
+
+The client's UTF-8 serialization and GTK pre-clear byte/UTF-16 checks now address
+review `01M7AAS7FVYTNKG5R7KX1S843Q` P2. See
+[exact limits and non-GUI validation](PI_OWNER_UNICODE_REVIEW.md). No owner schema,
+lifecycle or live activation change. Prior18-check offline GTK evidence remains
+associated with its original candidate, not this serialization descendant.

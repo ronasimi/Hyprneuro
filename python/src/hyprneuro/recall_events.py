@@ -1,6 +1,7 @@
 """Bounded Hyprland socket2 -> d1 candidate bridge; callback never blocks IPC."""
 import asyncio
 from .recall import CaptureCandidate
+from .residency import observation_epoch
 
 CAPTURE_EVENT_NAMES = frozenset({"activewindowv2", "workspacev2", "openwindow"})
 
@@ -26,8 +27,13 @@ class D1CaptureSource:
     async def on_candidate(self, candidate: CaptureCandidate):
         if candidate.source not in ("hyprland", "chrome"):
             return
+        epoch = observation_epoch()
+        if epoch is None:
+            self.dropped += 1
+            return
+        item = (epoch, candidate)
         try:
-            self.queue.put_nowait(candidate)
+            self.queue.put_nowait(item)
         except asyncio.QueueFull:
             try:
                 self.queue.get_nowait()
@@ -35,7 +41,7 @@ class D1CaptureSource:
                 self.dropped += 1
             except asyncio.QueueEmpty:
                 pass
-            self.queue.put_nowait(candidate)
+            self.queue.put_nowait(item)
 
     async def run(self):
         while True:
@@ -52,7 +58,11 @@ class D1CaptureSource:
                     self.queue.task_done()
                     self.dropped += 1
                     event = newer
-                outcome = await self.watcher.consider_event(event)
+                epoch, candidate = event
+                if epoch != observation_epoch():
+                    self.dropped += 1
+                    continue
+                outcome = await self.watcher.consider_event(candidate)
                 self.processed += 1
                 if not outcome.get("captured"):
                     self.skipped += 1

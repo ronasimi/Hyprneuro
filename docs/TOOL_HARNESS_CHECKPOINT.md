@@ -1,10 +1,12 @@
 # Pi tool harness checkpoint
 
-Status: iteration 1, source/mock verified; NOT deployed or production accepted.
+Status: iterations 1–3, source/mock verified; NOT deployed or production accepted.
+Latest iteration 3 changes are UNCOMMITTED for parent/user review.
 
 Architecture correction: Pi owns conversation, native OpenAI tool aggregation,
 execution, result continuation, cancellation and persisted session. No new Python
-agent framework. `agent.py` / `sidecar.py` are unchanged. Durable workflow execution
+agent framework. Iteration 3 adds only admission wrappers to `agent.py` and
+`models.py`; `sidecar.py` remains unchanged. Durable workflow execution
 remains the installed Pi Durable extension; its subprocess workflows are NOT
 implicitly granted this adapter's permissions.
 
@@ -40,9 +42,9 @@ string denial; stalled-provider cancellation through `agent_settled`.
 This is Pi runtime E2E, not native sidecar-chat E2E, real-model tool capability or
 live provider/service-transition validation.
 
-Pending next iterations: documented Exa/Context7/Wikipedia adapters and failure
-checks; cooperating residency coordinator + mock phase failures; optional MCP
-integration validation. No live queries, credential discovery, package/config,
+Completed subsequent source/mock work: retrieval adapters (iteration 2) and
+cooperating residency admission/manual coordinator (iteration 3, below). Pending:
+actual Pi Durable workflow execution and native MCP integration validation. No live queries, credential discovery, package/config,
 GUI/capture or service/model changes. Parent controls any future machine lease
 and inference tests; current Hermes may serve the parent itself and MUST NOT be
 stopped by this worker.
@@ -93,3 +95,96 @@ SDK7 source/mock tests currently pass (`tests/tool-harness.mjs`4 +
 `tests/tool-providers.mjs`3). Provider schema/credential/network-destination/error
 cases are mocked; **live Exa/Context7/Wikipedia remain UNVERIFIED**. No keys read
 from this machine and no external search queries performed.
+
+
+## Iteration 3 — cooperating admission/manual switching (uncommitted)
+
+- `python/src/hyprneuro/residency.py`: private same-user cross-process flock lanes,
+  atomic fsynced phase checkpoint, process-start identity, observed service
+  generations, exact prior-subset restore, fixed unchanged launcher verbs, actual
+  HTTP readiness, designated running-model command verification, no force lease
+  release or automatic replay of uncertain lifecycle operations.
+- `agent.py` streaming + health and `models.py` HTTP entry points participate ONLY
+  with explicit shared `HYPRNEURO_RESIDENCY_DIR`. Streaming parser, original system
+  prompt, reasoning, metrics and media payload implementation remain unchanged.
+  Cancellation of a Python threaded HTTP caller does not prematurely release the
+  actual HTTP admission lock. All clients must cooperate; not a global OS sandbox.
+- Pi local transport delegates to native Pi OpenAI `streamSimple`; its admission
+  gate sits in the real transport, NOT an extension event hook (Pi logs hook
+  errors and continues). Native request cancellation, 120s/2MiB stream bounds and
+  no retries; residency verified before terminal response delivery/tool execution.
+- `/moe on|off|status` (trusted interactive commands, never model tools) and async
+  `ManualSwitch` host API share the coordinator implementation. No startup switch
+  or persisted enabled preference. GTK/RPC wiring is NOT implemented. Different
+  owners cannot adopt each other's transactions; integrate a single owner bridge.
+- Recall candidate/model jobs carry a shared generation stamp; paused candidates
+  drop, old queued/running results invalidate even after a cancelled transition,
+  full frame lifetimes drain, and stale frames never reach persistence. Model
+  lanes use RAM-only 50ms checks while work runs, not per-delta disk/network probes.
+  Capture remains disabled by default with all prior privacy/lock exclusions.
+  Operational metadata persistence/search remain independent and tested.
+- Extra actual Pi mock-HTTP tests execute read offsets, exact edits and bounded
+  shell; cover real denial/revocation, malformed native tool JSON, duplicate side
+  effects and timeout/unknown-outcome replay prevention. SDK fixture now explicitly
+  emits the native shutdown lifecycle before dispose, avoiding workspace-FD leaks.
+
+Integration contract and limitations: **[MOE_COORDINATOR_API.md](MOE_COORDINATOR_API.md)**.
+No real service/model lifecycle, model inference, capture, GUI, external provider
+query or machine-credential discovery has been exercised by this work.
+
+Final iteration-3 verification (all source/mock; no installs):
+
+```sh
+PI_HARNESS_SDK=/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js \
+  node --test tests/tool-{harness,providers,residency}.mjs
+# 13 passed
+PYTHONPATH=python/src /home/ron/Projects/Hyprneuro/python/.venv/bin/python \
+  -m pytest python/tests/ -q
+# 345 passed, 1 skipped, 75 subtests passed
+node --check extensions/tool-harness/index.mjs
+node --check extensions/tool-harness/residency.mjs
+git diff --check
+```
+
+`DEFAULT_SYSTEM` AST value matches HEAD exactly (SHA256
+`adbb27bff2e2cdcd33ead5aa22a727446b738bfacf9ca54003d3a414d12720b3`).
+Python syntax compilation also passed for all six changed/new runtime modules.
+The Python suite includes22 residency/observation tests plus7 failure subtests;
+Node includes actual installed Pi SDK/mock SSE, real temporary file/shell effects,
+and real Node→Python flock/control with fake service output. It does NOT establish
+real llama.cpp tool correctness, live systemd handoff, GTK or Durable/MCP acceptance.
+
+**Next dependency:** parent review of uncommitted iteration3; choose/wire one
+trusted owner bridge for future GTK + command requests, deploy cooperation to all
+clients, then explicitly coordinate a machine lease for live lifecycle acceptance.
+Do not independently stop/adopt the existing Hermes or enable visual collection.
+
+## Independent review fixes — source/mock only
+
+Full review `01M79FXQ5GDJEFHW6PJ2TMRQPM/review` retrieved and all six findings
+fixed with regressions before this source/mock commit:
+
+1. Unknown launch ownership leaves `blocked` without stopping/adopting any MoE
+   generation. Successful launch captures and verifies its generation before
+   readiness; later changes cannot be adopted during readiness/restoration.
+2. Desktop lease status never confers ownership. Release requires an actual
+   host-held acquisition capability; default owner holds none and refuses even
+   an active lease with the same task ID.
+3. Agent wrapper and the approved narrow `sidecar.py` consumer use `aclosing`,
+   awaiting inner HTTP cleanup before releasing admission, including early exit.
+4. Connected manual handoff has no one-hour expiry. Unexpected helper closure
+   invalidates the Pi capability, restores the prior selected model and exposes
+   failed state rather than retaining a dead owner. A virtual7201s regression
+   exercises the real CLI handshake without waiting an hour.
+5. `ManualSwitch.off` waits only its internal transition task, never unrelated
+   work in the calling host handler.
+6. Preflight verifies effective loaded systemd `Conflicts`, `Restart` and
+   `NeedDaemonReload` properties, not comments in a drop-in.
+
+Validation after fixes: **15 Node tests;350 Python tests passed,1 skipped,
+80 subtests passed**. No live services/model/provider/GUI/capture operations.
+The sidecar cleanup is the sole newly approved sidecar hunk; media, metrics and
+skill snapshot behavior are preserved. These fixes do not implement Durable or
+GTK integration. Next phase: one opt-in long-lived Pi owner, authenticated trusted
+control/chat bridge, actual Durable child quiescence/permission integration and
+source/mock workflow tests, in a separate commit.

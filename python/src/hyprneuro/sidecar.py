@@ -439,6 +439,7 @@ class SidecarServer:
         reuses the running LFM endpoints. Bounded inputs; no screenshots.
         """
         from . import agent
+        from contextlib import aclosing
         message = str(request.get("message") or "")
         if not message.strip():
             await self._write_frame(writer, {"type": "error", "error": "Empty message"})
@@ -494,18 +495,19 @@ class SidecarServer:
         stream_bytes = 0
         metrics = {}
         try:
-            async for delta in agent.stream_chat(
+            async with aclosing(agent.stream_chat(
                     messages, role=role,
-                    max_tokens=int(request.get("max_tokens") or 1024)):
-                if delta.get("type") == "metrics":
-                    metrics = {k: v for k, v in delta.items() if k != "type"}
-                    continue
-                stream_bytes += len(delta["text"].encode("utf-8"))
-                if stream_bytes > 1024 * 1024:
-                    raise ValueError("Chat stream exceeds 1 MiB")
-                if delta["channel"] == "answer":
-                    answer.append(delta["text"])
-                await self._write_frame(writer, delta)
+                    max_tokens=int(request.get("max_tokens") or 1024))) as stream:
+                async for delta in stream:
+                    if delta.get("type") == "metrics":
+                        metrics = {k: v for k, v in delta.items() if k != "type"}
+                        continue
+                    stream_bytes += len(delta["text"].encode("utf-8"))
+                    if stream_bytes > 1024 * 1024:
+                        raise ValueError("Chat stream exceeds 1 MiB")
+                    if delta["channel"] == "answer":
+                        answer.append(delta["text"])
+                    await self._write_frame(writer, delta)
             done = {"type": "done", "text": "".join(answer), "role": role}
             if metrics:
                 done["metrics"] = metrics

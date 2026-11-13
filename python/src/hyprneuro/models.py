@@ -22,6 +22,14 @@ class Models:
         self.c = config
 
     def _call(self, role, endpoint, payload=None, timeout=None):
+        from .residency import inference_admission, ResidencyError
+        try:
+            with inference_admission(role):
+                return self._http_call(role, endpoint, payload, timeout)
+        except ResidencyError as e:
+            raise ModelError(str(e)) from e
+
+    def _http_call(self, role, endpoint, payload=None, timeout=None):
         port = getattr(self.c, role+"_port")
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=min(self.c.model_timeout, timeout) if timeout else self.c.model_timeout)
         try:

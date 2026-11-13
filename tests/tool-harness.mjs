@@ -11,6 +11,9 @@ import { harnessExtension } from '../extensions/tool-harness/index.mjs';
 const sdkPath = process.env.PI_HARNESS_SDK;
 if (!sdkPath) throw new Error('Set PI_HARNESS_SDK to installed Pi dist/index.js (no installs performed)');
 const sdk = await import(pathToFileURL(sdkPath));
+const aiURL=new URL('../../pi-ai/dist/index.js',pathToFileURL(process.env.PI_HARNESS_SDK));
+const {lazyStream}=await import(aiURL);
+const {streamSimple}=await import(new URL('./api/openai-completions.js',aiURL));
 
 async function fixture(run) {
   const root = await mkdtemp(join(tmpdir(),'hn-pi-'));
@@ -57,8 +60,8 @@ async function sessionFixture(root, {approve=true, responses, rpc: customRpc} = 
   });
   await new Promise(r => http.listen(0,'127.0.0.1',r));
   const rpc = customRpc ?? (async message => {policy.push(message); return message.action === 'auth_check' ? {allowed:true,reason:'ok'} : {authorized:true};});
-  const extension = harnessExtension(sdk, {rpc, initial:{workspace,taskId:'test',appId:'test-app'},
-    confirm:async request => {confirmations.push(request); return approve;}});
+  const extension = harnessExtension(sdk, {rpc,native:{lazyStream,streamSimple}, initial:{workspace,taskId:'test',appId:'test-app'},
+    confirm:async request => {confirmations.push(request); return typeof approve==='function'?approve(request):approve;}});
   const settings = sdk.SettingsManager.inMemory({retry:{enabled:false,provider:{maxRetries:0}},compaction:{enabled:false},cacheWarming:'off'});
   const loader = new sdk.DefaultResourceLoader({cwd:workspace,agentDir,settingsManager:settings,
     noExtensions:true,noSkills:true,noPromptTemplates:true,noThemes:true,noContextFiles:true,
@@ -76,7 +79,7 @@ async function sessionFixture(root, {approve=true, responses, rpc: customRpc} = 
   const events = []; session.subscribe(e => events.push(e));
   await session.bindExtensions({onError:e=>errors.push(e)});
   return {session,manager,workspace,requests,confirmations,events,errors,policy,
-    async close(){await session.abort();session.dispose();http.closeAllConnections();await new Promise(r=>http.close(r));}};
+    async close(){await session.abort();await session.extensionRunner.emit({type:'session_shutdown',reason:'quit'});session.dispose();http.closeAllConnections();await new Promise(r=>http.close(r));}};
 }
 const tool = (name,args,id='call_1') => [
   {delta:{role:'assistant',tool_calls:[{index:0,id,type:'function',function:{name,arguments:JSON.stringify(args).slice(0,10)}}]}},
@@ -93,6 +96,8 @@ test('real Pi SDK OpenAI stream -> approval -> actual write -> result continuati
   try {
     await f.session.prompt('Create the file');
     assert.deepEqual(f.errors,[]);
+    assert.ok(f.session.extensionRunner.getCommand('moe'));
+    assert.ok(f.session.extensionRunner.getModelRegistry().find('hyprneuro-local','lfm-moe'));
     assert.equal(await readFile(join(f.workspace,'made.txt'),'utf8'),'actual Pi tool');
     assert.equal(f.requests.length,2);
     assert.equal(f.confirmations.length,2); // activation plus actual exact call
@@ -122,5 +127,61 @@ test('Pi session abort stops a stalled real HTTP stream', () => fixture(async ro
     while (!f.requests.length) await new Promise(r=>setTimeout(r,10));
     await f.session.abort(); await run;
     assert.ok(f.events.some(e=>e.type==='agent_settled' && e.aborted));
+  } finally {await f.close();}
+}));
+
+
+test('Pi standard read offsets + exact edit + bounded shell execute in disposable workspace', () => fixture(async root => {
+  const responses=[tool('write',{path:'a',content:'one\ntwo\nthree'},'write1'),
+    tool('read',{path:'a',offset:2,limit:1},'read1'),
+    tool('edit',{path:'a',edits:[{oldText:'two',newText:'TWO'}]},'edit1'),
+    tool('bash',{command:"printf verified > shell.txt; printf output",timeout:2},'bash1'),stop];
+  const f=await sessionFixture(root,{responses});
+  try {
+    await f.session.prompt('Use the standard tools');
+    assert.equal(await readFile(join(f.workspace,'a'),'utf8'),'one\nTWO\nthree');
+    assert.equal(await readFile(join(f.workspace,'shell.txt'),'utf8'),'verified');
+    const results=f.events.filter(e=>e.type==='tool_execution_end');
+    assert.equal(results.length,4);assert.ok(results.every(r=>!r.isError),JSON.stringify(results));
+    assert.match(JSON.stringify(results[1].result),/two/);
+    assert.equal(f.confirmations.length,5);
+  } finally {await f.close();}
+}));
+
+test('denial, revoked broker and malformed raw JSON never write', () => fixture(async root => {
+  let confirmations=0;
+  const f=await sessionFixture(root,{approve:()=>++confirmations===1,
+    responses:[tool('write',{path:'denied',content:'bad'}),stop]});
+  try {await f.session.prompt('try');await assert.rejects(()=>readFile(join(f.workspace,'denied')));}
+  finally {await f.close();}
+  const f2=await sessionFixture(join(root,'second'),{responses:[tool('write',{path:'revoked',content:'bad'}),stop],
+    rpc:async m=>m.action==='auth_check'?{allowed:false,reason:'scope_revoked'}:{authorized:true}});
+  try {await f2.session.prompt('try');assert.equal(f2.confirmations.length,1);await assert.rejects(()=>readFile(join(f2.workspace,'revoked')));}
+  finally {await f2.close();}
+  const malformed=[{delta:{tool_calls:[{index:0,id:'bad',type:'function',function:{name:'write',arguments:'{"path":"bad","content":"partial"'}}]}},{delta:{},finish_reason:'tool_calls'}];
+  const f3=await sessionFixture(join(root,'third'),{responses:[malformed,stop]});
+  try {await f3.session.prompt('try');assert.equal(f3.confirmations.length,1);await assert.rejects(()=>readFile(join(f3.workspace,'bad')));}
+  finally {await f3.close();}
+}));
+
+test('completed side effects are not repeated with same or new ID', () => fixture(async root => {
+  const args={path:'only-once',content:'once'};
+  const f=await sessionFixture(root,{responses:[tool('write',args,'same'),tool('write',args,'same'),tool('write',args,'different'),stop]});
+  try {
+    await f.session.prompt('try repeated calls');
+    assert.equal(await readFile(join(f.workspace,'only-once'),'utf8'),'once');
+    assert.equal(f.confirmations.length,2); // no second actual write/approval
+    assert.equal(f.events.filter(e=>e.type==='tool_execution_end' && e.isError).length,1);
+  } finally {await f.close();}
+}));
+
+test('Pi shell timeout records unknown outcome, never retries it', () => fixture(async root => {
+  const args={command:'sleep 2',timeout:0.02};
+  const f=await sessionFixture(root,{responses:[tool('bash',args,'timeout1'),tool('bash',args,'timeout2'),stop]});
+  try {
+    await f.session.prompt('try timeout');
+    assert.equal(f.confirmations.length,2);
+    assert.equal(f.events.filter(e=>e.type==='tool_execution_end' && e.isError).length,2);
+    assert.ok(f.manager.getEntries().some(e=>e.customType==='hyprneuro.tool-call/1' && e.data.status==='unknown'));
   } finally {await f.close();}
 }));

@@ -14,6 +14,7 @@ a single ``{"type":"done","text":...}`` line. Deltas have an explicit
 from __future__ import annotations
 
 import asyncio
+from contextlib import aclosing
 import json
 import math
 from typing import AsyncIterator
@@ -162,6 +163,18 @@ async def _body_lines(reader, chunked, timeout_s):
 async def stream_chat(messages: list[dict], *, role: str = "text",
                       max_tokens: int = 1024, temperature: float = 0.2,
                       timeout_s: float = 120.0) -> AsyncIterator[dict]:
+    """Stream existing chat behavior under optional cross-process admission."""
+    from .residency import async_inference_admission
+    async with async_inference_admission(role):
+        async with aclosing(_stream_chat_http(messages, role=role, max_tokens=max_tokens,
+                temperature=temperature, timeout_s=timeout_s)) as stream:
+            async for event in stream:
+                yield event
+
+
+async def _stream_chat_http(messages: list[dict], *, role: str = "text",
+                      max_tokens: int = 1024, temperature: float = 0.2,
+                      timeout_s: float = 120.0) -> AsyncIterator[dict]:
     """Yield channel-labelled deltas from the existing endpoint for `role` (text|omni).
 
     Uses a raw asyncio TCP connection + manual SSE parsing so no external
@@ -245,6 +258,16 @@ async def stream_chat(messages: list[dict], *, role: str = "text",
 
 
 async def health(role: str = "text") -> bool:
+    """True if the admitted endpoint answers /health; never blocks GTK."""
+    from .residency import async_inference_admission, ResidencyError
+    try:
+        async with async_inference_admission(role):
+            return await _health_http(role)
+    except ResidencyError:
+        return False
+
+
+async def _health_http(role):
     """True if the endpoint for `role` answers /health."""
     port, _ = ENDPOINTS.get(role, (8081, ""))
     try:

@@ -178,7 +178,7 @@ class QueueTests(unittest.IsolatedAsyncioTestCase):
         await source.on_event("workspacev2","2")
         self.assertEqual(source.dropped,1)
         ev=source.queue.get_nowait();source.queue.task_done()
-        self.assertEqual(ev.event,"workspacev2")
+        self.assertEqual(ev[1].event,"workspacev2")
 
     async def test_queue_worker_calls_watcher(self):
         calls=[]

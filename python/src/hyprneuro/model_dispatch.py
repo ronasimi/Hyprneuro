@@ -11,6 +11,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 import itertools
 from typing import Awaitable, Callable, Any
+from .residency import observation_epoch
 
 
 class ModelQueueFull(RuntimeError):
@@ -24,6 +25,7 @@ class _Request:
     operation: Callable[[], Awaitable[Any]]
     result: asyncio.Future
     key: str | None
+    epoch: str | None
 
 
 class ModelLane:
@@ -77,11 +79,16 @@ class ModelLane:
         loop = asyncio.get_running_loop()
         future = loop.create_future()
         seq = next(self._sequence)
+        epoch = observation_epoch()
+        if epoch is None:
+            self.dropped += 1
+            future.set_result(None)
+            return future
         if foreground:
             # Cap foreground callers to keep producer mistakes from filling RAM.
             if len(self._pending_foreground) >= 16:
                 raise ModelQueueFull("Too many foreground model requests")
-            self._pending_foreground.append(_Request(0, seq, operation, future, None))
+            self._pending_foreground.append(_Request(0, seq, operation, future, None, epoch))
         else:
             if key is None:
                 key = f"{self.name}-{seq}"
@@ -95,7 +102,7 @@ class ModelLane:
                 if not stale.result.done():
                     stale.result.set_result(None)
                 self.dropped += 1
-            self._pending_background[key] = _Request(1, seq, operation, future, key)
+            self._pending_background[key] = _Request(1, seq, operation, future, key, epoch)
         self._wake.set()
         return future
 
@@ -107,6 +114,33 @@ class ModelLane:
         except (asyncio.TimeoutError, asyncio.CancelledError):
             future.cancel()
             raise
+
+    def _drop_pending(self):
+        for item in (*self._pending_foreground, *self._pending_background.values()):
+            if not item.result.done():
+                item.result.set_result(None)
+            self.dropped += 1
+        self._pending_foreground.clear()
+        self._pending_background.clear()
+
+    async def _operate(self, item):
+        if item.epoch == 'legacy':
+            return await item.operation()
+        task = asyncio.create_task(item.operation())
+        try:
+            while not task.done():
+                await asyncio.wait({task}, timeout=.05)
+                # RAM-only shared phase/epoch check, not disk/network/per-delta.
+                if observation_epoch() != item.epoch:
+                    self._drop_pending()
+                    task.cancel()
+                    await asyncio.gather(task, return_exceptions=True)
+                    return None
+            return await task
+        finally:
+            if not task.done():
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
 
     async def _run(self):
         try:
@@ -120,9 +154,18 @@ class ModelLane:
                     await self._wake.wait()
                     continue
                 if item.result.done():
+                    del item
+                    continue
+                if item.epoch != observation_epoch():
+                    self.dropped += 1
+                    item.result.set_result(None)
+                    del item
                     continue
                 try:
-                    value = await item.operation()
+                    value = await self._operate(item)
+                    if item.epoch != observation_epoch():
+                        self.dropped += 1
+                        value = None
                 except asyncio.CancelledError:
                     if not item.result.done():
                         item.result.cancel()
@@ -135,6 +178,7 @@ class ModelLane:
                         item.result.set_result(value)
                 finally:
                     self.completed += 1
+                    del item
         finally:
             self._closed = True
 

@@ -48,7 +48,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const agentDir=join(root,'agent'),home=join(root,'durable');
     await privateDirectory(agentDir);await privateDirectory(home);
     // Dedicated home only; never drain/resume the parent's existing workflows.
-    process.env.DSA_HOME=home;process.env.DSA_SCOPE='off';process.env.PI_CODING_AGENT_DIR=agentDir;
+    process.env.DSA_HOME=home;process.env.DSA_CACHE_HOME=join(home,'cache');process.env.DSA_SCOPE='off';process.env.PI_CODING_AGENT_DIR=agentDir;
     for(const key of ['DSA_SESSION','DSA_EXEC','DSA_CALL','DSA_INBOX','DSA_JOURNAL','DSA_SCHEMA','DSA_BUDGET','DSA_MODEL','DSA_RESULT','DSA_OUTPUT','DSA_PROBE','DSA_ORCHESTRATOR_ENTRY'])delete process.env[key];
     const stat=await readFile(`/proc/${process.pid}/stat`,'utf8');
     process.env.HYPRNEURO_PI_OWNER_ID=process.pid+':'+stat.slice(stat.lastIndexOf(')')+1).trim().split(/\s+/)[19];
@@ -121,7 +121,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
         if(safe){await unlink(join(root,'owner.guard'));await syncDirectory(root);}
       }
     })();
-    if(serve)socket=await serveOwner(root,owner,{onControlDisconnect:()=>{void close().catch(()=>{});}});
+    if(serve)socket=await serveOwner(root,owner,{onControlDisconnect:()=>{void close().catch(error=>console.error('Pi owner shutdown failed; inspect retained checkpoint:',root,error.message));}});
     return {owner,session,runtime,durable,socket,close};
   } catch(error) {
     await socket?.close();if(session){await session.extensionRunner.emit({type:'session_shutdown',reason:'quit'});session.dispose();}

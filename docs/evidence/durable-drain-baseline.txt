@@ -1,0 +1,17 @@
+Durable failure journals retained: /tmp/hn-durable-exit-z7Bn7h
+✖ identified drain survives an exiting orchestrator using exactly one request identity (10267.965198ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10356.94799
+
+✖ failing tests:
+
+test at tests/pi-owner-durable.mjs:91:1
+✖ identified drain survives an exiting orchestrator using exactly one request identity (10267.965198ms)
+  Error: Durable hold/resume not applied: outcome unknown; inspect journals, never replay (req:shutdown-drain)
+      at completeIdentified (file:///home/ron/Workspace/hyprneuro-tool-harness/extensions/pi-owner/durable.mjs:13:24)

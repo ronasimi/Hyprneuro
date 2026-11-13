@@ -1,0 +1,49 @@
+{
+  "review": "01M79PYJJPMQWJC8MRJ2G5129Z/review",
+  "base": "2d8a813",
+  "reproduction": "Unchanged completion behavior after helper extraction; real installed Engine held in executor.shutdown AFTER intake loop closed. Native initial starter returned before barrier release.",
+  "home": "/tmp/hn-durable-exit-z7Bn7h/durable",
+  "request": {
+    "request": {
+      "rid": "req:shutdown-drain",
+      "from": "cli:ron@muninn",
+      "to": "orch",
+      "sseq": 1,
+      "kind": "drain",
+      "body": {}
+    },
+    "admitted": false
+  },
+  "ledger": [
+    {
+      "type": "orchestrator",
+      "pid": 2160087
+    },
+    {
+      "type": "config"
+    },
+    {
+      "type": "eval-host"
+    },
+    {
+      "type": "eval-tracked"
+    },
+    {
+      "type": "recovered",
+      "pid": 2160087
+    },
+    {
+      "type": "eval-fenced"
+    },
+    {
+      "type": "orchestrator-exit",
+      "pid": 2160087,
+      "reason": "idle"
+    }
+  ],
+  "sha256": {
+    "baseline": "7115fdfeff9731e10046c4c7dddcd21b12a8973cf9ec26b30457a1cf4363b07c",
+    "ledger": "ebabd18571be8bb780defcb7744ef584da1426cfd6f95afa186f50b7f64a585d"
+  },
+  "limits": "No inference, real providers/services, parent workflows, or UI. Full private native home retained; no mutation replayed to repair this baseline."
+}

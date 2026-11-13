@@ -161,3 +161,21 @@ test('transition denies a consent-pending delegation and settles parent submissi
     command:async value=>{if(value!=='status')state=value;return {state};}});
   assert.equal((await owner.transition('on')).state,'on');
 });
+
+test('uncertain shutdown records failure, blocks owner reuse, and never starts a fresh drain',async()=>{
+  const failure=new Error('Durable outcome unknown (req:original-shutdown-drain)'),phases=[];let drains=0;
+  const owner=new PiOwner({session:{abort:async()=>{}},checkpoint:async phase=>phases.push(phase),
+    command:async()=>assert.fail('Uncertain close must not infer residency ownership'),
+    durable:{quiesce:async()=>{drains++;throw failure;}}});
+  const closing=owner.close();await assert.rejects(closing,error=>error===failure);
+  assert.equal(owner.close(),closing);await assert.rejects(owner.close(),error=>error===failure);
+  assert.equal(drains,1);assert.equal(owner.phase,'failed');assert.equal(phases.at(-1),'close-unknown');
+  assert.equal(owner.closed,false);
+  await assert.rejects(owner.chat({text:'do not replay'},()=>{}),/closed/);
+  await assert.rejects(owner.transition('on'),/closed/);assert.equal(drains,1);
+  const checkpointFailure=new Error('checkpoint write failed');
+  const doubleFailure=new PiOwner({session:{abort:async()=>{}},durable:{quiesce:async()=>{throw failure;}},
+    checkpoint:async()=>{throw checkpointFailure;}});
+  await assert.rejects(doubleFailure.close(),error=>error instanceof AggregateError&&
+    error.errors[0]===failure&&error.errors[1]===checkpointFailure);
+});

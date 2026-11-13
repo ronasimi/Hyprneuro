@@ -1,0 +1,321 @@
+{
+  "review": "01M79PYJJPMQWJC8MRJ2G5129Z/review",
+  "base": "2d8a813",
+  "scope": "Offline only; dedicated temporary native Durable homes/cache and mock HTTP. No live models/services/provider/GUI/capture/deployment or parent workflows.",
+  "negative_control": "baseline-reproduced.log is the actual synchronized pre-fix failure; initial-unsynchronized-pass.log was not accepted as negative proof.",
+  "final_checks": {
+    "controlled_race_runs": 12,
+    "actual_owner_runs": 8,
+    "actual_owner_tests_per_run": 4,
+    "full_runs": 3,
+    "full_tests_per_run": 32,
+    "python": "350 passed,1 skipped,80 subtests",
+    "note": "Final owner/full logs have final- prefix. Earlier passing runs and actual failure are preserved, not overwritten."
+  },
+  "source": [
+    {
+      "path": "extensions/pi-owner/durable.mjs",
+      "sha256": "f67952ede8a13cbf366af26aa11e908e23c8d36b2a3f0aac483a6d524c9846e4"
+    },
+    {
+      "path": "extensions/pi-owner/owner.mjs",
+      "sha256": "76b0e68c512e2dff0a29ac9f5ebf1967f93956ee313706fd5e3ea819c326f052"
+    },
+    {
+      "path": "extensions/pi-owner/host.mjs",
+      "sha256": "2ba3c5d89341a2e314a42c5d89183619389bf1c83c5d5010ce907277e0856c5e"
+    },
+    {
+      "path": "tests/pi-owner-durable.mjs",
+      "sha256": "8c78601d4132538471fdaa88e271b016c6b72f3341393050fb33e71c8309fe94"
+    },
+    {
+      "path": "tests/pi-owner.mjs",
+      "sha256": "4ec7ab54c52b225cef3c4ddb984fc1a221a1d6947c94fd2db541958ca0f2fe91"
+    },
+    {
+      "path": "tests/pi-owner-socket.mjs",
+      "sha256": "8e9102a0c2591007fa3632b33cd3545d8a7f29fc63e91674e11ac5c65c5a7d46"
+    }
+  ],
+  "retained": [
+    {
+      "root": "/tmp/hn-durable-exit-z7Bn7h",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-8dyMUW",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-JNKVFq",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-D6QaAO",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-8djB1D",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-JehfRY",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-dA3J6Z",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-7TH1Po",
+      "native_exit_recorded": true
+    },
+    {
+      "root": "/tmp/hn-durable-exit-KSAl9j",
+      "native_exit_recorded": true
+    }
+  ],
+  "logs": [
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/baseline-reproduced.log",
+      "sha256": "7115fdfeff9731e10046c4c7dddcd21b12a8973cf9ec26b30457a1cf4363b07c",
+      "passed": 0,
+      "failed": 1
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-full-1.log",
+      "sha256": "1408c515ff13ac36e016ff049253326d5a7afe02020a08c43ca76ffa54e67832",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-full-2.log",
+      "sha256": "3985c3b48b6a2081b30d643b7188a98ee742000b750175fb3b58988bd5cf8164",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-full-3.log",
+      "sha256": "7d6651a0683cbf633b1814a5e5a589050c41dd622b0aef25a4f8f53ed63b4dbb",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-1.log",
+      "sha256": "72a485d42538b83ca0d9a561f2136362e16a643630be6e56df402878af74d3b1",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-2.log",
+      "sha256": "c1f966035640f8cbef81bf4f5d58ff219bf539db9f78a32d6d8cd5481983697b",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-3.log",
+      "sha256": "f91b1aa7ca44524f80bf0dca137fcf67861db0a51ed8c46b393faba0de99f14c",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-4.log",
+      "sha256": "99cbb519d212341689069d155947f8eda1fa36a6de9b1d94e2b191a45f4992c7",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-5.log",
+      "sha256": "860df8cd82350820dc4b97de0fc90553da821ee300cc09d91261a63b03f561a8",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-6.log",
+      "sha256": "0fb609540375f479747d05e5e9f335451e141253ab8250d600d502b8c0567b44",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-7.log",
+      "sha256": "94f49e89670b859858bc3a317ff923b5b1768c768ea18798100f3901992b124d",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/final-owner-8.log",
+      "sha256": "c88a17b09d7b91c663a25619f92e1ed284264285fae90346115d1f2a89a66cb1",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/fixed-owner-all.log",
+      "sha256": "72bc23f7d3e020be48e0fe47fa2215763e1e0fc87f6d83e267af0d648e9f3ea0",
+      "passed": 17,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/fixed-regressions.log",
+      "sha256": "a7200f96dc6fd9ff4d4d3f50fed7836f91541207694390fafd23692b0633b11c",
+      "passed": 3,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/fixed-single.log",
+      "sha256": "74936dea1e7dfb10a5976283cdbcacf6a4997ce3e2012592768a769e61d1e3df",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/full-1.log",
+      "sha256": "455f3ecfe1858f5f941428d47ac53b84a9bcc0d0b70edcf00b8bc8d6d9dc61e8",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/full-2.log",
+      "sha256": "13d37727051f94cd349ffd476c0bfb66902190dfce1a718bc5b9f100126db096",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/full-3.log",
+      "sha256": "e1a857a8404248bfbd6dbfb6dab1eb70b9e8234994fb4a230220ff76432edd8e",
+      "passed": 32,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/initial-unsynchronized-pass.log",
+      "sha256": "4499c3c069c97a9c15f41baded9437508ba152fdeb4fd77ac3c1f4ede8c28598",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-1.log",
+      "sha256": "f754694ea7b3948f8f1535883ef17ebda9e49d52b080dba11cf8303c5dd6a23e",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-2.log",
+      "sha256": "a04de4c729c295dc0a849b1e1504f70e3f07b1213198b7f815e473af9e4c5e19",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-3.log",
+      "sha256": "8f73f4dadf3bb7b7533bc29509728aa53614f1bd17386b0d2281b17d0c7a6aa0",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-4.log",
+      "sha256": "469d7ccd7da6f03c26681632a42f29c6abdc4288838ea8baebdf07fa2afbc05b",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-5.log",
+      "sha256": "4739146f9cec1837aa97f88856024a946d6661561783946ef29e0c053582101b",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-6.log",
+      "sha256": "798ab93a6579a871bdff57fb72b5f5629ff9d4e7bf7b6eea2ac4b83e02643c35",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-7.log",
+      "sha256": "58828cfe2495a37d56443fd3b7d5d6cf299aaac573a8b7c230a91f84884af400",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/owner-8.log",
+      "sha256": "3892c870e35c9da577494b6a0ebb7f7f508c85c8c2a823a4692bbd6b2c572ed9",
+      "passed": 4,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/python.log",
+      "sha256": "f37aa6e8b4fb67ea46ca49fa2a2ae8c2ba9f98563a48a5eb7b8a2ea19c497af8",
+      "passed": 0,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-1.log",
+      "sha256": "938f5492d713cec5fda322caa2580c29a7e3cefccc6b0dac8eb17ba12d735e17",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-10.log",
+      "sha256": "41e09638f403262a701ba7cc5170fbf736e8aef7afc088730942a808d8f8508b",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-11.log",
+      "sha256": "4b0fc1299d2d084d7d8ba7cfdd6d8eaa8f3946ce800b6be784c8491eda61ec57",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-12.log",
+      "sha256": "4217a4624e9cb60c2ed1da1fb645e5be946318951f48ede3881ffa2fa3f47474",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-2.log",
+      "sha256": "f559df0c1176380fadddff388a9739f3cc2dfa4f5143b8925785d5996e8984d4",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-3.log",
+      "sha256": "f91c0a95720febdda4e5fb3904a7974be8c70bc622880fa3c9cb3a72db44d48c",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-4.log",
+      "sha256": "8d334d6df28cb5afd3d2b72dea69c8e07c57ce3dd62529d3560ffab4f9f99a41",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-5.log",
+      "sha256": "e3f9a4eb46379ce46e09ba18123e18974e3666357a9a19afab414eefef94fb4f",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-6.log",
+      "sha256": "6acca85107ff2705e62a175361829e555d8560bead119636df9269ee535f2323",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-7.log",
+      "sha256": "8925750a669a47d5e7bc21c9315271f14e19c3fc6e9b4f8a4e9e08a43a0d0c6e",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-8.log",
+      "sha256": "8d8d4d19a2eb501503803bd12e297cd0071b71d918c8bce53ae1772b4a87dac0",
+      "passed": 1,
+      "failed": 0
+    },
+    {
+      "path": "/tmp/hyprneuro-drain-review-evidence/race-9.log",
+      "sha256": "5e70c6df2f6542abe0dd34a081db9aaf7cbeea39ed156bb99fe94628a1313f03",
+      "passed": 1,
+      "failed": 0
+    }
+  ]
+}

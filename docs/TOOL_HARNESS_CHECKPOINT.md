@@ -240,3 +240,25 @@ done
 /usr/bin/python3 -m py_compile python/src/hyprneuro/pi_owner_client.py
 git diff --check
 ```
+
+## Independent owner P1 follow-up — source/mock only
+
+Full review `01M79PYJJPMQWJC8MRJ2G5129Z/review` confirms the preceding six fixes,
+but its27/28 initial run exposed unreliable identified-drain shutdown. Successful
+reruns alone were insufficient. [DURABLE_DRAIN_REVIEW.md](DURABLE_DRAIN_REVIEW.md)
+records the synchronized native-Engine reproduction, preserved actual failure,
+corrected completion/startup mechanism and exact bounded checks.
+
+Completion now watches the **same** identified request and uses native pending-work
+startup after a retiring authority exits. One submission/envelope/decision; no
+fresh mutation, uncertain replay, takeover or longer deadline. An unavailable
+successor still times out at the original10s and preserves uncertainty. Owner
+close is idempotent, records `close-unknown`, preserves errors and retains the
+guard; control-disconnect failure is logged. Dedicated cache isolation is explicit.
+
+Final checks: **12/12 controlled races;8/8 actual Pi owner files (4 tests each);
+3/3 final full Node runs at32/32;350 Python passed,1 skipped,80 subtests**.
+Failures/expected-uncertainty native journals and per-run logs are retained, with
+committed baseline evidence/hash manifest. No live acceptance, deployment or UI
+edits. The opt-in remains disabled/not production-ready; the review's model-child,
+D1, all-client/live residency, GTK/media, native MCP and live-provider gates remain.

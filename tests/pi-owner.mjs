@@ -14,7 +14,7 @@ if(!sdkPath||!durableDir)throw new Error('Explicit installed PI_HARNESS_SDK and 
 
 test('real single Pi session loads native Durable; persistent chat + command workflow + child drain',async()=>{
   const root=await mkdtemp(join(tmpdir(),'hn-owner-')),saved={...process.env};
-  let host,requests=0,workspace,delegate=false;
+  let host,requests=0,workspace,delegate=false,passed=false;
   const server=createServer(async(req,res)=>{
     requests++;for await(const _ of req){}
     res.writeHead(200,{'content-type':'text/event-stream'});
@@ -98,10 +98,14 @@ asyncio.run(main())
     const until=Date.now()+5000;
     while(true){const o=readerLedger(join(ownerRoot,'durable')).state.state.orchestrator;if(!o||o.exited||!processAlive(o.pid,o.start))break;
       if(Date.now()>until)assert.fail('Owned temporary Durable orchestrator did not idle-exit');await new Promise(r=>setTimeout(r,25));}
+    passed=true;
+  } catch(error) {
+    await writeFile(join(root,'failure.txt'),error.stack??String(error),{mode:0o600});throw error;
   } finally {
-    await host?.close().catch(()=>{});server.closeAllConnections();await new Promise(r=>server.close(r));
+    await host?.close().catch(error=>console.error('Owner cleanup failed; journals retained:',root,error.message));server.closeAllConnections();await new Promise(r=>server.close(r));
     for(const k of Object.keys(process.env))if(!(k in saved))delete process.env[k];Object.assign(process.env,saved);
-    await rm(root,{recursive:true,force:true});
+    if(passed)await rm(root,{recursive:true,force:true});
+    else console.error('Owner failure evidence retained:',root);
   }
 });
 

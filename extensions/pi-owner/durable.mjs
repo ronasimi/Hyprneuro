@@ -5,6 +5,23 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 
+// One immutable mutation envelope; callers never replace its identity on uncertainty.
+export async function completeIdentified(control,home,rid,kind,body,env) {
+  const result=await control.submitIdentified(home,rid,kind,body,undefined,env);
+  if(!result.request)throw new Error('Durable request conflict');
+  const deadline=performance.now()+10000; // original completion budget, never renewed
+  do {
+    const resolution=await control.resolution(home,rid,Math.max(0,Math.min(250,deadline-performance.now())),25);
+    if(resolution)return resolution;
+    // The initial starter can observe an idle-exiting lock holder AFTER its
+    // intake loop closed. Waiting alone strands the published request. Native
+    // start checks pending work and exclusion; it publishes NO new control envelope.
+    // Do not resubmit, replace rid, resume anything, or restart a live authority.
+    if(performance.now()<deadline)await control.start(home,env);
+  } while(performance.now()<deadline);
+  throw new Error(`Durable hold/resume not applied: outcome unknown; inspect journals, never replay (${rid})`);
+}
+
 export async function durableRuntime(packageDir,home,env) {
   const manifest=JSON.parse(await readFile(join(packageDir,'package.json'),'utf8'));
   if(manifest.name!=='pi-durable-subagents'||manifest.version!=='1.4.3')throw new Error('Reviewed Durable1.4.3 required; review other versions before activation');
@@ -16,9 +33,7 @@ export async function durableRuntime(packageDir,home,env) {
   let held=[];
   async function decide(kind,body) {
     const rid=requestRid('hn-'+randomUUID());
-    const result=await control.submitIdentified(home,rid,kind,body,undefined,env);
-    if(!result.request)throw new Error('Durable request conflict');
-    const resolution=await control.resolution(home,rid,10000);
+    const resolution=await completeIdentified(control,home,rid,kind,body,env);
     if(resolution?.type==='rejected'&&kind==='resume'&&resolution.reason.startsWith('terminal:')) {
       const workflow=statusView(home).workflows.find(w=>w.wid===body.wid);
       if(workflow&&!workflow.active&&['done','failed','stopped'].includes(workflow.status))return;

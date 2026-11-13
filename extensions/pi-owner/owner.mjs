@@ -113,12 +113,21 @@ export class PiOwner {
       finally{signal?.removeEventListener('abort',abort);unsub();}
     });
   }
-  async close(){
-    this.closing=true;this.disconnectControl();
-    if(this.transitionKind==='on'){this.cancelOn=true;await this.cancelTransition?.().catch(()=>{});}
-    this.session.clearQueue?.();await this.session.abort();await this.queue;
-    if(this.phase==='hermes')await this._transition('off');
-    await this.durable.quiesce();
-    const safe=this.phase==='ordinary';await this.checkpoint(safe?'closed':'failed');this.closed=true;return safe;
+  close(){
+    return this.shutdown??=(async()=>{
+      this.closing=true;this.disconnectControl();
+      try {
+        if(this.transitionKind==='on'){this.cancelOn=true;await this.cancelTransition?.().catch(()=>{});}
+        this.session.clearQueue?.();await this.session.abort();await this.queue;
+        if(this.phase==='hermes')await this._transition('off');
+        await this.durable.quiesce();
+        const safe=this.phase==='ordinary';await this.checkpoint(safe?'closed':'failed');this.closed=true;return safe;
+      } catch(error) {
+        this.phase='failed';
+        try{await this.checkpoint('close-unknown');}
+        catch(checkpointError){throw new AggregateError([error,checkpointError],'Owner shutdown and failure checkpoint failed; guard retained');}
+        throw error;
+      }
+    })();
   }
 }

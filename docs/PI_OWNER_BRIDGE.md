@@ -187,3 +187,14 @@ or live retrieval. No live providers, service/capture operations, GUI acceptance
 package installs, deployment or push. Next: parent review of this owner source,
 coordinate GTK forwarding in its owned tree, then separately authorized leased
 live acceptance—not blind activation of this entry point.
+
+### Independent shutdown review follow-up
+
+The intermittent identified-drain shutdown reported in full review
+`01M79PYJJPMQWJC8MRJ2G5129Z/review` is reproduced and corrected using native
+pending-work startup and the **same** published request, not mutation replay or a
+longer timeout. Owner close shares one promise and checkpoints uncertainty/errors;
+the dedicated cache is also explicitly scoped. See
+[DURABLE_DRAIN_REVIEW.md](DURABLE_DRAIN_REVIEW.md) for retained failure evidence,
+negative regression and repeated bounded checks. Source/mock-only; all broader
+acceptance and parent-coordinated GTK work above remain pending.

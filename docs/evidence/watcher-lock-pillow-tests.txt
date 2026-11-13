@@ -12,6 +12,6 @@ test_duplicate_frame_avoids_second_visual_pass (test_event_handoff.VisualTests.t
 test_visual_skip_does_not_call_omni (test_event_handoff.VisualTests.test_visual_skip_does_not_call_omni) ... ok
 
 ----------------------------------------------------------------------
-Ran 12 tests in 0.150s
+Ran 12 tests in 0.131s
 
 OK

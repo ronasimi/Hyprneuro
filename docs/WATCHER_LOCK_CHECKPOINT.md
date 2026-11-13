@@ -6,6 +6,28 @@ Branch `feat/watcher-lock-pause`, isolated worktree
 implementation, not the installed runtime or older FEATURE_ITERATIONS claims.
 Parent owns the separate consolidated implementation/live-testing plan.
 
+## Review correction checkpoint
+
+Independent review `01M7ADG63QXMVPR6CF43BC4KX0/lock-review` **BLOCKED**
+`e4ab16eb898d16bc555af7cf478d61c7afde193f` for two reproduced P1 privacy
+bugs. The full historical review is `docs/evidence/watcher-lock-review.txt`;
+its owner-branch/conflict observations are historical, not current integration
+claims. Added regression tests reproduced **both failures before the fixes**
+(`watcher-lock-review-regressions-before.txt`), including one expired-state
+capture despite no stored output. This checkpoint supersedes the original
+hook authority and capture-admission claims; it is not independent re-review
+approval or installed/runtime acceptance.
+
+Corrections: ordinary RPC false/null cannot clear an explicit trusted latch;
+only startup-injected trusted host code receives a clearing capability, with
+independent verification still required. Capture admission is checked again
+**after the final focus await and before grab**, including generation validation
+before the callback. The original 2.5-interval expiry is unchanged. New tests
+cover an unrecognized hook-only locker, actual same-UID RPC, stalled
+reconciliation with a 300 ms focus await against the original 250 ms TTL,
+stale-generation callback rejection, producer disconnect/capability revocation
+and capture-disabled producer refusal.
+
 ## Implemented boundaries
 
 - Existing `LoginSessionGuard` is preserved at its original import path;
@@ -20,7 +42,8 @@ Parent owns the separate consolidated implementation/live-testing plan.
   continues if the monitor is unavailable; each loginctl query times out after
   two seconds. Verification expires after 2.5 reconciliation intervals.
 - Every reconciliation samples procfs off the asyncio loop, with a 250 ms /
-  8192-process bound, no ps/pgrep subprocess. Same-UID known locker comm names
+  8192-process bound, no ps/pgrep subprocess. The time bound is cooperative
+  between entries, not an interruptible hard deadline on filesystem reads. Same-UID known locker comm names
   (including Linux's 15-byte truncation) override `LockedHint=no`. Cgroup
   session scopes and POSIX session IDs distinguish sessions. An unmapped
   same-UID locker denies conservatively, rather than assuming it is unrelated.
@@ -52,23 +75,66 @@ The existing same-UID Unix socket accepts one request per connection:
 ```
 
 `locked` must be boolean or null. `true` means locked; null means unknown.
-Both latch a pause until an explicit `false` notification, which **only requests
-independent re-verification**. False never directly resumes capture. Wrong
-sessions and malformed values are rejected. The hook is unavailable without a
-configured capture/on-demand guard; it cannot instantiate a watcher, enable
-capture, disable a locker or change settings. Normal RPC framing is retained:
+Both latch a pause. **Ordinary RPC is revocation-only:** false requests a
+recheck but does not clear any existing latch; null also cannot clear one.
+Peer UID and session-string equality are not trusted-producer credentials.
+Wrong sessions and malformed values are rejected. The hook is unavailable
+without a configured capture/on-demand guard; it cannot instantiate a watcher,
+enable capture, disable a locker or change settings. Response schema is unchanged:
 
 ```json
 {"ok":true,"result":{"schema":"hyprneuro.session-lock/1","paused":true,"verification_pending":true}}
 ```
 
-An embedded compositor/session-manager host may instead call
-`LoginSessionGuard.session_lock_event(session, locked)` on the sidecar loop
-(or marshal with `loop.call_soon_threadsafe`). Notifications are revocations /
-verification hints, never authority to grant unlock. No model tool is registered.
-Automatic logind monitoring is already wired; external compositor notification
-producers must call this hook explicitly if their lock mechanism is not covered
-by logind or the known-process sample.
+### Usable trusted host path (embedding API, not ordinary RPC)
+
+`serve(session_lock_producer=producer, ...)` accepts an async callable **only
+from trusted startup Python code**. It runs in the existing producer lifecycle,
+starts with lock state unknown/latched, and supplies `publish(session, locked)`
+as an in-process capability. Only this trusted path (or the guard's direct
+in-process `session_lock_event` interface) can clear the latch with false.
+False still requires fresh independent logind/procfs verification. Producer
+termination/failure latches unknown again and revokes its supplied callable;
+late callbacks cannot clear that state. The producer cannot be configured by
+RPC, registered as a model tool, or combined with a bypassing `unlock_guard`.
+It is rejected if capture/on-demand observation was not already opted in.
+
+An embedding host can bridge its actual session-manager callback via a private
+in-process `asyncio.Queue` using this supported code, with its **existing**
+explicitly approved serve options (the example does not set capture flags):
+
+```python
+from hyprneuro.sidecar import serve
+
+async def run_with_lock_bridge(lock_events, **approved_serve_options):
+    async def producer(publish):
+        while True:
+            session, locked = await lock_events.get()
+            try:
+                publish(session, locked)
+            finally:
+                lock_events.task_done()
+    await serve(session_lock_producer=producer, **approved_serve_options)
+```
+
+The trusted host's actual event callback puts `(actual_session_id, locked)` on
+that queue; from another thread marshal with
+`loop.call_soon_threadsafe(lock_events.put_nowait, (actual_session_id, locked))`.
+The host must feed an initial known state and keep the producer alive only for
+the actual connected event source, cancelling it on connection loss. Do not
+populate the trusted queue from the ordinary socket or any untrusted input.
+Authority is possession of the in-process capability by trusted startup code,
+not UID/session-string identification or a self-asserted `trusted` packet field.
+This is an embedding boundary, not protection against arbitrary code execution
+inside the trusted host.
+
+This startup/producer/Unix-RPC path is exercised by the synthetic async
+integration test. **No compositor-specific plugin or installed producer is
+claimed here.** Stock CLI startup wires automatic logind monitoring only;
+hook-only compositor lock/unlock needs the embedding integration above. An
+explicit ordinary-RPC latch intentionally cannot be cleared by ordinary RPC
+or by apparently unlocked logind/procfs alone. Recovery needs the trusted host
+path; do not pretend an ordinary client has unlock authority.
 
 ## Exact integration ownership
 
@@ -81,10 +147,11 @@ No agent/residency/extensions/UI edits.
 5446e9c (zero-context, to avoid whitespace-only patch context in evidence):
 
 1. Initialize `session_lock_guard` next to the existing watcher reference.
-2. Add the validated `session_lock` dispatch branch.
-3. In the existing capture/on-demand setup, give only Recall its cancellable
-   transport; attach/start/reconcile the session guard through existing
-   producer lifecycle cleanup.
+2. Add the validated, revocation-only `session_lock` dispatch branch.
+3. Add the startup-only `session_lock_producer` embedding parameter and
+   validation. In capture/on-demand setup, give only Recall its cancellable
+   transport; attach/start/reconcile the session guard and optional trusted
+   producer through existing lifecycle cleanup.
 4. Remove the visual subscriber mailbox; fan out visual candidates at socket2
    intake, then pass unchanged metadata into SharedApplicationEvents.
 
@@ -95,15 +162,15 @@ changes or transplant the old whole sidecar file. No push or installation here.
 ## Actual validation (synthetic, not live capture)
 
 - Full Python suite, existing Python 3.13 venv (read-only use, no packages added):
-  `PYTHONPATH=python/src /home/ron/Projects/Hyprneuro/python/.venv/bin/python -m pytest python/tests -q -ra`
-  — **404 passed, 1 skipped, 86 subtests passed**. Skip: optional Pillow image
+  `PYTHONPATH=python/src /home/ron/Projects/Hyprneuro/python/.venv/bin/python -m pytest python/tests -q -ra -W error`
+  — **409 passed, 1 skipped, 88 subtests passed** (warnings as errors). Skip: optional Pillow image
   preview test is unavailable in that venv.
 - Existing system Python 3.14 has Pillow. Ran
   `PYTHONPATH=python/src python -m unittest discover -s python/tests -p test_event_handoff.py -v`
   — **12 passed**, including that synthetic in-memory image preview test.
 - Lock-specific suite with warnings as errors:
   `PYTHONPATH=python/src /home/ron/Projects/Hyprneuro/python/.venv/bin/python -m pytest python/tests/test_watcher_lock.py -q -W error`
-  — **37 passed**. Includes lock during D1/capture/visual-D1/Omni, late
+  — **42 passed, 2 subtests passed** (original 37 plus 5 new tests). Includes lock during D1/capture/visual-D1/Omni, late
   generation results after unlock, foreground revocation, already-locked
   startup, logind false plus locker process, session/UID mapping, unknown and
   disconnect failure, TTL expiry inside a queued model operation, idempotence,
@@ -139,8 +206,11 @@ and its combined Python suite. After explicit runtime/deployment approval:
 2. With capture still off, observe real busctl JSON/session filtering,
    PropertiesChanged delivery, supported/fallback monitor behavior, disconnect
    revocation and bounded process sampling on the target host. Check the hook
-   with wrong-session, unknown, locked and false events; false alone must never
-   activate capture. Coordinate session/locker tests with the user; never
+   with wrong-session, unknown, locked and false events; ordinary false/null
+   must preserve any explicit latch. Verify the separately trusted producer
+   can request clearing only while connected, never grant unlock by itself,
+   and loses its capability on disconnect. An installed compositor producer
+   is still pending; do not substitute same-UID RPC for its authority. Coordinate session/locker tests with the user; never
    disable or kill lockers to manufacture an unlocked result.
 3. Only with separate explicit capture permission and independently verified
    unlock, use a harmless fixture window to test real lock during D1, capture,

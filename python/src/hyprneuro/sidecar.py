@@ -287,7 +287,7 @@ class SidecarServer:
                 raise ValueError("Expected session_lock session and boolean/null locked")
             if self.session_lock_guard is None:
                 raise PermissionError("Session lock hook unavailable; capture consent unchanged")
-            if not self.session_lock_guard.session_lock_event(request["session"], request["locked"]):
+            if not self.session_lock_guard.session_lock_hint(request["session"], request["locked"]):
                 raise ValueError("Session lock event does not target this session")
             return {"schema": "hyprneuro.session-lock/1", "paused": True,
                     "verification_pending": True}
@@ -640,9 +640,13 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 active_settings=None, settings_file=None,
                 semantic_enabled=False, embeddings_url="", embeddings_model="", socket_path=None, db_path=None, shutdown=None,
                 desktop=None, models=None, unlock_guard=None, grabber=None,
+                session_lock_producer=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None,
                 assistant_enabled=False, assistant_recent_apps=5, assistant_focus_debounce_ms=250,
                 skills_dir=None):
+    if session_lock_producer is not None and (not callable(session_lock_producer)
+            or not (allow_capture or allow_on_demand) or unlock_guard is not None):
+        raise ValueError("Trusted lock producer requires an enabled observation guard")
     alert_journal = alert or alert_journal
     alert_network = alert or alert_network
     notifications = bool(alert) if notifications is None else notifications
@@ -746,6 +750,11 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                                            session_guard=session_guard)
             worker.session_lock_guard = session_guard  # trusted session/compositor hook
             if session_guard is not None:
+                if session_lock_producer is not None:
+                    session_guard.session_lock_event(session_guard.session, None)
+                    producers.append(asyncio.create_task(
+                        session_guard.follow_trusted_producer(session_lock_producer),
+                        name="session_lock_producer"))
                 await session_guard.reconcile()  # already locked startup stays closed
                 producers.append(asyncio.create_task(session_guard.run(), name="session_lock"))
         if watch_hyprland:

@@ -201,7 +201,7 @@ async def run():
         return 2
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(limit=MAX_FRAME + 1)
-    await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin.buffer)
+    reader_transport, _ = await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin.buffer)
     transport, protocol = await loop.connect_write_pipe(asyncio.streams.FlowControlMixin, sys.stdout.buffer)
     writer = asyncio.StreamWriter(transport, protocol, None, loop)
     lock = asyncio.Lock()
@@ -230,6 +230,7 @@ async def run():
             task.cancel()
         await asyncio.gather(*workers, return_exceptions=True)
         await bridge.close()
+        reader_transport.close()
         writer.close()
     return 0
 

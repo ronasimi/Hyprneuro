@@ -13,7 +13,7 @@ async function client(root,role='chat',bad=false) {
   const socket=connect(join(root,'owner.sock'));
   const nonce=await new Promise((resolve,reject)=>{socket.once('data',resolve);socket.once('error',reject);});
   const key=await readFile(join(root,role+'.key'));
-  socket.write(Buffer.concat([Buffer.from(role==='control'?'C':'T'),signature(bad?Buffer.alloc(32):key,nonce,role)]));
+  socket.write(Buffer.concat([Buffer.from(role==='control'?'C':role==='read'?'R':'T'),signature(bad?Buffer.alloc(32):key,nonce,role)]));
   if(bad)return {socket};
   const lines=createInterface({input:socket}),iterator=lines[Symbol.asyncIterator]();
   assert.equal(JSON.parse((await iterator.next()).value).type,'ready');
@@ -178,4 +178,21 @@ test('uncertain shutdown records failure, blocks owner reuse, and never starts a
     checkpoint:async()=>{throw checkpointFailure;}});
   await assert.rejects(doubleFailure.close(),error=>error instanceof AggregateError&&
     error.errors[0]===failure&&error.errors[1]===checkpointFailure);
+});
+
+
+test('read bridge binary role cannot obtain chat, consent or lifecycle authority; abort removes consent',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'hn-read-role-'));let server,read,control,called=0;
+  const owner=fake();owner.transition=async()=>{called++;};
+  try{
+    server=await serveOwner(root,owner,{read:async()=>({content:[]})});read=await client(root,'read');control=await client(root,'control');
+    for(const [i,op] of ['on','off','status','chat','consent'].entries()){
+      read.send({op,id:'r'+i});assert.match((await read.next()).error,/no chat\/control\/lifecycle/);
+    }
+    control.send({op:'read',id:'c'});assert.match((await control.next()).error,/Read bridge role/);assert.equal(called,0);
+    read.send({op:'read',id:'valid'});assert.deepEqual((await read.next()).result,{content:[]});
+  }finally{read?.close();control?.close();await server?.close();await rm(root,{recursive:true,force:true});}
+  const cancel=new AbortController(),o=new PiOwner({});o.listeners.add(()=>{});
+  const approval=o.approve({title:'Read?',signal:cancel.signal});cancel.abort();
+  assert.equal(await approval,false);assert.equal(o.consents.size,0);
 });

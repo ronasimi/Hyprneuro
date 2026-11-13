@@ -1,16 +1,21 @@
 import { Workspace, exactEdits, MAX_WRITE } from './workspace.mjs';
 import { Outcomes, sidecar, checkBroker } from './policy.mjs';
 import { control, admit, guardedStream, releaseOwnedLease, watchHandoff } from './residency.mjs';
+import { nativeCalls } from './native-calls.mjs';
 import { open } from 'node:fs/promises';
 
 const FILE_TOOLS = ['read', 'write', 'edit', 'bash'];
 const props = {read:['path','offset','limit'], write:['path','content'], edit:['path','edits'], bash:['command','timeout']};
 
 // Factory injected with Pi's public exports: no separate model client or loop.
-export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission } = {}) {
+export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, readOnly = false, normalOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
+  if(normalOnly&&!readOnly)throw new Error('Normal-only mode requires READ-ONLY profile');
+  if(readOnly)providers=undefined;
   return function(pi) {
     let active, outcomes, previous, handoff, originalModel, handoffFailure, pendingHandoff;
-    let nativeCalls = new Map(), nativeFinish, rawInvalid = false, validatedIds = new Set();
+    const validated=nativeCalls(pi);
+    let readDefinition;
+    const fileTools=readOnly?['read']:FILE_TOOLS;
     const approve = async (ctx, title, detail, signal) => {
       signal?.throwIfAborted();
       const ok = confirm ? await confirm({title, detail, signal}) : ctx.hasUI && await ctx.ui.confirm(title, detail, {signal, timeout:120000});
@@ -18,18 +23,21 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       if (ok !== true) throw new Error('Trusted human approval required');
     };
     async function activate(ctx, workspace, taskId, appId) {
+      if(readOnly&&(!binding||workspace!==binding.workspace||taskId!==binding.taskId||appId!==binding.appId))throw new Error('READ-ONLY owner scope is fixed; cannot rebind');
       if (!/^[\w.-]{1,128}$/.test(taskId) || typeof appId !== 'string' || !appId || appId.length > 120)
         throw new Error('Explicit task ID and application ID required');
       if (!ctx.sessionManager.getSessionFile()) throw new Error('Persistent Pi session required');
       const root = await Workspace.create(workspace);
       try {
-        await approve(ctx, 'Enable Hyprneuro tools?', `Task ${taskId}; app ${appId}; workspace ${workspace}. Each call still requires approval. Bash is UNSANDBOXED host execution.`);
-        await rpc({action:'auth_create', task_id:taskId, app_id:appId, file_prefix:workspace, ops:['read','write','execute']});
+        if(readOnly && (!Array.isArray(readPaths)||!readPaths.length||readPaths.length>32))throw new Error('Explicit bounded read allowlist required');
+        const allowed=readOnly?new Set(readPaths.map(p=>root.target(p))):undefined;
+        await approve(ctx, readOnly?'Enable READ-ONLY Hyprneuro tools?':'Enable Hyprneuro tools?', readOnly?JSON.stringify({task:taskId,app:appId,workspace,operations:['read'],paths:[...allowed],note:'No write, execute, network or lifecycle permission. Every read requires fresh approval.'}): `Task ${taskId}; app ${appId}; workspace ${workspace}. Each call still requires approval. Bash is UNSANDBOXED host execution.`);
+        await rpc({action:'auth_create', task_id:taskId, app_id:appId, file_prefix:workspace, ops:readOnly?['read']:['read','write','execute']});
         await active?.workspace.close();
         previous ??= pi.getActiveTools();
-        active = {workspace:root, taskId, appId};
+        active = {workspace:root, taskId, appId, allowed};
         outcomes = new Outcomes(pi, ctx);
-        pi.setActiveTools([...FILE_TOOLS, ...(providers?.names ?? []), ...(durableGuard&&pi.getAllTools().some(t=>t.name==='subagents')?['subagents']:[])]);
+        pi.setActiveTools([...fileTools, ...(providers?.names ?? []), ...(durableGuard&&pi.getAllTools().some(t=>t.name==='subagents')?['subagents']:[])]);
       } catch (e) { await root.close(); throw e; }
     }
     pi.on('session_start', async (_e, ctx) => {
@@ -66,7 +74,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     pi.on('session_shutdown', async (_e,ctx) => {
       try {if(handoff)await finishHandoff(ctx);} finally {await active?.workspace.close();active=undefined;}
     });
-    pi.registerCommand('hn-residency', {description:'Initialize cooperating admission only after ALL clients share HYPRNEURO_RESIDENCY_DIR',
+    if(!normalOnly)pi.registerCommand('hn-residency', {description:'Initialize cooperating admission only after ALL clients share HYPRNEURO_RESIDENCY_DIR',
       handler:async (_args,ctx)=>{
         await ctx.waitForIdle();
         const owner=control('initialize');
@@ -81,20 +89,21 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         } catch(e){await owner.stop().catch(()=>{});throw e;}
       }});
     if(native)pi.registerProvider('hyprneuro-local', {streamSimple:(model,context,options)=>guardedStream(native,model,context,options,handoff?.token,inferenceGate),api:'openai-completions',apiKey:'local-no-credential',
-      models:[['lfm-text',8081,131072],['lfm-omni',8082,32768],['lfm-moe',8080,65536]].map(([id,port,contextWindow])=>({
-        id,name:id,baseUrl:`http://127.0.0.1:${port}/v1`,contextWindow,maxTokens:2048,reasoning:false,
+      models:(normalOnly?[['lfm-text',8081,131072]]:[['lfm-text',8081,131072],['lfm-omni',8082,32768],['lfm-moe',8080,65536]]).map(([id,port,contextWindow])=>({
+        id,name:id,baseUrl:id==='lfm-text'?textBaseUrl:`http://127.0.0.1:${port}/v1`,contextWindow,maxTokens:2048,reasoning:false,
         input:id==='lfm-omni'?['text','image']:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0},
         compat:{supportsDeveloperRole:false,supportsStore:false,supportsFinishReason:true,maxTokensField:'max_tokens'}
       }))});
     pi.registerCommand('hn-model',{description:'Select already-running local text or omni (never starts services)',handler:async(args,ctx)=>{
       await ctx.waitForIdle();
-      if(handoff || !['text','omni'].includes(args))throw new Error('Use text or omni outside a handoff');
+      if(handoff || !(normalOnly?['text']:['text','omni']).includes(args))throw new Error('Use text or omni outside a handoff');
       if(!native)throw new Error('Native local transport adapter unavailable');
-      const release=await admit(args);await release();
+      const release=await inferenceGate(args);await release();
       const model=ctx.modelRegistry.find('hyprneuro-local','lfm-'+args);
       if(!model || !await pi.setModel(model))throw new Error('Local Pi provider unavailable');
     }});
     const hermesCommand={description:'Trusted exclusive Hermes handoff: start or finish; Pi retains the same session',handler:async(args,ctx)=>{
+      if(normalOnly)throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');
       await ctx.waitForIdle();
       if(args==='finish')return finishHandoff(ctx);
       if(handoffFailure)throw new Error(handoffFailure);
@@ -132,56 +141,19 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         handoff=undefined;throw e;
       } finally {if(pendingHandoff===owner)pendingHandoff=undefined;}
     }};
-    exposeCommands?.({moe:hermesCommand.handler,status:observedState,cancel:async()=>{
+    exposeCommands?.({read:(id,args,signal,ctx)=>readDefinition.execute(id,args,signal,undefined,ctx),
+      moe:normalOnly?async()=>{throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');}:hermesCommand.handler,
+      status:normalOnly?async()=>({state:'unavailable',available:false,reason:'Normal-only owner; exclusive lifecycle disabled; all-client cooperation unverified'}):observedState,cancel:async()=>{
       if(pendingHandoff){pendingHandoff.expectedClose=true;await pendingHandoff.stop();}
     }});
-    pi.registerCommand('hn-hermes',{...hermesCommand,handler:(args,ctx)=>ownerControl?ownerControl(args==='start'?'on':args==='finish'?'off':args):hermesCommand.handler(args,ctx)});
+    if(!normalOnly)pi.registerCommand('hn-hermes',{...hermesCommand,handler:(args,ctx)=>ownerControl?ownerControl(args==='start'?'on':args==='finish'?'off':args):hermesCommand.handler(args,ctx)});
     pi.registerCommand('moe',{description:'Trusted manual on/off/status; no startup preference or D1 permission grant',handler:async(args,ctx)=>{
       if(ownerControl)return ownerControl(args);
-      if(args==='status') {const state=await observedState();ctx.ui.notify(JSON.stringify(state),'info');return state;}
+      if(args==='status') {const state=normalOnly?{state:'unavailable',available:false,reason:'Normal-only; all-client cooperation unverified'}:await observedState();ctx.ui.notify(JSON.stringify(state),'info');return state;}
       if(!['on','off'].includes(args))throw new Error('Use /moe on, /moe off or /moe status');
       await hermesCommand.handler(args==='on'?'start':'finish',ctx);
       const state=await observedState();ctx.ui.notify(JSON.stringify(state),state.state==='failed'?'error':'info');return state;
     }});
-    pi.on('before_provider_request',()=>{
-      nativeCalls=new Map();nativeFinish=undefined;rawInvalid=false;validatedIds=new Set();
-    });
-    // Safety validation of complete native tool JSON; Pi owns aggregation/execution.
-    pi.on('provider_stream_event',event=>{
-      if(event.api!=='openai-completions' || rawInvalid)return;
-      const choices=event.data?.choices;
-      if(!choices?.length)return;
-      if(choices.length!==1 || choices[0].index!==0){rawInvalid=true;return;}
-      const choice=choices[0];
-      if(choice.finish_reason!=null)nativeFinish=choice.finish_reason;
-      for(const c of choice.delta?.tool_calls??[]) {
-        if(!Number.isInteger(c.index) || c.index<0 || c.index>=8){rawInvalid=true;continue;}
-        const prior=nativeCalls.get(c.index)??{id:'',name:'',arguments:''};
-        for(const [key,value] of [['id',c.id],['name',c.function?.name],['arguments',c.function?.arguments]]) {
-          if(value!==undefined && typeof value!=='string'){rawInvalid=true;continue;}
-          if(prior[key].length+(value?.length??0)>(key==='arguments'?131072:128)){rawInvalid=true;break;}
-          prior[key]+=value??'';
-        }
-        nativeCalls.set(c.index,prior);
-      }
-    });
-    pi.on('message_end',async(event)=>{
-      if(event.message.role!=='assistant')return;
-      const calls=event.message.content.filter(c=>c.type==='toolCall');
-      if(event.message.api!=='openai-completions') {validatedIds=new Set(calls.map(c=>c.id));return;}
-      if(rawInvalid || nativeFinish!=='tool_calls' || event.message.stopReason!=='toolUse' || calls.length!==nativeCalls.size)return;
-      try {
-        const ids=new Set();
-        for(const [index,c] of nativeCalls) {
-          if(!nativeCalls.has(index-1) && index!==0)throw new Error('Tool index gap');
-          const actual=calls.find(a=>a.id===c.id);
-          if(!actual || ids.has(c.id) || !/^[\w-]{1,128}$/.test(c.id) || actual.name!==c.name ||
-            JSON.stringify(actual.arguments)!==JSON.stringify(JSON.parse(c.arguments)))throw new Error('Incomplete tool JSON');
-          ids.add(c.id);
-        }
-        validatedIds=ids;
-      } catch {validatedIds=new Set();}
-    });
     pi.registerCommand('hn-tools', {
       description:'Enable guarded Pi tools: /hn-tools /absolute/workspace task-id app-id; or off; or network',
       handler: async (args, ctx) => {
@@ -191,6 +163,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
           await active?.workspace.close(); active = undefined;
           pi.setActiveTools(previous ?? []); previous = undefined;
         } else if (args === 'network') {
+          if(readOnly)throw new Error('READ-ONLY profile cannot expand network or IO permissions');
           if (!active) throw new Error('Enable a workspace first');
           await approve(ctx, 'Enable provider network scope?', 'Allow network + submit_external scope; every exact provider query will still require separate approval. No ambient credentials are discovered.');
           await rpc({action:'auth_expand', task_id:active.taskId, ops:['read','write','execute','network','submit_external'], approved:true});
@@ -203,18 +176,20 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     });
     // No model-facing approval, scope expansion or subprocess-delegation APIs.
     pi.on('tool_call', async event => {
+      if(readOnly&&!active)return {block:true,reason:'READ-ONLY tools not activated',terminate:true};
       if(event.toolName==='subagents'&&durableGuard) {
         try {
-          if(!validatedIds.has(event.toolCallId))throw new Error('Incomplete native delegation call');
+          if(!validated(event.toolCallId))throw new Error('Incomplete native delegation call');
           await durableGuard(event.input);return;
         } catch(error){return {block:true,reason:error.message,terminate:true};}
       }
-      if (active && !validatedIds.has(event.toolCallId))
+      if (active && !validated(event.toolCallId))
         return {block:true,reason:'Incomplete/unvalidated native tool call',terminate:true};
-      if (active && ![...FILE_TOOLS, ...(providers?.names ?? [])].includes(event.toolName))
+      if (active && ![...fileTools, ...(providers?.names ?? [])].includes(event.toolName))
         return {block:true, reason:'Tool outside guarded loadout', terminate:true};
     });
     async function run(name, id, input, signal, onUpdate, ctx, execute) {
+      if(readOnly&&name!=='read')throw new Error('READ-ONLY profile forbids this tool');
       if (!active || !outcomes) throw new Error('Tools disabled; use trusted /hn-tools command');
       toolAdmission?.();
       signal?.throwIfAborted();
@@ -222,6 +197,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       if (JSON.stringify(args).length > MAX_WRITE + 8192 || Object.keys(args).some(k => !(props[name] ?? providers?.properties(name) ?? []).includes(k)))
         throw new Error('Oversized or unknown arguments (approval fields are not accepted)');
       const path = name === 'bash' || !FILE_TOOLS.includes(name) ? active.workspace.root : active.workspace.target(args.path);
+      if(readOnly&&!active.allowed.has(path))throw new Error('Read path outside exact allowlist');
       const op = name === 'read' ? 'read' : ['write','edit'].includes(name) ? 'write' : name === 'bash' ? 'execute' : 'network';
       const check = async () => {
         await checkBroker(rpc, active.taskId, active.appId, op, path, signal);
@@ -258,9 +234,9 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     const write = sdk.createWriteToolDefinition(process.cwd());
     const edit = sdk.createEditToolDefinition(process.cwd());
     const shell = sdk.createBashToolDefinition(process.cwd());
-    for (const definition of [read,write,edit,shell]) {
+    for (const definition of (readOnly?[read]:[read,write,edit,shell])) {
       const name = definition.name;
-      pi.registerTool({...definition, executionMode:'sequential',
+      const guarded={...definition, executionMode:'sequential',
         async execute(id,args,signal,onUpdate,ctx) {
           return run(name,id,args,signal,onUpdate,ctx, async (input,workspace) => {
             const operations = {access:p => workspace.access(p), mkdir:p => workspace.mkdir(p),
@@ -292,9 +268,11 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
             return factory(workspace.root,{operations}).execute(id,input,signal,onUpdate,{...ctx,cwd:workspace.root});
           });
         }
-      });
+      };
+      if(name==='read')readDefinition=guarded;
+      pi.registerTool(guarded);
     }
-    for (const definition of providers?.tools ?? []) pi.registerTool({...definition, executionMode:'sequential',
+    for (const definition of (readOnly?[]:providers?.tools ?? [])) pi.registerTool({...definition, executionMode:'sequential',
       execute:(id,args,signal,onUpdate,ctx) => run(definition.name,id,args,signal,onUpdate,ctx,
         input => providers.execute(definition.name,input,signal))});
   };

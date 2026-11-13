@@ -1,0 +1,68 @@
+{
+  "base": "5446e9c",
+  "scope": "source/offline actual Pi1.5.1 + Durable1.4.3 native subprocesses; temporary files, mock HTTP models/broker/trusted UI approvals only",
+  "results": [
+    "read-only broker ops and exact canonical file scope",
+    "actual owner read/result continuation/journal/orderly reopen; fresh consent; changed config denied",
+    "native child read bridge/result/native receipt and reopened child toolResult",
+    "tools:[] default; child denied read/escape/injected write blocked",
+    "unknown read not replayed; forced child loss exactly one request",
+    "normal-only unavailable lifecycle, no init/Hermes command/MoE model; read role no controls"
+  ],
+  "validation": {
+    "node": 39,
+    "python_passed": 367,
+    "python_skipped": 1,
+    "python_subtests": 86,
+    "c_helpers_normal_and_sanitized": 14,
+    "new_readonly_test_file_repeats": 3
+  },
+  "limitations": [
+    "No live owner/model/GUI/capture/service/deployment or parent policy change",
+    "Fixture-only workspace excludes ambient project discovery; not arbitrary repo mode or OS sandbox",
+    "Native Durable1.4.3 100ms idle-exit pending-run liveness reproduced, not repaired or accepted; no envelope replay; final permission fixture uses1000ms",
+    "Native completion follow-up driver ordering corrected; failures retained"
+  ],
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-node-full.log",
+      "sha256": "4350a6f64f04ee564c52f60b16f3e30c93bd63a727557afbc60a645dd633f40e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-python-full.log",
+      "sha256": "5d2dd7db3f111b8c6f21f05ee08cd24b1d8958ac9ad511237112158e40e6fd49"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-c.log",
+      "sha256": "5826c408f21c8c2441892d13856f4d72ebd385dadb298a9e5d77b204170a0c98"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-c-sanitized.log",
+      "sha256": "f2fbccc82668476eb6f0a5feac4ab966c35ff27b2f66d615c0b07c8a92aa20a4"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-stable-repeat-1.log",
+      "sha256": "bc0b1dec23f5fba1f97bcf1b86864abeab0aa7b1a97e12172f70088bfa05ea49"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-stable-repeat-2.log",
+      "sha256": "b64d1b7cf103e60010ea6cb2f8dfd629f3aaec1bd6478f76c7a081ed9cceb0a7"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-stable-repeat-3.log",
+      "sha256": "d27e96e75c1be176429c6923becf44a44fd74707b6f855dae0dbf937c6c5e34b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-child-debug.log",
+      "sha256": "62076e941119ac7a5bace93ba5937e5b49e00f5ab1af35f07aa2fb1938b50055"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-note-driver-failure.log",
+      "sha256": "81448e1fbc47589a223f3e7e3edf9d74d8ae20cf166f3b13544d96e8c6e99efc"
+    },
+    {
+      "path": "/tmp/hn-readonly-WPrQ3L/owner/durable/orchestrator.jsonl",
+      "sha256": "0326322ced23dad17fc997aca4fc3274e843341f5e951fe8dc654f62fc911863"
+    }
+  ]
+}

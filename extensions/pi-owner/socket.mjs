@@ -12,10 +12,10 @@ export async function privateDirectory(root) {
   const st=await lstat(root);
   if(await realpath(root)!==root||!st.isDirectory()||st.uid!==process.getuid()||(st.mode&0o077))throw new Error('Unsafe owner directory');
 }
-export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disconnectControl()}={}) {
+export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disconnectControl(),read}={}) {
   await privateDirectory(root);
   const keys={};
-  for(const role of ['chat','control']) {
+  for(const role of (read?['chat','control','read']:['chat','control'])) {
     const file=join(root,role+'.key');
     try{await writeFile(file,randomBytes(32),{flag:'wx',mode:0o600});}catch(e){if(e.code!=='EEXIST')throw e;}
     const st=await lstat(file);
@@ -43,8 +43,10 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
       if(!value||Array.isArray(value)||typeof value!=='object')throw new Error('Object request required');
       const {op,id}=value;
       if(typeof id!=='string'||!/^[\w.-]{1,80}$/.test(id))throw new Error('Bounded correlation id required');
-      const fields={status:['op','id'],on:['op','id'],off:['op','id'],consent:['op','id','answer_id','allowed'],chat:['op','id','text','recommend']};
+      const fields={status:['op','id'],on:['op','id'],off:['op','id'],consent:['op','id','answer_id','allowed'],chat:['op','id','text','recommend'],read:['op','id','call','exec','tool_id','args']};
       if(!fields[op]||Object.keys(value).some(k=>!fields[op].includes(k)))throw new Error('Unknown operation/fields');
+      if(role==='read'&&op!=='read'||op==='read'&&(role!=='read'||!read))throw new Error('Read bridge role has no chat/control/lifecycle authority');
+      if(op==='read')return read(value,cancel.signal);
       if(['on','off','consent'].includes(op)&&role!=='control')throw new Error('Trusted UI control authentication required');
       if(op==='chat'&&value.recommend===true&&role!=='control')throw new Error('recommend=true requires explicit trusted UI preference');
       if(op==='status')return owner.status();
@@ -57,7 +59,7 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
       if(buffer.length>MAX_FRAME+33){socket.destroy();return;}
       if(!authenticated) {
         if(buffer.length<33)return;
-        role=buffer[0]===67?'control':buffer[0]===84?'chat':undefined;
+        role=buffer[0]===67?'control':buffer[0]===84?'chat':buffer[0]===82&&read?'read':undefined;
         if(!role||!timingSafeEqual(buffer.subarray(1,33),signature(keys[role],nonce,role))){socket.destroy();return;}
         buffer=buffer.subarray(33);authenticated=true;clearTimeout(timer);
         if(role==='control') {

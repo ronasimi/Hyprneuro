@@ -2,8 +2,8 @@
 import { randomUUID } from 'node:crypto';
 
 export class PiOwner {
-  constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent}) {
-    Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent});
+  constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable}) {
+    Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable});
     this.phase='ordinary';this.queue=Promise.resolve();this.listeners=new Set();this.consents=new Map();this.closed=false;
   }
   emit(event){for(const listener of this.listeners)listener(event);}
@@ -12,14 +12,16 @@ export class PiOwner {
     const result=this.queue.then(work);this.queue=result.catch(()=>{});return result;
   }
   async approve(request) {
+    request.signal?.throwIfAborted();
     if(!this.listeners.size)throw new Error('No authenticated trusted control UI; denied');
-    const id=randomUUID();let timer;
+    const id=randomUUID();let timer,abort;
     try {
       return await new Promise((resolve,reject)=>{
         timer=setTimeout(()=>{this.consents.delete(id);reject(new Error('Trusted consent timed out'));},120000);
+        abort=()=>resolve(false);request.signal?.addEventListener('abort',abort,{once:true});
         this.consents.set(id,resolve);this.emit({type:'consent',id,title:request.title,detail:request.detail});
       });
-    } finally {clearTimeout(timer);this.consents.delete(id);}
+    } finally {clearTimeout(timer);request.signal?.removeEventListener('abort',abort);this.consents.delete(id);}
   }
   consent(id,allowed){
     if(typeof allowed!=='boolean'||!this.consents.has(id))throw new Error('No matching pending host consent');
@@ -31,6 +33,7 @@ export class PiOwner {
     return {...observed,...(['failed','transition'].includes(this.phase)?{state:this.phase}:{}),owner_phase:this.phase};
   }
   async transition(value) {
+    if(this.lifecycleUnavailable)throw new Error(this.lifecycleUnavailable);
     if(!['on','off'].includes(value))throw new Error('Invalid transition');
     if(value==='off'&&this.phase==='transition'&&this.transitionKind==='on') {
       this.cancelOn=true;this.disconnectControl();
@@ -41,6 +44,7 @@ export class PiOwner {
     return this.serial(()=>this._transition(value));
   }
   async _transition(value) {
+    if(this.lifecycleUnavailable)throw new Error(this.lifecycleUnavailable);
     if(this.phase==='failed')throw new Error('Owner outcome unknown; manual review required');
     const before=await this.command('status');
     if(value==='on'&&before.state==='on'&&this.phase!=='hermes')throw new Error('Another owner holds Hermes; never adopt its capability');
@@ -75,7 +79,7 @@ export class PiOwner {
       if(['failed','transition'].includes(this.phase))throw new Error('Pi conversation admission closed');
       if(recommend&&this.phase==='ordinary') {
         let suggestion;
-        try{suggestion=await this.route(text,signal);}catch{suggestion={route:'current',unavailable:true};}
+        try{suggestion=this.lifecycleUnavailable?{route:'current',unavailable:true}:await this.route(text,signal);}catch{suggestion={route:'current',unavailable:true};}
         const valid=suggestion&&typeof suggestion==='object'&&!Array.isArray(suggestion)&&
           (suggestion.unavailable===undefined||typeof suggestion.unavailable==='boolean')&&Object.keys(suggestion).every(k=>['route','score','unavailable'].includes(k))&&
           ['current','hermes'].includes(suggestion.route)&&

@@ -30,6 +30,7 @@ export async function durableRuntime(packageDir,home,env) {
   const {statusView}=await load('orchestrator/snapshot.js');
   const {readerLedger}=await load('orchestrator/reader-ledger.js');
   const {describe}=await load('cli/requests.js');
+  const {readJournalSnapshot}=await load('kernel/journal.js'),{journalPath}=await load('paths.js');
   let held=[];
   async function decide(kind,body) {
     const rid=requestRid('hn-'+randomUUID());
@@ -42,6 +43,16 @@ export async function durableRuntime(packageDir,home,env) {
   }
   return {
     status:()=>statusView(home),describe:wid=>describe(home,{wid}),
+    async readChild(call,exec,approved,workspace) {
+      const wf=statusView(home).workflows.find(w=>w.calls.some(c=>c.callId===call&&c.phase==='running'));
+      if(!wf)throw new Error('No running read-only native child');
+      const receipt=await describe(home,{wid:wf.wid});
+      if(!approved.has(receipt.request))throw new Error('No fresh trusted child approval in this owner lifetime');
+      const entries=readJournalSnapshot(journalPath(home,wf.wid)),c=wf.calls.find(c=>c.callId===call);
+      const spec=entries.findLast(e=>['call','generation'].includes(e.type)&&e.key===c.key&&e.gen===c.gen)?.spec;
+      if(spec?.tools?.length!==1||spec.tools[0]!=='read'||spec.cwd!==workspace||spec.context!=='fresh'||spec.writer!==false||spec.once!==true||spec.model!=='hyprneuro-local/lfm-text')throw new Error('Native child does not have the exact read-only spec');
+      if(entries.findLast(e=>e.type==='exec'&&e.call===call)?.exec!==exec)throw new Error('Unknown native child execution');
+    },
     async quiesce(timeout=120000) {
       const before=statusView(home);
       held=before.workflows.filter(w=>!w.paused && (w.status==='running'||w.active)).map(w=>w.wid);
@@ -66,7 +77,7 @@ export async function durableRuntime(packageDir,home,env) {
   };
 }
 
-export function durablePolicy({workspace,phase,broker,approve}) {
+export function durablePolicy({workspace,phase,broker,approve,readOnly=false,childRead=false,onReadApproved,preflight}) {
   return async args=>{
     const action=args.action??'run';
     if(['status','agents'].includes(action)) {
@@ -83,17 +94,21 @@ export function durablePolicy({workspace,phase,broker,approve}) {
     if(!launch.request || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,123}$/.test(launch.request))throw new Error('Durable run needs stable request id');
     if(launch.cwd!==workspace || !Number.isFinite(launch.timeoutMs)||launch.timeoutMs<=0||launch.timeoutMs>120000 || launch.rerun!==undefined&&launch.rerun!==false)
       throw new Error('Explicit workspace, bounded duration and no uncertain replay required');
+    if(readOnly)await preflight?.();
+    if(readOnly&&launch.command!==undefined)throw new Error('READ-ONLY owner forbids command execution');
     if(launch.command!==undefined) {
       if(['agent','task','tools','model','once','writer','context'].some(k=>k in launch))throw new Error('Command and agent permissions cannot be mixed');
       if(!Array.isArray(launch.command)||!launch.command.length||launch.command.some(v=>typeof v!=='string')||launch.command.join('').length>8192)
         throw new Error('Bounded argv command required');
     } else if(launch.agent!=='delegate'||typeof launch.task!=='string'||!launch.task.trim()||launch.task.length>8000||
-      !Array.isArray(launch.tools)||launch.tools.length||launch.model!=='hyprneuro-local/lfm-text'||launch.once!==true||launch.writer!==false||launch.context!=='fresh')
+      !Array.isArray(launch.tools)||(launch.tools.length&&!(readOnly&&childRead&&launch.tools.length===1&&launch.tools[0]==='read'))||launch.model!=='hyprneuro-local/lfm-text'||launch.once!==true||launch.writer!==false||launch.context!=='fresh')
       throw new Error('Child must be explicit local-text, fresh, once, non-writer with NO inherited IO permissions');
-    await broker('execute');
-    if(await approve({title:'Allow Durable run?',detail:JSON.stringify({warning:'UNSANDBOXED HOST EXECUTION: cwd is NOT containment; may access host files, network and credentials. No sandbox or inherited authorization. Native Durable owns execution',args:launch})})!==true)
+    await broker(readOnly?'read':'execute');
+    if(await approve({title:readOnly?'Allow READ-ONLY Durable child?':'Allow Durable run?',detail:JSON.stringify({...(readOnly?{workspace,tools:launch.tools,note:'Dedicated native model child; NO write/execute/network/lifecycle. Each allowlisted read needs fresh approval. Not an OS sandbox.'}:{warning:'UNSANDBOXED HOST EXECUTION: cwd is NOT containment; may access host files, network and credentials. No sandbox or inherited authorization. Native Durable owns execution'}),args:launch})})!==true)
       throw new Error('Trusted delegation consent required');
-    await broker('execute');
+    await broker(readOnly?'read':'execute');
     if(phase()!=='ordinary')throw new Error('Durable mutation held after consent; owner transition began');
+    if(readOnly)await preflight?.();
+    if(readOnly&&launch.tools.includes('read'))onReadApproved?.(launch.request);
   };
 }

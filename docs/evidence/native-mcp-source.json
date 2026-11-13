@@ -1,0 +1,210 @@
+{
+  "schema": "hyprneuro.p06-source/1",
+  "recorded_at": "2026-11-13T23:42:30.317684+00:00",
+  "base": "2be64a4d9194c85b754ca2f9ddb22f5e5f6f8200",
+  "verdict": "SOURCE_FIXTURE_PASS; FULL_NODE_BLOCKED; NOT_DEPLOYED; LIVE_PROVIDERS_UNVERIFIED",
+  "versions": {
+    "node": "26.13.0",
+    "pi": "1.5.1",
+    "pi_mcp": "1.5.1",
+    "durable": "1.4.3"
+  },
+  "source_sha256": {
+    "extensions/tool-harness/native-mcp.mjs": "1c4570f396907f763ce1ac799d2cf195787eb5554f89f18013697aff0abc3200",
+    "tests/native-mcp.mjs": "ca4e113745a20bcaa8d54e99038cb8733967c9ee74a8f0de7a201ea0366fb634",
+    "tests/tool-providers-boundaries.mjs": "3490594510e436bfe2901f5e83c9a2ed96bb3c28bedf00302048ae3ffd186a7a",
+    "tests/fixtures/mcp-provider.mjs": "c2fcf0132a5b6e96360d1fccb3d33dda25835a8c4ebfd5b2b619021955bcee75",
+    "tests/fixtures/native-mcp-harness.patch": "f65f2c469f91927708ddca86181ac1fd1b5be749758801c9b251238f7368eea8",
+    "docs/NATIVE_MCP_P06.md": "7bb22d85c369433bca74e708b44d0eeea4f61b303801d5a9d40d247cad6ff066",
+    "docs/evidence/native-mcp-configured.json": "8848f6459955a7d612fe2e18a966ad7a63cea32de63273ddac876332a15a87d1"
+  },
+  "unchanged_owned_elsewhere_sha256": {
+    "tests/pi-owner-readonly.mjs": "6c513a97bbd85a60b1a867266c28c336a7e2df2e01e95ccd2ae05b8007273780",
+    "extensions/pi-owner/host.mjs": "7b083dd2bf2d583640c6b4c66f02d65a0f7809156609387d67d1772abc9a032c",
+    "extensions/pi-owner/owner.mjs": "db014ce8983da5ea37fc33dbd6dfcbf2693c1c39f9a6ae778e0cf721fb381ac8",
+    "extensions/pi-owner/child.ts": "3d195f671b57154e136ef3d316a5dcb348e2b11205d791cc7e61f89b8dad799f",
+    "extensions/tool-harness/index.mjs": "3ac93d2f7bc4638b3b6f48bd8b35e82edc870ba7cfb4b71923c3a757218cac35",
+    "extensions/tool-harness/providers.mjs": "745714e61be599fb9194bbe3d9f0c7ee21cd5068e22647aa5145457603a1b5c7"
+  },
+  "runtime_sha256": {
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js": "4569157e6038be9840fa514db4b00a27fd0be9e3622cc7b49a281de6c027d7ff",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/extensions/mcp/index.js": "4c497e8fa0de6b52116c2196ab6cf933780b1fdf441865c82c70a0b93eedb2ab",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/extensions/mcp/runtime.js": "1ed03790749c1c494f6ff3891652a4ad895cb25bf2ad4ed61202837c5e3055fb",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/extensions/mcp/tools.js": "534879e9dda6791393bdf81c7433577714bcf2b11e8cc5b8f7b888bd6334346d",
+    "/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents/package.json": "745e4969f6482bcab4a88e4d31fa596169e2f329f28cc4ef477a3092a868aa7d",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/index.js": "7119a8b2a32d8e5e0d5f01318c6fae7535e137a55719c6c4955121ae41dfa967",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/client.js": "f39e0dccc7823995c22ea7936f3f32cac64d818599efdb217b5e0cf0ff070216"
+  },
+  "logs": {
+    "initial.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/initial.log",
+      "sha256": "0c1575478a77c101dd95009e9b967ffcd87ce4dd5fc6fc1a3853f3d77d45397d"
+    },
+    "rerun.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/rerun.log",
+      "sha256": "d10e84e34cd1848d512ff1fb20f5a342978b29703054099c599998470c834bee"
+    },
+    "expanded.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/expanded.log",
+      "sha256": "f8022d9e1c43797d315a4b76461d2ac55661619d1c11b51a09af7c851ebc09d2"
+    },
+    "full-node.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/full-node.log",
+      "sha256": "51d1a84811dd2e9bd5c22e324554c63aef7662d33590f6eaff5657d6cfa27fbe"
+    },
+    "full-node-final.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/full-node-final.log",
+      "sha256": "4903f9f75faafd7a0db8ce4abdfffad18f66a4507d4df211b21ec8ba7c9aa1eb"
+    },
+    "full-python.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/full-python.log",
+      "sha256": "6d76754bc02d7592e961cb5670410381bb26535bde475c0cd5f9e658cf1e40a4"
+    },
+    "full-python-final.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/full-python-final.log",
+      "sha256": "0710e0f21f3e98f5ba797ff5e3bfc67a127e0ef8a508a6083dab97a6c81d40c2"
+    },
+    "http-global-fixture-failure.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/http-global-fixture-failure.log",
+      "sha256": "85acd2b22ced40e5de98191201aebc0a6da8751bd20dc8230c9a40cdd988adc1"
+    },
+    "focused-final.log": {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/focused-final.log",
+      "sha256": "37e2d64b173cf9c8670a9293805d14a91d1a20f52e304aa754205e2fcd0ba54d"
+    }
+  },
+  "validation": {
+    "focused": {
+      "passed": 17,
+      "mcp_tests": 10,
+      "new_rest_tests": 4,
+      "existing_rest_tests": 3
+    },
+    "full_node_latest": {
+      "passed": 64,
+      "failed": 1,
+      "skipped": 0,
+      "duration_ms": 24274.632388,
+      "failed_case": "exact approved SDK filename fallback denied in owner and native child: 3",
+      "assertion": "tests/pi-owner-readonly.mjs:250: unknown child outcome records 0 != 1",
+      "root_cause": "unproven; parent/owner writer investigating",
+      "fixture": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp/hn-readonly-JdTweW"
+    },
+    "full_node_earlier": {
+      "passed": 65,
+      "failed": 0,
+      "duration_ms": 25143.956477,
+      "evidence": "tool transcript only; raw log filename overwritten by latest full run"
+    },
+    "full_python": {
+      "passed": 437,
+      "skipped": 1,
+      "subtests": 92,
+      "duration_seconds": 19.04,
+      "warnings_as_errors": true
+    },
+    "syntax_and_patch_checks": "node --check all new mjs; git apply --check fixture patch; git diff --cached --check",
+    "owned_fixture_processes_remaining": 0,
+    "c_or_gui_checks": "not run; no C/GUI changes"
+  },
+  "reproduction": {
+    "cwd": "/home/ron/Workspace/hyprneuro-mcp-completion",
+    "full_node_env_i": {
+      "HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/home",
+      "TMPDIR": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp",
+      "XDG_CONFIG_HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/xdg",
+      "XDG_CACHE_HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/cache",
+      "PATH": "/home/ron/.pi/agent/bin:/usr/bin:/bin",
+      "LANG": "C.UTF-8",
+      "PI_OFFLINE": "1",
+      "npm_config_offline": "true",
+      "UV_OFFLINE": "1",
+      "JITI_FS_CACHE": "false",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONWARNINGS": "error",
+      "DSA_HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/dsa",
+      "DSA_CACHE_HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/cache/dsa",
+      "DSA_SCOPE": "off",
+      "PI_CODING_AGENT_DIR": "/home/ron/Workspace/hyprneuro-mcp-tests/agent",
+      "PI_NODE_MODULES": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules",
+      "PI_HARNESS_SDK": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
+      "PI_HARNESS_DURABLE": "/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents",
+      "HYPRNEURO_TEST_SECRET": "must-not-inherit"
+    },
+    "full_node_argv": [
+      "timeout",
+      "--signal=TERM",
+      "--kill-after=5s",
+      "180s",
+      "node",
+      "--test",
+      "tests/native-mcp.mjs",
+      "tests/pi-owner-durable.mjs",
+      "tests/pi-owner-readonly.mjs",
+      "tests/pi-owner-socket.mjs",
+      "tests/pi-owner.mjs",
+      "tests/recall-extension.mjs",
+      "tests/tool-harness.mjs",
+      "tests/tool-providers-boundaries.mjs",
+      "tests/tool-providers.mjs",
+      "tests/tool-residency.mjs"
+    ],
+    "focused_argv": [
+      "node",
+      "--test",
+      "tests/native-mcp.mjs",
+      "tests/tool-providers.mjs",
+      "tests/tool-providers-boundaries.mjs"
+    ],
+    "python_env_i": {
+      "HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/home",
+      "TMPDIR": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp",
+      "XDG_RUNTIME_DIR": "/home/ron/Workspace/hyprneuro-mcp-tests/runtime",
+      "XDG_CONFIG_HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/xdg",
+      "XDG_CACHE_HOME": "/home/ron/Workspace/hyprneuro-mcp-tests/cache",
+      "PATH": "/usr/bin:/bin",
+      "LANG": "C.UTF-8",
+      "PI_OFFLINE": "1",
+      "UV_OFFLINE": "1",
+      "PYTHONDONTWRITEBYTECODE": "1",
+      "PYTHONWARNINGS": "error",
+      "PYTHONPATH": "python/src"
+    },
+    "python_argv": [
+      "timeout",
+      "--signal=TERM",
+      "--kill-after=5s",
+      "180s",
+      "/home/ron/Projects/Hyprneuro/python/.venv/bin/python",
+      "-W",
+      "error",
+      "-m",
+      "pytest",
+      "python/tests",
+      "-q",
+      "-p",
+      "no:cacheprovider"
+    ]
+  },
+  "scope": {
+    "external_queries": 0,
+    "real_keys_read": false,
+    "global_config_edits": false,
+    "services_models_gui_operations": false,
+    "runtime_integration_applied": false,
+    "native_stdio_actual": true,
+    "http_transport_fetch_mock_only": true,
+    "fixture_broker_consent_synthetic": true,
+    "existing_parent_durable_used_for_tests": false
+  },
+  "next": "Parent applies/reviews two-site index patch + same-session registration in its owned runtime, investigates retained owner regression, separately reviews provider auth/bindings before real human-consented L14.",
+  "owner_coordination": {
+    "target": "01M7BK8QV8GXMK88K5K5XC4GH8/production-resume",
+    "request": "p06-owner-evidence-20261113-2342",
+    "delivery": "steered; applied true",
+    "spec_digest": "a451b78a3423e4386f4ec41c6f25f10b44254ac37850e7dfdfb7aa499b1b00a0",
+    "message_path": "/home/ron/Workspace/hyprneuro-mcp-tests/owner-handoff.txt",
+    "message_sha256": "4d34034b61ae683c503800e5c730847cd0673d1f267b4a3d4e8b4c76d1e001e8",
+    "operation": "parent-authorized notify only, not a test or new run"
+  }
+}

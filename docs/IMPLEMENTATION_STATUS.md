@@ -6,6 +6,13 @@ status in older checkpoint inventories, not their historical evidence. Verify
 HEAD, running identities, permissions and model state before each iteration.
 Pending branches are not implicitly merged or deployed.
 
+**Source integration checkpoint (2026-11-13):** reviewed watcher commits
+`e2ed6a5` + `07768cd` are now integrated after planning commit `e403da3` on
+`docs/production-completion-plan`; source-only approval supplied by the parent:
+`01M7AE3BTHWR2R9X8RQMXXF67Y`. Latest combined tested source is `8bc7312`
+(includes the warning-clean bridge cleanup below). **Not deployed or live accepted.**
+The read-only-owner worker/profile is still pending; P01 is not complete.
+
 ## Evidence-backed baseline
 
 - Installed legacy UI: recorded SHA256 `11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154`.
@@ -28,15 +35,29 @@ Pending branches are not implicitly merged or deployed.
 - Running-client audit: legacy canonical sidecar lacks admission hooks; observed
   Pi/Durable clients lack a common residency directory. Exclusive switching is
   blocked until cooperation is proven. Effective systemd exclusivity was verified.
-- Read-only owner profile and screen-lock watcher hook are in development in
-  separate worktrees; require review/integration and fresh tests.
+- Screen-lock watcher hook: reviewed source integrated, including revocation-only
+  ordinary RPC, trusted producer disconnect revocation, original verification TTL
+  and final pre-grab admission recheck. All 13 historical manifest hashes and the
+  exact sidecar patch match the destination. Historical watcher checkpoint
+  integration-pending statements are superseded here, not its live/privacy gates.
+- Combined `8bc7312` source, offline and warnings-as-errors: **409 Python passed,
+  1 skipped, 88 subtests passed**; watcher subset **42 + 2 subtests**, bridge subset
+  **15**, destination Pi owner socket **10**. System-Python handoff rerun **12 passed**,
+  including Pillow (the venv skip). These overlapping counts are not additive.
+  The first full run failed **5** tests; `8bc7312` closes a leaked bridge stdin
+  transport, with subprocess warning enforcement retained as regression coverage.
+- Read-only owner profile is not integrated: `tests/pi-owner-readonly.mjs` is
+  absent, **NOT RUN / not PASS**. Rerun combined suites after that worker lands.
 - Video candidate is quarantined: teardown crash, seek-only review bypass and
   GUI locator failures are unresolved. No video activation in the safe baseline.
 
 See [NORMAL_STACK_COMPATIBILITY.md](NORMAL_STACK_COMPATIBILITY.md),
 [GTK_PI_OWNER_ACCEPTANCE.md](GTK_PI_OWNER_ACCEPTANCE.md),
 [PI_OWNER_BRIDGE.md](PI_OWNER_BRIDGE.md) and
-[PRODUCTION_TEST_REPORT.md](PRODUCTION_TEST_REPORT.md).
+[PRODUCTION_TEST_REPORT.md](PRODUCTION_TEST_REPORT.md). Exact commits, diff/source
+hashes, import origins, isolated commands and initial/final test evidence are in
+[evidence/watcher-integration-manifest.txt](evidence/watcher-integration-manifest.txt)
+and [evidence/watcher-integration-tests.txt](evidence/watcher-integration-tests.txt).
 
 ## Architecture and invariants
 
@@ -59,7 +80,7 @@ shared files, GUI windows and model residency require coordination.
 
 | ID | Work and dependency | Exit evidence |
 |---|---|---|
-| P01 | Integrate reviewed read-only owner profile and lock-pause hook; reconcile worktrees without discarding quarantined/user changes. | Full combined suites; snapshot/restore manifest; all regression cases pass. |
+| P01 | Lock-pause hook integrated/source-tested at `8bc7312`; reviewed read-only owner profile still pending. Reconcile without discarding quarantined/user changes. | Current watcher/Pi socket checks pass; owner-profile integration and fresh combined suites still required. Source manifest is not a deployment/restore manifest. |
 | P02 | Deploy clean source/app binaries reversibly, preserve data/settings, prove actual import origins and same private residency directory in every cooperating client. Do not restart parent Pi blindly. | Build/install/running hashes, Python origins, effective units/environment, backup and rollback; no duplicate services or unintended model starts. |
 | P03 | Activate dedicated least-privilege normal-only Pi owner; lifecycle controls unavailable until P02 cooperation proven. | Actual GTK→owner→Text→approved fixture read→continuation; Pi journal/reopen; no write/execute escalation; cancellation/disconnect checks. |
 | P04 | Complete actual Pi/Durable workflow permissions and recovery progressively. | Read-only child first; separately approved sandbox fixture write/edit/bash/git; stable call IDs, outcomes, ask/answer, drain/resume and unknown-outcome denial. |

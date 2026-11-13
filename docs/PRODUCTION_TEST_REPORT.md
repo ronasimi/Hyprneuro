@@ -1,7 +1,9 @@
 # Production test report and live test protocol
 
-**Status: PARTIAL / NOT READY.** Baseline `5446e9c`. This is a current evidence
-summary plus the execution protocol; planned tests below have **not** thereby run.
+**Status: PARTIAL / NOT READY.** Published baseline `5446e9c`; planning `e403da3`;
+latest combined source tested `8bc7312` (2026-11-13). Watcher hook integrated
+**source only, not deployed/live accepted**. This is a current evidence summary
+plus the execution protocol; planned tests below have **not** thereby run.
 Completion order is in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
 ## Recorded evidence versus remaining acceptance
@@ -9,11 +11,69 @@ Completion order is in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 | Layer | Recorded result | Limit |
 |---|---|---|
 | Published regression checkpoint | 367 Python pass/1 skip/86 subtests;33 Node;14 C release+ASan/UBSan helpers | Rerun after each combined source change. Helpers are not GUI lifecycle proof. |
+| Combined watcher source `8bc7312` | 409 Python pass/1 skip/88 subtests with warnings as errors; watcher subset 42+2 subtests; bridge subset 15; destination Pi socket 10; system-Python handoff/Pillow 12 | Read-only-profile test absent, NOT RUN. Counts overlap. No C/GUI/model/live acceptance rerun in this source-only task. |
 | Offline GTK owner fixture |18/18 checks on `7d0514d` candidate; actual consent expiry, streams, cancel/disconnect and legacy media routing | Not installed/live owner; later Unicode descendant needs its applicable checks. |
 | Normal-stack compatibility | Six live probes in `NORMAL_STACK_COMPATIBILITY.md` and its JSON evidence | Real local inference; no tool execution, owner activation, Durable child or GTK acceptance. |
 | Existing installed workflows | Legacy chat, image/WAV and read-only search checkpoints | Old installed build, not current integrated source. Recheck current running hash. |
 | Hermes controller/owner | Offline transaction, drain, cancellation and mock SDK tests | No accepted live exclusive handoff, all-client deployment or model-child recovery. |
 | New video/capture | Unaccepted/blockers recorded | Do not enable or mark PASS. |
+
+## Watcher integration checkpoint — source only
+
+Clean destination branch `docs/production-completion-plan` initially verified at
+`07768cd55c53719b389420a98ff14bde2ce91a88`, following
+`e2ed6a5ebfbbae1f5992eefc51fb280217358d3b` and
+`e403da3d478c2984f38ef6aff9245d9f05bc2d13`. The parent supplied source-only
+review approval `01M7AE3BTHWR2R9X8RQMXXF67Y`. Both cherry-picks have identical
+Python/checkpoint/evidence content to original watcher commits `e4ab16e` and
+`1b78f82`. All **13/13** historical SHA256 entries and the exact sidecar patch
+verify in this destination; no owner/agent/residency changes were overwritten.
+
+The stricter run also exported `PYTHONWARNINGS=error` to Python children. Initial
+full result at `07768cd`: **5 failed, 404 passed, 1 skipped, 88 subtests passed**.
+Four bridge teardown assertions exposed an unclosed stdin pipe on early exits;
+failed teardown leaked mock-owner fixtures, causing a later watcher test to
+receive temporary-directory finalizer warnings. A missing-owner subprocess
+with stdin held open independently reproduced the `ResourceWarning`.
+`8bc7312b44fbe5eff0fe8b2a3d449f5a9670b81d` retains/closes the bridge input
+transport and explicitly enforces child warning errors in existing bridge tests.
+No watcher authority, consent, TTL, capture-admission or owner-role gates changed.
+Only the first run's exact private fixture processes were stopped; final owned
+fixture count is zero. The initial failure remains recorded, not erased.
+
+Final suites reran against committed `8bc7312`, git tree
+`12e00a08ab1321defcc8f3fe2b517980ae0da734`:
+
+| Suite | Final result | Scope |
+|---|---|---|
+| Full Python, `-W error` and inherited `PYTHONWARNINGS=error` | **409 passed, 1 skipped, 88 subtests passed** | Actual combined destination tree, not isolated watcher totals. |
+| Focused watcher | **42 passed, 2 subtests passed** | Subset of full Python; synthetic lock/RPC/HTTP/SQLite/failure paths. |
+| Focused desktop bridge | **15 passed** | Subset of full Python; includes early-exit warning regression. |
+| Destination `tests/pi-owner-socket.mjs` | **10 passed, 0 failed/skipped** | Actual socket/auth transport, synthetic owner; no parent workflows. |
+| System-Python handoff/Pillow | **12 passed** | Alternate-interpreter rerun includes the optional Pillow case skipped in the venv. |
+| `tests/pi-owner-readonly.mjs` | **ABSENT — NOT RUN / not PASS** | Read-only-profile worker pending; no profile acceptance implied. |
+
+Existing Python **3.13.15**/pytest **9.2.0**, system Python **3.14.9**/Pillow
+**13.0.0**, Node **26.13.0**; no installs. Every suite used `env -i`, private
+mode-0700 Workspace HOME/TMPDIR/XDG/DSA/agent paths, `DSA_SCOPE=off`, disabled
+bytecode/pytest/Jiti caches, and offline package flags. The socket suite needs no
+installed SDK/Durable import; owner workflow suites were intentionally not run.
+No parent Pi home/workflow operations, real service/model lifecycle, inference,
+GUI, session/locker changes, screenshot, capture activation or deployment ran.
+Installer smoke tests only use fake installers/systemctl and private no-pip venvs.
+The canonical dirty worktree and other workers were not edited.
+
+Exact isolated commands, dependency/import origins, source/diff hashes and local
+raw-log paths/hashes:
+[evidence/watcher-integration-manifest.txt](evidence/watcher-integration-manifest.txt).
+Initial reproduction and final outputs:
+[evidence/watcher-integration-tests.txt](evidence/watcher-integration-tests.txt).
+Integrity list: [evidence/watcher-integration-sha256.txt](evidence/watcher-integration-sha256.txt).
+These records supersede historical watcher **integration-pending** language only.
+Read-only-profile integration plus a fresh combined run is the next source gate;
+installed trusted producer, actual bus/session/locker behavior, cancellation and
+separately consented capture remain pending under L11. Parent must verify the
+remote and publish; this task does not push or authorize deployment.
 
 ## Reproduction commands
 

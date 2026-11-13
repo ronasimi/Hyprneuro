@@ -1,0 +1,80 @@
+Initial combined 07768cd run with inherited PYTHONWARNINGS=error: exit 1
+5 failed, 404 passed, 1 skipped, 88 subtests passed in 16.69s
+Four DesktopBridgeTests failed teardown stderr assertions: auth_failure_no_mutation_and_private_credentials; disconnect_no_replay_or_fallback; missing_owner_is_unavailable_never_created; stale_owner_frame_fields_and_default_disabled.
+GuardTests.test_locker_overrides_false_logind_hint_and_truncated_comm then received four ResourceWarning finalizer errors from leaked test temporary directories. Shutdown also reported unclosed fixture transports. Full original log retained at the manifest path/hash.
+
+Isolated missing-owner reproduction (stdin held open, /usr/bin/python3, PYTHONWARNINGS=error):
+returncode: 0
+stdout: {"type": "unavailable", "text": "Pi owner unavailable/disconnected; outcomes may be unknown. No retry or fallback."}
+
+stderr: Exception ignored while calling deallocator <function _UnixReadPipeTransport.__del__ at 0x7f6a87f47c10>:
+Traceback (most recent call last):
+  File "/usr/lib/python3.14/asyncio/unix_events.py", line 597, in __del__
+    _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
+ResourceWarning: unclosed transport <_UnixReadPipeTransport fd=0 open>
+
+
+Correction: 8bc7312 retains/closes bridge stdin transport; existing bridge tests explicitly set subprocess PYTHONWARNINGS=error. No admission/authority gates changed.
+
+Final committed source 8bc7312 results (all Python commands use -W error and PYTHONWARNINGS=error):
+
+=== focused ===
+..........................................                             [100%]
+42 passed, 2 subtests passed in 1.49s
+
+=== bridge ===
+...............                                                          [100%]
+15 passed in 2.00s
+
+=== full-python ===
+...................................................... [ 13%]
+............................................................... [ 28%]
+.................................................................. [ 44%]
+...s......................................................................................................... [ 71%]
+.............................................................. [ 86%]
+........................................................       [100%]
+=========================== short test summary info ============================
+SKIPPED [1] python/tests/test_event_handoff.py:109: Pillow optional for d1 visual gate
+409 passed, 1 skipped, 88 subtests passed in 16.56s
+
+=== pillow ===
+test_disabled_foreground_rejects_without_capture (test_event_handoff.ForegroundTests.test_disabled_foreground_rejects_without_capture) ... ok
+test_foreground_ipc_returns_only_requested_short_context (test_event_handoff.ForegroundTests.test_foreground_ipc_returns_only_requested_short_context) ... ok
+test_background_coalescing_and_bounded_queue (test_event_handoff.LaneTests.test_background_coalescing_and_bounded_queue) ... ok
+test_foreground_admission_precedes_pending_background (test_event_handoff.LaneTests.test_foreground_admission_precedes_pending_background) ... ok
+test_stop_cancels_pending (test_event_handoff.LaneTests.test_stop_cancels_pending) ... ok
+test_wait_timeout_does_not_block_event_loop (test_event_handoff.LaneTests.test_wait_timeout_does_not_block_event_loop) ... ok
+test_tmp_capture_and_del_after_use (test_event_handoff.TempCleanupTests.test_tmp_capture_and_del_after_use) ... ok
+test_tmp_cleanup_on_cancel (test_event_handoff.TempCleanupTests.test_tmp_cleanup_on_cancel) ... ok
+test_tmp_cleanup_on_exception (test_event_handoff.TempCleanupTests.test_tmp_cleanup_on_exception) ... ok
+test_d1_preview_stays_small_and_uses_image_data_url (test_event_handoff.VisualTests.test_d1_preview_stays_small_and_uses_image_data_url) ... ok
+test_duplicate_frame_avoids_second_visual_pass (test_event_handoff.VisualTests.test_duplicate_frame_avoids_second_visual_pass) ... ok
+test_visual_skip_does_not_call_omni (test_event_handoff.VisualTests.test_visual_skip_does_not_call_omni) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.176s
+
+OK
+
+=== owner-socket ===
+✔ private binary-auth bridge: distinct chat/control, exact ops, no JSON capabilities, bad MAC denied (18.674508ms)
+✔ consent replies bypass queued chat, D1 recommendation never grants permission, one serialized owner (6.513523ms)
+✔ actual async Python GTK-side transport authenticates, streams and cannot escalate chat credential (83.021277ms)
+✔ permission/recovery failures fail closed: no controls, no child IO, no foreign Hermes adoption (2.569925ms)
+✔ trusted control disconnection denies pending consent without waiting for the timeout (4.293907ms)
+✔ advisory dismissal, malformed routes/scores, and failed D1 retain current model and normal chat (1.045466ms)
+✔ trusted off cancels pending on during child drain without waiting on unrelated caller work (0.86141ms)
+✔ cancelled advisory does not switch roles; the next normal request still works (0.567177ms)
+✔ transition denies a consent-pending delegation and settles parent submission before Durable drain (0.614415ms)
+✔ uncertain shutdown records failure, blocks owner reuse, and never starts a fresh drain (0.582326ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 185.707746
+
+Read-only profile: tests/pi-owner-readonly.mjs ABSENT; worker pending, NOT RUN / NOT PASS.
+Counts overlap: focused/bridge are subsets of full Python; Pillow is an alternate-interpreter rerun; do not add them into a distinct-test total.

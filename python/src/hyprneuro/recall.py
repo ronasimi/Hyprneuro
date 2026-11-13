@@ -370,8 +370,10 @@ class ScreenWatcher:
         current = await self.desktop.query("activewindow")
         if not current or current.get("address") != window.get("address"):
             raise RuntimeError("Focused window changed before capture")
+        # Focus IPC may outlive verification. Check the generation before the
+        # session callback, then TTL/consent and generation again before grab.
+        await self._check_admission()
         require_observation_epoch(epoch)
-        self._require_visual()
         png = await self.grabber.grab(window)
         require_observation_epoch(epoch)
         self._require_visual()

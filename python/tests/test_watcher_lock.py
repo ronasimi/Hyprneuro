@@ -102,6 +102,29 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
         self.guard.session_lock_event('c17', None)
         self.assertFalse(await self.guard.reconcile())
 
+    async def test_trusted_producer_capability_requires_verification_and_latches_on_failure(self):
+        self.guard.session_lock_event('c17', True)
+        published = asyncio.Event()
+        finish = asyncio.Event()
+        capabilities = []
+        async def producer(publish):
+            capabilities.append(publish)
+            self.assertFalse(publish('wrong-session', False))
+            self.assertTrue(publish('c17', False))
+            published.set()
+            await finish.wait()
+            raise OSError('producer event connection lost')
+        task = asyncio.create_task(self.guard.follow_trusted_producer(producer))
+        await asyncio.wait_for(published.wait(), .5)
+        self.assertFalse(await self.guard.unlocked())  # capability alone didn't grant
+        self.assertTrue(await self.guard.reconcile())
+        finish.set()
+        with self.assertRaises(OSError):
+            await task
+        self.assertFalse(capabilities[0]('c17', False))  # disconnected capability revoked
+        self.assertFalse(await self.guard.reconcile())
+        self.assertFalse(await self.guard.unlocked())
+
     async def test_expiry_has_no_frame_subprocess(self):
         self.assertTrue(await self.guard.reconcile())
         self.guard._snapshot.reset_mock()
@@ -402,6 +425,43 @@ class PauseTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.models.decisions)
         self.assertIsNone(self.watcher.visual_epoch)
 
+    async def test_verification_expiring_during_final_focus_query_never_grabs(self):
+        # No guard.run(): reconciliation is stalled, but its original TTL stays.
+        self.guard.interval = .1
+        await self.guard.reconcile()
+        query = self.watcher.desktop.query
+        async def delayed_query(kind):
+            window = await query(kind)
+            if self.watcher.desktop.queries == 2:  # final foreground focus await
+                await asyncio.sleep(.3)  # original verification expires at .25 s
+            return window
+        self.watcher.desktop.query = delayed_query
+        try:
+            await self.watcher.observe_requested(EVENT)
+        except (PermissionError, RuntimeError):
+            pass
+        self.assertEqual(self.grabber.grabs, 0)
+        self.assertFalse(self.models.visions)
+        self.assertFalse(self.store.search(source='omni'))
+
+    async def test_stale_final_focus_generation_rejected_before_session_callback(self):
+        check = AsyncMock(wraps=self.guard.unlocked)
+        self.watcher.capture_policy.check_unlocked = check
+        query = self.watcher.desktop.query
+        calls_after_query = []
+        async def stale_query(kind):
+            window = await query(kind)
+            if self.watcher.desktop.queries == 2:
+                self.lock()
+                await self.unlock()
+                calls_after_query.append(check.call_count)
+            return window
+        self.watcher.desktop.query = stale_query
+        with self.assertRaises(PermissionError):
+            await self.watcher.observe_requested(EVENT)
+        self.assertEqual(check.call_count, calls_after_query[0])
+        self.assertEqual(self.grabber.grabs, 0)
+
     async def test_grim_cancel_closes_process(self):
         proc = FakeProcess([])
         proc.returncode = None
@@ -424,6 +484,16 @@ class WiredTests(unittest.IsolatedAsyncioTestCase):
                 await asyncio.Event().wait()
             guard._monitor = monitor
             events = asyncio.Queue()
+            trusted_events = asyncio.Queue()
+            producer_started = asyncio.Event()
+            async def trusted_producer(publish):
+                producer_started.set()
+                while True:
+                    session, locked = await trusted_events.get()
+                    try:
+                        publish(session, locked)
+                    finally:
+                        trusted_events.task_done()
             class Desktop(FakeDesktop):
                 async def events(self, callback):
                     while True:
@@ -447,12 +517,10 @@ class WiredTests(unittest.IsolatedAsyncioTestCase):
             with patch('hyprneuro.recall.LoginSessionGuard', return_value=guard):
                 task = asyncio.create_task(serve(allow_ingest=True, watch_hyprland=True,
                     allow_capture=True, desktop=Desktop(), models=models, grabber=FakeGrabber(),
-                    socket_path=sock, db_path=root/'db'/'obs.db', shutdown=stop))
+                    socket_path=sock, db_path=root/'db'/'obs.db', shutdown=stop,
+                    session_lock_producer=trusted_producer))
                 try:
-                    for _ in range(100):
-                        if sock.exists() and guard._snapshot.called:
-                            break
-                        await asyncio.sleep(.005)
+                    await asyncio.wait_for(producer_started.wait(), .5)
                     await events.put(('activewindowv2', 'locked-title-metadata'))
                     await events.join()
                     await asyncio.sleep(.03)
@@ -466,7 +534,10 @@ class WiredTests(unittest.IsolatedAsyncioTestCase):
                         self.assertTrue(response['result']['paused'])
                     self.assertFalse(models.decisions)  # false event didn't grant
                     guard._snapshot.return_value = snapshot()
-                    await guard.reconcile()
+                    self.assertFalse(await guard.reconcile())  # RPC false cannot clear latch
+                    await trusted_events.put(('c17', False))
+                    await asyncio.wait_for(trusted_events.join(), .5)
+                    self.assertTrue(await guard.reconcile())
                     await asyncio.sleep(.3)
                     self.assertFalse(models.decisions)  # no backlog/unlock-generated capture
                     await events.put(('activewindowv2', 'fresh-title'))
@@ -481,6 +552,50 @@ class WiredTests(unittest.IsolatedAsyncioTestCase):
                 finally:
                     stop.set()
                     await asyncio.wait_for(task, 1)
+
+    async def test_ordinary_socket_events_cannot_clear_trusted_unknown_locker_latch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # A hook-only locker is intentionally absent from the known names.
+            process = root / '123'
+            process.mkdir()
+            (process / 'comm').write_text('custom-locker\n')
+            guard = LoginSessionGuard(session='c17', proc_root=root)
+            guard._snapshot = AsyncMock(return_value=snapshot())
+            self.assertTrue(await guard.reconcile())  # independent evidence misses it
+            store = SidecarStore(':memory:')
+            worker = SidecarServer(store)
+            worker.session_lock_guard = guard
+            server = await asyncio.start_unix_server(worker.handle, path=str(root/'rpc.sock'))
+            try:
+                for locked in (False, None):
+                    with self.subTest(locked=locked):
+                        guard.session_lock_event('c17', True)  # trusted in-process authority
+                        self.assertFalse(await guard.reconcile())
+                        reader, writer = await asyncio.open_unix_connection(root/'rpc.sock')
+                        try:
+                            writer.write(json.dumps({'action': 'session_lock', 'session': 'c17',
+                                                     'locked': locked}).encode() + b'\n')
+                            await writer.drain()
+                            self.assertTrue(json.loads(await reader.readline())['ok'])
+                        finally:
+                            writer.close()
+                            await writer.wait_closed()
+                        self.assertFalse(await guard.reconcile())
+                        self.assertFalse(await guard.unlocked())
+            finally:
+                server.close()
+                await server.wait_closed()
+                store.close()
+
+    async def test_trusted_producer_cannot_create_or_bypass_disabled_capture_guard(self):
+        producer = AsyncMock()
+        with self.assertRaises(ValueError):
+            await serve(session_lock_producer=producer)
+        with self.assertRaises(ValueError):
+            await serve(allow_ingest=True, allow_on_demand=True,
+                        unlock_guard=AsyncMock(return_value=True), session_lock_producer=producer)
+        producer.assert_not_called()
 
     async def test_capture_off_rpc_cannot_enable_guard_or_capture(self):
         store = SidecarStore(':memory:')

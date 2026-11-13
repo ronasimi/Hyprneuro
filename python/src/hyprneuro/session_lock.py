@@ -44,8 +44,34 @@ class LoginSessionGuard:
         self._publish(False)
         self._wake.set()
 
+    def session_lock_hint(self, session, locked):
+        """Untrusted RPC: revoke/recheck only; never clear a trusted latch."""
+        if session != self.session or not self._valid_session():
+            return False
+        if locked is not False:
+            self._explicit_lock = True
+        self.invalidate()
+        return True
+
+    async def follow_trusted_producer(self, producer):
+        """Startup-injected host code receives the clearing capability.
+
+        This callable is never supplied through RPC or inferred from a UID or
+        session string. Its lifetime must cover the actual event connection;
+        termination/failure leaves lock state unknown and latched closed.
+        """
+        active = True
+        def publish(session, locked):
+            return self.session_lock_event(session, locked) if active else False
+        self.session_lock_event(self.session, None)
+        try:
+            await producer(publish)
+        finally:
+            active = False  # discard callbacks arriving after producer disconnect
+            self.session_lock_event(self.session, None)
+
     def session_lock_event(self, session, locked):
-        """Trusted host hook, not an RPC/tool. Events can revoke, never grant.
+        """Trusted host capability, never exposed to ordinary RPC clients.
 
         Call on the sidecar asyncio loop (other threads: call_soon_threadsafe).
         Only the configured session is relevant. None means unknown/paused.

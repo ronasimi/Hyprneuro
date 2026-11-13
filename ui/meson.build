@@ -24,3 +24,7 @@ executable('hyprneuro-ui',
 
 history_test = executable('test-ui-history', 'tests/history.c', dependencies: deps)
 test('ui-history', history_test)
+
+# Test-only policy; does not construct a decoder or enable video in the UI.
+video_review_test = executable('test-video-review', 'tests/video_review_gate.c', dependencies: deps)
+test('video-review-policy', video_review_test)

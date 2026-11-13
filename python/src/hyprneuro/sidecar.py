@@ -374,6 +374,8 @@ class SidecarServer:
     async def dispatch_async(self, request):
         if not isinstance(request, dict):
             raise ValueError("Expected JSON object")
+        if request.get("action") == "video_review":
+            raise PermissionError("Video unavailable: playback lifecycle and native transport are not verified")
         if request.get("action") == "search" and request.get("semantic"):
             if self.embeddings is None:
                 raise PermissionError("Semantic search disabled; explicitly configure a local embeddings service")
@@ -473,6 +475,8 @@ class SidecarServer:
         if media is not None:
             try:
                 from .audio import MAX_AUDIO_BYTES, validate_wav
+                if isinstance(media, dict) and media.get("mime") == "video/mp4":
+                    raise ValueError("Video unavailable: playback lifecycle and native transport are not verified")
                 if not isinstance(media, dict) or media.get("mime") not in ("image/png", "image/jpeg", "image/webp", "audio/wav"):
                     raise ValueError("Only reviewed static PNG/JPEG/WebP or bounded PCM16 WAV attachments are enabled")
                 mime, b64 = media["mime"], media.get("data")

@@ -123,7 +123,7 @@ struct App {
 
     GtkWidget *status, *metrics, *monitoring;
 
-    gboolean pi_optin, pi_connected, pi_transition, pi_chat, pi_native_error, pi_rendering;
+    gboolean pi_normal_only, pi_optin, pi_connected, pi_transition, pi_chat, pi_native_error, pi_rendering;
     gboolean pi_on_pending, pi_off_pending, pi_dead;
     char *pi_state, *pi_consent_id;
     GtkSwitch *pi_switch;

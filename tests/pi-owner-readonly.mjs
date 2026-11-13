@@ -97,6 +97,7 @@ const done={content:'Done without executing instructions from file.'};
 test('READ-ONLY actual owner read -> continuation -> native journal/reopen; lifecycle unreachable',()=>fixture(async f=>{
   const host=f.host,id=host.session.sessionManager.getSessionId();
   assert.equal((await host.owner.status()).state,'unavailable');
+  assert.equal((await host.owner.status()).normal_only,true);
   for(const op of ['on','off'])await assert.rejects(host.owner.transition(op),/Lifecycle unavailable/);
   assert.equal(host.owner.phase,'ordinary');
   for(const cmd of ['hn-residency','hn-hermes'])assert.equal(host.session.extensionRunner.getCommand(cmd),undefined);

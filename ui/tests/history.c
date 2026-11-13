@@ -263,6 +263,18 @@ static void pi_states_and_trusted_boundary(void) {
         g_assert_true(json_parser_load_from_data(p, inputs[i], -1, NULL));
         g_assert_cmpstr(pi_observed_state(json_parser_get_root(p)), ==, expected[i]);
     }
+    const char *normal[] = {
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\",\"normal_only\":true}",
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\"}",
+        "{\"state\":\"failed\",\"owner_phase\":\"ordinary\",\"normal_only\":true}",
+        "{\"state\":\"unavailable\",\"owner_phase\":\"transition\",\"normal_only\":true}",
+        "{\"state\":\"unavailable\",\"owner_phase\":\"ordinary\",\"normal_only\":\"true\"}",
+        "null", "{}"
+    };
+    for (guint i=0; i<G_N_ELEMENTS(normal); i++) {
+        g_assert_true(json_parser_load_from_data(p, normal[i], -1, NULL));
+        g_assert_cmpint(pi_normal_only_ready(json_parser_get_root(p)), ==, i==0);
+    }
     g_object_unref(p);
     g_assert_cmpstr(pi_command("/moe on"), ==, "on");
     g_assert_cmpstr(pi_command("/moe off"), ==, "off");
@@ -304,6 +316,15 @@ static void pi_media_routing(void) {
     g_assert_false(pi_route_allowed(&app, FALSE));
     app.pi_state = "unavailable";
     g_assert_false(pi_route_allowed(&app, TRUE));
+    app.pi_normal_only = TRUE;
+    g_assert_true(pi_route_allowed(&app, TRUE)); /* lifecycle unavailable != native chat unavailable */
+    g_assert_true(pi_route_allowed(&app, FALSE)); /* explicit ordinary normal-only, legacy media unchanged */
+    app.pi_transition = TRUE;
+    g_assert_false(pi_route_allowed(&app, TRUE)); g_assert_false(pi_route_allowed(&app, FALSE));
+    app.pi_transition = FALSE; app.pi_state = "failed";
+    g_assert_false(pi_route_allowed(&app, TRUE)); g_assert_false(pi_route_allowed(&app, FALSE));
+    app.pi_state = "unavailable"; app.pi_connected = FALSE;
+    g_assert_false(pi_route_allowed(&app, TRUE)); g_assert_false(pi_route_allowed(&app, FALSE));
 }
 static void pi_async_frames(void) {
     App app = {.pi_connected=TRUE};

@@ -13,9 +13,19 @@ static const char *pi_observed_state(JsonNode *status) {
     return "unavailable";
 }
 
+/* Explicit authenticated owner mode, never infer ordinary safety from an
+ * unavailable lifecycle alone. Failed/transition/malformed status stays closed. */
+static gboolean pi_normal_only_ready(JsonNode *status) {
+    JsonNode *mode = jmember(status, "normal_only");
+    return mode && JSON_NODE_HOLDS_VALUE(mode) && json_node_get_value_type(mode) == G_TYPE_BOOLEAN &&
+        json_node_get_boolean(mode) && !g_strcmp0(jstr(jmember(status, "state")), "unavailable") &&
+        !g_strcmp0(jstr(jmember(status, "owner_phase")), "ordinary");
+}
+
 static gboolean pi_route_allowed(App *a, gboolean native) {
     if (!a->pi_optin) return TRUE;
     if (!a->pi_connected) return FALSE;
+    if (a->pi_normal_only && !a->pi_transition && !g_strcmp0(a->pi_state, "unavailable")) return TRUE;
     if (native) return !g_strcmp0(a->pi_state, "off") || !g_strcmp0(a->pi_state, "on") ||
         !g_strcmp0(a->pi_state, "transition");
     return !a->pi_transition && !g_strcmp0(a->pi_state, "off");
@@ -23,7 +33,7 @@ static gboolean pi_route_allowed(App *a, gboolean native) {
 static void pi_route_update(App *a) {
     if (!a->pi_route) return;
     gtk_label_set_text(GTK_LABEL(a->pi_route), a->attachment_b64 ?
-        "Attachment → legacy sidecar · NO Pi tools/history · requires ordinary/off" :
+        "Attachment → legacy sidecar · NO Pi tools/history · requires ordinary owner" :
         "Text → Pi owner · native tools require fresh host consent");
 }
 
@@ -50,7 +60,7 @@ static void pi_render(App *a) {
     gtk_widget_set_sensitive(GTK_WIDGET(a->pi_switch), a->pi_connected &&
         !a->pi_transition && (!g_strcmp0(a->pi_state, "off") || on));
     char *label = g_strdup_printf("MoE · %s%s", a->pi_state,
-        a->pi_transition ? " · transition request pending" : "");
+        a->pi_transition ? " · transition request pending" : a->pi_normal_only ? " · normal-only" : "");
     gtk_label_set_text(GTK_LABEL(a->pi_label), label);
     gtk_accessible_update_property(GTK_ACCESSIBLE(a->pi_switch),
         GTK_ACCESSIBLE_PROPERTY_DESCRIPTION, label, -1);
@@ -61,7 +71,7 @@ static void pi_unavailable(App *a) {
     if (a->pi_dead) return;
     a->pi_dead = TRUE;
     if (a->pi_io) g_cancellable_cancel(a->pi_io);
-    a->pi_connected = FALSE; a->pi_transition = FALSE;
+    a->pi_normal_only = FALSE; a->pi_connected = FALSE; a->pi_transition = FALSE;
     a->pi_on_pending = a->pi_off_pending = FALSE;
     g_free(a->pi_state); a->pi_state = g_strdup("unavailable");
     pi_close_dialog(a); pi_render(a);
@@ -154,6 +164,7 @@ static void pi_send_text(App *a, const char *text) { pi_send(a, "chat", text, FA
 
 static void pi_control(App *a, const char *op) {
     if (!a->pi_connected) { set_status(a, "Pi unavailable · explicit opt-in and existing owner required"); return; }
+    if (strcmp(op, "status") && a->pi_normal_only) { set_status(a, "Lifecycle unavailable · normal-only owner; text/read remains available"); return; }
     if (strcmp(op, "status") && a->busy && !a->pi_chat) {
         set_status(a, "Wait for legacy media/chat before changing residency"); return;
     }
@@ -271,6 +282,7 @@ static void pi_packet(App *a, JsonNode *packet) {
     const char *op = jstr(jmember(packet, "op"));
     if (!g_strcmp0(type, "connected")) { a->pi_connected = TRUE; pi_render(a); }
     else if (!g_strcmp0(type, "status")) {
+        a->pi_normal_only = pi_normal_only_ready(jmember(packet, "result"));
         g_free(a->pi_state); a->pi_state = g_strdup(pi_observed_state(jmember(packet, "result")));
         pi_render(a);
     } else if (!g_strcmp0(type, "host_event")) {
@@ -378,7 +390,7 @@ static void pi_build(App *a) {
     gtk_box_append(GTK_BOX(row), off); gtk_box_append(GTK_BOX(row), a->pi_cancel);
     gtk_box_append(GTK_BOX(a->chat_page), row);
     gtk_widget_set_visible(row, a->pi_optin);
-    a->pi_route = gtk_label_new(a->pi_optin ? "Text → Pi owner · attachments → legacy/tool-free (ordinary/off only)" : "Legacy sidecar · tool-free chat/media");
+    a->pi_route = gtk_label_new(a->pi_optin ? "Text → Pi owner · attachments → legacy/tool-free (ordinary owner only)" : "Legacy sidecar · tool-free chat/media");
     gtk_label_set_wrap(GTK_LABEL(a->pi_route), TRUE);
     gtk_widget_add_css_class(a->pi_route, "dim-label");
     gtk_box_append(GTK_BOX(a->chat_page), a->pi_route);

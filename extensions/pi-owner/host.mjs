@@ -143,7 +143,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       await session.extensionRunner.getCommand('hn-tools').handler(`${workspace} ${taskId} ${appId}`,context());activated=true;
     }
     const command=async value=>{
-      if(value==='status')return commands.status();
+      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true}:status;}
       if(normalOnly)throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');
       await activate();
       if(value==='on'&&owner.cancelOn)throw new Error('Pending on cancelled by trusted off');

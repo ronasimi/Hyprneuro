@@ -6,12 +6,35 @@ status in older checkpoint inventories, not their historical evidence. Verify
 HEAD, running identities, permissions and model state before each iteration.
 Pending branches are not implicitly merged or deployed.
 
-**Source integration checkpoint (2026-11-13):** reviewed watcher commits
+**Historical source integration checkpoint (2026-11-13, before the installed result below):** reviewed watcher commits
 `e2ed6a5` + `07768cd` are now integrated after planning commit `e403da3` on
 `docs/production-completion-plan`; source-only approval supplied by the parent:
-`01M7AE3BTHWR2R9X8RQMXXF67Y`. Latest combined tested source is `8bc7312`
+`01M7AE3BTHWR2R9X8RQMXXF67Y`. At that checkpoint combined tested source was `8bc7312`
 (includes the warning-clean bridge cleanup below). **Not deployed or live accepted.**
-The read-only-owner worker/profile is still pending; P01 is not complete.
+At that earlier checkpoint the read-only-owner profile was pending. Current
+installed/bounded-fixture results supersede that state below; P01 remains partial.
+
+## Current installed checkpoint — bounded parent read accepted, final legacy mode
+
+Supersedes the older present-tense integration-pending notes below. Actual merge
+`5c6446f` plus parent-only runtime **`1a6fb74`** was independently reviewed,
+installed from its frozen immutable release, and tested with one real local Text
+native `read` → toolResult → continuation after genuine human activation/read
+consents. MDI/two-state UI, actual GUI Unicode draft/refusal, Ctrl+Tab and hide/show
+checks passed within the guarded window. No capture/provider/child/MoE or personal
+file permission was added. Model PID/start identities unchanged.
+
+**Current mode is explicitly LEGACY by user choice**, on the **new installed UI
+and sidecar**. The bounded owner is closed, its fixture scope revoked; tools are
+**not currently available**. No stale binary or DB/settings restore. Persistent
+permission-gated owner is the next separate iteration, not auto-enabled. Watcher
+source is installed but compositor hook/capture and full production acceptance
+remain unaccepted. Final source/ops suites: **416 Python/1 skipped/92 subtests;
+45 Node;16 normal+sanitized C helpers**. Historical8bc counts below remain historical.
+
+Receipts/limits/failures: [LIVE_PARENT_READ_FIXTURE.md](LIVE_PARENT_READ_FIXTURE.md)
+and [evidence/live-parent-read.json](evidence/live-parent-read.json). Verdict stays
+**PARTIAL / NOT READY**; this is not general tool or persistent-service approval.
 
 ## Evidence-backed baseline
 
@@ -46,8 +69,8 @@ The read-only-owner worker/profile is still pending; P01 is not complete.
   including Pillow (the venv skip). These overlapping counts are not additive.
   The first full run failed **5** tests; `8bc7312` closes a leaked bridge stdin
   transport, with subprocess warning enforcement retained as regression coverage.
-- Read-only owner profile is not integrated: `tests/pi-owner-readonly.mjs` is
-  absent, **NOT RUN / not PASS**. Rerun combined suites after that worker lands.
+- At8bc7312, the read-only owner profile was not integrated: `tests/pi-owner-readonly.mjs` was
+  absent/NOT RUN. Current installed/source result above supersedes that state.
 - Video candidate is quarantined: teardown crash, seek-only review bypass and
   GUI locator failures are unresolved. No video activation in the safe baseline.
 
@@ -80,9 +103,9 @@ shared files, GUI windows and model residency require coordination.
 
 | ID | Work and dependency | Exit evidence |
 |---|---|---|
-| P01 | Lock-pause hook integrated/source-tested at `8bc7312`; reviewed read-only owner profile still pending. Reconcile without discarding quarantined/user changes. | Current watcher/Pi socket checks pass; owner-profile integration and fresh combined suites still required. Source manifest is not a deployment/restore manifest. |
-| P02 | Deploy clean source/app binaries reversibly, preserve data/settings, prove actual import origins and same private residency directory in every cooperating client. Do not restart parent Pi blindly. | Build/install/running hashes, Python origins, effective units/environment, backup and rollback; no duplicate services or unintended model starts. |
-| P03 | Activate dedicated least-privilege normal-only Pi owner; lifecycle controls unavailable until P02 cooperation proven. | Actual GTK→owner→Text→approved fixture read→continuation; Pi journal/reopen; no write/execute escalation; cancellation/disconnect checks. |
+| P01 | Parent-only read profile merged/deployed at1a6fb74; one human-consented real read accepted. NEW app finally in user-selected legacy mode, owner closed/scope revoked. |416 Python/1 skip/92 subtests;45 Node;16 C normal+sanitized. Persistent permission-gated owner is the next separate iteration; no general-production tool claim. |
+| P02 | App-only frozen1a6fb74 deployment complete; new UI/sidecar retained, data/settings/backups and actual origins verified. No redeploy or stale restore. | All-client residency cooperation remains unproven/blocked; no coordinator initialization or parent Pi restart. |
+| P03 | One genuine-human parent-only normal read accepted; bounded owner now closed/scope revoked, final new UI explicitly legacy. | Persistent permission-gated owner next, separately reviewed; remaining denial/cancel/recovery and broader scope are not implied. |
 | P04 | Complete actual Pi/Durable workflow permissions and recovery progressively. | Read-only child first; separately approved sandbox fixture write/edit/bash/git; stable call IDs, outcomes, ask/answer, drain/resume and unknown-outcome denial. |
 | P05 | Validate D1 proposals and exclusive Hermes transaction after P02–04 and provider-dependency audit. | Trusted consent, exact model identity, normal requests drained, Hermes-only residency, session/tool continuity, exact prior subset restored; failure/cancel paths. |
 | P06 | Native MCP plus Exa, Context7 and Wikipedia. | Configured servers individually inventoried; authorized live queries with dedicated credentials; native discovery/execution, bounded cited output, unavailable/denied states, no secret logs. |

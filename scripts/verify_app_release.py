@@ -7,7 +7,18 @@ from pathlib import Path
 from prepare_app_release import digest, private_file, unit_identity
 
 
-def verify(bundle, installed=False):
+def check_ui_mode(env, manifest, legacy):
+    if env.get(b'HYPRNEURO_PI_UI') != (b'0' if legacy else b'1'):
+        raise RuntimeError('Unexpected explicit GTK mode')
+    if legacy:
+        if b'HYPRNEURO_PI_OWNER_DIR' in env:
+            raise RuntimeError('Legacy mode retains fixture owner binding')
+    elif env.get(b'HYPRNEURO_PI_OWNER_DIR') != manifest['owner'].encode() or env.get(b'HYPRNEURO_PI_BRIDGE_PYTHON') != manifest['python'].encode():
+        raise RuntimeError('GTK owner binding or bridge interpreter mismatch')
+
+
+def verify(bundle, installed=False, legacy=False):
+    if legacy and not installed:raise ValueError('--legacy requires installed phase')
     m=json.loads(private_file(bundle/'manifest.json').read_text())
     source=bundle/'source'
     meta=m.get('editable_metadata')
@@ -40,13 +51,14 @@ def verify(bundle, installed=False):
             process=Path('/proc')/str(unit_identity(unit)['pid'])
             env=dict(x.split(b'=',1) for x in (process/'environ').read_bytes().split(b'\0') if b'=' in x)
             if env.get(b'PYTHONPATH')!=str(source/'python/src').encode() or b'HYPRNEURO_RESIDENCY_DIR' in env:raise RuntimeError('Loaded app environment/source mismatch')
-            if unit=='hyprneuro-ui.service' and (env.get(b'HYPRNEURO_PI_UI')!=b'1' or env.get(b'HYPRNEURO_PI_OWNER_DIR')!=m['owner'].encode() or env.get(b'HYPRNEURO_PI_BRIDGE_PYTHON')!=m['python'].encode()):raise RuntimeError('GTK owner opt-in or bridge interpreter mismatch')
+            if unit=='hyprneuro-ui.service':check_ui_mode(env,m,legacy)
         pid=unit_identity('hyprneuro.service')['pid']
         origin=json.loads(private_file(bundle/'sidecar-origin.json').read_text())
         if origin['pid']!=pid or origin['modules']!=m['import_origins']['modules']:raise RuntimeError('Loaded sidecar origin not attested')
-    print(json.dumps(dict(verified=str(bundle),commit=m['commit'],phase='installed' if installed else 'staged',changed_services=False)))
+    print(json.dumps(dict(verified=str(bundle),commit=m['commit'],phase='installed-legacy' if legacy else 'installed' if installed else 'staged',changed_services=False)))
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('bundle',type=Path);p.add_argument('--installed',action='store_true');a=p.parse_args()
-    verify(a.bundle,a.installed)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('bundle',type=Path);p.add_argument('--installed',action='store_true');p.add_argument('--legacy',action='store_true');a=p.parse_args()
+    if a.legacy and not a.installed:p.error('--legacy requires --installed')
+    verify(a.bundle,a.installed,a.legacy)

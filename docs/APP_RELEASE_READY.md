@@ -1,4 +1,8 @@
-# App-only release staged — NOT deployed or live accepted
+# App-only release installed — bounded read accepted; final legacy mode
+
+**Current:** NEW app installed; one genuine-human native read accepted. User
+selected final legacy mode, owner closed/scope revoked, no current tools. No stale
+restore. Details below; staging checklist retained as historical. **Do not reapply.**
 
 Runtime source: **`1a6fb74f4953092f03beeeb55d21c9d173e37ef8`**, descendant of
 actual parent merge `5c6446f`. Not the earlier disposable combined test tree.
@@ -109,3 +113,27 @@ Logs: `release-1a6fb74-{final-prepare,verification,migration-check,ops-checks,un
 under the private audit root. Native child idle-exit liveness remains unresolved;
 no child live acceptance is claimed. Actual candidate render/font/color/geometry,
 Unicode and live owner acceptance remain pending the authorized window.
+
+## Post-live checkpoint: installed new app, explicit final legacy mode
+
+The app was actually deployed and one genuine-human parent native read accepted.
+Do **not** rerun apply (apply.started/completed exist) or restore the old UI/data.
+User explicitly selected **legacy mode on the NEW app** after the bounded fixture.
+The owner is closed, its synthetic scope revoked, current tools unavailable;
+models unchanged. See [LIVE_PARENT_READ_FIXTURE.md](LIVE_PARENT_READ_FIXTURE.md)
+and its evidence for actual identities, failed attempts and limits.
+
+The frozen staged verifier remains immutable and expects the test's Pi opt-in.
+Use the updated source operator verifier to explicitly verify final legacy mode:
+
+```sh
+/home/ron/Projects/Hyprneuro/python/.venv/bin/python scripts/verify_app_release.py \
+  /home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final --installed --legacy
+```
+
+It validates the same frozen source/binary/backups/import origin/model identities,
+plus explicit opt-in0 and no fixture owner binding. It never starts a service,
+sends a model request, approves consent, silently falls back or restores data.
+The additional source-only metadata retry handles the observed immediate-exec
+proc permission race without repeating any service or authorization mutation.
+Persistent owner design/permission/lifetime is separate; production NOT READY.

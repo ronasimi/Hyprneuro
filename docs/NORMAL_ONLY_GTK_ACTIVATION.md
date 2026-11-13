@@ -1,6 +1,13 @@
-# Parent activation handoff — normal-only read profile, not launched
+# Parent activation handoff — bounded parent read accepted; now closed
 
-Source checkpoints: `23487d7` read-only owner, `f64129a` two-state MDI UI,
+**Current (2026-11-13):** independently reviewed exact1a6fb74 runtime was
+installed and one real parent-only read/toolResult/continuation accepted after
+genuine human consent. User explicitly selected final legacy mode on the NEW
+app; bounded owner closed/scope revoked, no current tools. Persistent operation
+is a separate iteration; no auto-enable. [Receipts/limits](LIVE_PARENT_READ_FIXTURE.md).
+The source-only handoff history below is retained, not current deployment status.
+
+Historical source checkpoints: `23487d7` read-only owner, `f64129a` two-state MDI UI,
 then `df1c212` normal-only GTK routing, followed by the P1 exact-target/discovery corrections. Full review `01M7AERA64VE2KYFC4KSDCWD45` was fetched; all three P1s are addressed in source, pending re-review. Parent integrates/reviews against published
 `feb1958b06aa66cf94c6183030b55d362061a9fe`, preserving its plans/bridge cleanup.
 No force push, self-cherry-pick, installed change or live owner occurred here.

@@ -1,0 +1,339 @@
+{
+  "runtime_commit": "1a6fb74f4953092f03beeeb55d21c9d173e37ef8",
+  "operator_checkpoint": "ebd8879",
+  "review": "01M7AWNTXRJZYRWJGQSCAB4ED9",
+  "release_manifest_sha256": "d24f79ec25cdff69d762a38d9042856d2c520c0bfece05fc5969efe785e53606",
+  "installed_ui_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+  "production_ready": false,
+  "current": {
+    "mode": "legacy-explicit-user-choice",
+    "pi_tools_currently_available": false,
+    "ui": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 2534881,
+      "start": "35935071",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "sidecar": {
+      "unit": "hyprneuro.service",
+      "pid": 2516798,
+      "start": "35839218",
+      "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+      "exe_sha256": "20a5569a1bac8de02122347777b6cf2ae12ec1eafd42db990c6a0c5407f96b8e",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro.service",
+      "dropins": [
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "owner_closed": true,
+    "fixture_scope": {
+      "allowed": false,
+      "reason": "scope_revoked"
+    },
+    "leases_released": true,
+    "no_binary_or_database_restore": true,
+    "saved_settings_sha_unchanged": true
+  },
+  "live_acceptance": {
+    "trials": 1,
+    "real_local_provider_model": "hyprneuro-local/lfm-text",
+    "endpoint": "http://127.0.0.1:8081/v1",
+    "profile": {
+      "read_only": true,
+      "normal_only": true,
+      "parent_only": true,
+      "child_read": false,
+      "exact_file": "fixture.txt"
+    },
+    "user_messages": 1,
+    "native_calls": [
+      {
+        "type": "toolCall",
+        "id": "jimdGMjovYLbbMOU1NcoUfmd04stOhoD",
+        "name": "read",
+        "arguments": {
+          "path": "fixture.txt"
+        }
+      }
+    ],
+    "native_receipt": {
+      "session": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/owner/sessions/2026-11-13T17-44-35-109Z_01a1d602-e023-7744-b2c7-9f1bef1a618e.jsonl",
+      "tool_call_id": "jimdGMjovYLbbMOU1NcoUfmd04stOhoD",
+      "native_tool": "read",
+      "successful_read_count": 1,
+      "canary": "MAPLE_READ_ONLY_FIXTURE",
+      "continuation": true
+    },
+    "usage": [
+      {
+        "input": 677,
+        "output": 18,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 695,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      },
+      {
+        "input": 719,
+        "output": 64,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "totalTokens": 783,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      }
+    ],
+    "broker_checks": {
+      "read": {
+        "allowed": true,
+        "reason": "ok"
+      },
+      "write": {
+        "allowed": false,
+        "reason": "operation_not_authorized"
+      },
+      "execute": {
+        "allowed": false,
+        "reason": "operation_not_authorized"
+      },
+      "network": {
+        "allowed": false,
+        "reason": "operation_not_authorized"
+      }
+    },
+    "consent": {
+      "fresh_user_unlock": true,
+      "genuine_activation_and_exact_read_gates": true,
+      "automated_consent_actions": 0,
+      "video_or_pixel_recording": false,
+      "individual_consent_ids_recorded": false
+    },
+    "models": [
+      {
+        "unit": "lfm@text.service",
+        "pid": 2323977,
+        "start": "33630133",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": [
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf"
+        ]
+      },
+      {
+        "unit": "lfm@omni.service",
+        "pid": 2323979,
+        "start": "33630134",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": []
+      },
+      {
+        "unit": "lfm@decision.service",
+        "pid": 2323984,
+        "start": "33630135",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": []
+      }
+    ],
+    "model_pid_start_identities_unchanged": true,
+    "python_origins": {
+      "pid": 2516798,
+      "executable": "/home/ron/Projects/Hyprneuro/python/.venv/bin/python",
+      "modules": {
+        "hyprneuro": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/source/python/src/hyprneuro/__init__.py",
+        "hyprneuro.agent": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/source/python/src/hyprneuro/agent.py",
+        "hyprneuro.models": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/source/python/src/hyprneuro/models.py",
+        "hyprneuro.sidecar": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/source/python/src/hyprneuro/sidecar.py",
+        "hyprneuro.pi_desktop_bridge": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/source/python/src/hyprneuro/pi_desktop_bridge.py"
+      }
+    },
+    "ctrl_tab_states": [
+      "Restore transcript: Expanded \u2192 Normal",
+      "Expand transcript: Normal \u2192 Expanded"
+    ],
+    "hide_show_retained_transcript": true
+  },
+  "gtk": {
+    "gui_editable_text_interface": true,
+    "no_pixel_capture": true,
+    "unicode": [
+      {
+        "characters": 7,
+        "utf16_units": 8,
+        "roundtrip": true
+      },
+      {
+        "characters": 11000,
+        "utf16_units": 11000,
+        "roundtrip": true
+      },
+      {
+        "characters": 8001,
+        "utf16_units": 16002,
+        "roundtrip": true
+      }
+    ],
+    "oversize_send_refused_draft_retained": true,
+    "geometry": [
+      {
+        "name": "Expand transcript: Normal \u2192 Expanded",
+        "width": 16,
+        "height": 16
+      },
+      {
+        "name": "Restore transcript: Expanded \u2192 Normal",
+        "width": 16,
+        "height": 16
+      }
+    ],
+    "glyph_codepoint": "U+F0BCE",
+    "glyph_attributes": {},
+    "status_attributes": {
+      "Pi text must be nonblank, \u226416000 UTF-16 units and fit the 65536-byte frame; draft retained": {}
+    }
+  },
+  "validation": {
+    "python": 416,
+    "python_skipped": 1,
+    "python_subtests": 92,
+    "warning_errors": true,
+    "node": 45,
+    "c_normal": 16,
+    "c_asan_ubsan_leaks": 16
+  },
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/read-proof.json",
+      "sha256": "d6673b8e1aa651eddaec757f06f5fdd62d5673aa1459977ca4ed537c5d935176"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/runtime-proof.json",
+      "sha256": "9cac12e5652f6e7170b68eecdef81667b6139c51c0ad330ae773b3ead2942cbb"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/ui-proof.json",
+      "sha256": "3d1d32692e5888f2834fb3ef558922840ab51f06ee7c7ae26d1804228e342486"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/legacy-cleanup.json",
+      "sha256": "afc137ba255bbcd7716c8cda35044482052bf9da901cd720f97ab72c122c6167"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/fixture-scope-revocation.json",
+      "sha256": "d9a8b5d2c2e6d1d3f54a622e972046b9c395be8f857aa45cd41aa5645ab2eb55"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/final-state.json",
+      "sha256": "6f8398ad7a87563d51ac10db530a53e7d0171daacc1c9698ce2959b0bcb48d30"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/state.json",
+      "sha256": "e095fbe995ffeaf676ca75b7f0485566044f8412e2a61932fe9d5cbd41359ecf"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/run.py",
+      "sha256": "5e8f728fb484bfeb5cea14d149656418641856f59f6262023ac223806f3de68c"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-parent-1a6fb74-inputfix/finish-legacy.py",
+      "sha256": "222c1fa0c31d82a0fdfd9cbb7d52db7dce4ee00de3bbd3023296f825e9e76f30"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-final-python.log",
+      "sha256": "8ee7d3adaa6e59c6eeee646e085a732f85ca5fbe2cb009d6e5bdf55623300409"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-final-node.log",
+      "sha256": "734e8ef138bb6ff1f5c974af526d0beaebd1e83029011d6ae5fc35df1a61a210"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-final-c.log",
+      "sha256": "fb47c568480beeccb911293dd1fd3599dac453dea606ca50b79a87f693447ab5"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-final-c-sanitized.log",
+      "sha256": "f2fbccc82668476eb6f0a5feac4ab966c35ff27b2f66d615c0b07c8a92aa20a4"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/release-1a6fb74-final/owner/sessions/2026-11-13T17-44-35-109Z_01a1d602-e023-7744-b2c7-9f1bef1a618e.jsonl",
+      "sha256": "3a0dce463fa998cce74ef93c4777b61bc8a2706449d53b5787c8afd9e70ced7b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-final-c-detail.log",
+      "sha256": "9eebad8370772d610a520310e16f9f7752e6eb23ce68eb2dd53f1ae91f1bdc06"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/live-final-c-sanitized-detail.log",
+      "sha256": "0c0a08d9801cd394f92b156a8fed4869dc01c3708b4bbcbc59eb2d54c7374552"
+    }
+  ],
+  "limits": [
+    "Bounded single fixture, not persistent production tools; final mode explicitly legacy",
+    "GUI Unicode input/refusal only; long Unicode NOT submitted to real model",
+    "Pixel color/opacity/font-face not measured; no screenshot/capture",
+    "Not all prior18 GTK checks, installed legacy media, deny/cancel/expiry or repeated trials",
+    "Child idle-exit liveness unresolved; no child/provider/MoE/coordinator/personal-file operations"
+  ],
+  "failed_attempts": [
+    {
+      "run": "01M7AZP75Z6BPDS0PSF0AG8AT6",
+      "outcome": "locker before effects"
+    },
+    {
+      "run": "01M7B05PW0GPYZ896NAWNZFJX4",
+      "outcome": "app cutover passed; appearance locator failed before prompt; clean close"
+    },
+    {
+      "run": "01M7B0A1P2VVPC7ZF668BMHCWT",
+      "outcome": "invalid zero wtype delay before prompt; clean close"
+    },
+    {
+      "run": "01M7B0C3EWPVBT0Z2P09ZRRDNX",
+      "outcome": "one read accepted;600s guard bound then clean owner closure; legacy explicitly selected"
+    }
+  ],
+  "operator_source_sha256": {
+    "scripts/prepare_app_release.py": "1573795f41d6f9b40a6aca5c256323da30bf213d5cb10f1eabd9e7f0cf8f98ae",
+    "scripts/verify_app_release.py": "9cc9de4bb59f78871e34db025f50ea6868fed5d9eadc58c6690fa496172b97f1",
+    "python/tests/test_app_release_ops.py": "459469924b211ef82414cf4970c3ba464c6c024b601f92a8721b49a5bb14512f"
+  },
+  "unmeasured_metrics": {
+    "model_ttft_ms": null,
+    "prefill_tokens_per_second": null,
+    "decode_tokens_per_second": null,
+    "peak_ram_bytes": null,
+    "peak_swap_bytes": null,
+    "peak_io_bytes": null,
+    "peak_drm_bytes": null,
+    "kv_occupancy": null,
+    "tool_host_latency_ms": null
+  }
+}

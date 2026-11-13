@@ -42,9 +42,17 @@ def unit_identity(name):
     proc = Path('/proc') / str(pid)
     if proc.stat().st_uid != os.getuid():
         raise RuntimeError('Wrong process UID')
-    return dict(unit=name, pid=pid, start=proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19],
-        exe=str(proc.joinpath('exe').resolve()), exe_sha256=digest(proc/'exe'),
-        fragment=fields['FragmentPath'], dropins=fields['DropInPaths'].split())
+    # Type=simple may report MainPID before exec finishes; proc/exe can be
+    # temporarily unreadable. Retry metadata only, never restart/replay a unit.
+    for attempt in range(50):
+        try:
+            return dict(unit=name, pid=pid, start=proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()[19],
+                exe=str(proc.joinpath('exe').resolve()), exe_sha256=digest(proc/'exe'),
+                fragment=fields['FragmentPath'], dropins=fields['DropInPaths'].split())
+        except PermissionError:
+            if attempt == 49:
+                raise
+            time.sleep(.02)
 
 
 def main():

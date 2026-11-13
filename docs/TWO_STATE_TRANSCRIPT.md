@@ -1,4 +1,11 @@
-# Normal / Expanded transcript + exact restore glyph — source, not installed
+# Normal / Expanded transcript + exact restore glyph — installed checkpoint
+
+**Current (2026-11-13):** installed1a6fb74 UI passed actual16×16 allocation,
+pointer/Ctrl+Tab cycles, hide/show and Unicode draft/refusal checks within a
+guarded live window. Final NEW UI is explicitly legacy, fixture owner closed.
+Pixel color/opacity/font-face and the complete historical GTK suite remain
+unproven. [Live receipts/limits](LIVE_PARENT_READ_FIXTURE.md) supersede the
+older source-only status below; no screenshot/capture permission inferred.
 
 Supersedes the **three-state UI only** described in older GTK checkpoint/evidence
 files. Those historical receipts are not rewritten or attributed to this build.
@@ -47,7 +54,7 @@ Accessible names describe the current state and next action:
 - `Expand transcript: Normal → Expanded`
 - `Restore transcript: Expanded → Normal`
 
-## Verified now — no GUI connection/render/capture
+## Historical source-only verification — before installation
 
 - Full Python **370 passed,1 skipped,90 subtests**;39 Node passed.
 - **16 C helpers** normal and ASan/UBSan with helper leak detection. New helpers
@@ -64,11 +71,11 @@ Accessible names describe the current state and next action:
   `61e8aba5a4e981fe22cf7c8e8bcdbea00476e75c62c37f01bf7ee33361d68428`.
   This proves installed font coverage, **not rendered pixels or measured color**.
 - Normal/sanitizer candidates rebuilt; existing GdkPixbuf deprecation warnings
-  remain. Installed UI stays SHA256
+  remain. At this earlier checkpoint installed UI was SHA256
   `11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154`.
   Build hashes/log receipts are in `docs/evidence/two-state-transcript.json`.
 
-## Still pending, under the fresh GUI gate
+## Historical pending checklist — partial current results linked above
 
 The updated GUI fixtures expect two states, new accessible names and Ctrl+Tab;
 **they were not run for this candidate**. Need parent/user fresh unlock permission,

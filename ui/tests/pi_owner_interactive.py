@@ -1,10 +1,11 @@
-"""DEFERRED until parent/user authorizes an unlocked offline GTK window.
+"""Explicitly authorized, unlocked offline GTK acceptance only.
 
 HYPRNEURO_GTK_OFFLINE_TEST=1 /usr/bin/python3 ui/tests/pi_owner_interactive.py SESSION BINARY
 No capture, service manipulation, live owners/providers/models or installed config.
 All sockets/data are disposable; the existing UI's control socket is never touched.
 """
 import base64
+import hashlib
 import struct
 import wave
 import zlib
@@ -63,6 +64,11 @@ def main():
     global root
     root = Path.home() / 'Workspace/hyprneuro-pi-gtk-acceptance' / time.strftime('%Y%m%d-%H%M%S')
     root.mkdir(parents=True, mode=0o700)
+    print('EVIDENCE', root, flush=True)
+    def check(name, **detail):
+        with (root/'checks.jsonl').open('a') as log:
+            log.write(json.dumps(dict(check=name, monotonic=time.monotonic(), **detail))+'\n')
+        print('PASS', name, flush=True)
     children, logs = [], []
     env = dict(os.environ, PYTHONPATH=str(repo/'python/src'), HYPRNEURO_PI_UI='1',
                HYPRNEURO_PI_OWNER_DIR=str(root/'owner'), HYPRNEURO_UI_SOCKET=str(root/'ui.sock'),
@@ -93,7 +99,22 @@ def main():
         assert (root/'owner/owner.sock').exists() and (root/'legacy.sock').exists()
         ui = launch([binary], 'gui.log')
         d = IsolatedDesktop(session, ui.pid)
+        runtime = dict(candidate=str(Path(binary).resolve()), pid=ui.pid,
+                       proc_exe=os.readlink(f'/proc/{ui.pid}/exe'),
+                       candidate_sha256=hashlib.sha256(Path(binary).read_bytes()).hexdigest(),
+                       running_sha256=hashlib.sha256(Path(f'/proc/{ui.pid}/exe').read_bytes()).hexdigest())
+        installed = Path.home()/'.local/bin/hyprneuro-ui'
+        if installed.exists():
+            runtime['installed_sha256_before'] = hashlib.sha256(installed.read_bytes()).hexdigest()
+        assert runtime['candidate_sha256'] == runtime['running_sha256'], runtime
+        (root/'runtime.json').write_text(json.dumps(runtime, indent=2)+'\n')
+        check('candidate-runtime-identity', **runtime)
         d.wait(lambda: 'MoE · off' in d.labels())
+        check('observed-off')
+        d.send('/moe status')
+        d.wait(lambda: sum(r['op'] == 'status' for r in records('owner.jsonl')) >= 2)
+        assert not any(r.get('text', '').startswith('/moe') for r in records('owner.jsonl'))
+        check('typed-status-control-not-chat')
         switch = lambda: d.find('toggle button', 'MoE observed switch') or d.find('switch', 'MoE observed switch')
         assert d.wait(switch)
         # Use the actual accessible switch action, not /moe parsing, for first on.
@@ -101,29 +122,53 @@ def main():
         d.wait(lambda: any('request pending' in s for s in d.labels()))
         d.wait(lambda: d.find('button', 'Deny'))
         assert 'fixture-task' in '\n'.join(Atspi.Text.get_text(n, 0, -1) for n in d.nodes(ui.pid) if n.get_role_name() == 'text')
+        assert not any(r.get('op') == 'handoff_consent' and r.get('allowed') for r in records('owner.jsonl'))
         d.activate('button', 'Deny')
         d.wait(lambda: 'MoE · off' in d.labels())
+        check('switch-transition-human-denial-no-autoapproval')
+        d.send('/moe on'); d.wait(lambda: d.find('button', 'Deny'))
+        d.keys('-k', 'Escape')
+        d.wait(lambda: not d.find('button', 'Deny'))
+        d.wait(lambda: 'MoE · off' in d.labels())
+        check('consent-escape-cancels')
+        # Exercise the actual production110s client deadline, not a sped-up timer.
+        d.send('/moe on'); d.wait(lambda: d.find('button', 'Deny'))
+        started = time.monotonic()
+        d.send('queued during expiry')
+        assert not any(r.get('text') == 'queued during expiry' for r in records('owner.jsonl'))
+        assert not any(r.get('op') == 'handoff_consent' and r.get('allowed') for r in records('owner.jsonl'))
+        d.wait(lambda: not d.find('button', 'Deny'), timeout=115)
+        elapsed = time.monotonic() - started
+        assert 109 <= elapsed < 116, elapsed
+        d.wait(lambda: 'Fixture answer: queued during expiry' in d.transcript())
+        d.wait(lambda: 'MoE · off' in d.labels())
+        check('real-consent-expiry-denies-queued-chat-serialized', elapsed_seconds=elapsed)
         d.send('/moe on')
         d.wait(lambda: d.find('button', 'Allow exact action once'))
         d.activate('button', 'Allow exact action once')
         d.wait(lambda: 'MoE · on' in d.labels())
+        check('typed-on-fresh-human-allow-observed-on')
         d.send('/moe off')
         d.wait(lambda: 'MoE · off' in d.labels())
+        check('typed-off-observed-off')
         d.send('tool')
         d.wait(lambda: d.find('button', 'Deny'))
         d.activate('button', 'Deny')
         d.wait(lambda: 'Fixture answer: tool' in d.transcript())
         assert 'tool_execution_end · FAILED' in d.transcript()
         assert 'Thinking: Fixture reasoning α' in d.transcript()
+        check('text-reasoning-tool-denial-error-stream')
         # Assistant /moe text must not cause another control transaction.
         before = sum(r['op'] == 'on' for r in records('owner.jsonl'))
         d.send('injection')
         d.wait(lambda: '/moe on' in d.transcript())
         assert sum(r['op'] == 'on' for r in records('owner.jsonl')) == before
+        check('assistant-command-injection-is-text')
         # Ctrl+Enter is newline, Return submits; only one native prompt.
         d.draft('keyboard'); d.keys('-M', 'ctrl', '-k', 'Return', '-m', 'ctrl', 'second', '-k', 'Return')
         d.wait(lambda: any(r.get('text') == 'keyboard\nsecond' for r in records('owner.jsonl')))
         d.wait(lambda: 'Fixture answer: keyboard\nsecond' in d.transcript())
+        check('ctrl-enter-newline-return-send')
         # Existing native image picker/snapshot stays on legacy route, not Pi.
         image = root / 'pixel.png'
         def chunk(kind, data):
@@ -134,12 +179,22 @@ def main():
                           chunk(b'IDAT', zlib.compress(b'\x00\xff\x00\x00')) + chunk(b'IEND', b''))
         d.choose(image)
         d.wait(lambda: any('Attachment → legacy sidecar' in s for s in d.labels()))
+        (root/'owner/mode').write_text('foreign')
+        d.wait(lambda: 'MoE · failed' in d.labels())
+        d.send('blocked image')
+        assert not any(r.get('message') == 'blocked image' for r in records('legacy.jsonl'))
+        assert Atspi.Text.get_text(d.find('text', 'Enter sends · Ctrl+Enter inserts a newline'), 0, -1) == 'blocked image'
+        assert d.find('button', 'Remove attachment (also removes it from submission)')
+        (root/'owner/mode').write_text('')
+        d.wait(lambda: 'MoE · off' in d.labels())
+        check('foreign-owner-failed-blocks-media-retains-draft-and-attachment')
         d.send('image baseline')
         d.wait(lambda: 'Legacy media fixture answer' in d.transcript())
         media = [r for r in records('legacy.jsonl') if r.get('action') == 'agent_chat'][-1]
         assert media['media']['mime'] == 'image/png'
         assert base64.b64decode(media['media']['data']) == image.read_bytes()
         assert not any('Fixture answer' in json.dumps(h) for h in media['history'])
+        check('legacy-image-route-exact-snapshot-no-pi-history')
         # Synthetic silent PCM WAV: native decode/play/review still gates Send.
         audio = root / 'silent.wav'
         with wave.open(str(audio), 'wb') as wav:
@@ -163,20 +218,32 @@ def main():
         wav_request = [r for r in records('legacy.jsonl') if r.get('message') == 'wav baseline'][-1]
         assert wav_request['media']['mime'] == 'audio/wav'
         assert base64.b64decode(wav_request['media']['data']) == snapshot
+        check('legacy-wav-review-route-exact-immutable-snapshot')
         # Cancel pending on via explicit off button closes, rather than reuses, consent.
         d.send('/moe on'); d.wait(lambda: d.find('button', 'Deny'))
         d.activate('button', 'MoE off / cancel on')
         d.wait(lambda: not d.find('button', 'Deny'))
         d.wait(lambda: 'MoE · off' in d.labels())
+        check('explicit-off-cancels-pending-on')
         # Failed native turn is not presented as a successful settled answer.
         d.send('error'); d.wait(lambda: '[error: Native turn failed/aborted' in d.transcript())
-        d.send('slow'); d.wait(lambda: d.find('button', 'Cancel Pi chat').get_state_set().contains(Atspi.StateType.SENSITIVE))
+        check('native-error-turn-not-success')
+        off_count = sum(r['op'] == 'off' for r in records('owner.jsonl'))
+        d.send('slow'); d.wait(lambda: any(r.get('text') == 'slow' for r in records('owner.jsonl')))
+        d.wait(lambda: d.find('button', 'Cancel Pi chat').get_state_set().contains(Atspi.StateType.SENSITIVE))
         d.activate('button', 'Cancel Pi chat')
         d.wait(lambda: 'MoE · failed' in d.labels())
+        assert sum(r['op'] == 'off' for r in records('owner.jsonl')) == off_count
+        check('actual-chat-cancel-not-off-control-retained-failed-observed')
         # Last owner socket loss is unavailable, never optimistic off/fallback.
         children[0].terminate(); children[0].wait(timeout=4)
         d.wait(lambda: 'MoE · unavailable' in d.labels())
         assert ui.poll() is None
+        if installed.exists():
+            runtime['installed_sha256_after'] = hashlib.sha256(installed.read_bytes()).hexdigest()
+            assert runtime['installed_sha256_before'] == runtime['installed_sha256_after']
+        (root/'runtime.json').write_text(json.dumps(runtime, indent=2)+'\n')
+        check('owner-disconnect-unavailable-no-fallback-installed-binary-unchanged')
         print('PASS actual GTK offline owner/consent/control/chat/image/keyboard/cancel/disconnect; no capture', root)
     finally:
         for p in reversed(children):

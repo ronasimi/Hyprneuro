@@ -1,0 +1,270 @@
+{
+  "base": "e0d7e84",
+  "scope": "offline GTK, sanitizer candidate, mock owner/session and media only; NOT production ready",
+  "safety": {
+    "session": "2",
+    "uid": 1000,
+    "type": "wayland",
+    "active": true,
+    "remote": false,
+    "locked_hint": false,
+    "locker_found": false,
+    "checks": "before launch/actions and repeatedly during waits; no capture",
+    "machine_lease": "exclusive hold machine around each GUI run; released; final leases []"
+  },
+  "application_fix": "on_key Escape denies pending host consent before navigation/hide; no other runtime/API changes",
+  "installed": {
+    "path": "/home/ron/.local/bin/hyprneuro-ui",
+    "service_pid_before": 2053014,
+    "service_pid_after": 2053014,
+    "sha256_before": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+    "sha256_after": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+    "service_changed": false,
+    "binary_changed": false
+  },
+  "source_validation": {
+    "python_pass": 361,
+    "python_skip": 1,
+    "python_subtests": 80,
+    "node_pass": 33,
+    "c_helpers_pass": 13,
+    "c_sanitizers": "address,undefined; helper leak detection enabled; GUI leak detection disabled"
+  },
+  "runs": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-gtk-acceptance/20261113-062012",
+      "outcome": "prepared workflow passed; no expiry/Escape coverage",
+      "files": [
+        {
+          "name": "owner.jsonl",
+          "sha256": "2ac38e3b69f922f48d84d2cc5dcea88e5ae221e2fbb1ed874a0c8292397b6fdf",
+          "bytes": 866
+        },
+        {
+          "name": "legacy.jsonl",
+          "sha256": "253a68ff7b5e21a0d3d0e0282d3d4d6088bb4fe9ec0bb49b4245ca08a18fb81c",
+          "bytes": 129585
+        },
+        {
+          "name": "gui.log",
+          "sha256": "ca21e07575d3839ef5a52b2be937dfa590d4d587e0e423e70c581edbb0480c32",
+          "bytes": 2230
+        },
+        {
+          "name": "owner.log",
+          "sha256": "ed1a545bb85e55816bbf9566b028b2a0bc456b88f49f6f266c0401048824194b",
+          "bytes": 6
+        },
+        {
+          "name": "sidecar.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ]
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-gtk-acceptance/20261113-062208",
+      "outcome": "expanded workflow failed: Escape hid panel after denial",
+      "files": [
+        {
+          "name": "runtime.json",
+          "sha256": "997fcb8e81e6e67bd8b09a2ea521bea446e3ba37271d12381e76086a4c7e7638",
+          "bytes": 449
+        },
+        {
+          "name": "checks.jsonl",
+          "sha256": "1a7b0e249c6bb546a0330066bfa513cb5697600102fe48d87bb79ee7f74b77b4",
+          "bytes": 726
+        },
+        {
+          "name": "owner.jsonl",
+          "sha256": "7e5bcd996fce85f680bcd9c1dc823b353757ec759d189924c58cbe6260a05886",
+          "bytes": 282
+        },
+        {
+          "name": "legacy.jsonl",
+          "sha256": "3f09e6201b1c4bbc12470697a720f81287af35ae25aa8ac83c1e0942e8f8d534",
+          "bytes": 324
+        },
+        {
+          "name": "gui.log",
+          "sha256": "bee34ebe94999e96495720bf5b83f02aadf5c679d7ef0685cf2e5e20a45ad08b",
+          "bytes": 2230
+        },
+        {
+          "name": "owner.log",
+          "sha256": "ed1a545bb85e55816bbf9566b028b2a0bc456b88f49f6f266c0401048824194b",
+          "bytes": 6
+        },
+        {
+          "name": "sidecar.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ],
+      "runtime": {
+        "candidate": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+        "pid": 2312805,
+        "proc_exe": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+        "candidate_sha256": "ce3984266020136a272cee99a254cff14aa4fc51f25f548cd5c8d8515d3de2b6",
+        "running_sha256": "ce3984266020136a272cee99a254cff14aa4fc51f25f548cd5c8d8515d3de2b6",
+        "installed_sha256_before": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154"
+      },
+      "checks": [
+        {
+          "check": "candidate-runtime-identity",
+          "monotonic": 335444.62793288,
+          "candidate": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+          "pid": 2312805,
+          "proc_exe": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+          "candidate_sha256": "ce3984266020136a272cee99a254cff14aa4fc51f25f548cd5c8d8515d3de2b6",
+          "running_sha256": "ce3984266020136a272cee99a254cff14aa4fc51f25f548cd5c8d8515d3de2b6",
+          "installed_sha256_before": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154"
+        },
+        {
+          "check": "observed-off",
+          "monotonic": 335445.098942379
+        },
+        {
+          "check": "typed-status-control-not-chat",
+          "monotonic": 335445.796387586
+        },
+        {
+          "check": "switch-transition-human-denial-no-autoapproval",
+          "monotonic": 335447.102799645
+        }
+      ]
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-gtk-acceptance/20261113-062302",
+      "outcome": "rebuilt candidate:18/18 checks passed",
+      "files": [
+        {
+          "name": "runtime.json",
+          "sha256": "7db6578290ab8b7b9764f9c41896fdde8976b5f1ee2b50f98fdc0803d72a3962",
+          "bytes": 545
+        },
+        {
+          "name": "checks.jsonl",
+          "sha256": "ebd1bf0f4abffcd1d39ee7b2f3288889e14aa3ecfa6fc7f25e1e6b4982de8857",
+          "bytes": 1974
+        },
+        {
+          "name": "owner.jsonl",
+          "sha256": "20b92481db12d92bdbf1ab18f06a997390a14f0a9a8a1684230e70866afa86e3",
+          "bytes": 2171
+        },
+        {
+          "name": "legacy.jsonl",
+          "sha256": "4dba01a7804d93c927f4cea8d2f863016e8ae86b2383c50920402136ec312bee",
+          "bytes": 132476
+        },
+        {
+          "name": "gui.log",
+          "sha256": "e2b8942ef0aafcedef47bc2b7f59125f2e1aaaa1ed87ae27f0dc80fd444edc44",
+          "bytes": 2230
+        },
+        {
+          "name": "owner.log",
+          "sha256": "ed1a545bb85e55816bbf9566b028b2a0bc456b88f49f6f266c0401048824194b",
+          "bytes": 6
+        },
+        {
+          "name": "sidecar.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0
+        }
+      ],
+      "runtime": {
+        "candidate": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+        "pid": 2313601,
+        "proc_exe": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+        "candidate_sha256": "ff28d9b3660a2afcd2f204747bfa89f8b4ad6a22a0515244c747c1ffce1e2a43",
+        "running_sha256": "ff28d9b3660a2afcd2f204747bfa89f8b4ad6a22a0515244c747c1ffce1e2a43",
+        "installed_sha256_before": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+        "installed_sha256_after": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154"
+      },
+      "checks": [
+        {
+          "check": "candidate-runtime-identity",
+          "monotonic": 335499.506621206,
+          "candidate": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+          "pid": 2313601,
+          "proc_exe": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+          "candidate_sha256": "ff28d9b3660a2afcd2f204747bfa89f8b4ad6a22a0515244c747c1ffce1e2a43",
+          "running_sha256": "ff28d9b3660a2afcd2f204747bfa89f8b4ad6a22a0515244c747c1ffce1e2a43",
+          "installed_sha256_before": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154"
+        },
+        {
+          "check": "observed-off",
+          "monotonic": 335499.974333212
+        },
+        {
+          "check": "typed-status-control-not-chat",
+          "monotonic": 335500.669614152
+        },
+        {
+          "check": "switch-transition-human-denial-no-autoapproval",
+          "monotonic": 335501.947393535
+        },
+        {
+          "check": "consent-escape-cancels",
+          "monotonic": 335504.024292527
+        },
+        {
+          "check": "real-consent-expiry-denies-queued-chat-serialized",
+          "monotonic": 335616.234758094,
+          "elapsed_seconds": 110.06477333896328
+        },
+        {
+          "check": "typed-on-fresh-human-allow-observed-on",
+          "monotonic": 335617.327398844
+        },
+        {
+          "check": "typed-off-observed-off",
+          "monotonic": 335617.988170462
+        },
+        {
+          "check": "text-reasoning-tool-denial-error-stream",
+          "monotonic": 335619.030025364
+        },
+        {
+          "check": "assistant-command-injection-is-text",
+          "monotonic": 335619.707135302
+        },
+        {
+          "check": "ctrl-enter-newline-return-send",
+          "monotonic": 335620.389701117
+        },
+        {
+          "check": "foreign-owner-failed-blocks-media-retains-draft-and-attachment",
+          "monotonic": 335634.170243885
+        },
+        {
+          "check": "legacy-image-route-exact-snapshot-no-pi-history",
+          "monotonic": 335634.989381726
+        },
+        {
+          "check": "legacy-wav-review-route-exact-immutable-snapshot",
+          "monotonic": 335653.970043754
+        },
+        {
+          "check": "explicit-off-cancels-pending-on",
+          "monotonic": 335655.119225663
+        },
+        {
+          "check": "native-error-turn-not-success",
+          "monotonic": 335655.709159562
+        },
+        {
+          "check": "actual-chat-cancel-not-off-control-retained-failed-observed",
+          "monotonic": 335658.267732325
+        },
+        {
+          "check": "owner-disconnect-unavailable-no-fallback-installed-binary-unchanged",
+          "monotonic": 335658.324454838
+        }
+      ]
+    }
+  ]
+}

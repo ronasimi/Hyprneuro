@@ -36,7 +36,9 @@ const owner=new PiOwner({session,durable:{quiesce:async()=>{},resume:async()=>{}
     if(op==='on') {
       const mode=await readFile(join(root,'mode'),'utf8').catch(()=> '');
       const detail=mode==='oversize-consent'?'x'.repeat(24001):JSON.stringify({task:'fixture-task',action:'on',prior:['text'],model:'fixture-only-NO-LAUNCH'});
-      if(!await owner.approve({title:'Exclusive Hermes handoff?',detail}))throw Error('Denied');
+      const allowed=await owner.approve({title:'Exclusive Hermes handoff?',detail});
+      await record({op:'handoff_consent',allowed});
+      if(!allowed)throw Error('Denied');
     }
     state=op;return {state};
   }});

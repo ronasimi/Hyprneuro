@@ -1650,6 +1650,12 @@ static gboolean on_key(GtkEventControllerKey *c, guint keyval, guint code,
     (void)c; (void)code; (void)state;
     App *a = data;
     if (keyval == GDK_KEY_Escape) {
+        /* Layer-shell may retain keyboard focus while the consent toplevel is
+         * open. Escape must deny that question, not hide the whole panel. */
+        if (a->pi_consent_id) {
+            pi_consent_close(a->pi_dialog, a);
+            return TRUE;
+        }
         /* If settings is showing, go back to chat first. */
         if (!g_strcmp0(gtk_stack_get_visible_child_name(a->stack), "search"))
             gtk_stack_set_visible_child_name(a->stack, "settings");

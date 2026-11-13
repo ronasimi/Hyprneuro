@@ -4,7 +4,8 @@
 validated; current Hermes may serve other sessions. Parent owns every future
 machine lease/inference/lifecycle test. The earlier backend phase changed only the approved `sidecar.py` consumer cleanup.
 Opt-in GTK source forwarding is now separately implemented; see
-[GTK_PI_OWNER.md](GTK_PI_OWNER.md). Actual GTK acceptance is still blocked.
+[GTK_PI_OWNER.md](GTK_PI_OWNER.md). Offline mock GTK acceptance has passed; live activation remains gated
+([evidence](GTK_PI_OWNER_ACCEPTANCE.md)).
 
 ## Entry points
 
@@ -137,7 +138,7 @@ See [PI_OWNER_BRIDGE.md](PI_OWNER_BRIDGE.md): a separate opt-in long-lived actua
 Pi session now owns commands and authenticated asynchronous control/chat requests.
 Installed Durable command workflow/drain/replay and Python-client-to-Pi mock HTTP
 streaming are tested; this supersedes the earlier blanket “Durable unverified”
-checkpoint only for that source/mock coverage. Source GTK wiring is implemented behind explicit opt-in; actual GTK acceptance,
+checkpoint only for that source/mock coverage. Source GTK wiring is implemented behind explicit opt-in; live GTK/model acceptance,
 live model children, D1 compatibility, all-client deployment and live handoff
 are still pending.
 No second `ManualSwitch` owner or observational Python agent loop is introduced.

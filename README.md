@@ -18,7 +18,7 @@ The GTK observed `/moe` switch, fresh host-consent UI and native text/tool route
 are **source/mock-only, disabled by default and NOT production ready**. They
 connect to one existing authenticated Pi owner, never start another owner/model.
 Legacy image/WAV remain explicitly tool-free. See the
-[GTK source checkpoint and blocked acceptance](docs/GTK_PI_OWNER.md).
+[GTK source checkpoint and offline acceptance](docs/GTK_PI_OWNER.md).
 
 ## Install
 

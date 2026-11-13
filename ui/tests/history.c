@@ -336,8 +336,33 @@ static void pi_async_frames(void) {
     g_output_stream_close(app.pi_out, NULL, NULL);
     g_object_unref(app.pi_out); g_object_unref(app.pi_io);
 }
+static void pi_escape_denies_before_hiding_panel(void) {
+    App app = {.shown=TRUE, .pi_connected=TRUE};
+    app.pi_consent_id = g_strdup("pending-host-question");
+    app.pi_out = g_memory_output_stream_new_resizable();
+    app.pi_io = g_cancellable_new();
+    /* No GtkStack/window exists: the pending-question path must return before
+     * settings navigation/hide and works even when the layer retains focus. */
+    g_assert_true(on_key(NULL, GDK_KEY_Escape, 0, 0, &app));
+    g_assert_true(app.shown);
+    g_assert_null(app.pi_consent_id);
+    while (app.pi_writing || !g_queue_is_empty(&app.pi_writes))
+        g_main_context_iteration(NULL, TRUE);
+    gsize length = g_memory_output_stream_get_data_size(G_MEMORY_OUTPUT_STREAM(app.pi_out));
+    JsonParser *p = json_parser_new();
+    g_assert_true(json_parser_load_from_data(p,
+        g_memory_output_stream_get_data(G_MEMORY_OUTPUT_STREAM(app.pi_out)), length, NULL));
+    JsonNode *root = json_parser_get_root(p);
+    g_assert_cmpstr(jstr(jmember(root, "op")), ==, "consent");
+    g_assert_cmpstr(jstr(jmember(root, "answer_id")), ==, "pending-host-question");
+    g_assert_false(json_node_get_boolean(jmember(root, "allowed")));
+    g_object_unref(p);
+    g_output_stream_close(app.pi_out, NULL, NULL);
+    g_object_unref(app.pi_out); g_object_unref(app.pi_io);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/pi-escape-denies-before-hide", pi_escape_denies_before_hiding_panel);
     g_test_add_func("/ui/pi-async-frames", pi_async_frames);
     g_test_add_func("/ui/pi-state-boundary", pi_states_and_trusted_boundary);
     g_test_add_func("/ui/pi-media-routing", pi_media_routing);

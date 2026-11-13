@@ -93,7 +93,7 @@ media parity remains **unimplemented**. No microphone, camera, screenshot, porta
 capture or visual collection path is added or enabled. Existing CSS/button icon
 sizes/panel background/margins remain unchanged; Pi controls appear only opt-in.
 
-## Exact verified versus blocked checkpoint
+## Source checkpoint e0d7e84 (historical)
 
 Non-GUI verification in isolated base `6ba627f`:
 
@@ -125,7 +125,7 @@ retained as `python-ordering-failure.log`;20/20 repeated regressions passed, and
 (`python-ordering-evidence.log`). Final full-suite results above are after this
 fixture correction.
 
-**Actual GTK acceptance is BLOCKED, not passed.** Session2 reported unlocked
+**At e0d7e84 local GTK acceptance was BLOCKED, not passed.** Session2 reported unlocked
 through logind, but a locker process was independently present. Parent explicitly
 chose source/non-GUI validation only. No GUI/focus/capture/lock manipulation or
 service change was performed. `ui/tests/pi_owner_interactive.py` is a prepared,
@@ -135,7 +135,7 @@ sockets, actual AT-SPI/keyboard actions, a fake serialized owner, synthetic
 image/silent WAV, and no service stop/start or capture. It covers consent/switch,
 tool denial, keyboard, legacy media, cancel and disconnect when later authorized.
 
-Requested next window: parent/user confirms unlocked local session, then an
+The requested next window at that checkpoint was parent/user unlock confirmation, then an
 independent no-locker check, for approximately **3–5 minutes offline GTK-only**
 using this tree's sanitizer binary. No live owner/models/providers/residency or
 capture. Separately leased live acceptance, all-client admission deployment,
@@ -169,3 +169,19 @@ git diff --check
 Final logs are under `/home/ron/Workspace/hyprneuro-pi-gtk-build/`
 (`python-full.log`, `node-full.log`, `compile.log`, `meson-logs/testlog.txt`)
 and `/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/meson-logs/testlog.txt`.
+
+
+## Authorized offline GTK follow-up
+
+Parent/user subsequently authorized the window; independent active same-user/no-
+locker checks passed. Offline GTK is now **verified**, including real110s expiry,
+all observed states, typed controls, consent/serialization, tool/error streams,
+actual chat cancellation (not off), disconnect, keyboard and legacy image/WAV.
+Escape revealed and fixed a layer-focus panel-hide issue; regression and rebuilt
+GTK rerun pass. Final suites:361 Python/1skip/80subtests;33 Node;13 C helpers normal
+and ASan/UBSan. This supersedes only the blocked **local mock GTK** gate above.
+
+See [actual acceptance, identities, failure and evidence](GTK_PI_OWNER_ACCEPTANCE.md).
+Only the isolated sanitizer candidate was tested; the current installed binary and
+running service were untouched. Production/live acceptance remains NOT READY;
+parent evidence review is next. No push or runtime deployment.

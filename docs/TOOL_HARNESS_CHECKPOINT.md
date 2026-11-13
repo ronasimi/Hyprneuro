@@ -287,3 +287,24 @@ provider/live-model/service/residency operations, deployment or push.
 Next dependency: parent/user confirms an unlocked3–5 minute offline GTK window,
 then independent no-locker check. Production remains NOT READY; separately
 coordinated all-client deployment and leased live acceptance remain gated.
+
+
+## Authorized offline GTK follow-up — live still NOT READY
+
+After `e0d7e84`, parent/user authorized an unlocked mock-only machine-lease window.
+Independent no-locker/same-user active Wayland checks passed and were repeated.
+The prepared actual GTK workflow passed; expanded Escape testing exposed panel
+hide while denying consent. Fixed the main layer's Escape ordering, added a C
+regression, rebuilt and passed all18 actual GTK checks including real110.064773s
+consent expiry, queued-chat serialization, cancel-not-off and legacy image/WAV.
+
+Final source checks:361 Python pass/1skip/80subtests;33 Node pass;13 C helpers normal
++ASan/UBSan/leak detection. The GUI sanitizer candidate PID2313601 hash matched
+its executable; installed binary/running PID2053014 unchanged, no app service
+operation or stale restore. No capture, live model/provider/residency, install or
+push. Fixtures exited and lease released. Existing GTK baseline warnings retained.
+
+[GTK_PI_OWNER_ACCEPTANCE.md](GTK_PI_OWNER_ACCEPTANCE.md) and its committed public
+artifact hash manifest record exact scope, runtime identities, failure and rerun.
+This supersedes the prior blocked local GTK gate only. Next: parent source/evidence
+review; production remains NOT READY and separately leased live gates remain.

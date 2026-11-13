@@ -78,3 +78,10 @@ exercise denial/cancel. Use the existing120s/2MiB limits, no provider/network
 scope, background capture, competing owner or MoE switch. A GUI test additionally
 needs fresh user unlock confirmation and independent safety check. Only a later,
 explicit parent-coordinated lease/window may test exclusive switching.
+
+## Subsequent operational audit (not new owner/GTK acceptance)
+
+[Normal-stack compatibility](NORMAL_STACK_COMPATIBILITY.md) records actual
+production/source divergence, the blocked activation/child-read gates and six
+authorized synthetic live API/application probes. This does not supersede the
+Unicode source tests or the outstanding latest-binary GTK rerun.

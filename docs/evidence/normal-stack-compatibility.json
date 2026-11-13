@@ -1,0 +1,1082 @@
+{
+  "base": "4e0b644",
+  "scope": "Actual normal API/source-application + native SDK classifier only; NOT Pi-owner/Durable/GTK acceptance",
+  "live_inference_requests": 6,
+  "machine_lease_released": true,
+  "gui_blocker": {
+    "comm": "hyprlock",
+    "pid": 2327965
+  },
+  "runtime": {
+    "reference_entrypoints_not_PID_attestations": [
+      {
+        "path": "/home/ron/.pi/agent/bin/pi",
+        "resolved": "/home/ron/.pi/agent/bin/pi",
+        "sha256": "dc08e1c6881d8bc69de609e5f461624682db718901abe1cab81694ece31aef2c"
+      },
+      {
+        "path": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
+        "resolved": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
+        "sha256": "4569157e6038be9840fa514db4b00a27fd0be9e3622cc7b49a281de6c027d7ff"
+      },
+      {
+        "path": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/api/typesafe-system-one.js",
+        "resolved": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/api/typesafe-system-one.js",
+        "sha256": "0c708b9b8a80a4401d38b131f5d9f359d5e8c1b0d38753a6a808d2d624dc2c2a"
+      }
+    ],
+    "editable_install": {
+      "path": "/home/ron/Projects/Hyprneuro/python/.venv/lib/python3.13/site-packages/__editable__.hyprneuro-0.1.0.pth",
+      "sha256": "63a441d9898c91c01e366bb90b8e2c4e1250e09081bf5715bd19353d80f65afd",
+      "source": "/home/ron/Projects/Hyprneuro/python/src"
+    },
+    "time": "2026-11-13T06:58:20.439743-05:00",
+    "uid": 1000,
+    "processes": [
+      {
+        "pid": 1256157,
+        "ppid": 1256156,
+        "exe": "/usr/bin/node",
+        "cwd": "/home/ron",
+        "comm": "pi",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "entrypoint_evidence": "process.title=pi hides script origin; exact loaded SDK not proven",
+        "explicit_files": {}
+      },
+      {
+        "pid": 1485806,
+        "ppid": 1256157,
+        "exe": "/usr/bin/node",
+        "cwd": "/home/ron",
+        "comm": "node-MainThread",
+        "scripts": [
+          {
+            "path": "/home/ron/.pi/agent/npm/node_modules/rea-agents/scripts/rea.mjs",
+            "sha256": "67ca7682986ff2b90678e1797e625caca6026a1732d9cad1a1088253c7bb45e5"
+          }
+        ],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "explicit_files": {}
+      },
+      {
+        "pid": 1927557,
+        "ppid": 1205,
+        "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+        "cwd": "/home/ron/Projects/Hyprneuro/python",
+        "comm": "python",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [
+          "--allow-ingest",
+          "--watch-hyprland",
+          "--assistant-enabled"
+        ],
+        "modules": [
+          "hyprneuro"
+        ],
+        "explicit_files": {}
+      },
+      {
+        "pid": 2053014,
+        "ppid": 1205,
+        "exe": "/home/ron/.local/bin/hyprneuro-ui",
+        "cwd": "/home/ron",
+        "comm": "hyprneuro-ui",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "running_exe_sha256": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+        "explicit_files": {}
+      },
+      {
+        "pid": 2323977,
+        "ppid": 1205,
+        "exe": "/usr/local/bin/llama-server",
+        "cwd": "/home/ron",
+        "comm": "llama-server",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "running_exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "explicit_files": {}
+      },
+      {
+        "pid": 2323979,
+        "ppid": 1205,
+        "exe": "/usr/local/bin/llama-server",
+        "cwd": "/home/ron",
+        "comm": "llama-server",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "running_exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "explicit_files": {}
+      },
+      {
+        "pid": 2323984,
+        "ppid": 1205,
+        "exe": "/usr/local/bin/llama-server",
+        "cwd": "/home/ron",
+        "comm": "llama-server",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": null,
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "running_exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "explicit_files": {}
+      },
+      {
+        "pid": 2329641,
+        "ppid": 1256157,
+        "exe": "/usr/bin/node",
+        "cwd": "/home/ron",
+        "comm": "node-MainThread",
+        "scripts": [
+          {
+            "path": "/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents/dist/orchestrator/main.js",
+            "sha256": "ffb3125cc3f67e18393aa32889b9b4d35da4cf6935b02762978d3e3915a706bf"
+          }
+        ],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": "/home/ron/.pi/durable-subagents",
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "explicit_files": {}
+      },
+      {
+        "pid": 2329662,
+        "ppid": 2329641,
+        "exe": "/usr/bin/perl",
+        "cwd": "/home/ron",
+        "comm": "perl",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": "/home/ron/.pi/durable-subagents",
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "explicit_files": {}
+      },
+      {
+        "pid": 2329663,
+        "ppid": 2329641,
+        "exe": "/usr/bin/node",
+        "cwd": "/home/ron/.pi/durable-subagents",
+        "comm": "node-MainThread",
+        "scripts": [
+          {
+            "path": "/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents/dist/evaluator/host.js",
+            "sha256": "4ee6af0c4c73279a73c9776afebe3ac375f6d5632ab344c6cc56da39b2c5cf6c"
+          }
+        ],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": "/home/ron/.pi/durable-subagents",
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "explicit_files": {}
+      },
+      {
+        "pid": 2329670,
+        "ppid": 2329641,
+        "exe": "/usr/bin/node",
+        "cwd": "/home/ron/Workspace/hyprneuro-pi-owner-gtk",
+        "comm": "pi",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": "/home/ron/.pi/durable-subagents",
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "entrypoint_evidence": "process.title=pi hides script origin; exact loaded SDK not proven",
+        "explicit_files": {}
+      },
+      {
+        "pid": 2329720,
+        "ppid": 2329670,
+        "exe": "/usr/bin/node",
+        "cwd": "/home/ron/Workspace/hyprneuro-pi-owner-gtk",
+        "comm": "node-MainThread",
+        "scripts": [
+          {
+            "path": "/home/ron/.pi/agent/npm/node_modules/rea-agents/scripts/rea.mjs",
+            "sha256": "67ca7682986ff2b90678e1797e625caca6026a1732d9cad1a1088253c7bb45e5"
+          }
+        ],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": "/home/ron/.pi/durable-subagents",
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "explicit_files": {}
+      },
+      {
+        "pid": 2335171,
+        "ppid": 2329670,
+        "exe": "/usr/bin/bash",
+        "cwd": "/home/ron/Workspace/hyprneuro-pi-owner-gtk",
+        "comm": "bash",
+        "scripts": [],
+        "configured_paths": {
+          "HYPRNEURO_RESIDENCY_DIR": null,
+          "HYPRNEURO_PI_OWNER_DIR": null,
+          "HYPRNEURO_WORKSPACE": null,
+          "PI_CODING_AGENT_DIR": null,
+          "DSA_HOME": "/home/ron/.pi/durable-subagents",
+          "PYTHONPATH": null
+        },
+        "optins": {
+          "HYPRNEURO_PI_OWNER_ENABLE": false,
+          "HYPRNEURO_PI_UI": false
+        },
+        "feature_flags_present": [],
+        "modules": [],
+        "explicit_files": {}
+      }
+    ],
+    "services": [
+      {
+        "unit": "hyprneuro-audit-baseline.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "hyprneuro-audit-baseline.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "failed",
+          "SubState": "failed",
+          "FragmentPath": "/run/user/1000/systemd/transient/hyprneuro-audit-baseline.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "no",
+          "MainPID": "0"
+        }
+      },
+      {
+        "unit": "hyprneuro-audit-candidate.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "hyprneuro-audit-candidate.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "failed",
+          "SubState": "failed",
+          "FragmentPath": "/run/user/1000/systemd/transient/hyprneuro-audit-candidate.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "no",
+          "MainPID": "0"
+        }
+      },
+      {
+        "unit": "hyprneuro-audit-picker.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "hyprneuro-audit-picker.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "failed",
+          "SubState": "failed",
+          "FragmentPath": "/run/user/1000/systemd/transient/hyprneuro-audit-picker.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "no",
+          "MainPID": "0"
+        }
+      },
+      {
+        "unit": "hyprneuro-audit-regression.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "hyprneuro-audit-regression.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "failed",
+          "SubState": "failed",
+          "FragmentPath": "/run/user/1000/systemd/transient/hyprneuro-audit-regression.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "no",
+          "MainPID": "0"
+        }
+      },
+      {
+        "unit": "hyprneuro-ui.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "hyprneuro-ui.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "active",
+          "SubState": "running",
+          "FragmentPath": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+          "DropInPaths": "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+          "NeedDaemonReload": "no",
+          "Restart": "on-failure",
+          "MainPID": "2053014"
+        }
+      },
+      {
+        "unit": "hyprneuro.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "hyprneuro.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "active",
+          "SubState": "running",
+          "FragmentPath": "/home/ron/.config/systemd/user/hyprneuro.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "on-failure",
+          "MainPID": "1927557"
+        }
+      },
+      {
+        "unit": "lfm@decision.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "lfm@decision.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "active",
+          "SubState": "running",
+          "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "on-failure",
+          "MainPID": "2323984"
+        }
+      },
+      {
+        "unit": "lfm@moe.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "lfm@moe.service",
+          "Conflicts": "lfm@decision.service lfm@omni.service lfm@text.service shutdown.target",
+          "ActiveState": "inactive",
+          "SubState": "dead",
+          "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+          "DropInPaths": "/home/ron/.dotfiles/home/.config/systemd/user/lfm@moe.service.d/10-exclusive.conf",
+          "NeedDaemonReload": "no",
+          "Restart": "no",
+          "MainPID": "0"
+        }
+      },
+      {
+        "unit": "lfm@omni.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "lfm@omni.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "active",
+          "SubState": "running",
+          "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+          "DropInPaths": "",
+          "NeedDaemonReload": "no",
+          "Restart": "on-failure",
+          "MainPID": "2323979"
+        }
+      },
+      {
+        "unit": "lfm@text.service",
+        "returncode": 0,
+        "properties": {
+          "Id": "lfm@text.service",
+          "Conflicts": "shutdown.target",
+          "ActiveState": "active",
+          "SubState": "running",
+          "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+          "DropInPaths": "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf /home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf /home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf /home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf",
+          "NeedDaemonReload": "no",
+          "Restart": "on-failure",
+          "MainPID": "2323977"
+        }
+      }
+    ],
+    "sources": [
+      {
+        "root": "/home/ron/Workspace/hyprneuro-pi-owner-gtk",
+        "files": {
+          "python/src/hyprneuro/sidecar.py": {
+            "sha256": "00e6b36ffef2d0ee738ee58dfb9db083819cf9ecd4adde34b5955311c3b2117f",
+            "mtime": 1794551049.5895443
+          },
+          "python/src/hyprneuro/agent.py": {
+            "sha256": "4375daf2a9933243f29e97e689cc1dced7b578da7b71b63b0c5aae331043c618",
+            "mtime": 1794551049.5876896
+          },
+          "python/src/hyprneuro/models.py": {
+            "sha256": "00f7ba1816106f1db24e75ff2539a55b20a03631888c8aad77bb9177d58e8464",
+            "mtime": 1794551049.5885444
+          },
+          "python/src/hyprneuro/residency.py": {
+            "sha256": "debadeb7d0a4d491358598ba57a971c1a2a4dbe9998e3a430708eca5337e0607",
+            "mtime": 1794551049.5895443
+          },
+          "extensions/pi-owner/host.mjs": {
+            "sha256": "2ba3c5d89341a2e314a42c5d89183619389bf1c83c5d5010ce907277e0856c5e",
+            "mtime": 1794551049.5867736
+          },
+          "extensions/pi-owner/child.ts": {
+            "sha256": "5a8a979a3be37a9c46822059630fe8589ee747757713c5872547e708d90a152f",
+            "mtime": 1794551049.5865817
+          }
+        },
+        "capabilities": {
+          "agent.py": {
+            "exists": true,
+            "admission_symbol": true
+          },
+          "models.py": {
+            "exists": true,
+            "admission_symbol": true
+          },
+          "residency.py": {
+            "exists": true,
+            "admission_symbol": true
+          }
+        }
+      },
+      {
+        "root": "/home/ron/Projects/Hyprneuro",
+        "files": {
+          "python/src/hyprneuro/sidecar.py": {
+            "sha256": "232bec9bba5ce920e20b9ca12a66510987c40122a4704cf7b5b418190c4a3bf6",
+            "mtime": 1794520369.7568765
+          },
+          "python/src/hyprneuro/agent.py": {
+            "sha256": "a09405222764520ef58f419f391466f040100d21632093603d0d5e9de4bef049",
+            "mtime": 1794521384.3364704
+          },
+          "python/src/hyprneuro/models.py": {
+            "sha256": "1d9b49c152de7d3a480eeb0ffd449ed0f0272cc4d3d3f840d50a9624a31d2494",
+            "mtime": 1794095798.2232835
+          }
+        },
+        "capabilities": {
+          "agent.py": {
+            "exists": true,
+            "admission_symbol": false
+          },
+          "models.py": {
+            "exists": true,
+            "admission_symbol": false
+          },
+          "residency.py": {
+            "exists": false,
+            "admission_symbol": false
+          }
+        }
+      }
+    ],
+    "installed_ui": {
+      "path": "/home/ron/.local/bin/hyprneuro-ui",
+      "sha256": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154"
+    }
+  },
+  "application": [
+    {
+      "probe": "source-identity",
+      "time": 1794570950.2320976,
+      "source": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/normal_stack_probe.py",
+      "package": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/python/src/hyprneuro/__init__.py",
+      "admission_mode": "existing optional legacy normal path; NOT all-client cooperation",
+      "tool_execution": false,
+      "resources": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6193448,
+        "SwapFree": 22024772
+      }
+    },
+    {
+      "probe": "model-identity",
+      "time": 1794570950.240068,
+      "role": "text",
+      "health": {
+        "status": "ok"
+      },
+      "ids": [
+        "lfm-text"
+      ],
+      "metadata": {
+        "model_path": "/home/ron/.models/text/LFM3-1.7B-QAD-Q4_0.gguf",
+        "modalities": {
+          "vision": false,
+          "video": false,
+          "audio": false
+        },
+        "total_slots": 1
+      },
+      "chat_template_sha256": "48ab0f7e16b7e5bf7751c5c1f9a011ff4b36bf1bbed0790a1cea2aec89295d3b",
+      "context": 131072
+    },
+    {
+      "probe": "model-identity",
+      "time": 1794570950.2419438,
+      "role": "omni",
+      "health": {
+        "status": "ok"
+      },
+      "ids": [
+        "lfm-omni"
+      ],
+      "metadata": {
+        "model_path": "/home/ron/.models/omni/LFM3-Omni-2B-Q4_K_M.gguf",
+        "modalities": {
+          "vision": true,
+          "video": true,
+          "audio": true
+        },
+        "total_slots": 1
+      },
+      "chat_template_sha256": "4e295a038af980438912483abe76a81c36b2451c87ccc1e62051529a6a0fb7f5",
+      "context": 32768
+    },
+    {
+      "probe": "model-identity",
+      "time": 1794570950.2447958,
+      "role": "decision",
+      "health": {
+        "status": "ok"
+      },
+      "ids": [
+        "lfm-decision"
+      ],
+      "metadata": {
+        "model_path": "/home/ron/.models/decision/d1-omni-600M-Q8_0.gguf",
+        "modalities": {
+          "vision": true,
+          "video": true,
+          "audio": true
+        },
+        "total_slots": 1
+      },
+      "chat_template_sha256": "cc145ac597328b60dbce2631dce17c0c84bb6a87b2380cc0473e2e1291965db7",
+      "context": 1024
+    },
+    {
+      "probe": "D1-application-noul-string-state",
+      "time": 1794570950.642847,
+      "status": "observed",
+      "seconds": 0.3977573449956253,
+      "result": {
+        "notify_recommended": false,
+        "score": 0.0033116307648205024
+      },
+      "resources_before": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6193180,
+        "SwapFree": 22024772
+      },
+      "resources_after": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6200584,
+        "SwapFree": 22024772
+      }
+    },
+    {
+      "probe": "text-application-plain",
+      "time": 1794570951.1596448,
+      "status": "observed",
+      "seconds": 0.5165493490057997,
+      "result": {
+        "choices": [
+          {
+            "finish_reason": "stop",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "MAPLE"
+            }
+          }
+        ],
+        "created": 1794570951,
+        "model": "lfm-text",
+        "system_fingerprint": "b12308-7bcbc04fb",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 3,
+          "prompt_tokens": 54,
+          "total_tokens": 57,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-YX0yJ9oFKB7OxDtzDzoUXCy5WzsCFf58",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 54,
+          "prompt_ms": 432.522,
+          "prompt_per_token_ms": 8.009666666666666,
+          "prompt_per_second": 124.84914062174873,
+          "predicted_n": 3,
+          "predicted_ms": 80.748,
+          "predicted_per_token_ms": 40.374,
+          "predicted_per_second": 24.76841531678803
+        }
+      },
+      "resources_before": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6200584,
+        "SwapFree": 22024772
+      },
+      "resources_after": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6194556,
+        "SwapFree": 22024772
+      }
+    },
+    {
+      "probe": "text-application-read-tool-SCHEMA-ONLY",
+      "time": 1794570952.5536885,
+      "status": "observed",
+      "seconds": 1.3936825590208173,
+      "result": {
+        "choices": [
+          {
+            "finish_reason": "tool_calls",
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "tool_calls": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "read_fixture",
+                    "arguments": "{\"path\":\"fixture.txt\"}"
+                  },
+                  "id": "7rZgzbhlcJkgxuBm7rQWwLpu0krw81Lt"
+                }
+              ]
+            }
+          }
+        ],
+        "created": 1794570952,
+        "model": "lfm-text",
+        "system_fingerprint": "b12308-7bcbc04fb",
+        "object": "chat.completion",
+        "usage": {
+          "completion_tokens": 21,
+          "prompt_tokens": 130,
+          "total_tokens": 151,
+          "prompt_tokens_details": {
+            "cached_tokens": 0
+          }
+        },
+        "id": "chatcmpl-kIo5eRgejd8kWzPmCjDCrqryoIzuK6Td",
+        "timings": {
+          "cache_n": 0,
+          "prompt_n": 130,
+          "prompt_ms": 605.742,
+          "prompt_per_token_ms": 4.6595538461538455,
+          "prompt_per_second": 214.61282196050465,
+          "predicted_n": 21,
+          "predicted_ms": 783.26,
+          "predicted_per_token_ms": 39.163,
+          "predicted_per_second": 25.534305339223245
+        }
+      },
+      "resources_before": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6194556,
+        "SwapFree": 22024772
+      },
+      "resources_after": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6154080,
+        "SwapFree": 22024788
+      }
+    },
+    {
+      "probe": "text-tool-schema-validation",
+      "time": 1794570952.5538685,
+      "exact_structured_call": true,
+      "execution": false,
+      "fixture_sha256": "d5466052382254eb7c090c46cf469d593725b9b7813209c1a2c685e09c2efc83"
+    },
+    {
+      "probe": "omni-source-application-synthetic-image",
+      "time": 1794570954.4482903,
+      "status": "observed",
+      "seconds": 1.848154095991049,
+      "result": {
+        "frames": [
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": "Red"
+          },
+          {
+            "type": "done",
+            "text": "Red",
+            "role": "omni",
+            "metrics": {
+              "prefill_tps": 197.5,
+              "decode_tps": 25.2,
+              "prompt_tokens_total": 356,
+              "prompt_tokens_evaluated": 356,
+              "prompt_tokens_cached": 0,
+              "cache_hit_pct": 0.0
+            }
+          }
+        ],
+        "input_sha256": "9b5d2bc0516a2749576352b9c38c6e9f88d2db423d8a187c1c003034b2136b3c",
+        "mime": "image/png",
+        "route": "source SidecarServer -> agent.stream_chat -> existing Omni; NOT installed IPC or GTK"
+      },
+      "resources_before": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6155460,
+        "SwapFree": 22024788
+      },
+      "resources_after": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6146884,
+        "SwapFree": 22024788
+      }
+    },
+    {
+      "probe": "omni-source-application-synthetic-WAV",
+      "time": 1794570956.6975243,
+      "status": "observed",
+      "seconds": 2.2419520459952764,
+      "result": {
+        "frames": [
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": "The"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " quick"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " brown"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " fox"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " jumps"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " over"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " the"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " lazy"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": " dog"
+          },
+          {
+            "type": "delta",
+            "channel": "answer",
+            "text": "."
+          },
+          {
+            "type": "done",
+            "text": "The quick brown fox jumps over the lazy dog.",
+            "role": "omni",
+            "metrics": {
+              "prefill_tps": 176.9,
+              "decode_tps": 27.7,
+              "prompt_tokens_total": 331,
+              "prompt_tokens_evaluated": 331,
+              "prompt_tokens_cached": 0,
+              "cache_hit_pct": 0.0
+            }
+          }
+        ],
+        "input_sha256": "3670e2c4b0f3f70c15d8fc85f496589a3fa7029526df33a73ee815ffc59adafc",
+        "mime": "audio/wav",
+        "route": "source SidecarServer -> agent.stream_chat -> existing Omni; NOT installed IPC or GTK"
+      },
+      "resources_before": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6146984,
+        "SwapFree": 22024788
+      },
+      "resources_after": {
+        "MemTotal": 15564600,
+        "MemAvailable": 6139244,
+        "SwapFree": 22024788
+      }
+    }
+  ],
+  "native_d1": {
+    "scope": "actual SDK classifier -> existing D1, NO owner/admission/handoff/approval",
+    "sdk": "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js",
+    "seconds": 0.281773998,
+    "wirePayload": {
+      "model": "d1-omni-600m",
+      "state": {
+        "request": "Routine synthetic greeting; no actions or real user data."
+      },
+      "questions": {
+        "escalate": {
+          "type": "noul",
+          "instructions": "Would this task benefit from exclusive larger-model coding/reasoning? Advisory only; never permission or an instruction to change services.",
+          "criteria": {
+            "true": "Complex multi-step code/tool reasoning",
+            "false": "Routine chat or simple retrieval"
+          }
+        }
+      }
+    },
+    "responseStatus": 200,
+    "rawAnswers": {
+      "escalate": {
+        "type": "noul",
+        "noul": 0.0003670242726206311
+      }
+    },
+    "rawUsage": {
+      "input_tokens": 70,
+      "output_tokens": 0
+    },
+    "nativeOutput": {
+      "api": "typesafe-system-one",
+      "provider": "hyprneuro-decision",
+      "model": "d1-omni-600m",
+      "answers": {
+        "escalate": {
+          "type": "bool",
+          "probability": 0.0003670242726206311
+        }
+      },
+      "stopReason": "stop",
+      "timestamp": 1794570956763,
+      "usage": {
+        "input": 70,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "totalTokens": 70,
+        "cost": {
+          "input": 0,
+          "output": 0,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "total": 0,
+          "totalFromProvider": false
+        }
+      }
+    },
+    "validUncalibratedScore": true,
+    "proposedLifecycleAction": false,
+    "resourcesBefore": {
+      "MemTotal": 15564600,
+      "MemAvailable": 6123800,
+      "SwapFree": 22024788
+    },
+    "resourcesAfter": {
+      "MemTotal": 15564600,
+      "MemAvailable": 6115484,
+      "SwapFree": 22024788
+    }
+  },
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/operational.before.json",
+      "sha256": "bac27f3c470af6579c9a2e2a3e3d7c661f83c299fab630256a9114f271adac03"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/operational.json",
+      "sha256": "33c0c9cb351749393feaaf451db459cb7f81ba58573f1d50cd584769c42ad855"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/normal-20261113-065550/application.jsonl",
+      "sha256": "354ad074191f80b4c0cee37840157a46c1cdadeae96962d7b2d970b33103619e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/normal-20261113-065550/native-d1.json",
+      "sha256": "885106f643b3b86c1df1aa003e85fb299813119c1eac2befa320529e01452479"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/normal-20261113-065550/lease.log",
+      "sha256": "99682f08c474e26af4a368b009d98d89d5bf14601a7ef8e37c0732c10f5bf8b4"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/guard-tests.log",
+      "sha256": "a9e47c92146710b3abb16c3e77c0a25be4c1b3c9481c71aaae521a2506562a9a"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/python-full.log",
+      "sha256": "83596e88db2ff903dff7a9c19751d34f5ff7bab719c0a7236f2684bcb8b61a1c"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/node-full.log",
+      "sha256": "bf6ef9ec69ec11208500b3ea8bee6d4d0940afa11505e44be75bc7265e7d5967"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/c-helpers.log",
+      "sha256": "3b07b844f2930409fb78732f259424486e0dd31a6fc9c999ae8312b4d32b6273"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/c-helpers-sanitized.log",
+      "sha256": "052fb050bcb835ab7246aaea656a48190fb4cd95d81bcd8c782f85e1886144db"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/runtime_admission_audit.py",
+      "sha256": "e905f0c73b95f0e23b6d76e1dc53a9031bdb80d49cf92619d675cb8b0875293a"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/normal_stack_probe.py",
+      "sha256": "d41fc68ea39844a448cb89d53b37172b5c6ff1b0ba60bd2a3faffb89bb7c0a87"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/normal_d1_probe.mjs",
+      "sha256": "0595d9892818d878259489614095ddc3a45105b6bec27217823740dfbf364301"
+    }
+  ],
+  "validation": {
+    "python": "367 passed,1 skipped,86 subtests",
+    "node": "33 passed (installed SDK, mock HTTP; not more live inference)",
+    "c_helpers": "14 normal + ASan/UBSan/leak checks",
+    "probe_refusals": "2 tests,6 subtests; no model calls"
+  }
+}

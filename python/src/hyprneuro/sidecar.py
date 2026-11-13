@@ -74,6 +74,7 @@ class SidecarServer:
         self.alert_enabled = alert_enabled
         self.resources_enabled = resources_enabled
         self.watcher = None
+        self.session_lock_guard = None
         self.browser_ingress = browser_ingress
         self.browser_capture_source = None
         self.handlers = set()
@@ -280,6 +281,16 @@ class SidecarServer:
             raise ValueError("Expected JSON object")
         action = request.get("action")
         self.telemetry.bump("ipc_requests")
+        if action == "session_lock":
+            if set(request) != {"action", "session", "locked"} or (
+                    request["locked"] is not None and type(request["locked"]) is not bool):
+                raise ValueError("Expected session_lock session and boolean/null locked")
+            if self.session_lock_guard is None:
+                raise PermissionError("Session lock hook unavailable; capture consent unchanged")
+            if not self.session_lock_guard.session_lock_event(request["session"], request["locked"]):
+                raise ValueError("Session lock event does not target this session")
+            return {"schema": "hyprneuro.session-lock/1", "paused": True,
+                    "verification_pending": True}
         if action == "telemetry":
             return self.telemetry.snapshot(self.store)
         if action == "health":
@@ -721,12 +732,22 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 from .config import Config
                 from .models import Models
                 models = Models(Config.load())
-            model_scheduler = ScheduledModels(models)
-            guard = unlock_guard or LoginSessionGuard().unlocked
+            # Recall owns cancellable streams, not the shared Models HTTP threads.
+            from .models import Models
+            from .recall_transport import RecallModels
+            recall_models = RecallModels(models.c) if type(models) is Models else models
+            model_scheduler = ScheduledModels(recall_models)
+            session_guard = None if unlock_guard else LoginSessionGuard()
+            guard = unlock_guard or session_guard.unlocked
             apps = DEFAULT_EXCLUDED_APPS | frozenset(str(app).lower() for app in excluded_apps)
             policy = CapturePolicy(enabled=True, check_unlocked=guard,
                                    excluded_app_ids=apps, visual_d1=d1_visual)
-            worker.watcher = ScreenWatcher(desktop, model_scheduler, store, policy, grabber)
+            worker.watcher = ScreenWatcher(desktop, model_scheduler, store, policy, grabber,
+                                           session_guard=session_guard)
+            worker.session_lock_guard = session_guard  # trusted session/compositor hook
+            if session_guard is not None:
+                await session_guard.reconcile()  # already locked startup stays closed
+                producers.append(asyncio.create_task(session_guard.run(), name="session_lock"))
         if watch_hyprland:
             from .sidecar_sources import HyprlandSource
             if desktop is None:
@@ -742,7 +763,6 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 from .recall_events import D1CaptureSource
                 capture_source = D1CaptureSource(worker.watcher)
                 worker.browser_capture_source = capture_source
-                shared_events.subscribe(capture_source.on_event)
                 producers.append(asyncio.create_task(capture_source.run(), name="capture"))
 
             app_watcher = None
@@ -779,8 +799,15 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                                         kinds={"activewindowv2"})
             producers.extend(asyncio.create_task(sub.run(), name=f"hyprland_subscriber_{i}")
                              for i, sub in enumerate(shared_events.subscribers))
+            async def compositor_event(name, data):
+                # Stamp visual admission at intake, not after a subscriber mailbox
+                # delay that could carry locked events into an unlocked generation.
+                if capture_source is not None:
+                    await capture_source.on_event(name, data)
+                await shared_events.on_event(name, data)
+
             producers.extend([asyncio.create_task(source.flush(), name="hyprland_store"),
-                              asyncio.create_task(shared_events.follow(desktop), name="hyprland")])
+                              asyncio.create_task(desktop.events(compositor_event), name="hyprland")])
         if alert_journal or alert_network or alert_resources:
             from .event_stream import EventIntake
             from .escalation import EscalationRouter

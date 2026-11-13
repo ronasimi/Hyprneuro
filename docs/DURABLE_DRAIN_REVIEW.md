@@ -44,9 +44,12 @@ it does not publish a new control envelope, resume workflows, take over a live
 lock holder, or restart a live authority. A retiring generation can now finish
 and leave the existing request for a legitimately started successor.
 
-The original **10,000ms completion deadline is unchanged and never renewed**.
-Startup probes and resolution reads share that deadline. No fresh mutation ID,
-second submission, uncertain replay or increased timeout hides the failure.
+The original **10,000ms completion-loop budget is unchanged and never renewed**.
+It bounds when another completion probe starts, not strict end-to-end wall-clock
+execution: initial submission is outside this budget, and a native startup probe
+begun before expiry can finish afterward because it is not deadline-cancelled.
+No fresh mutation ID, second submission, uncertain replay or increased timeout
+hides the failure.
 Known rejection/conflict remains an error/decision, not a reason to start another
 mutation. Deadline expiry still reports uncertainty with the original request ID.
 

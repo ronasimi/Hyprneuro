@@ -5,6 +5,18 @@ integration `e4ab16e`; neither is merged here. Historical handoff/GTK evidence i
 unchanged. This checkpoint does not authorize a live owner or change the parent
 Pi/Durable installation, services, model configuration, capture or installed UI.
 
+## Review corrections after the original checkpoint
+
+Full blocking review `01M7AERA64VE2KYFC4KSDCWD45` was fetched. SDK filename
+rewriting/fallback cannot access/MIME/read any target other than the **exact**
+approved path, even if another filename is independently allowlisted. Workspace
+must be `$O/home/workspace`; every discovery-visible directory through private
+HOME is canonical/owner-controlled and free of `.pi`/`.agents`/package metadata.
+Native discovery stops at that private HOME. GTK readiness is explicit and
+authenticated, distinct from unavailable lifecycle; unknown unavailable owners
+stay closed. Re-review required before live launch. Updated exact env-i bootstrap:
+`docs/NORMAL_ONLY_GTK_ACTIVATION.md`. Only synthetic fixture reads; child-read0.
+
 ## Explicit profile and mode
 
 `createHost({profile:'read-only',normalOnly:true,readPaths:[...],childRead:false})`
@@ -71,8 +83,9 @@ not automatic adoption. Orderly reopen retains the same journal but no consent.
 `DSA_SCOPE=off` disables systemd scope use, **not agent discovery**. Durable's
 public discovery API has no simple builtins-only switch for all native entrypoints.
 Consequently this profile is deliberately **dedicated-fixture-workspace only**:
-owner-controlled canonical directory, outside Git discovery roots, with no `.pi`,
-`.agents` or `package.json`. Recheck before/after delegation approval. A private
+owner-controlled canonical `$O/home/workspace`, outside Git discovery roots, with
+no `.pi`, `.agents` or `package.json` anywhere from workspace through private HOME.
+Sibling layouts are refused; discovery cannot walk into personal HOME metadata. Recheck before/after delegation approval. A private
 HOME/agent directory, offline discovery and fixed delegate overrides prevent
 ambient user agents/skills/context; the launcher also disables discovery surfaces.
 These settings are only in the new owner's private home. Arbitrary repository

@@ -239,9 +239,14 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       const guarded={...definition, executionMode:'sequential',
         async execute(id,args,signal,onUpdate,ctx) {
           return run(name,id,args,signal,onUpdate,ctx, async (input,workspace) => {
-            const operations = {access:p => workspace.access(p), mkdir:p => workspace.mkdir(p),
+            const approvedPath = readOnly ? workspace.target(input.path) : undefined;
+            const exact = p => {
+              if(readOnly && workspace.target(p)!==approvedPath)throw new Error('Resolved read path differs from exact approved target');
+              return p;
+            };
+            const operations = {access:p => workspace.access(exact(p)), mkdir:p => workspace.mkdir(p),
               detectImageMimeType:async p => {
-                const b=await workspace.read(p);
+                const b=await workspace.read(exact(p));
                 if(b.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return 'image/png';
                 if(b[0]===255 && b[1]===216 && b[2]===255)return 'image/jpeg';
                 if(b.subarray(0,3).toString()==='GIF')return 'image/gif';
@@ -250,7 +255,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
               },
               writeFile:(p,text) => workspace.write(p,text),
               readFile:async p => {
-                const data = await workspace.read(p);
+                const data = await workspace.read(exact(p));
                 return name === 'edit' ? exactEdits(data,input.edits) : data;
               }};
             if (name === 'bash') {

@@ -14,11 +14,19 @@ import { durablePolicy,durableRuntime } from './durable.mjs';
 // Fixture-only read profile: native Durable discovery has no "builtins only"
 // switch. Refuse ambient project agent/package configuration rather than claim
 // --no-tools or DSA_SCOPE isolates discovery. Recheck before child admission.
-async function readWorkspace(workspace) {
-  const st=await lstat(workspace);
-  if(workspace!==await realpath(workspace)||!st.isDirectory()||st.uid!==process.getuid()||(st.mode&0o022))throw new Error('Canonical owner-controlled dedicated read workspace required');
-  for(const name of ['.pi','.agents','package.json']) {
-    if(await lstat(join(workspace,name)).catch(e=>{if(e.code!=='ENOENT')throw e;}))throw new Error('READ-ONLY dedicated workspace must have no agent/package discovery metadata');
+async function readWorkspace(workspace,root) {
+  const home=join(root,'home');
+  if(!isAbsolute(root)||root!==await realpath(root)||workspace!==join(home,'workspace'))throw new Error('READ-ONLY workspace must be dedicated HOME/workspace beneath owner root');
+  // Durable project discovery walks cwd ancestors until canonical HOME; user
+  // discovery also reads HOME/.agents. Check that entire visible chain, including
+  // HOME itself, before native discovery and each delegation preflight.
+  for(let p=workspace;;p=dirname(p)) {
+    const st=await lstat(p);
+    if(p!==await realpath(p)||!st.isDirectory()||st.uid!==process.getuid()||(st.mode&0o022))throw new Error('Canonical owner-controlled dedicated read workspace/HOME required');
+    for(const name of ['.pi','.agents','package.json']) {
+      if(await lstat(join(p,name)).catch(e=>{if(e.code!=='ENOENT')throw e;}))throw new Error('READ-ONLY discovery metadata forbidden throughout workspace/HOME chain');
+    }
+    if(p===home)break;
   }
   for(let p=workspace;;p=dirname(p)) {
     if(await lstat(join(p,'.git')).catch(e=>{if(e.code!=='ENOENT')throw e;}))throw new Error('READ-ONLY dedicated workspace must be outside project discovery roots');
@@ -36,7 +44,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
   if(normalOnly&&!readOnly||childRead&&!readOnly)throw new Error('Normal-only/child read require explicit READ-ONLY profile');
   if(readOnly&&(model||!Array.isArray(readPaths)||!readPaths.length||readPaths.length>32||workspace!==await realpath(workspace)))throw new Error('READ-ONLY requires canonical workspace, exact read allowlist and fixed local text model');
   if(readOnly){
-    await readWorkspace(workspace);const scope=await Workspace.create(workspace);
+    await readWorkspace(workspace,root);const scope=await Workspace.create(workspace);
     try{readPaths=Object.freeze([...new Set(readPaths.map(p=>scope.target(p)))].sort());}finally{await scope.close();}
   }
   const url=new URL(textBaseUrl);
@@ -102,7 +110,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const settings=sdk.SettingsManager.inMemory({retry:{enabled:false,provider:{maxRetries:0}},compaction:{enabled:false},cacheWarming:'off'});
     const runtime=await sdk.ModelRuntime.create({authPath:join(agentDir,'auth.json'),modelsPath:null,modelsStorePath:join(agentDir,'models-store.json'),refreshOnCreate:false,allowModelNetwork:false});
     const approvedChildReads=new Set();
-    const policy=durablePolicy({workspace,preflight:()=>readWorkspace(workspace),readOnly,childRead,onReadApproved:request=>approvedChildReads.add(request),phase:()=>owner?.closing?'closed':owner?.phase??'closed',
+    const policy=durablePolicy({workspace,preflight:()=>readWorkspace(workspace,root),readOnly,childRead,onReadApproved:request=>approvedChildReads.add(request),phase:()=>owner?.closing?'closed':owner?.phase??'closed',
       broker:op=>checkBroker(rpc,taskId,appId,op,workspace),approve:request=>owner.approve(request)});
     providers=readOnly?undefined:providers??await Providers.load();
     const extension=harnessExtension(sdk,{rpc,providers,native,readOnly,normalOnly,readPaths,textBaseUrl,binding:Object.freeze({workspace,taskId,appId}),confirm:request=>owner.approve(request),durableGuard:policy,

@@ -79,6 +79,7 @@ export async function durableRuntime(packageDir,home,env) {
 
 export function durablePolicy({workspace,phase,broker,approve,readOnly=false,childRead=false,onReadApproved,preflight}) {
   return async args=>{
+    if(readOnly)await preflight?.();
     const action=args.action??'run';
     if(['status','agents'].includes(action)) {
       const allowed=action==='status'?['action','wid']:['action'];
@@ -94,7 +95,6 @@ export function durablePolicy({workspace,phase,broker,approve,readOnly=false,chi
     if(!launch.request || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,123}$/.test(launch.request))throw new Error('Durable run needs stable request id');
     if(launch.cwd!==workspace || !Number.isFinite(launch.timeoutMs)||launch.timeoutMs<=0||launch.timeoutMs>120000 || launch.rerun!==undefined&&launch.rerun!==false)
       throw new Error('Explicit workspace, bounded duration and no uncertain replay required');
-    if(readOnly)await preflight?.();
     if(readOnly&&launch.command!==undefined)throw new Error('READ-ONLY owner forbids command execution');
     if(launch.command!==undefined) {
       if(['agent','task','tools','model','once','writer','context'].some(k=>k in launch))throw new Error('Command and agent permissions cannot be mixed');

@@ -1,0 +1,90 @@
+{
+  "base": "df1c212bcfbf0265b45c51e717b771f6fe88f3ec",
+  "review": "01M7AERA64VE2KYFC4KSDCWD45/readonly-review",
+  "review_full_output_sha256": "105a074f8c51bf2c7bf1e46fd34ffe6abfe8f51d6330b44b5e91b19b4968d69a",
+  "state": "All three P1 corrections implemented/tested; pending independent re-review; NOT deployed/live/rendered accepted",
+  "fixes": [
+    "Resolved access/MIME/read targets must equal exact approved target after SDK rewriting/fallback; owner and bridged child share guard",
+    "Strict canonical owner/home/workspace layout; check entire discovery-visible chain through private HOME; startup and every Durable action/consent preflight; reject sibling and introduced HOME metadata",
+    "df1c212 explicit authenticated normal_only boolean + unavailable lifecycle + ordinary phase enables native text separately; unknown/malformed/failed/transition/disconnected closed; lifecycle remains refused"
+  ],
+  "tests": {
+    "isolated": {
+      "node": 44,
+      "python": 370,
+      "skipped": 1,
+      "subtests": 90
+    },
+    "combined": {
+      "parent": "feb1958b06aa66cf94c6183030b55d362061a9fe",
+      "tree": "/tmp/hn-readonly-combined-sZS6ti",
+      "method": "git archive parent + exact worker source patch; progress-log append excluded; durable/test final files refreshed; no branch merge/checkout or deployment",
+      "python": 412,
+      "skipped": 1,
+      "subtests": 92,
+      "node": 44,
+      "c_normal": 16,
+      "c_asan_ubsan_leaks": 16,
+      "parent_plans": "IMPLEMENTATION_STATUS.md and PRODUCTION_TEST_REPORT.md byte-identical to parent"
+    }
+  },
+  "source_hashes": {
+    "extensions/pi-owner/host.mjs": "bcb16cb63841947ae0858863fe8e36ad4476b3cde90c0894f5cb6afffba2d93f",
+    "extensions/pi-owner/durable.mjs": "427e288fea50c9bf0c596d91b5fa3de911ef55512b99800e60358ec440707361",
+    "extensions/tool-harness/index.mjs": "61bbbe19e14ea244a24f513e8df5c42b433b2173c8bc8e75f476d3833c42140f",
+    "tests/pi-owner-readonly.mjs": "7f7d8e7c91a6efcce4addc49cca28d9f5cf76abb4a5faf5852e20f5545c20f18",
+    "ui/src/pi-desktop.inc": "7ffbd0fd80bc9382fe4d71ee7cc9f978c4bffaa99e877aae50b5b893c278f48d",
+    "ui/src/hyprneuro.c": "22946c5c6ee4bbb76a7890c07cc9b367db2c511ff45146c604333afe17a8920c",
+    "python/src/hyprneuro/settings.py": "593b90bad0dc9a936b23fe00d14ad408dcbc3d95bc0ec8525184b87635b82522"
+  },
+  "logs": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-node-full.log",
+      "sha256": "477c35674b5739d886a5f6bb88b72a13575de2368307726d0cf187375846e955"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-python-full.log",
+      "sha256": "5321d731f3c5ddb847f0be36e5035310d041e98f6f5644b1154e5b995e42b0e4"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-combined-python.log",
+      "sha256": "4b7a4d72a6e6fe5594d490e7b03eb1b8eb2d91bd026004a75041210671059e92"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-combined-node.log",
+      "sha256": "74183b0ca61d7d3b32559b02c507fbb864c9325178debcff9b1e1b91ee3cb131"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-combined-c.log",
+      "sha256": "a69446c30dfa35e917e9ac416eb6764ca1666df7a1fd7388c3025f77b8dfa204"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-combined-c-sanitized.log",
+      "sha256": "1d4d3e587d8c54f6cd030cffbfc95612fa7e67390b543d6baefebf022f3c4715"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-combined-build.log",
+      "sha256": "d30f80a1ef2f64d615b8ad92f7e81436c2c990dcc5e4f1f766f2c04f767c7b47"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/readonly-p1-combined-sanitize-build.log",
+      "sha256": "31f00afd01f9a37427fb5cc6cd03ff77375c128f7daf658f39d175d1a3825c0a"
+    }
+  ],
+  "regressions": [
+    "NBSP -> ASCII normalization, NFC -> NFD fallback, straight -> curly quote, macOS AM/PM narrow no-break-space fallback: owner and actual native child, no unapproved workspace operations/content",
+    "Sibling workspace and every .pi/.agents/package marker at workspace and private HOME refused before guard; introduced HOME .agents blocks delegate and agents discovery",
+    "Explicit normal-only ordinary readiness versus unavailable unknown and malformed/failed/transition/disconnect C checks"
+  ],
+  "failures_retained": [
+    "readonly-p1-focused.log: mock completion-note ordering when reusing multiple children, corrected by isolated per-variant fixtures (not scheduler change)",
+    "readonly-p1-focused-v2.log: prior bootstrap fixture used now-invalid sibling layout, corrected to required private HOME"
+  ],
+  "remaining": [
+    "Parent fast independent re-review/integrate checkpoints into clean published descendant and verify installed/Python origins plus private rollback",
+    "Parent authorizes dedicated fixture live bounded text/read with real human activation and every read consent; actual GTK opt-in route, not legacy text",
+    "Fresh unlock + independent active-local/no-locker checks before UI; render/MDI pixels still unverified; no capture without separate permission",
+    "HYPRNEURO_PI_CHILD_READ=0: native idle-exit pending-run liveness unresolved; source/mock child regressions do not authorize live children",
+    "No personal-file reads, write/exec/network/provider expansion, Hermes/MoE/coordinator/residency initialization or all-client claims"
+  ]
+}

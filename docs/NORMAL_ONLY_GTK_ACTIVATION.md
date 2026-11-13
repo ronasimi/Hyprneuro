@@ -1,7 +1,7 @@
 # Parent activation handoff — normal-only read profile, not launched
 
 Source checkpoints: `23487d7` read-only owner, `f64129a` two-state MDI UI,
-then this normal-only GTK routing fix. Parent integrates/reviews against published
+then `df1c212` normal-only GTK routing, followed by the P1 exact-target/discovery corrections. Full review `01M7AERA64VE2KYFC4KSDCWD45` was fetched; all three P1s are addressed in source, pending re-review. Parent integrates/reviews against published
 `feb1958b06aa66cf94c6183030b55d362061a9fe`, preserving its plans/bridge cleanup.
 No force push, self-cherry-pick, installed change or live owner occurred here.
 
@@ -24,14 +24,18 @@ No admission initializer, global/all-client flag, Hermes command or model change
    dirty canonical source/edit `.pth` or replace real DB/settings with fixtures.
 2. Take the machine lease. Recheck normal model PID/start identities, MoE off,
    adequate memory and absence of another owner. Create a **new private**, canonical,
-   same-UID fixture directory outside any Git discovery root, containing only a
-   harmless `fixture.txt` canary, no symlinks/hardlinks or `.pi`/`.agents`/package.
-   Select a **separate** private owner root, outside the read workspace. No reuse
+   same-UID owner directory `$O` outside Git discovery roots. Create **exactly**
+   `$W=$O/home/workspace` (private canonical HOME is `$O/home`) containing only
+   harmless synthetic `fixture.txt`, no symlinks/hardlinks. `.pi`/`.agents`/package
+   metadata is forbidden throughout workspace → private HOME, inclusive. Discovery
+   stops at that HOME, not the user’s personal HOME. Owner secrets remain outside
+   `$W`, in its private ancestor `$O`. No reuse
    of an uncertain guard/checkpoint or automatic recovery/replay.
 3. In the dedicated process only, launch (fill approved absolute paths/identities):
 
 ```sh
-env -u HYPRNEURO_RESIDENCY_DIR \
+env -i PATH=/usr/bin:/bin LANG=C.UTF-8 \
+  HOME="$OWNER_ROOT/home" XDG_RUNTIME_DIR="$BROKER_RUNTIME_DIR" \
   HYPRNEURO_PI_OWNER_ENABLE=1 \
   HYPRNEURO_PI_OWNER_PROFILE=read-only \
   HYPRNEURO_PI_OWNER_MODE=normal-only \
@@ -43,7 +47,7 @@ env -u HYPRNEURO_RESIDENCY_DIR \
   HYPRNEURO_PI_SDK=/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js \
   HYPRNEURO_DURABLE_PACKAGE=/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents \
   HYPRNEURO_PI_BIN=/home/ron/.pi/agent/bin/pi \
-  node "$RELEASE/extensions/pi-owner/host.mjs"
+  /usr/bin/node "$RELEASE/extensions/pi-owner/host.mjs"
 ```
 
 The actual broker RPC endpoint is the same user's
@@ -72,10 +76,28 @@ Native Durable idle-boundary liveness is still unresolved, not fixed by this UI.
 
 ## Current verification (not live or rendered acceptance)
 
-Full installed-native/mock-inference Node suite **39 passed**, including explicit
-normal-only status metadata and actual read/native continuation tests. Full
+Full installed-native/mock-inference Node suite **44 passed**, including explicit
+normal-only readiness; four filename rewrite/fallback regressions in both owner
+and actual bridged native child; full private-HOME discovery-chain checks; actual
+read/native continuation tests. New filename tests assert no unapproved target
+reaches any workspace access/MIME/read operation, even when Pi normalizes NBSP,
+tries NFD, curly quotes or macOS AM/PM variants. Child regression mocks do not
+authorize live child reads or solve native idle-exit liveness. Full
 Python **370 passed,1 skipped,90 subtests**. **16 C helpers** normal and ASan/UBSan
 (leaks enabled) include explicit-mode parsing, malformed/failed/transition status
 rejection and normal-only native/media routing versus unknown unavailable denial.
 New logs: audit directory `normal-gtk-{node-full,python-full,c,c-sanitized}.log`.
 A fresh integrated build/live model + human approval + GTK run is the next gate.
+
+P1 correction logs: `readonly-p1-*` under the audit directory. Earlier focused
+failures retained: multi-child mock completion-note ordering (split into isolated
+per-variant fixtures), and an old bootstrap fixture with the now-invalid sibling
+layout. No denied request or unknown production outcome was retried.
+
+Combined verification on disposable `feb1958` + corrected worker source:
+**412 Python passed,1 skipped,92 subtests;44 Node;16 C helpers normal and
+ASan/UBSan/leaks**. Parent plans preserved byte-for-byte. This is not a branch
+merge, installed acceptance or deployment. Receipts:
+`docs/evidence/read-only-p1.json`. Next: fast independent re-review, clean parent
+integration, immutable app-only release/rollback, then explicitly authorized
+live parent `read` fixture + genuine GTK approval/continuation (child-read0).

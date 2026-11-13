@@ -188,3 +188,55 @@ skill snapshot behavior are preserved. These fixes do not implement Durable or
 GTK integration. Next phase: one opt-in long-lived Pi owner, authenticated trusted
 control/chat bridge, actual Durable child quiescence/permission integration and
 source/mock workflow tests, in a separate commit.
+
+## Separate native owner phase — SOURCE/MOCK ONLY
+
+Following reviewed six-fix commit `6a8538c`, the new
+[`PI_OWNER_BRIDGE.md`](PI_OWNER_BRIDGE.md) documents the implemented opt-in long-lived
+actual Pi session, installed Durable integration, private binary-authenticated
+control/chat socket and async Python UI client. No UI/sidecar forwarding or live
+activation has been performed. Native `subagents` is deliberately retained behind
+its own permission boundary; tool-free children do not inherit IO grants.
+
+Native parent quiescence and **actual Durable child drain/slot ledger** are
+separate checks. One real installed-Durable command workflow runs only a temporary
+file effect under mocked consent/broker/model HTTP; drain waits for completion,
+receipt is checked, replay is deduplicated, and the native conversation reopens.
+Actual Python-client → socket → installed-Pi streaming is also exercised. Pi1.5's
+TS extension root-alias/subpath import issue was reproduced and fixed with its
+official native API factory, with actual loader regressions for both entries.
+
+Parent approved the conservative explicit trusted-UI `recommend:true` policy:
+current request≤800 chars to local D1, finite[0,1] **uncalibrated score** threshold
+0.75, allowlisted route, one proposal, fresh trusted consent, no retries/automatic
+permission. Actual native classifier/mock HTTP tests cover boundaries, malformed
+scores, timeout/cancel and release; dismissal retains normal chat.
+
+Validation: **28 Node tests passed;350 Python passed,1 skipped,80 subtests**;
+syntax/compilation and whitespace checks. The Node total comprises the prior15
+plus13 owner/bridge/routing/loader tests. Temporary native Durable execution is
+verified; **model-child inference/live D1/handoff/GTK/native MCP/live providers
+remain unverified**, not represented by those tests. Legacy observational chat,
+media, system prompt and capture defaults are unchanged in this phase.
+
+**Next dependency:** parent source review and coordinated GTK wiring using the
+shared owner/client contract; all-client cooperation deployment and a separate
+parent-controlled lease before any live lifecycle/inference acceptance. No push,
+installed configuration change or interaction with the existing Hermes.
+
+Exact owner-phase validation commands:
+
+```sh
+PI_HARNESS_SDK=/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js \
+PI_HARNESS_DURABLE=/home/ron/.pi/agent/npm/node_modules/pi-durable-subagents \
+  node --test tests/tool-{harness,providers,residency}.mjs tests/pi-owner*.mjs
+# 28 passed
+PYTHONPATH=python/src /home/ron/Projects/Hyprneuro/python/.venv/bin/python \
+  -m pytest python/tests/ -q
+# 350 passed, 1 skipped, 80 subtests passed
+for f in extensions/pi-owner/*.mjs extensions/tool-harness/{index,residency}.mjs; do
+  node --check "$f" || exit
+done
+/usr/bin/python3 -m py_compile python/src/hyprneuro/pi_owner_client.py
+git diff --check
+```

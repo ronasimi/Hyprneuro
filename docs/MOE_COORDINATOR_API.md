@@ -117,7 +117,7 @@ must authenticate trusted UI origin; these MUST NOT become model-facing tools.
   additionally verifies private checkpoint state and actual service identities.
   Hosts prime the page off GTK via `ManualSwitch.create` before attaching clients.
 - Live services/inference, real provider acceptance, GUI toggle, actual Pi Durable
-  workflow execution and native MCP integration remain **UNVERIFIED**. These are
+  model-child inference and native MCP integration remain **UNVERIFIED**. These are
   not replaced by the mock tests or by an additional agent framework.
 
 
@@ -127,3 +127,13 @@ blocked with no automatic stop/adoption. A healthy connected manual owner has no
 idle expiry. Unexpected helper exit clears its capability and exposes failure.
 Desktop lease release requires this host's actual acquisition capability, never a
 token learned from status (matching task IDs alone do not prove ownership).
+
+## Native owner bridge follow-up (source/mock only)
+
+See [PI_OWNER_BRIDGE.md](PI_OWNER_BRIDGE.md): a separate opt-in long-lived actual
+Pi session now owns commands and authenticated asynchronous control/chat requests.
+Installed Durable command workflow/drain/replay and Python-client-to-Pi mock HTTP
+streaming are tested; this supersedes the earlier blanket “Durable unverified”
+checkpoint only for that source/mock coverage. GTK wiring, live model children,
+D1 compatibility, all-client deployment and live handoff are still pending.
+No second `ManualSwitch` owner or observational Python agent loop is introduced.

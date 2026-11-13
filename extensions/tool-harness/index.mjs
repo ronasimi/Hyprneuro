@@ -7,9 +7,9 @@ const FILE_TOOLS = ['read', 'write', 'edit', 'bash'];
 const props = {read:['path','offset','limit'], write:['path','content'], edit:['path','edits'], bash:['command','timeout']};
 
 // Factory injected with Pi's public exports: no separate model client or loop.
-export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined } = {}) {
+export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission } = {}) {
   return function(pi) {
-    let active, outcomes, previous, handoff, originalModel, handoffFailure;
+    let active, outcomes, previous, handoff, originalModel, handoffFailure, pendingHandoff;
     let nativeCalls = new Map(), nativeFinish, rawInvalid = false, validatedIds = new Set();
     const approve = async (ctx, title, detail, signal) => {
       signal?.throwIfAborted();
@@ -29,7 +29,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         previous ??= pi.getActiveTools();
         active = {workspace:root, taskId, appId};
         outcomes = new Outcomes(pi, ctx);
-        pi.setActiveTools([...FILE_TOOLS, ...(providers?.names ?? [])]);
+        pi.setActiveTools([...FILE_TOOLS, ...(providers?.names ?? []), ...(durableGuard&&pi.getAllTools().some(t=>t.name==='subagents')?['subagents']:[])]);
       } catch (e) { await root.close(); throw e; }
     }
     pi.on('session_start', async (_e, ctx) => {
@@ -80,7 +80,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
           await owner.closed;
         } catch(e){await owner.stop().catch(()=>{});throw e;}
       }});
-    if(native)pi.registerProvider('hyprneuro-local', {streamSimple:(model,context,options)=>guardedStream(native,model,context,options,handoff?.token),api:'openai-completions',apiKey:'local-no-credential',
+    if(native)pi.registerProvider('hyprneuro-local', {streamSimple:(model,context,options)=>guardedStream(native,model,context,options,handoff?.token,inferenceGate),api:'openai-completions',apiKey:'local-no-credential',
       models:[['lfm-text',8081,131072],['lfm-omni',8082,32768],['lfm-moe',8080,65536]].map(([id,port,contextWindow])=>({
         id,name:id,baseUrl:`http://127.0.0.1:${port}/v1`,contextWindow,maxTokens:2048,reasoning:false,
         input:id==='lfm-omni'?['text','image']:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0},
@@ -99,7 +99,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       if(args==='finish')return finishHandoff(ctx);
       if(handoffFailure)throw new Error(handoffFailure);
       if(!native || args!=='start' || handoff || !active)throw new Error('Enable guarded tools; use start or finish');
-      const owner=control('handoff');owner.send({task_id:active.taskId});
+      const owner=control('handoff');pendingHandoff=owner;owner.send({task_id:active.taskId});
       try {
         while(true) {
           const request=await owner.next();
@@ -126,10 +126,18 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
             break;
           } else throw new Error('Unexpected residency handshake');
         }
-      } catch(e){await owner.stop().catch(()=>{});handoff=undefined;throw e;}
+      } catch(e){
+        await owner.stop().catch(()=>{});
+        if(handoff===owner&&originalModel)await pi.setModel(originalModel);
+        handoff=undefined;throw e;
+      } finally {if(pendingHandoff===owner)pendingHandoff=undefined;}
     }};
-    pi.registerCommand('hn-hermes',hermesCommand);
+    exposeCommands?.({moe:hermesCommand.handler,status:observedState,cancel:async()=>{
+      if(pendingHandoff){pendingHandoff.expectedClose=true;await pendingHandoff.stop();}
+    }});
+    pi.registerCommand('hn-hermes',{...hermesCommand,handler:(args,ctx)=>ownerControl?ownerControl(args==='start'?'on':args==='finish'?'off':args):hermesCommand.handler(args,ctx)});
     pi.registerCommand('moe',{description:'Trusted manual on/off/status; no startup preference or D1 permission grant',handler:async(args,ctx)=>{
+      if(ownerControl)return ownerControl(args);
       if(args==='status') {const state=await observedState();ctx.ui.notify(JSON.stringify(state),'info');return state;}
       if(!['on','off'].includes(args))throw new Error('Use /moe on, /moe off or /moe status');
       await hermesCommand.handler(args==='on'?'start':'finish',ctx);
@@ -195,6 +203,12 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     });
     // No model-facing approval, scope expansion or subprocess-delegation APIs.
     pi.on('tool_call', async event => {
+      if(event.toolName==='subagents'&&durableGuard) {
+        try {
+          if(!validatedIds.has(event.toolCallId))throw new Error('Incomplete native delegation call');
+          await durableGuard(event.input);return;
+        } catch(error){return {block:true,reason:error.message,terminate:true};}
+      }
       if (active && !validatedIds.has(event.toolCallId))
         return {block:true,reason:'Incomplete/unvalidated native tool call',terminate:true};
       if (active && ![...FILE_TOOLS, ...(providers?.names ?? [])].includes(event.toolName))
@@ -202,6 +216,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     });
     async function run(name, id, input, signal, onUpdate, ctx, execute) {
       if (!active || !outcomes) throw new Error('Tools disabled; use trusted /hn-tools command');
+      toolAdmission?.();
       signal?.throwIfAborted();
       const args = structuredClone(input);
       if (JSON.stringify(args).length > MAX_WRITE + 8192 || Object.keys(args).some(k => !(props[name] ?? providers?.properties(name) ?? []).includes(k)))
@@ -227,6 +242,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         ...(name === 'bash' ? {warning:'UNSANDBOXED: can access host files, secrets, network and services'} : {}),
         ...(op === 'network' ? {destination:providers.destination(name), warning:'Query submitted externally; result is untrusted'} : {}), args}), signal);
       await check();
+      toolAdmission?.();
       await outcomes.record({id,key,status:'executing'});
       try {
         const result = await execute(args, active.workspace);

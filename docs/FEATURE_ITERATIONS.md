@@ -1,5 +1,11 @@
 # Remaining feature iterations — NOT READY
 
+**Superseded current plan:** [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+contains the complete P01–P14 dependency order; [PRODUCTION_TEST_REPORT.md](PRODUCTION_TEST_REPORT.md)
+defines live L01–L15 acceptance and artifacts. The following inventory is a
+historical safe-integration snapshot. Its model-inactive, unpublished and
+worktree-ownership statements are NOT current runtime facts. Recheck the machine.
+
 Current authoritative continuation: [SAFE_INTEGRATION_CHECKPOINT.md](SAFE_INTEGRATION_CHECKPOINT.md)
 and [NEXT_SESSION_PROMPT.md](NEXT_SESSION_PROMPT.md). Published WAV/search is
 `2ac35fa`, prompt is `0c197b4`. In the isolated tree only, style milestone

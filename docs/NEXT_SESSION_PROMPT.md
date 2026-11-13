@@ -1,4 +1,14 @@
-# Exact continuation — isolated integration / NOT READY
+# Exact continuation — production completion / NOT READY
+
+**Current entry point:** read [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)
+and [PRODUCTION_TEST_REPORT.md](PRODUCTION_TEST_REPORT.md) first. Published
+baseline is `5446e9c`; verify remote HEAD and pending worker branches before
+editing. The read-only owner profile and watcher lock hook may be newer than
+that baseline. Do not assume historical worktree paths below are current owners.
+The ordered P01–P14 plan and L01–L15 live matrix supersede old next-action order.
+No installed integrated Pi owner or live Hermes acceptance is established.
+
+## Historical isolated-integration handoff (retain as evidence)
 
 Read [SAFE_INTEGRATION_CHECKPOINT.md](SAFE_INTEGRATION_CHECKPOINT.md) and
 `.dev/handoff.md` first. New authoritative tree:

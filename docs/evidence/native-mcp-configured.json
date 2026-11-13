@@ -1,0 +1,31 @@
+{
+  "observed_at": "2026-11-13T23:28:59.784281+00:00",
+  "pi_version": "1.5.1",
+  "source": "/home/ron/.pi/agent/mcp.json",
+  "credential_stores_read": false,
+  "connections_attempted": false,
+  "services": [
+    {
+      "name": "google-services",
+      "enabled": true,
+      "exposure": "deferred",
+      "transport": "stdio",
+      "auth_metadata_present": true,
+      "availability": "configured_only_not_connected_or_queried",
+      "executable_basename": "pi-google-services",
+      "executable_present": true
+    },
+    {
+      "name": "rea",
+      "enabled": true,
+      "exposure": "codemode",
+      "transport": "stdio",
+      "auth_metadata_present": true,
+      "availability": "configured_only_not_connected_or_queried",
+      "executable_basename": "rea.mjs",
+      "executable_present": true
+    }
+  ],
+  "project_mcp_config_present": false,
+  "rest_boolean_metadata_present": false
+}

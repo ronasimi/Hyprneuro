@@ -38,8 +38,8 @@ class Settings:
     def validate(self, *, prerequisites=False):
         if type(self.ui_panel_opacity) not in (int, float) or not math.isfinite(self.ui_panel_opacity) or not .2 <= self.ui_panel_opacity <= 1:
             raise ValueError('ui_panel_opacity must be finite and between 0.2 and 1')
-        if self.ui_transcript_size not in ('compact', 'restored', 'full'):
-            raise ValueError('ui_transcript_size must be compact, restored or full')
+        if self.ui_transcript_size not in ('restored', 'full'):
+            raise ValueError('ui_transcript_size must be restored (Normal) or full (Expanded)')
         for f in fields(self):
             value = getattr(self, f.name)
             if f.type is bool and type(value) is not bool:
@@ -91,6 +91,10 @@ class Settings:
         data = json.loads(p.read_text())
         if not isinstance(data, dict) or data.keys() - {f.name for f in fields(cls)}:
             raise ValueError('Unknown/invalid Hyprneuro settings')
+        # Explicit legacy presentation migration, without write-on-read. Existing
+        # restored/full storage remains compatible; next atomic Save persists it.
+        if data.get('ui_transcript_size') in ('compact', 'restore'):
+            data['ui_transcript_size'] = 'restored'
         return cls(**data).validate()
 
     def save(self, path=None):

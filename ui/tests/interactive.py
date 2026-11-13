@@ -24,8 +24,6 @@ def click(x,y):
 def action(name):
  l=layer();x,y,w,h=(l[k] for k in ['x','y','w','h'])
  controls={'attach':(38,h-66),'input':(230,h-66),'send':(w-118,h-66),'audio':(w-78,h-66),'vision':(w-38,h-66),'size':(w-30,30),'settings':(21,h-22),'back':(55,30),'capture':(367,h-126),'stop':(435,h-126),'screen':(502,h-126),'cancel':(575,h-126)}
- if name in ('send','audio','vision') and h < 180:
-  controls[name]=(controls[name][0]-40,controls[name][1])
  dx,dy=controls[name];click(x+dx,y+dy);time.sleep(.35)
 def screenshot(name):
  l=layer();p=Path.home()/'Workspace/screenshots'/time.strftime('%Y-%m-%d')/f'{run.name}-{name}.png'
@@ -85,22 +83,22 @@ try:
   def choose(key):
    pref_click(170);subprocess.run(['wtype','-k',key,'-k','Return'],check=True);time.sleep(.3)
   action('settings');screenshot('settings-transcript-editor')
-  choose('End');screenshot('settings-size-draft-full')
+  choose('End');screenshot('settings-size-draft-expanded')
   assert not config.exists() or json.loads(config.read_text())['ui_transcript_size']=='restored'
   pref_click(288);time.sleep(.5)
   assert json.loads(config.read_text())['ui_transcript_size']=='full'
-  screenshot('settings-size-saved-full')
+  screenshot('settings-size-saved-expanded')
   choose('Home');pref_click(376);time.sleep(.5)
   screenshot('settings-size-reload-discard')
-  action('back');screenshot('settings-size-full-chat')
+  action('back');screenshot('settings-size-expanded-chat')
   # UI restart must load persisted appearance, without restarting any model.
   ui.terminate();ui.wait()
   ui=subprocess.Popen([str(root/'sanitize/hyprneuro-ui')],env=env,stdout=ui_log,stderr=subprocess.STDOUT)
   pid=ui.pid
   time.sleep(1)
-  action('settings');screenshot('settings-size-restarted-full')
-  # Save default Restored for the following draft/history regression.
-  pref_click(170);subprocess.run(['wtype','-k','Home','-k','Down','-k','Return'],check=True);time.sleep(.3)
+  action('settings');screenshot('settings-size-restarted-expanded')
+  # Save default Normal (legacy restored token) for the following draft/history regression.
+  pref_click(170);subprocess.run(['wtype','-k','Home','-k','Return'],check=True);time.sleep(.3)
   pref_click(288);time.sleep(.5)
   assert json.loads(config.read_text())['ui_transcript_size']=='restored'
   action('back')

@@ -397,8 +397,36 @@ static void pi_unicode_preflight_preserves_draft(void) {
     g_assert_cmpstr(remaining, ==, boundary->str);
     g_free(remaining); g_string_free(boundary, TRUE); g_object_unref(composer);
 }
+static void two_transcript_sizes(void) {
+    g_assert_cmpuint(G_N_ELEMENTS(size_names), ==, 3); /* two tokens + sentinel */
+    g_assert_cmpstr(size_labels[SIZE_NORMAL], ==, "Normal");
+    g_assert_cmpstr(size_labels[SIZE_EXPANDED], ==, "Expanded");
+    const char *normal[] = {"compact", "restore", "restored"};
+    for (guint i=0; i<G_N_ELEMENTS(normal); i++) g_assert_cmpint(parse_transcript_size(normal[i]), ==, SIZE_NORMAL);
+    g_assert_cmpint(parse_transcript_size("full"), ==, SIZE_EXPANDED);
+    g_assert_cmpint(parse_transcript_size(NULL), ==, -1);
+    g_assert_cmpint(parse_transcript_size("unknown"), ==, -1);
+    TranscriptSize size=SIZE_NORMAL;
+    for (guint i=0; i<10; i++) {
+        size=next_transcript_size(size);
+        g_assert_cmpint(size, ==, i%2 ? SIZE_NORMAL : SIZE_EXPANDED);
+        g_assert_nonnull(strstr(transcript_size_tip(size), "Normal"));
+        g_assert_nonnull(strstr(transcript_size_tip(size), "Expanded"));
+    }
+    g_assert_cmpint(transcript_height(SIZE_NORMAL, FALSE), ==, DEFAULT_WIDTH/2);
+    g_assert_cmpint(transcript_height(SIZE_NORMAL, TRUE), ==, DEFAULT_WIDTH/2);
+    g_assert_cmpint(transcript_height(SIZE_EXPANDED, FALSE), ==, DEFAULT_WIDTH);
+    g_assert_cmpint(transcript_height(SIZE_EXPANDED, TRUE), ==, DEFAULT_WIDTH/2);
+}
+static void restore_glyph_exact(void) {
+    g_assert_true(g_utf8_validate(RESTORE_GLYPH, -1, NULL));
+    g_assert_cmpint(g_utf8_strlen(RESTORE_GLYPH, -1), ==, 1);
+    g_assert_cmpuint(g_utf8_get_char(RESTORE_GLYPH), ==, 0xF0BCE);
+}
 int main(int argc, char **argv) {
     g_test_init(&argc, &argv, NULL);
+    g_test_add_func("/ui/two-transcript-sizes", two_transcript_sizes);
+    g_test_add_func("/ui/exact-restore-glyph", restore_glyph_exact);
     g_test_add_func("/ui/pi-unicode-preflight-preserves-draft", pi_unicode_preflight_preserves_draft);
     g_test_add_func("/ui/pi-escape-denies-before-hide", pi_escape_denies_before_hiding_panel);
     g_test_add_func("/ui/pi-async-frames", pi_async_frames);

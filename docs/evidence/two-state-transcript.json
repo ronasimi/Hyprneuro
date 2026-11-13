@@ -1,0 +1,92 @@
+{
+  "base": "23487d702e444a849ef1d1b25259f4e18a724d9d",
+  "source_parent": "5446e9c",
+  "parent_published_unmerged": "feb1958b06aa66cf94c6183030b55d362061a9fe",
+  "scope": "source, settings RPC/tempfiles, build/sanitizer helpers, headless CSS parsing and fontconfig coverage only; NO rendered GTK or installed/live acceptance",
+  "changes": [
+    "Normal/Expanded only; both transcript visible; pointer and Ctrl+Tab use same cycle",
+    "Static GtkLabel U+F0BCE Material Design Icons,16px scoped family and status dim-label once, foreground inherited only on restore button",
+    "Legacy compact/restore -> restored(Normal); restored/full wire tokens preserved; no write on read; canonical atomic Save and restart; exact observed token for GTK compare-and-save"
+  ],
+  "validation": {
+    "python_passed": 370,
+    "python_skipped": 1,
+    "python_subtests": 90,
+    "node_passed": 39,
+    "c_helpers_normal_and_asan_ubsan_leaks": 16,
+    "focused_python": 15,
+    "focused_subtests": 12,
+    "css_parsing_errors": 0,
+    "font_coverage": "U+F0BCE in Material Design Icons"
+  },
+  "binaries": [
+    {
+      "path": "/home/ron/.local/bin/hyprneuro-ui",
+      "sha256": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
+      "gui_executed": false
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-gtk-build/hyprneuro-ui",
+      "sha256": "9a431fd0865fc216b1cfb19877bcf41f7ef6c407a3637999922e06f7a883aeb6",
+      "gui_executed": false
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-gtk-sanitize/hyprneuro-ui",
+      "sha256": "a0a032882701bf9f2c1342fd5df1219cae66e77cedbc185d09b0dca4a3c32c87",
+      "gui_executed": false
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-focused.log",
+      "sha256": "ec9df3c8de39d8c493f0a2d65ddd12f440c4891989b78f420dec215d376f5a5c"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-python-full.log",
+      "sha256": "788c164266af3bdd5e51532603ef0f0f62ef7062f24678b1607493b6daa7afde"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-node-full.log",
+      "sha256": "5cf28bf7cdc7a5ed587288e058eba376f19b1fc36656b49117e390d9cc6ec978"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-c.log",
+      "sha256": "3b07b844f2930409fb78732f259424486e0dd31a6fc9c999ae8312b4d32b6273"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-c-sanitized.log",
+      "sha256": "f2fbccc82668476eb6f0a5feac4ab966c35ff27b2f66d615c0b07c8a92aa20a4"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-compile.log",
+      "sha256": "752f75923e52ba7b79fdbe2d02bd29719862670ec34ad2e6a9658adf395c9f15"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-compile-sanitized.log",
+      "sha256": "faeaa2a97f01d945c85104df6c2b76c5cad2a346abee47bc48fb50b4f8521eea"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-css-font.log",
+      "sha256": "7eb7cf1a654badbc0f2bc1420b4bc1be916bbc985d9c659ebd8ba79247336e6e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/two-size-binaries.sha256",
+      "sha256": "0dc4efece8338061fb986d1b7a184aca10d555be028bd27e328a51a70f139ede"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/ui/src/hyprneuro.c",
+      "sha256": "0b2ca49895e6b0451e1556e9da462909c49d8c7387abaa5b7a40e86b87d9781b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-pi-owner-gtk/python/src/hyprneuro/settings.py",
+      "sha256": "593b90bad0dc9a936b23fe00d14ad408dcbc3d95bc0ec8525184b87635b82522"
+    }
+  ],
+  "pending": [
+    "Fresh authorized active-local same-user unlocked/no-locker machine-leased GUI window",
+    "Actual glyph/color/opacity/16px allocation/transparent hover/no extra overlay height and two-state pointer/keyboard/hide-show/Save-restart checks",
+    "Current binary repeated Unicode and existing18 owner/offline GTK checks",
+    "Parent combines reviewed lock/docs/bridge changes without force push or dirty canonical overwrite; rerun complete merged suite",
+    "No live owner/deployment/exclusive action authorized by this source result"
+  ]
+}

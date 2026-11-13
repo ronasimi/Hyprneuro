@@ -39,7 +39,25 @@
 #define MAX_IPC_FRAME (10 * 1024 * 1024)
 #define MAX_AUDIO_BYTES 2880044
 
-typedef enum { SIZE_COMPACT, SIZE_RESTORE, SIZE_FULL } TranscriptSize;
+typedef enum { SIZE_NORMAL, SIZE_EXPANDED } TranscriptSize;
+#define RESTORE_GLYPH "󰯎" /* U+F0BCE, Material Design Icons */
+/* Preserve the established wire/storage tokens; only two presentation states. */
+static const char *size_names[] = {"restored", "full", NULL};
+static const char *size_labels[] = {"Normal", "Expanded", NULL};
+static int parse_transcript_size(const char *name) {
+    if (!g_strcmp0(name, "restored") || !g_strcmp0(name, "restore") || !g_strcmp0(name, "compact")) return SIZE_NORMAL;
+    if (!g_strcmp0(name, "full")) return SIZE_EXPANDED;
+    return -1;
+}
+static TranscriptSize next_transcript_size(TranscriptSize size) {
+    return size == SIZE_NORMAL ? SIZE_EXPANDED : SIZE_NORMAL;
+}
+static const char *transcript_size_tip(TranscriptSize size) {
+    return size == SIZE_EXPANDED ? "Restore transcript: Expanded → Normal" : "Expand transcript: Normal → Expanded";
+}
+static int transcript_height(TranscriptSize size, gboolean attachments) {
+    return size == SIZE_EXPANDED && !attachments ? DEFAULT_WIDTH : DEFAULT_WIDTH / 2;
+}
 #define N_MONITOR_PREFS 3
 static const char *monitor_names[] = {"journal", "network", "resources"};
 static const char *monitor_keys[] = {"alert_journal", "alert_network", "alert_resources"};
@@ -96,6 +114,7 @@ struct App {
     GtkWidget *prefs_save, *prefs_reload, *prefs_status;
     gboolean prefs_busy, prefs_available, size_changed;
     TranscriptSize saved_size;
+    char *saved_size_token; /* exact backend value for compare-and-save across migration */
 
     GtkWidget *transcript, *scroller, *composer;
     GtkTextView *input;
@@ -256,28 +275,12 @@ static void on_scroll_adjustment(GtkAdjustment *adj, App *a) {
 }
 
 static void apply_transcript_size(App *a) {
-    const char *tip = a->size == SIZE_FULL ? "Collapse transcript: Full → Compact" :
-        a->size == SIZE_COMPACT ? "Expand transcript: Compact → Restored" : "Expand transcript: Restored → Full";
-    gtk_button_set_icon_name(GTK_BUTTON(a->size_toggle),
-        a->size == SIZE_FULL ? "go-down-symbolic" : "go-up-symbolic");
+    const char *tip = transcript_size_tip(a->size);
     gtk_widget_set_tooltip_text(a->size_toggle, tip);
     gtk_accessible_update_property(GTK_ACCESSIBLE(a->size_toggle), GTK_ACCESSIBLE_PROPERTY_LABEL, tip, -1);
-    /* With no canvas in Compact, leave space beside the composer for the overlay. */
-    gtk_widget_set_margin_end(a->composer, a->size == SIZE_COMPACT ? 40 : 0);
-    switch (a->size) {
-        case SIZE_COMPACT:
-            gtk_widget_set_visible(a->scroller, FALSE);
-            break;
-        case SIZE_RESTORE:
-            gtk_widget_set_visible(a->scroller, TRUE);
-            gtk_widget_set_size_request(a->scroller, DEFAULT_WIDTH, DEFAULT_WIDTH / 2);
-            break;
-        case SIZE_FULL:
-            gtk_widget_set_visible(a->scroller, TRUE);
-            gtk_widget_set_size_request(a->scroller, DEFAULT_WIDTH,
-                a->attachments->len ? DEFAULT_WIDTH / 2 : DEFAULT_WIDTH);
-            break;
-    }
+    gtk_widget_set_visible(a->scroller, TRUE);
+    gtk_widget_set_size_request(a->scroller, DEFAULT_WIDTH,
+        transcript_height(a->size, a->attachments->len > 0));
 }
 
 /* ---- history ------------------------------------------------------------- */
@@ -973,7 +976,6 @@ static gboolean poll_monitoring(gpointer data) {
 
 /* UI preferences use the existing private atomic Settings store. Save applies
  * appearance only; collector/model settings are deliberately not editable here. */
-static const char *size_names[] = {"compact", "restored", "full", NULL};
 static void apply_panel_opacity(App *a, double opacity) {
     a->panel_opacity = opacity;
     /* Only the panel's paint is translucent. Never fade window/widget/text. */
@@ -988,8 +990,8 @@ static void update_preferences(App *a, const char *error) {
     GString *text = g_string_new(NULL);
     g_string_append_printf(text, "Size — active: %s · saved: %s · draft: %s\n"
         "Autoscroll — active: %s · saved: %s · draft: %s",
-        size_names[a->size], a->prefs_available ? size_names[a->saved_size] : "unknown",
-        draft < 3 ? size_names[draft] : "unknown",
+        size_labels[a->size], a->prefs_available ? size_labels[a->saved_size] : "unknown",
+        draft < 2 ? size_labels[draft] : "unknown",
         a->autoscroll_enabled ? (a->user_scrolled_up ? "paused" : "on") : "off",
         a->prefs_available ? (a->saved_autoscroll ? "on" : "off") : "unknown",
         gtk_switch_get_active(a->prefs_autoscroll) ? "on" : "off");
@@ -1040,8 +1042,7 @@ static void preferences_ready(GObject *source, GAsyncResult *result, gpointer da
         JsonParser *p = json_parser_new();
         gboolean valid = json_parser_load_from_data(p, response, -1, NULL);
         const char *name = valid ? jstr(jmember(json_parser_get_root(p), "ui_transcript_size")) : NULL;
-        int selected = -1;
-        for (int i = 0; i < 3; i++) if (!g_strcmp0(name, size_names[i])) selected = i;
+        int selected = parse_transcript_size(name);
         JsonNode *auto_node = valid ? jmember(json_parser_get_root(p), "ui_autoscroll") : NULL;
         for (int i = 0; valid && i < N_MONITOR_PREFS; i++) {
             char *active_key = g_strconcat(monitor_names[i], "_active", NULL);
@@ -1056,6 +1057,7 @@ static void preferences_ready(GObject *source, GAsyncResult *result, gpointer da
             gboolean apply = a->prefs_available || !a->size_changed;
             a->prefs_available = TRUE;
             a->saved_size = selected;
+            g_free(a->saved_size_token); a->saved_size_token = g_strdup(name);
             a->saved_autoscroll = json_node_get_boolean(auto_node);
             a->saved_opacity = opacity;
             gtk_spin_button_set_value(a->prefs_opacity, opacity * 100);
@@ -1091,14 +1093,14 @@ static void request_preferences(App *a, gboolean save) {
     RequestTask *d = g_new0(RequestTask, 1);
     d->socket = g_strdup(a->sidecar_sock);
     guint draft = gtk_drop_down_get_selected(a->prefs_size);
-    if (save && draft < 3 && a->prefs_available) {
+    if (save && draft < 2 && a->prefs_available) {
         JsonBuilder *b = json_builder_new();
         json_builder_begin_object(b);
         json_builder_set_member_name(b, "action"); json_builder_add_string_value(b, "ui_settings_save");
         for (int expected = 0; expected < 2; expected++) {
             if (expected) { json_builder_set_member_name(b, "expected"); json_builder_begin_object(b); }
             json_builder_set_member_name(b, "ui_transcript_size");
-            json_builder_add_string_value(b, size_names[expected ? a->saved_size : draft]);
+            json_builder_add_string_value(b, expected ? a->saved_size_token : size_names[draft]);
             json_builder_set_member_name(b, "ui_autoscroll");
             json_builder_add_boolean_value(b, expected ? a->saved_autoscroll : gtk_switch_get_active(a->prefs_autoscroll));
             json_builder_set_member_name(b, "ui_panel_opacity");
@@ -1415,8 +1417,7 @@ static void populate_settings(App *a) {
     add_settings_section(content, "Appearance");
     GtkWidget *app_list = gtk_list_box_new();
     gtk_widget_add_css_class(app_list, "hn-settings");
-    const char *size_str = (a->size == SIZE_COMPACT) ? "Compact" :
-                           (a->size == SIZE_FULL) ? "Full" : "Restored";
+    const char *size_str = size_labels[a->size];
     add_settings_row(GTK_LIST_BOX(app_list), "Transcript size", size_str);
     add_settings_row(GTK_LIST_BOX(app_list), "Autoscroll",
         !a->autoscroll_enabled ? "Off" : a->user_scrolled_up ? "Paused" : "Active");
@@ -1646,10 +1647,15 @@ static void hide_ui(App *a) {
 
 static void toggle_ui(App *a) { a->shown ? hide_ui(a) : show_ui(a); }
 
+static void on_size_toggle(GtkButton *btn, gpointer data);
 static gboolean on_key(GtkEventControllerKey *c, guint keyval, guint code,
                        GdkModifierType state, gpointer data) {
-    (void)c; (void)code; (void)state;
+    (void)c; (void)code;
     App *a = data;
+    if (keyval == GDK_KEY_Tab && (state & GDK_CONTROL_MASK)) {
+        on_size_toggle(NULL, a);
+        return TRUE;
+    }
     if (keyval == GDK_KEY_Escape) {
         /* Layer-shell may retain keyboard focus while the consent toplevel is
          * open. Escape must deny that question, not hide the whole panel. */
@@ -1692,8 +1698,9 @@ static void create_window(App *a) {
     gtk_layer_set_margin(a->win, GTK_LAYER_SHELL_EDGE_RIGHT, MARGIN_PX);
     gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_ON_DEMAND);
 
-    /* Escape to hide / go back. */
+    /* Ctrl+Tab toggles Normal/Expanded before widget focus navigation. */
     GtkEventController *key = gtk_event_controller_key_new();
+    gtk_event_controller_set_propagation_phase(key, GTK_PHASE_CAPTURE);
     g_signal_connect(key, "key-pressed", G_CALLBACK(on_key), a);
     gtk_widget_add_controller(GTK_WIDGET(a->win), key);
 
@@ -1753,7 +1760,7 @@ static gboolean on_control_connect(GSocketService *svc, GSocketConnection *conn,
 /* ---- size toggle --------------------------------------------------------- */
 static void on_size_toggle(GtkButton *btn, gpointer data) {
     App *a = data;
-    a->size = a->size == SIZE_COMPACT ? SIZE_RESTORE : a->size == SIZE_RESTORE ? SIZE_FULL : SIZE_COMPACT;
+    a->size = next_transcript_size(a->size);
     a->size_changed = TRUE;
     apply_transcript_size(a);
     update_preferences(a, NULL);
@@ -1799,7 +1806,7 @@ int main(int argc, char **argv) {
     (void)argc; (void)argv;
     gtk_init();
     App *a = g_new0(App, 1);
-    a->size = SIZE_RESTORE;
+    a->size = SIZE_NORMAL;
     a->autoscroll_enabled = TRUE;
     a->panel_opacity = .90;
     a->pi_optin = !g_strcmp0(g_getenv("HYPRNEURO_PI_UI"), "1");
@@ -1842,7 +1849,9 @@ int main(int argc, char **argv) {
         " .hn-panel button.hn-attachment-remove:active { background: transparent; background-image: none;"
         " border: 0; outline: none; box-shadow: none; min-width: 32px; min-height: 32px; padding: 4px; }"
         ".hn-panel button.hn-attachment-remove:focus-visible { outline: 1px solid #9ecbff; outline-offset: 1px; }"
-        ".hn-panel button.hn-status-action { min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; outline: none; background: transparent; box-shadow: none; }"
+        ".hn-panel button.hn-status-action, .hn-panel button.hn-status-action:hover, .hn-panel button.hn-status-action:active { min-width: 0; min-height: 0; padding: 0; margin: 0; border: 0; outline: none; background: transparent; background-image: none; box-shadow: none; }"
+        ".hn-panel button.hn-restore-action { color: inherit; }"
+        ".hn-panel label.hn-restore-glyph { font-family: \"Material Design Icons\"; font-size: 16px; padding: 0; margin: 0; }"
         ".hn-panel button.hn-status-action:focus-visible { outline: 1px solid #9ecbff; outline-offset: 1px; }");
     gtk_style_context_add_provider_for_display(gdk_display_get_default(),
         GTK_STYLE_PROVIDER(alpha), GTK_STYLE_PROVIDER_PRIORITY_USER);
@@ -1863,8 +1872,15 @@ int main(int argc, char **argv) {
     a->stack = GTK_STACK(gtk_stack_new());
     gtk_stack_set_vhomogeneous(a->stack, FALSE);
     gtk_overlay_set_child(GTK_OVERLAY(a->panel), GTK_WIDGET(a->stack));
-    a->size_toggle = gtk_button_new_from_icon_name("go-up-symbolic");
+    a->size_toggle = gtk_button_new();
+    GtkWidget *size_glyph = gtk_label_new(RESTORE_GLYPH);
+    gtk_widget_add_css_class(size_glyph, "hn-restore-glyph");
+    gtk_widget_add_css_class(size_glyph, "dim-label"); /* same dimming as status, once */
+    gtk_widget_set_size_request(size_glyph, 16, 16);
+    gtk_button_set_child(GTK_BUTTON(a->size_toggle), size_glyph);
+    gtk_widget_set_size_request(a->size_toggle, 16, 16);
     gtk_widget_add_css_class(a->size_toggle, "hn-status-action");
+    gtk_widget_add_css_class(a->size_toggle, "hn-restore-action");
     gtk_widget_set_halign(a->size_toggle, GTK_ALIGN_END);
     gtk_widget_set_valign(a->size_toggle, GTK_ALIGN_START);
     g_signal_connect(a->size_toggle, "clicked", G_CALLBACK(on_size_toggle), a);
@@ -2001,9 +2017,8 @@ int main(int argc, char **argv) {
 
     GtkWidget *preferences = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
     gtk_box_append(GTK_BOX(preferences), gtk_label_new("Transcript size"));
-    const char *size_labels[] = {"Compact", "Restored", "Full", NULL};
     a->prefs_size = GTK_DROP_DOWN(gtk_drop_down_new_from_strings(size_labels));
-    gtk_drop_down_set_selected(a->prefs_size, SIZE_RESTORE);
+    gtk_drop_down_set_selected(a->prefs_size, SIZE_NORMAL);
     gtk_widget_set_size_request(GTK_WIDGET(a->prefs_size), 120, -1);
     gtk_box_append(GTK_BOX(preferences), GTK_WIDGET(a->prefs_size));
     a->prefs_save = gtk_button_new_with_label("Save");
@@ -2146,6 +2161,7 @@ int main(int argc, char **argv) {
     g_ptr_array_free(a->attachments, TRUE);
     g_free(a->attachment_b64);
     g_free(a->attachment_mime);
+    g_free(a->saved_size_token);
     g_free(a->sidecar_sock);
     g_free(a->control_sock);
     g_free(a);

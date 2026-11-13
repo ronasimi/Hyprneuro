@@ -2,7 +2,7 @@
 No screenshots except this test's UI rectangle, no captures for inference.
 Requires an explicitly identified active unlocked local session (argument 1).
 Run: python ui/tests/metrics_interactive.py SESSION_ID BINARY [--thinking]
---thinking runs telemetry/thinking/arrow only, not the separate portal media workflow.
+--thinking runs telemetry/thinking/MDI size control only, not the separate portal media workflow.
 --no-screenshots skips captures (attribute/payload assertions still run).
 """
 import json
@@ -136,12 +136,21 @@ try:
         rect = node.get_component_iface().get_extents(Atspi.CoordType.SCREEN)
         return rect.width, rect.height
     assert size(settings) == size(arrow) == (16, 16), (size(settings), size(arrow))
-    for _ in range(3):
+    assert arrow.get_name() in ('Expand transcript: Normal → Expanded', 'Restore transcript: Expanded → Normal')
+    click(find('text', 'Enter sends · Ctrl+Enter inserts a newline'))
+    for expected in ('Restore transcript: Expanded → Normal', 'Expand transcript: Normal → Expanded'):
+        unlocked()
+        subprocess.run(['wtype','-M','ctrl','-k','Tab','-m','ctrl'],check=True)
+        arrow = wait(lambda: find('button',expected))
+        # Both states must retain an actual visible transcript text node.
+        assert any(n.get_role_name()=='text' and not n.get_name() and n.get_state_set().contains(Atspi.StateType.VISIBLE) for n in nodes())
+    for _ in range(4):
         before = arrow.get_name()
         click(arrow)
         arrow = wait(lambda: next((n for n in nodes() if n.get_role_name() == 'button' and 'transcript:' in n.get_name() and n.get_name() != before), None))
     shot('matching-transparent-icon-actions')
-    print('PASS actual arrow/Settings 16x16 geometry and 3-state overlay interaction', flush=True)
+    assert arrow.get_name() == 'Expand transcript: Normal → Expanded'
+    print('PASS MDI size control/Settings 16x16 geometry and Normal/Expanded overlay cycle (glyph/color require rendered inspection)', flush=True)
     for message, expected in [
         ('metrics-zero', 'Prefill 12.5 t/s · Decode 7.0 t/s · Hit 0.0% · Full —'),
         ('metrics-hit', 'Prefill 12.5 t/s · Decode 7.0 t/s · Hit 80.0% · Full —'),
@@ -203,7 +212,7 @@ try:
     assert req[-1]['messages'][-2]['content'] == 'BeforeAfter'  # failed turn excluded
     print('PASS thinking native/split delimiters/only/orphan/error/reset; exact GTK attributes; answer-only history', flush=True)
     if '--thinking' in sys.argv:
-        print('PASS focused telemetry/thinking/arrow suite; media workflow not selected', flush=True)
+        print('PASS focused telemetry/thinking/MDI-size suite; media workflow not selected', flush=True)
         raise SystemExit(0)
     # Actual Ctrl+Return and Return path, exact backend payload independently checked.
     click(find('text', 'Enter sends · Ctrl+Enter inserts a newline'))

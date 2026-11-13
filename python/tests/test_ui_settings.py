@@ -15,9 +15,13 @@ from hyprneuro.sidecar_client import request
 class UiSettingsTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        root = Path(self.tmp.name)
+        self.root = root = Path(self.tmp.name)
         self.socket = root/'runtime/sidecar.sock'
         self.config = root/'settings/settings.json'
+        await self.start_service()
+
+    async def start_service(self):
+        root = self.root
         self.stop = asyncio.Event()
         self.service = asyncio.create_task(serve(
             socket_path=self.socket, db_path=root/'state/db.sqlite3',
@@ -62,7 +66,7 @@ class UiSettingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(after['capture_enabled'])
 
     async def test_only_valid_appearance_field_is_editable(self):
-        for value in ('huge', True, 1, [], None):
+        for value in ('compact', 'restore', 'huge', True, 1, [], None):
             with self.assertRaisesRegex(RuntimeError, 'must be'):
                 await self.rpc(action='ui_settings_save', ui_transcript_size=value, ui_autoscroll=True, expected={'ui_transcript_size':'restored','ui_autoscroll':True})
         with self.assertRaisesRegex(RuntimeError, 'Only implemented appearance'):
@@ -70,16 +74,16 @@ class UiSettingsTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.config.exists())
 
     async def test_conflict_and_failed_write_preserve_saved(self):
-        Settings(ui_transcript_size='compact', alert_journal=True).save(self.config)
+        Settings(ui_transcript_size='restored', alert_journal=True).save(self.config)
         original = self.config.read_bytes()
         with self.assertRaisesRegex(RuntimeError, 'Reload'):
             await self.rpc(action='ui_settings_save', ui_transcript_size='full', ui_autoscroll=True, expected={'ui_transcript_size':'restored','ui_autoscroll':True})
         self.assertEqual(self.config.read_bytes(), original)
         with patch('hyprneuro.settings.os.replace', side_effect=OSError('fixture write refusal')):
             with self.assertRaisesRegex(RuntimeError, 'fixture write refusal'):
-                await self.rpc(action='ui_settings_save', ui_transcript_size='full', ui_autoscroll=True, alert_journal=True, expected={'ui_transcript_size':'compact','ui_autoscroll':True,'alert_journal':True})
+                await self.rpc(action='ui_settings_save', ui_transcript_size='full', ui_autoscroll=True, alert_journal=True, expected={'ui_transcript_size':'restored','ui_autoscroll':True,'alert_journal':True})
         self.assertEqual(self.config.read_bytes(), original)
-        result = await self.rpc(action='ui_settings_save', ui_transcript_size='full', ui_autoscroll=True, alert_journal=True, expected={'ui_transcript_size':'compact','ui_autoscroll':True,'alert_journal':True})
+        result = await self.rpc(action='ui_settings_save', ui_transcript_size='full', ui_autoscroll=True, alert_journal=True, expected={'ui_transcript_size':'restored','ui_autoscroll':True,'alert_journal':True})
         self.assertEqual(result['ui_transcript_size'], 'full')
         self.assertTrue(Settings.load(self.config).alert_journal)  # existing unrelated saved values preserved
 
@@ -160,3 +164,28 @@ class UiSettingsTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError):
             await self.rpc(action='ui_settings_save', **args, expected=expected)
         self.assertEqual(Settings.load(self.config).ui_panel_opacity, .85)
+
+
+    async def test_legacy_sizes_migrate_without_write_on_read_and_persist_across_restart(self):
+        for legacy, canonical in (('compact','restored'), ('restore','restored'), ('restored','restored'), ('full','full')):
+            with self.subTest(legacy=legacy):
+                data = asdict(Settings(ui_autoscroll=False, ui_panel_opacity=.85, alert_journal=True))
+                data['ui_transcript_size'] = legacy
+                self.config.parent.mkdir(mode=0o700, exist_ok=True)
+                self.config.write_text(json.dumps(data)); self.config.chmod(0o600)
+                original = self.config.read_bytes()
+                self.assertEqual(Settings.load(self.config).ui_transcript_size, canonical)
+                self.assertEqual((await self.rpc(action='ui_settings_get'))['ui_transcript_size'], canonical)
+                self.assertEqual(self.config.read_bytes(), original)  # migration does not write on GET
+                self.stop.set(); await asyncio.wait_for(self.service,3); await self.start_service()
+                result = await self.rpc(action='ui_settings_get')
+                self.assertEqual(result['ui_transcript_size'], canonical)
+                keys = ('ui_transcript_size','ui_autoscroll','ui_panel_opacity','alert_journal','alert_network','alert_resources')
+                result = await self.rpc(action='ui_settings_save', **{k:result[k] for k in keys}, expected={k:result[k] for k in keys})
+                self.assertEqual(json.loads(self.config.read_text())['ui_transcript_size'], canonical)
+                self.stop.set(); await asyncio.wait_for(self.service,3); await self.start_service()
+                self.assertEqual((await self.rpc(action='ui_settings_get'))['ui_transcript_size'], canonical)
+                saved = Settings.load(self.config)
+                self.assertTrue(saved.alert_journal)
+                self.assertFalse(saved.ui_autoscroll or saved.allow_ingest or saved.allow_capture)
+                self.assertEqual(saved.ui_panel_opacity,.85)

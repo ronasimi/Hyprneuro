@@ -1,5 +1,11 @@
 # Read-only observation search GTK milestone
 
+> Publication update (2026-11-12): this bounded WAV/search baseline was committed
+> as `2ac35fa`; earlier uncommitted/base descriptions below are historical.
+> See [SAFE_INTEGRATION_CHECKPOINT.md](SAFE_INTEGRATION_CHECKPOINT.md) for the
+> isolated style/backend integration and current inactive-model/video blockers.
+> No new installed or rendered acceptance is claimed for that integration.
+
 Current deployment after native WAV acceptance: hash
 `11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154`.
 Actual installed search/details rechecked on this final binary; audio checkpoint

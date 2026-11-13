@@ -1,5 +1,11 @@
 # Native audio file checkpoint — bounded WAV verified; overall NOT READY
 
+> Publication update (2026-11-12): this bounded WAV/search baseline was committed
+> as `2ac35fa`; earlier uncommitted/base descriptions below are historical.
+> See [SAFE_INTEGRATION_CHECKPOINT.md](SAFE_INTEGRATION_CHECKPOINT.md) for the
+> isolated style/backend integration and current inactive-model/video blockers.
+> No new installed or rendered acceptance is claimed for that integration.
+
 
 ## Current superseding checkpoint: native WAV playback and send verified
 

@@ -1,28 +1,20 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794520015000,
+  "updated_at_ms": 1794529224605,
   "status": "NOT READY",
   "git": {
-    "revision": "13ad215",
-    "branch": "feat/application-aware-assistant",
+    "revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
+    "branch": "feat/verified-ui-backend-integration",
     "dirty": true,
-    "note": "No commits/pushes: implementation-writer contract leaves working tree uncommitted for main agent/user review."
+    "base": "0c197b4faa738f00160876ac63ddcc3bb6e0435b",
+    "note": "Style/backend committed as requested; combined regression and current docs/.dev handoff uncommitted for parent review. No push/deploy."
   },
-  "deployed_revision": "13ad215 + uncommitted WAV/search milestones",
+  "deployed_revision": "2ac35fa bounded WAV/search baseline; installed/running hash rechecked; not integration",
   "deployed_source_sha256": "2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121",
   "deployed_binary_sha256": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
-  "phase": "Native canonical PCM16 WAV file playback/immutable review/native Omni and read-only observation search verified/deployed; uncommitted",
-  "current_task": "Review/publish current milestones via main agent; next separate bounded native video-file iteration",
-  "active_hypothesis": "Native AV backend exists; enable file attachments only with reviewed immutable bytes, playback and hard decode/transport/resource bounds.",
-  "verified_this_audit": [
-    "Version-matched source/runtime template/model/projector/API inspected;installed binary hashes known;exact source/binary rebuild chain not proven",
-    "Native WAV known synthetic speech exact transcript, malformed audio400;MP4 red-blue and reverse order correct (reverse length-limited)",
-    "Finite typed metrics with total/evaluated/cached, zero reuse vs unknown, no fabricated occupancy",
-    "Actual GTK accessibility reasoning italic/weight400/#b8b8b8;upright answer;answer-only history;split/orphan/only/error/reset passed",
-    "Installed16x16matching arrow/Settings after10hide/show recreations;pointer3states and keyboard focus+Return verified",
-    "Blur controlled A/B and installed runtime override inspected;edge24to1;no renderer/globalcompositorchange",
-    "Installed/build/running hash6c23feb4 match;app-only sidecar restarted;capture_enabledfalse;original model PIDs/start/config/library hashes unchanged"
-  ],
+  "phase": "Isolated source/headless style committed; backend cherry-picked; combined tests passed; NOT DEPLOYED",
+  "current_task": "Parent reviews/commits combined regression/checkpoint, then safely publishes tested descendant to existing feature branch without touching original dirty tree",
+  "active_hypothesis": "Reviewed style-only extraction and backend integration are separable from quarantined video lifecycle; headless evidence does not establish GUI acceptance.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
     "Screenshot portal Request.Close cleanup failure",
@@ -36,11 +28,17 @@
     "Portal cancellation/session/sensitive-scene gate; no capture consent",
     "Physical hotkey",
     "Long-duration/full mixed/local-workflow/recovery acceptance",
-    "Native VIDEO FILE inline review/playback with actual decoded frame/duration/resource/bytes/native schema bounds (not implemented)",
-    "Read-only memory GTK workflow; broader recall/history/search pagination not accepted"
+    "Read-only memory GTK workflow; broader recall/history/search pagination not accepted",
+    "Video remains absent from isolated integration; original candidate lifecycle/play gate/locator are blocked"
   ],
   "blockers": [
-    "Production NOT READY; capture fail-closed; no blanket all-features PASS"
+    "Production NOT READY; no capture grants",
+    "Quarantined video GstPlay teardown ASan SEGV unresolved; GtkVideo substitution not proof",
+    "Video paused seek bypasses timestamp-only play-first gate; require actual playback progression regression",
+    "Video generic accessibility subtree/chooser locator failures; no complete final GUI workflow",
+    "New style rendered/installed focus/removal/16px verification pending independent unlock and UI-worker coordination",
+    "Models inactive; live inference blocked, no start/restart authority",
+    "GTK warnings; portal cleanup/privacy architecture; physical hotkey; memory UI; full mixed/soak"
   ],
   "last_known_good": null,
   "historical_state_superseded": {
@@ -137,11 +135,12 @@
     "native_audio_deployment": "/home/ron/Workspace/hyprneuro-audio/native-deployment",
     "native_audio_fixture_log": "/home/ron/Workspace/hyprneuro-audio/native-final-complete-sanitized.log",
     "native_audio_installed_log": "/home/ron/Workspace/hyprneuro-audio/native-installed-standalone.log",
-    "native_audio_thinking_regression": "/home/ron/Workspace/hyprneuro-audio/native-thinking-regression.log"
+    "native_audio_thinking_regression": "/home/ron/Workspace/hyprneuro-audio/native-thinking-regression.log",
+    "safe_integration_checkpoint": "docs/SAFE_INTEGRATION_CHECKPOINT.md",
+    "handoff": ".dev/handoff.md",
+    "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Main agent/user reviews/commits/pushes coherent milestones; then implement native temporal video file review with hard decode/frame/resource/transport bounds. No capture.",
-  "verified_this_checkpoint": "304Python pass/1skip/57subtests;9C release+ASan/UBSan incl helper leaks;actual sanitized native WAV full fixture164003;standalone actual installed native WAV/Omni164254 exit0;actual installed read-only search/details rechecked;focused sanitized metrics/thinking/16px actions pass without screenshots;failed/combined timeout logs retained;no all-features/mixed/soak PASS",
-  "enabled_this_checkpoint": [],
+  "next_action": "Parent review/commit remaining test/checkpoint; remote-tip/ancestry check then non-force publish existing feature ref from isolated tree. Do not move local feature ref checked out in dirty original. No isolated-branch push/deploy.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -181,14 +180,17 @@
     "passive network",
     "sustained resource monitoring"
   ],
-  "deployed_this_checkpoint": [
-    "fail-closed static-image-only attachment boundary",
-    "correct finite typed inference metrics and separate monitoring labels",
-    "orphan thinking-control stripping",
-    "matching16x16transparentSettings/arrow",
-    "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
+  "historical_pre_integration_verified_this_audit": [
+    "Version-matched source/runtime template/model/projector/API inspected;installed binary hashes known;exact source/binary rebuild chain not proven",
+    "Native WAV known synthetic speech exact transcript, malformed audio400;MP4 red-blue and reverse order correct (reverse length-limited)",
+    "Finite typed metrics with total/evaluated/cached, zero reuse vs unknown, no fabricated occupancy",
+    "Actual GTK accessibility reasoning italic/weight400/#b8b8b8;upright answer;answer-only history;split/orphan/only/error/reset passed",
+    "Installed16x16matching arrow/Settings after10hide/show recreations;pointer3states and keyboard focus+Return verified",
+    "Blur controlled A/B and installed runtime override inspected;edge24to1;no renderer/globalcompositorchange",
+    "Installed/build/running hash6c23feb4 match;app-only sidecar restarted;capture_enabledfalse;original model PIDs/start/config/library hashes unchanged"
   ],
-  "working_tree_milestones": [
+  "historical_pre_integration_verified_this_checkpoint": "304Python pass/1skip/57subtests;9C release+ASan/UBSan incl helper leaks;actual sanitized native WAV full fixture164003;standalone actual installed native WAV/Omni164254 exit0;actual installed read-only search/details rechecked;focused sanitized metrics/thinking/16px actions pass without screenshots;failed/combined timeout logs retained;no all-features/mixed/soak PASS",
+  "historical_pre_integration_working_tree_milestones": [
     {
       "name": "missing-decoder WAV gate + preserved images",
       "binary": "419159ad2a8269a8e36329592a103c7457e77cac8ef148cfd9504082ab193756",
@@ -204,5 +206,52 @@
       "binary": "11a10dc16b460afbbeb15f56c6a53f9097ce229f8ed8c61b98bee63019bc0154",
       "accepted": "Actual playback/output/replay/immutable native schema/local Omni transcription + cleanup, bounded subset only"
     }
-  ]
+  ],
+  "historical_pre_integration_enabled_this_checkpoint": [],
+  "historical_pre_integration_deployed_this_checkpoint": [
+    "fail-closed static-image-only attachment boundary",
+    "correct finite typed inference metrics and separate monitoring labels",
+    "orphan thinking-control stripping",
+    "matching16x16transparentSettings/arrow",
+    "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
+  ],
+  "verified_this_checkpoint": "323 Python passed/1 skipped/68 subtests; focused19/11subtests;9C release+ASan/UBSan incl helper leaks; actual headless CSS parse; prompt unchanged;20 original dirty path/hashes unchanged",
+  "verified_this_audit": [
+    "Shared focus through actual disposable Unix chat IPC injects current skill exactly once, preserves complete DEFAULT_SYSTEM, exact native WAV; MP4 and malformed WAV rejected before mocked inference",
+    "Approved skill snapshot with ingest/capture off and no execution grants; existing live-focus ingest consent gate preserved",
+    "Installed/running UI11a10dc16 unchanged; models all inactive/dead/MainPID0; no service restarts or live inference"
+  ],
+  "working_tree_milestones": [
+    {
+      "name": "Source/headless style only",
+      "commit": "9eaf8f957e27dc7b17119ef5b2d8c5401baea894",
+      "acceptance": "No new GUI/rendered/installed claim"
+    },
+    {
+      "name": "Backend shared events/skill snapshot",
+      "commit": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
+      "cherry_pick_of": "618f40ce8a17bcfc4c4ccb55d872870268f0d528",
+      "acceptance": "Combined headless tests; not deployed"
+    }
+  ],
+  "enabled_this_checkpoint": [],
+  "deployed_this_checkpoint": [],
+  "original_quarantine": {
+    "path": "/home/ron/Projects/Hyprneuro",
+    "dirty": true,
+    "unchanged_files": 20,
+    "verification": "Original path/SHA256 manifests identical; no edits or cherry-pick there"
+  },
+  "models": {
+    "text": "inactive/dead",
+    "omni": "inactive/dead",
+    "decision": "inactive/dead",
+    "MainPID": 0,
+    "Result": "success",
+    "exit_timestamp": "2026-11-12 18:11:45 EST",
+    "checked_at": "2026-11-12 19:18 EST",
+    "policy": "Do not start/restart; no live inference while inactive"
+  },
+  "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
+  "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip"
 }

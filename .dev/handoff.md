@@ -1,0 +1,25 @@
+# Safe integration handoff — 2026-11-12
+
+- Work only `/home/ron/Workspace/hyprneuro-safe-integration` /
+  `feat/verified-ui-backend-integration`; base `0c197b4`.
+- Style commit `9eaf8f957e27dc7b17119ef5b2d8c5401baea894` (source/headless only).
+- Backend pick `05b7f58bdaba9b8681e6bf23f2518dfccfa5200b` from `618f40c`.
+- Parent prompt byte-for-byte preserved. No video code/activation integrated.
+- Full Python323pass/1skip/68subtests; focused19pass/11subtests;
+  C release9/9 + ASan/UBSan9/9 (helpers leak-enabled); real CSS parse PASS.
+- Combined IPC regression + updated docs/.dev records UNCOMMITTED for parent
+  review/commit. Both existing commits have required co-author trailer.
+- Original dirty tree quarantined unchanged: all20path/hash manifest PASS.
+- No push/deploy/GUI input/service or model restarts/packages/global changes.
+- All models inactive/dead/MainPID0 at19:18EST; no live inference.
+- Installed/running UI11a10dc16… unchanged; candidate styles not rendered/installed.
+- Video teardown GstPlay SEGV, paused-seek play gate and accessible locator/
+  chooser failures BLOCKED. GtkVideo is not proof of fix; no forced recreation.
+- Parent: review+commit remaining checkpoint, then inspect remote tip and publish
+  tested descendant non-force to existing feature branch from isolated tree.
+  Do NOT move local feature ref checked out in dirty original or push isolated
+  branch. No deployment yet. GUI needs independent unlock+UI-worker coordination.
+
+Authoritative detail: `docs/SAFE_INTEGRATION_CHECKPOINT.md` and
+`docs/NEXT_SESSION_PROMPT.md`; logs/manifests:
+`/home/ron/Workspace/hyprneuro-safe-integration-evidence/`.

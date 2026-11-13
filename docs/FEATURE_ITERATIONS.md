@@ -1,12 +1,15 @@
 # Remaining feature iterations — NOT READY
 
-Current **uncommitted/unpushed** working-tree milestones:
-[AUDIO_FILE_CHECKPOINT.md](AUDIO_FILE_CHECKPOINT.md) (canonical PCM16 WAV native
-playback/review/snapshot/actual installed Omni verified after user-installed Gst
-plugins) and [SEARCH_GTK_CHECKPOINT.md](SEARCH_GTK_CHECKPOINT.md) (read-only
-observations/search/details verified). Latest installed hash11a10dc16… .
-Implementation-writer contract requires leaving changes uncommitted for main
-agent/user review/publication; no new pushed iteration is claimed.
+Current authoritative continuation: [SAFE_INTEGRATION_CHECKPOINT.md](SAFE_INTEGRATION_CHECKPOINT.md)
+and [NEXT_SESSION_PROMPT.md](NEXT_SESSION_PROMPT.md). Published WAV/search is
+`2ac35fa`, prompt is `0c197b4`. In the isolated tree only, style milestone
+`9eaf8f9` is source/headless verified and backend `618f40c` was cleanly picked as
+`05b7f58`; new combined test/checkpoint records await parent review/commit.
+Original dirty video candidate remains quarantined unchanged, NOT DEPLOYED.
+Installed/running UI remains11a10dc16… . New styling has no rendered/installed
+acceptance. Models are inactive; no live inference, starts/restarts or deployment.
+This worker must not push the isolated branch; parent owns safe publication of
+the reviewed tested descendant to the existing remote feature branch.
 
 User's expanded request: implement outstanding supported features in bounded
 iterations; after **each** iteration run source regressions/applicable sanitizers,
@@ -23,8 +26,8 @@ binary during test cleanup. Recheck actual `/proc/PID/exe`, not only source CSS.
 |---|---|
 | 1. AV/metrics/thinking/arrow repair | Implemented and individually verified/deployed in `4f1711e`. Native audio/video backend proof is separate from enabled attachment UI. Combined GUI-driver failures remain documented; not full mixed acceptance. |
 | 2. GTK presentation warnings and GUI test reliability | OPEN. GtkImage baseline and presentation/frame warnings still prevent fatal-warning acceptance. Diagnose app paths with exact installed GTK/Wayland source and public APIs; no renderer/package change or warning suppression. Automated portal selection and virtual-key input have intermittent driver failures; bounded waits/verified input detect rather than hide them. |
-| 3. Native attached audio/video, inline review/playback | Canonical PCM16 WAV bounded implementation and actual installed playback/native Omni E2E verified, uncommitted; see audio checkpoint for limits. User-installed Gst plugins now resolve earlier missing WAV parser; agent installed nothing. MP4 preparation now works but video UI/native-send/decode/frame/resource bounds remain NEXT, not implemented. MP3/FLAC/arbitrary WAV/WebM/documents remain disabled. No microphone/camera/screen capture. |
-| 4. Recall/search/history GTK views | Bounded explicit read-only observation search/details now implemented, tested with real GTK fixtures and actual installed existing store, deployed/uncommitted. Query/recent10/source/last24h/today, literal untrusted details, sanitized URL preview; no URL opening/collectors/models. No pagination/full chat-history claim. See search checkpoint. |
+| 3. Native attached audio/video, inline review/playback | Canonical PCM16 WAV bounded implementation and actual installed playback/native Omni E2E verified and published in `2ac35fa`; see audio checkpoint for limits. User-installed Gst plugins now resolve earlier missing WAV parser; agent installed nothing. MP4 candidate exists only in the quarantined dirty tree: unresolved GstPlay teardown SEGV, paused-seek playback-gate bypass, and accessibility/chooser locator failures. GtkVideo substitution is unverified, not a repair. No video code or acceptance in the isolated integration. MP3/FLAC/arbitrary WAV/WebM/documents remain disabled. No microphone/camera/screen capture. |
+| 4. Recall/search/history GTK views | Bounded explicit read-only observation search/details now implemented, tested with real GTK fixtures and actual installed existing store, deployed and published in `2ac35fa`. Query/recent10/source/last24h/today, literal untrusted details, sanitized URL preview; no URL opening/collectors/models. No pagination/full chat-history claim. See search checkpoint. |
 | 5. Memory GTK workflow | OPEN. Existing app/global/task memory APIs; inspect approval semantics and limits before exposing read-only recall and explicitly requested edits. No background memory promotion, autonomous action, or raw chat collector. |
 | 6. Settings/monitor controls | Already accepted only for transcript size, autoscroll, opacity and three explicit monitoring consents with saved/draft/observed-active state. Save does NOT start workers; startup-only lifecycle tested earlier. Preserve those semantics until separately implemented/tested. Other capture/browser/model/semantic/action toggles must not be shown as accepted working features. Safe missing status/detail/error workflow can proceed independently. |
 | 7. Manual generation interruption/recovery | OPEN if still requested by current control inventory. No Stop-generation button currently. Verify actual server/client cancellation contracts before adding UI; do not confuse closing a display with cancelling model work. No model service restart. |
@@ -44,8 +47,17 @@ binary during test cleanup. Recheck actual `/proc/PID/exe`, not only source CSS.
    and exposed widget attributes when applicable. Keep native fixture vs live
    model evidence distinct. A timed-out/partial run is never complete.
 4. Atomic app-only deployment with backup, running `/proc` hash equality, no
-   stale-binary restore; unchanged model PIDs/start/config/library fingerprints.
+   stale-binary restore; read-only model-state checks. Current models are inactive: no live inference or model restarts; old unchanged-PID claims are historical.
 5. Append accurate `.dev` checkpoints and docs; commit/push feature branch with
    `Co-Authored-By: AI Agent <agent@local>`. Record exact pushed commits.
 6. Continue the next independent safe feature; ask only for actual unavailable
    dependency/authorization. No broad “all” permission overrides privacy policy.
+
+## Isolated source/headless milestone exception
+
+Current user/reviewer direction permits the style-only source/headless checkpoint
+and backend integration without deployment or rendered claims. Full combined
+Python323pass/1skip/68subtests; release+ASan/UBSan9C each; new shared focus→chat
+IPC exact-WAV/prompt/privacy fixture passed. GUI checks require independent
+unlock plus UI-worker coordination; none attempted here. Later video repair
+must prove lifetime/teardown and actual-playback gating, not force recreation.

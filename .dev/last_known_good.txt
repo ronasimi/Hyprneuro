@@ -1,4 +1,10 @@
 Production acceptance: NOT READY; no production-accepted revision.
-Last verified bounded repair code: 4f1711ef49df35629cbdde81530d568d6016eeb0
-Historical unaccepted pointer (preserved): 71e6d92c3dbf38a6dd244a9264f828b08f60ec4b
-See docs/AV_METRICS_REPAIR.md and docs/FEATURE_ITERATIONS.md.
+Published bounded WAV/search baseline: 2ac35fa; prompt: 0c197b4.
+Isolated source/headless style: 9eaf8f957e27dc7b17119ef5b2d8c5401baea894.
+Isolated backend integration tip: 05b7f58bdaba9b8681e6bf23f2518dfccfa5200b.
+Combined tests passed; new test/checkpoint uncommitted for parent review.
+NOT DEPLOYED; original dirty video candidate untouched/quarantined.
+Installed/running11a10dc16... unchanged; models inactive; no live inference.
+Historical last bounded repair code: 4f1711ef49df35629cbdde81530d568d6016eeb0.
+Historical unaccepted pointer: 71e6d92c3dbf38a6dd244a9264f828b08f60ec4b.
+See docs/SAFE_INTEGRATION_CHECKPOINT.md and .dev/handoff.md.

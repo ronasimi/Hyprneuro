@@ -1,3 +1,15 @@
+## Coherent new candidate FROZEN, exactreview next
+
+Source d3f3fa2/exact265gitfiles; manifest14c561a5…03df, binary7a634a9c…2560,
+descriptor287364cc…ca0f, template657c4ffe…c154; stagedverify/rollback/DB/21GTK/
+unitanalyzer PASS. Noapplymarkers/newowner runtime/start/consent. Currentmodel
+PIDs3221439/3221441/3221445 healthy butdiffer earlier3039baseline; thissubagent
+NEVER restartedmodels, parentconfirmprovenance. LegacyUI3104230 unchanged.
+Exactreview docs/evidence/final-coherent-recovery-review-bundle.json; proposed
+no-grant realbroker absence-revoke postcutovercheck, named5liveorigins limitation
+explicit. Need independentbundle/opsreview +ACTUALfreshhumanunlock before1apply.
+No additionaloldowner signal/resetauthority. Oldunknownnativeguards preserved.
+
 ## Baseline legitimately inert; regular NEW candidate prep next
 
 Parent separatelyauthorizedONEexact2unitreset-failedmetadata done0 afterfresh

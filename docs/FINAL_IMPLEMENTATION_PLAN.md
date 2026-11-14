@@ -848,3 +848,33 @@ No newroot reported until frozen/reviewed; human selection/activation/read remai
 separate. Historical5392 stays unchanged; mandatoryVIDEOfile externalBLOCK remains.
 
 [Exact dead-unit metadata receipt](evidence/final-exact-dead-unit-metadata-cleanup.json).
+
+## 25. NEW coherent d3f3fa2 candidate frozen — exact review required
+
+Prepare run01M7DY4VFNT83VAWJV3A2VJF5A completed0. Exact approved source d3f3fa2
+export265gitblobs verified; evidenceHEAD13f2f5c docs-only descendant, no source mix.
+FreshGTK21helpers pass, SQLitequickcheckok, namedimportorigins verified, canonical
+6unitrollback incl prior5392 ownerbaseline original0600 pinned; staged verifier
+passes before/afterfreeze/freshrecheck, analyzer0/empty. Payload readonly frozen;
+no newowner runtime/keys/guard/checkpoint/start or apply markers/service change.
+
+Review candidate `/home/ron/Workspace/hn-final-d3f3fa2` (NOT a human Connect
+instruction before deployment). Manifest14c561a5c4438cd5ff36c733730d971d97f4ee1056bf97b228d21c3f2ce203df;
+binary7a634a9c0970d13ef7ec5732f71498d387d4c32e2a2c052d8676cc400c1e2560;
+descriptor287364ccce561b8be75956201231b6c0be44907c19e8244ab68bc7983c91ca0f;
+template657c4ffe3c5960b1e7475e836a5a021443d7e87c597308819f33bb0f367ac154.
+
+ActualcurrentText/Omni/D1 models3221439/3221441/3221445 healthy8081/2/3, MoEoff;
+PIDs differ earlier3039039/3039041/3039045. NO restart/configchange by thissubagent;
+parent confirm provenance before cutover. UIstill3104230 Legacy/disconnected.
+Retain Mesonexit0 unclosedsetup-log ResourceWarning; not warning-free claim.
+
+Next independent exactbundle/ops review (including proposed no-grant absent-revoke
+postcutoverprobe), then actual freshhumanunlock+maintainedleasedchecks before
+ONE frozenapply. Live5namedmodule origin attestation covers package/sidecar but
+doesnot separatelyserialize authorization.__file__; proposed fixedfile/package
+contract+broker behavior probe corroborates broker provenance for reviewer.
+No activation/read or private capture consent exists. Frame/video/remaining
+acceptance gates unchanged; no READY claim.
+
+[Coherent frozen candidate receipt](evidence/final-coherent-recovery-review-bundle.json).

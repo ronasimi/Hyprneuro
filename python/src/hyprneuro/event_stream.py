@@ -63,6 +63,8 @@ class EventIntake:
         self.max_message = max_message
         self.network_status = {"samples": 0, "observed_at_ms": None, "interfaces": {}}
         self.resource_status = {"samples": 0, "observed_at_ms": None}
+        self.resource_snapshot = None
+        self.monitor = None
 
     # -- journal ----------------------------------------------------------
     async def follow_journal(self, deliver: Deliver):
@@ -241,15 +243,25 @@ class EventIntake:
         detector = ResourceAlerts()
         async def on_sample(snapshot):
             memory = snapshot.get("memory_kib", {})
-            total = memory.get("MemTotal", 0)
+            total, available = memory.get("MemTotal"), memory.get("MemAvailable")
+            valid_ram = (type(total) is int and type(available) is int
+                         and total > 0 and 0 <= available <= total)
+            # Publish before alert delivery can yield to a slow scorer/notifier.
+            self.resource_snapshot = snapshot
             self.resource_status = {"samples": self.resource_status["samples"] + 1,
                 "observed_at_ms": int(time.time()*1000),
                 "cpu_pct": snapshot.get("cpu_percent", {}).get("cpu"),
-                "ram_pct": 100*(1-memory["MemAvailable"]/total) if total > 0 and "MemAvailable" in memory else None,
+                "ram_pct": 100*(1-available/total) if valid_ram else None,
                 "root_disk_pct": snapshot.get("disk_used_percent", {}).get("/")}
             for event in detector.events(snapshot, now=time.monotonic()):
                 await deliver(event)
-        await Monitor().run(on_sample)
+        self.monitor = Monitor()
+        try:
+            await self.monitor.run(on_sample)
+        finally:
+            self.resource_snapshot = None
+            self.resource_status = {"samples": 0, "observed_at_ms": None}
+            self.monitor = None
 
 
 class ResourceAlerts:
@@ -271,8 +283,10 @@ class ResourceAlerts:
                 readings[key] = (value, high, low, unit)
         add("cpu", snapshot.get("cpu_percent", {}).get("cpu"), 90, 75)
         mem = snapshot.get("memory_kib", {})
-        if mem.get("MemTotal", 0) > 0 and "MemAvailable" in mem:
-            add("memory", 100*(1-mem["MemAvailable"]/mem["MemTotal"]), 90, 80)
+        total, available = mem.get("MemTotal"), mem.get("MemAvailable")
+        if (type(total) is int and type(available) is int
+                and total > 0 and 0 <= available <= total):
+            add("memory", 100*(1-available/total), 90, 80)
         for path, used in snapshot.get("disk_used_percent", {}).items():
             add("disk:"+path, used, 95, 90)
         for resource, text in snapshot.get("pressure", {}).items():

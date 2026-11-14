@@ -1,0 +1,281 @@
+{
+  "recorded_utc": "2026-11-14T21:35:08.233227+00:00",
+  "verdict": "APP-ONLY CUTOVER APPLIED ONCE/INSTALLED ATTESTED; isolated-harness initialFAIL preserved, corrected privatefixture6PASS; HUMAN newrootConnect NEXT, NOT READY",
+  "source_commit": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
+  "bundle_review": "APPROVED01M7DYH57KRYC2NRNT00HAJ47V/recovery-bundle-review with READONLYproduction checks only",
+  "pins": {
+    "manifest": "14c561a5c4438cd5ff36c733730d971d97f4ee1056bf97b228d21c3f2ce203df",
+    "binary": "7a634a9c0970d13ef7ec5732f71498d387d4c32e2a2c052d8676cc400c1e2560",
+    "descriptor": "287364ccce561b8be75956201231b6c0be44907c19e8244ab68bc7983c91ca0f",
+    "template": "657c4ffe3c5960b1e7475e836a5a021443d7e87c597308819f33bb0f367ac154"
+  },
+  "cutover": {
+    "source": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
+    "bundle": "/home/ron/Workspace/hn-final-d3f3fa2",
+    "session": "2",
+    "human_unlock_confirmation": "Fresh actual user confirmation in current instruction: session unlocked and will remain unlocked; operator did not change idle/locker",
+    "review": "01M7DYH57KRYC2NRNT00HAJ47V/recovery-bundle-review APPROVED exactcandidate/readonlyops; productionauth_revoke forbidden",
+    "started_utc": "2026-11-14T21:30:11.516046+00:00",
+    "phase": "applied-verified-legacy-no-owner-consent",
+    "applied": true,
+    "operational_decision_sha256": "a3e5a37d535fbc7b4c3bcbfdeb6ad7d8cc0ea67351ad34a8c9816bf3bc8b6bc4",
+    "user_model_restart_confirmation": "Userinitiated17:40:54UTC, newbaseline3221439/3221441/3221445 approved, NOT original3039 baseline",
+    "nine_primary_pins": {
+      "/home/ron/Workspace/hn-final-d3f3fa2/manifest.json": "14c561a5c4438cd5ff36c733730d971d97f4ee1056bf97b228d21c3f2ce203df",
+      "/home/ron/Workspace/hn-final-d3f3fa2/bin/hyprneuro-ui": "7a634a9c0970d13ef7ec5732f71498d387d4c32e2a2c052d8676cc400c1e2560",
+      "/home/ron/Workspace/hn-final-d3f3fa2/owner/owner.json": "287364ccce561b8be75956201231b6c0be44907c19e8244ab68bc7983c91ca0f",
+      "/home/ron/Workspace/hn-final-d3f3fa2/staged/hyprneuro-pi-owner@.service": "657c4ffe3c5960b1e7475e836a5a021443d7e87c597308819f33bb0f367ac154",
+      "/home/ron/Workspace/hn-final-d3f3fa2/backup/hyprneuro-ui": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+      "/home/ron/Workspace/hn-final-d3f3fa2/backup/observations.sqlite3": "a23221e45a084ce0a52148d81be11baf2f1d7fcbb32079660745349b6a18a462",
+      "/home/ron/.local/bin/hyprneuro-ui": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+      "/home/ron/.config/hyprneuro/settings.json": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+      "/home/ron/Workspace/hn-final-5392ecf/manifest.json": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8"
+    },
+    "preserved_native_checkpoint_hashes": {
+      "/home/ron/Workspace/hn-final-5392ecf/owner": "c34f0a98c0a3d3ac5600fbbd22b57e4f5a293f758c0f07d5e95f61b1e36c9d72",
+      "/home/ron/Workspace/hn-final-6f9de3f/owner": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea"
+    },
+    "preserved_model_config_hashes": {
+      "/home/ron/.config/systemd/user/lfm@.service": "259fe76ccd42d61ada52db545b5560f1d4d23597212365ca8cce9174440e23ff",
+      "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf": "fc0464ad3f2111960afbaaaa89125c5dfd9f224f635f6ee91adaa977c274ba71",
+      "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf": "94cfddbe7b4dd957eecea6e7614a8edb49b4c0345bad1db2df6cccbc71fe5e11",
+      "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf": "c2106876e590d35cdca2937415363a4acfba860e0b09a2c827100d9bff4d1717",
+      "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf": "b07e20f78a51e599237ee77ab4e345cd9434982cfa8159cbbf003136a6a71a30"
+    },
+    "trusted_parent_baseline": {
+      "/": {
+        "dev": 39,
+        "ino": 256,
+        "mode": 16749,
+        "uid": 0,
+        "canonical": "/",
+        "symlink": null
+      },
+      "/home": {
+        "dev": 52,
+        "ino": 256,
+        "mode": 16877,
+        "uid": 0,
+        "canonical": "/home",
+        "symlink": null
+      },
+      "/home/ron": {
+        "dev": 52,
+        "ino": 257,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron",
+        "symlink": null
+      },
+      "/home/ron/.config": {
+        "dev": 52,
+        "ino": 270,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron/.config",
+        "symlink": null
+      },
+      "/home/ron/.config/systemd": {
+        "dev": 52,
+        "ino": 1970688,
+        "mode": 41471,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd",
+        "symlink": "/home/ron/.dotfiles/home/.config/systemd"
+      },
+      "/home/ron/.config/systemd/user": {
+        "dev": 52,
+        "ino": 3537820,
+        "mode": 16877,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd/user",
+        "symlink": null
+      },
+      "/home/ron/.config/systemd/user/hyprneuro-ui.service.d": {
+        "dev": 52,
+        "ino": 9391477,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d",
+        "symlink": null
+      },
+      "/home/ron/.config/systemd/user/hyprneuro.service.d": {
+        "dev": 52,
+        "ino": 9391475,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d",
+        "symlink": null
+      }
+    },
+    "command": [
+      "/home/ron/Projects/Hyprneuro/python/.venv/bin/python",
+      "/home/ron/Workspace/hn-final-d3f3fa2/staged/apply_app_release.py",
+      "/home/ron/Workspace/hn-final-d3f3fa2",
+      "--session",
+      "2",
+      "--parent-authorized",
+      "--fresh-user-unlock-confirmed"
+    ],
+    "apply_exit": 0,
+    "models_after": [
+      {
+        "unit": "lfm@text.service",
+        "pid": 3221439,
+        "start": "44457110",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": [
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf"
+        ]
+      },
+      {
+        "unit": "lfm@omni.service",
+        "pid": 3221441,
+        "start": "44457112",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": []
+      },
+      {
+        "unit": "lfm@decision.service",
+        "pid": 3221445,
+        "start": "44457113",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": []
+      }
+    ],
+    "UI_after": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 3349626,
+      "start": "45832898",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "7a634a9c0970d13ef7ec5732f71498d387d4c32e2a2c052d8676cc400c1e2560",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "sidecar_after": {
+      "unit": "hyprneuro.service",
+      "pid": 3349621,
+      "start": "45832895",
+      "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+      "exe_sha256": "20a5569a1bac8de02122347777b6cf2ae12ec1eafd42db990c6a0c5407f96b8e",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro.service",
+      "dropins": [
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "finished_utc": "2026-11-14T21:30:13.612599+00:00"
+  },
+  "preservation": {
+    "database_quick_check": {
+      "live": "ok",
+      "consistent_pre_apply": "ok"
+    },
+    "settings_sha256_unchanged": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+    "new_task_has_no_authorization_row": true,
+    "newowner_no_runtime_or_start": true,
+    "strict_inert_gate": "PASS",
+    "global_flock_free": true,
+    "old_unknown_checkpoint_sha256": {
+      "5392ecf": "c34f0a98c0a3d3ac5600fbbd22b57e4f5a293f758c0f07d5e95f61b1e36c9d72",
+      "6f9de3f": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea"
+    },
+    "broker_store_imports": {
+      "hyprneuro.authorization": {
+        "file": "/home/ron/Workspace/hn-final-d3f3fa2/source/python/src/hyprneuro/authorization.py",
+        "sha256": "e23a5783ae8bccf2e1d6748768de1c5b51e315a5bc195f21781da8668413ffb8"
+      },
+      "hyprneuro.sidecar_store": {
+        "file": "/home/ron/Workspace/hn-final-d3f3fa2/source/python/src/hyprneuro/sidecar_store.py",
+        "sha256": "800345b3d72463232fe243f107152807f8700638ad29b97e5385ef3bc22b24ec"
+      }
+    },
+    "broker_provenance_boundary": "These2extra imports are an isolated interpreter with pinned PYTHONPATH, not serialized livePID module state. ActualrunningPID fivepackage/sidecarorigins separatelyattested by installed verifier; closedrelativepackage importcontract + exactfrozen source hashes. Fixedrevoke actualcode tested privatefixtureONLY.",
+    "models": [
+      {
+        "unit": "lfm@text.service",
+        "pid": 3221439,
+        "port": 8081,
+        "status": "ok"
+      },
+      {
+        "unit": "lfm@omni.service",
+        "pid": 3221441,
+        "port": 8082,
+        "status": "ok"
+      },
+      {
+        "unit": "lfm@decision.service",
+        "pid": 3221445,
+        "port": 8083,
+        "status": "ok"
+      }
+    ],
+    "production_rpc_policy": "READONLY monitoring/status/health, NO auth_revoke/auth_create/auth_expand",
+    "fixture_sha256": "3586ec89e2f10bfa6455669e34a8aa0db2f5cd66929daaf0893a93706d554350"
+  },
+  "production_probe_supersession": {
+    "receipt": "docs/evidence/final-cutover-readonly-ops-decision.json",
+    "sha256": "a3e5a37d535fbc7b4c3bcbfdeb6ad7d8cc0ea67351ad34a8c9816bf3bc8b6bc4",
+    "production_auth_revoke_create_expand": false,
+    "production_postchecks": "Readonly installedbinary/import/unit/SQLitequickcheck/noauthrow/health/monitoring/status ONLY; no authorization/history write probe"
+  },
+  "durable_result": {
+    "run": "01M7DZFHYFA4X5WQWA9RM32WJT",
+    "overall_exit": 1,
+    "distinction": "apply and all readonlyproduction checks SUCCEEDED. Later privatefixture failed before Node launch when nestedUnixsocket path too long; NEVER rerun apply. apply.started+completed retained.",
+    "initial_fixture_log": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-installed-source-test.log",
+    "initial_fixture_log_sha256": "5b5fd79bbcd4d18672b1c3cc39ac53e3f0ef7bcd70595fb3d33cc3cf540ffc79",
+    "initial_errors": "AF_UNIX path too long under long workspaceisolatedTMPDIR; setup failure also raised unclosedDB ResourceWarning. Preserve both, not production owner/revoke failure.",
+    "correction": "Changed ONLY external isolatedfixture root to short /tmp/hn-fix-* with same env-i/pathguarded installedsource test, no frozen source change/prod mutation. New privateRoot under /tmp, DB/socketboth asserted belowit; sixservice tests pass, realSDK/realbroker absent revoke+cleanclose+inheritedlock checks.",
+    "corrected_fixture_root": "/tmp/hn-fix-cEb6Nm",
+    "corrected_fixture_log": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-installed-source-short-root.log",
+    "corrected_fixture_log_sha256": "4a554785c0420757e4452e9e46b14b360041e9e84a3939a4abaa0763c3e7a41f",
+    "apply_replayed": false
+  },
+  "latest_readonly_recheck": {
+    "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/post-cutover-readonly-final.log",
+    "sha256": "b8d83fe16ba913d35bd776f903ed8b1d7bbda0554d602d53b8bd2103c9555747",
+    "result": "installed-legacy PASS after correctedprivatefixture, no ownerstart/connect/grant"
+  },
+  "human_next": {
+    "action": "Human clicks Connect Pi owner\u2026, selects exact new owner folder, Open. Do not Send/activate/approve read yet; operator verifies actual canonicalroot/profile/runtime/descriptor first.",
+    "folder": "/home/ron/Workspace/hn-final-d3f3fa2/owner",
+    "scope": "Newcoherent normal-only/persistent/parent-only/read exactfixture only, no children/exec/write/provider/lifecycle grants. No activationdialog expected merely forConnect; future activation and exactread decisions separatelyhuman.",
+    "operator_selection_or_grant": false
+  },
+  "remaining": "Actualnewroot handshake/nativeactivation+read/contentcontinuation/journal and liveidle/reconnect/revoke/restart/cleanexplicitshutdown+lockrelease stillunproven. Framebasedcamera/officialScreenCast scope notimplemented/included by thiscutover; no capture/UIactionauthority. BindingVIDEOfile externalconstraint remains mandatory READYBLOCK.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/apply-once.py": "5678d86f595d019e4335cc5e313001b338715a409634fe0af2fb0006d08e8113",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/apply.log": "eb6d9a6d453ff2982b730cec602c57fcad43850cfe258436d008a9800291bd3a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/cutover.json": "d835ded546bcf70362aa54e217d4075d23e7f5e799c069da8e089596e7b8161e",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/data-owner-preservation.json": "aff67d951268259cac07f6e28390fe33f6b477e1cb5226f099baeedaf2986c74",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/hyprland-help.log": "8407fb1e380798eec72db612e3752381658e8e44f7118a0079f45a26a71029a0",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/hyprland-version.log": "653a1fa7c348298ff6a17979ceb27ace724eaad9860358b182bd11251cbc6e07",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-fixture-root": "542c15f291d6b6e16ace25b8634d92ad6a2c3d0ef243a7d9944a5178e3bd425f",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-fixture-short-root": "bcfc997b81079bca7407c3e5944d63595c2445183ee5f3624eacc4d480b0dd4a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-installed-source-short-root.log": "4a554785c0420757e4452e9e46b14b360041e9e84a3939a4abaa0763c3e7a41f",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-installed-source-test.log": "5b5fd79bbcd4d18672b1c3cc39ac53e3f0ef7bcd70595fb3d33cc3cf540ffc79",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/isolated-installed-source-test.py": "229d9eae9b7bee6934e987de7f399332d001e6758bd2cd19dc5fb695a0648731",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/operational-decision.json": "a3e5a37d535fbc7b4c3bcbfdeb6ad7d8cc0ea67351ad34a8c9816bf3bc8b6bc4",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/operator.log": "ab0ea8cce0cc75792efbd81fed01496a1477d40da587f17f7431730d743473c8",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/operator.started": "55a7678e8fc1d71d491ef21a45df80224a5cdbb67490e144c8e996f751539e46",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/post-cutover-readonly-final.log": "b8d83fe16ba913d35bd776f903ed8b1d7bbda0554d602d53b8bd2103c9555747",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/post-cutover-readonly.log": "064a297a9f4935943e4320ddbb56cbc2200e718cab77f7fe3e48a230b89124ab",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/post-cutover-readonly.py": "f918db22789a8b37cf4cb0142d965f738dee4372dbe4bac8bbdb90a88076f05a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/post-preservation.log": "3c6d2e2a12cc8b4ab08f608d0aecc51263eef715235cce879de02fde727260e3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/post-preservation.py": "6c3eefbdfa654f17eff4140bf3d4ec62f3b6050708fbbee67d211fdb18955922",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-d3f3fa2/run-reviewed-cutover.sh": "7d90dce3747bb3ec47499038e4e32d15ae9b8ce27c8fe3916fef0d01b9808650"
+  }
+}

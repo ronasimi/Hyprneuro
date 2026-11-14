@@ -1,0 +1,14 @@
+{
+  "at_utc": "2026-11-14T21:28:11.096897+00:00",
+  "status": "BINDING SUPERSEDING EXTERNAL OPERATIONS DECISION BEFORE CUTOVER",
+  "review": "APPROVED01M7DYH57KRYC2NRNT00HAJ47V/recovery-bundle-review exactsource d3f3fa2 bundlemanifest14c561a5c4438cd5ff36c733730d971d97f4ee1056bf97b228d21c3f2ce203df",
+  "supersedes": "docs/evidence/final-coherent-recovery-review-bundle.json line160 / postcutover_proposed_checks[3] proposing production auth_revoke(absent). Historical/frozen receipt remains unchanged; this explicit external decision overrides that operation.",
+  "production_checks": "READONLY attestation/status/health/counters/SQLite mode=ro only; NO auth_revoke/auth_create/auth_expand or any authorization/history mutation, regardless missing ID. SQLite UPDATE is write even when0rows.",
+  "revocation_test": "ONLY isolated reviewed installed-source test with fresh private root/DB/socket and explicit target-path guards under sanitized env; no production runtime defaults/environment inheritance.",
+  "human_confirmations": {
+    "session": "User freshly confirms SESSION UNLOCKED in current parent relay; actualhumanconfirmation, not inferred solely from logind.",
+    "models": "User confirms USER INITIATED LFM stack restart at17:40:54UTC; currentapprovedbaselineText3221439/Omni3221441/D13221445, distinct from original3039 baseline, never claim sameidentity or agentinitiated."
+  },
+  "cutover_authority": "Existing reviewed ONE app-only apply after fresh unchangedbaseline/pins/aliases/rollback/settings/globalinert/flock/nativeguard/maintainedlease+locker checks; no replay ifpartial/marker/error.",
+  "prohibitions": "No owner autostart/select/connect/activation/readgrant/capture/replay/oldcheckpointguardreset/oldbundleedit; no model/weights/config mutation; no production probe writes."
+}

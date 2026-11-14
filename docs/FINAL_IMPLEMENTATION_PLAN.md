@@ -878,3 +878,58 @@ No activation/read or private capture consent exists. Frame/video/remaining
 acceptance gates unchanged; no READY claim.
 
 [Coherent frozen candidate receipt](evidence/final-coherent-recovery-review-bundle.json).
+
+## 26. Exact review APPROVED; production-write probe SUPERSEDED before cutover
+
+01M7DYH57KRYC2NRNT00HAJ47V/recovery-bundle-review APPROVES exactd3f3fa2/
+manifest14c561…03df bundle/ops ONLY with production READONLY postchecks.
+External binding decision final-cutover-readonly-ops-decision.json supersedes
+frozen/historical candidate receipt line160/proposedauth_revoke(absent): SQLUPDATE
+is write even0rows; NOproductionauth_revoke/create/expand probe permitted.
+Frozenbundle/receipt not patched. Realrevoke test ONLY freshprivateDB/socket
+fixture withtargetpathguards, env-i/privateHOME/XDG/tmp/cache, explicitSDKpaths.
+
+Actual USER now freshly confirms sessionUNLOCKED and USERinitiatednormalLFM
+stackrestart17:40:54UTC/newPIDs3221439/3221441/3221445. This is explicitly a
+NEW authorized baseline, never relabelled original3039 identity.
+
+Reviewed ONCE app-onlycutover launched durably01M7DZFHYFA4X5WQWA9RM32WJT;
+actual outcome awaits completion wake. Recheckninepins/allstaged/source/backup
+hashes, aliases/settings/configs/modelidentity, strictglobalinert/flockfree,
+oldnativeguards/checkpoints, maintained lease+logind+independentlocker; fail
+closed/noapplyreplay. Noownerautostart/select/activation/readgrant/capture.
+Postproduction readonlybinary/import/unit/SQLitequickcheck/settings/model/
+monitoringattestation; installedsource revoke/cleanclose isolatedfixtureONLY.
+Humannewrootstep only AFTER successful installedattestation, not before.
+
+## 27. Reviewed coherent d3f3fa2 installed ONCE — HUMAN Connect next
+
+- [x] Actualfreshhumanunlock + USERinitiatednewLFMbaseline confirmed; strict
+  ninepins/allsource/staged/rollback/config/settings/aliases/inert/freeflock/
+  nativeunknownguard checks maintainedunderlease/logind+locker.
+- [x] Onceapply completed0, manifest14c561…03df/newbinary7a634a9c…2560 installed;
+  UI3349626/sidecar3349621, actualnamedsourceorigins/proc/exe/effectiveunits PASS.
+  Legacy/disconnected/readfalse; no newowner runtime/start/select/grant.
+- [x] DB/liveandfinalconsistentbackupquickcheckok, settingsunchangedfa611…f3a4,
+  exactnewsynthetictask hasNOauthrow (SELECTonly), oldnativeunknowncheckpoints/
+  guards unchanged/freeflock/strictinert PASS. Newmodelbaseline3221PIDs and
+  optimizedunitconfigs unchanged bycutover; weights neverwritten/restarted.
+- [x] Externaldecision SUPERSEDES oldline160; NOproductionauth_revoke/create/
+  expand. Productionpostchecks read-only. ActualbrokerSQLUPDATE privateONLY.
+- [x] Durable01M7DZFHYFA4X5WQWA9RM32WJT overallEXIT1 is retained: APPLY+all
+  productionreadonlychecks SUCCEEDED; later privatefixture AF_UNIXpath too long
+  (beforeNode launch) and setupunclosedDBwarning failed test. NOapplyreplay.
+  Corrected only externalfixtureTMPDIR short/private /tmp/hn-fix-*, same
+  sanitizedenv/pathguards/reviewedinstalledsource;6testsPASS. Originalfailure
+  andcorrectedlogs separatelyretained, frozenbundle unpatched.
+- [x] Fresh readonly installedLegacy checkPASS afterprivatefixture; installed
+  monitoring IPC metadata sampled, NOT renderedcounter acceptance.
+- [ ] HUMAN clicks `Connect Pi owner…`, selects exactNEWfolder
+  `/home/ron/Workspace/hn-final-d3f3fa2/owner`→Open. DoNOTSend/activate/Allowread
+  yet; operator verifyactualcanonicalroot/descriptor287364…ca0f/runtime/profile.
+  Connectalone doesnotgrant read orrequireactivationdialog.
+- [ ] Then genuine HUMAN activation/exactfixture consent, nativecontent/result/
+  continuation/journal, idle/reconnect/revoke/restart/explicitcleanclose/live
+  independentflockrelease. No source-only/oldfailedshutdown READY substitution.
+
+[Once coherent app cutover receipt](evidence/final-coherent-recovery-app-cutover.json).

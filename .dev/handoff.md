@@ -1,3 +1,29 @@
+## Coherent d3f3fa2 installed ONCE, HUMAN newrootConnect next
+
+Appapplycompleted0/installedlegacyverified; UI3349626/sidecar3349621;
+sourceR/imports/effectiveunits/binary/DBsettings/modelnewbaseline/oldunknown
+guards verified. NOownerstart/select/grant; currentrouteLegacydisconnected.
+Durable01M7DZFHYFA4X5WQWA9RM32WJT overall1 AFTERsuccessfulapply dueisolated
+Unixsocketpath toolong +setupDBwarning. Originalfailurepreserved; only
+externalprivateTMPDIRshortened, guardedenv-i actualinstalledsource6testsPASS;
+freshreadonlyLegacyrecheckPASS. NOapplyreplay/frozenpatch/prodauth_revoke.
+Human next Connect Pi owner… exact /home/ron/Workspace/hn-final-d3f3fa2/owner
+→Open ONLY; noSend/activation/Allowyet. Verifyactualnewprofile/descriptor
+287364…ca0f/runtime thenrelayseparatehumanactivation/exactread.
+Receipt docs/evidence/final-coherent-recovery-app-cutover.json. NOTREADY.
+
+## ExactreviewOK + actualhumanunlock/modelrestart confirmed; oneappcutover RUNNING
+
+Durable01M7DZFHYFA4X5WQWA9RM32WJT, awaitwake/no polling/replay. Actualresult
+notyetknown. Externaldecisionreceipt final-cutover-readonly-ops-decision.json
+SUPERSEDESfrozenreceiptline160: NOproductionauth_revoke(SQLUPDATE even0rows),
+onlyreadonlyattestation. Installedsource revoke/cleanclose privatefreshDB/socket
+fixtureONLY env-i allprivateHOME/XDG/tmp/cache andexplicitpathguards.
+Userfreshunlocked +USERinitiated17:40:54UTC newmodelbaseline confirmed.
+Onceapply validates9pins/aliases/backups/settings/currentconfigs/PIDs/oldunknown
+guards/flockfree/strictinert/maintainedlocker. Noownerstart/select/grants.
+AfterSUCCESSattestationrelayexactNEWownerfolder HUMANConnect, notearlier.
+
 ## Coherent new candidate FROZEN, exactreview next
 
 Source d3f3fa2/exact265gitfiles; manifest14c561a5…03df, binary7a634a9c…2560,

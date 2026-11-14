@@ -1,0 +1,86 @@
+{
+  "recorded_utc": "2026-11-14T17:31:54.899426+00:00",
+  "status": "EXACT5392 HUMAN chooser/canonical descriptor/handshake PASS; activation_required, no native read/grant",
+  "handshake": {
+    "source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+    "canonical_owner_root": "/home/ron/Workspace/hn-final-5392ecf/owner",
+    "descriptor_sha256": "552689c410654c922b8c2403ca93ebf167bf659f3b1091a21031425919122cc7",
+    "UI": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 3104230,
+      "start": "43187696",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "ui_mode": {
+      "mode": "pi",
+      "connected": true,
+      "read_callable": true,
+      "fresh_consent_required": true
+    },
+    "owner": {
+      "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service",
+      "pid": 3125828,
+      "start": "43468243",
+      "exe": "/usr/bin/node",
+      "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "dropins": []
+    },
+    "owner_command": [
+      "/usr/bin/node",
+      "/home/ron/Workspace/hn-final-5392ecf/source/extensions/pi-owner/host.mjs"
+    ],
+    "status": {
+      "persistent": true,
+      "normal_only": true,
+      "parent_only": true,
+      "state": "unavailable",
+      "owner_phase": "ordinary",
+      "tools": [
+        "read"
+      ],
+      "tool_permission": "activation_required",
+      "workspace": "/home/ron/Workspace/hn-final-5392ecf/owner/home/workspace",
+      "read_paths": [
+        "/home/ron/Workspace/hn-final-5392ecf/owner/home/workspace/fixture.txt"
+      ],
+      "task_id": "hn-service-bfa6dbaaeba384a483947f44",
+      "app_id": "hyprneuro-parent-read",
+      "session_id": "01a1da8e-fee2-73e5-9173-da6770fc3778"
+    },
+    "checkpoint_phase": "ordinary",
+    "global_lock_holder": [
+      "48: FLOCK  ADVISORY  WRITE 3125828 00:4b:85184 0 EOF"
+    ],
+    "private_image": {
+      "path": "/home/ron/Pictures/Screenshots/20261114_095610.png",
+      "sha256": "759359638c410e8f27b571713e199db549fa4f0539f94f762bd93105b166d177",
+      "observer": "Parent read image; no full image copied/published"
+    },
+    "operation": "fresh peer UI + untrusted status-only canonical root/profile/runtime inspection; no activation/read/control auth/chat/consent"
+  },
+  "fresh_recheck": "After repeated interruption notices: same UI3104230,owner3125828,session01a1da8e-fee2-73e5-9173-da6770fc3778,actual5392workspace/tool_permissionactivation_required; fresh logind/locker/lease checks passed, no old process wait/restart needed.",
+  "provenance": "Owner /proc command exactly /usr/bin/node /home/ron/Workspace/hn-final-5392ecf/source/extensions/pi-owner/host.mjs; selected environment confirms persistent/normal-only/parent-only/readOnly/child0. Descriptor552689c4\u202622cc7 unchanged, task/readpath matches manifest, checkpointordinary/globalflockholdernew3125828.",
+  "UI_status_bug": "Connected/status packets render route but never replace earlier selection-validating status. Actual handshake complete. Source correction now calls set_status on authoritative connected packet; does not activate/consent/reselect or widen tools. Existing installed5392 label remains stale until separately reviewed update.",
+  "source_fix_sha256": "f5565e5e7797f7d2f488bda4b455956ad76049e129298a2b168bedd6ddfdca33",
+  "source_contract_test_sha256": "e2db37a3a6f5887f5b4f586021e02384400138242477214d4c8e927bffd5268f",
+  "regression": "Original5392 lacks terminal connected status; source-contract regression now asserts handler replaces status and cannot send permission/consent action. Focused13Python pass; freshly built21normal+21sanitized C pass. No rendered fix acceptance or installation claim.",
+  "next_human_prompt": "Read fixture.txt once using the native read tool and quote its exact contents. Do not read other paths or run commands.",
+  "activation_UI": "Pi host consent \u00b7 fresh human decision; heading Enable READ-ONLY Hyprneuro tools?; button Allow exact action once (or Deny). Human must inspect apphyprneuro-parent-read/taskhn-service-bfa6dbaaeba384a483947f44/actual5392 workspace/operations[read]/fixture.txt only.",
+  "exact_read_UI": "Separate Allow read? dialog, exact5392 owner/home/workspace/fixture.txt action; only human decides Allow exact action once. If details differ or no dialog/error, report, no automatic retry/grant.",
+  "limits": "No chat, activation, consent, read, model/app/owner lifecycle operation, screenshot capture/clipboard access or source deployment by operator. Full private screenshot not published. Native tool/content-bearing outcome/journal still required. Oldfailedroot/close-unknown guard and sourcecleanup regression blocker preserved. Binding VIDEO refusal/allmedia READY blocker, historical UNKNOWN causes retained.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/exact-connect-5392ecf/terminal-status-build.log": "b8299aefadd3ac3cec107fcc1df260bf2f24a393e896d383f73e825c357d55e2",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/exact-connect-5392ecf/terminal-status-c.log": "a69bb7091fda639754d7ecef5499afcd5c6a6f095542786e20f66eabbbe81c46",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/exact-connect-5392ecf/terminal-status-python.log": "9ced990d8fab992bbeefe1ee84883e6d85413bb4afebf59610594a1aa1e15689",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/exact-connect-5392ecf/terminal-status-sanitized-build.log": "1224c4275408c44d417b57e5fd409f5e2b8e40cc6d2f5c59540a5463ec14021a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/exact-connect-5392ecf/terminal-status-sanitized-c.log": "48d8d8f79c3b887e2dbd05f51bfaa6946509fc20781097cc1022a709a6968ae6",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/exact-connect-5392ecf/verified-handshake.json": "0fedaa09f0dc0da4e0e44380bfb7b9a018e0161b292cc33c4026cab74646b2bb"
+  }
+}

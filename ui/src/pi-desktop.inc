@@ -315,7 +315,11 @@ static void pi_packet(App *a, JsonNode *packet) {
         pi_owner_unavailable(a); a->pi_optin = FALSE;
         g_clear_pointer(&a->pi_connect_error, g_free); pi_render(a);
         set_status(a, "Legacy mode explicitly selected · Pi tools unavailable");
-    } else if (!g_strcmp0(type, "connected")) { g_clear_pointer(&a->pi_connect_error, g_free); a->pi_connected = TRUE; pi_render(a); }
+    } else if (!g_strcmp0(type, "connected")) {
+        g_clear_pointer(&a->pi_connect_error, g_free);
+        a->pi_connected = TRUE; pi_render(a);
+        set_status(a, "Pi owner connected · fresh human consent required for tools");
+    }
     else if (!g_strcmp0(type, "status")) {
         a->pi_parent_only = pi_parent_only_ready(jmember(packet, "result"));
         a->pi_normal_only = pi_normal_only_ready(jmember(packet, "result"));

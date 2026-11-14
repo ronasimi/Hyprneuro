@@ -580,3 +580,27 @@ READ-ONLY acceptance PAUSED; all-media/video refusal blockers remain unchanged.
 
 [Sanitized recovery result](evidence/final-graceful-recovery-result.json). Current
 UI remains Legacy, models unchanged; existing source/media/video blockers retained.
+
+## 18. Exact5392 owner pairing verified — human activation/read next
+
+- [x] Actual human Connect, canonical5392 owner root, descriptor552689c4…22cc7,
+  owner3125828/runtimehost5392, matching task/readpaths/profile, session
+ 01a1da8e-fee2-73e5-9173-da6770fc3778/global lock/checkpointordinary verified.
+- [x] Peer UI3104230 connected/read-callable, persistent normal-only parent/read
+  only profile; tool_permissionactivation_required. NOT a read grant/result.
+- [x] Stale validating text root cause confirmed; source connected packet now sets
+  truthful terminal status, no permission action.13focusedPython,21+21C pass.
+  Source-only correction, NOT installed, no chooser retry/source churn required
+  for current already-validated human consent workflow.
+- [ ] Human submits synthetic fixture.txt native-read prompt (no expected content).
+  Actual dialog heading `Enable READ-ONLY Hyprneuro tools?`, window
+  `Pi host consent · fresh human decision`; inspect exact5392 workspace/app/task,
+  operations[read],fixture.txt. Human alone chooses `Allow exact action once` or Deny.
+- [ ] Separate `Allow read?` exact-file dialog also human; no Allow automation.
+  Then validate actual native tool call/content-bearing result/continuation/journal,
+  not correct quotation or status alone. No dialog/error means report/no retry.
+- [ ] Old failed idle-detach/shutdown liveness still needs exact-cause regression/
+  source fix/review before READY; new status correction needs review/new bundle
+  before installation. Media/video/historical failure blockers unchanged.
+
+[Exact pairing/status-source receipt](evidence/final-exact-owner-handshake.json).

@@ -1,3 +1,13 @@
+## Exact5392 pairing PASS — activation/read still HUMAN
+
+Fresh actual descriptor/root/runtime/task/profile/session matched5392; owner3125828,
+UI3104230, activation_required. No new chooser loop. Stale validating cause fixed
+SOURCE ONLY in connected handler;13Python/21+21C pass, not installed. Human next
+prompt native fixture read, then Enable READ-ONLY Hyprneuro tools? and separate
+Allow read? exact5392 fixture dialogs (Allow exact action once/Deny human only).
+Evidence: docs/evidence/final-exact-owner-handshake.json. Oldfailedroot/cleanup bug
+and binding VIDEO/allmedia READY blockers remain.
+
 ## Current milestone — old PID/lock released; failed shutdown preserved
 
 After confirmed human Legacy and repeated live preflight, exactly one authorized

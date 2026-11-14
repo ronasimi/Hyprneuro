@@ -80,3 +80,12 @@ def test_only_two_visible_sizes_and_control_tab_uses_same_toggle():
     assert 'gtk_event_controller_set_propagation_phase(key, GTK_PHASE_CAPTURE);' in SOURCE
     assert 'static const char *size_labels[] = {"Normal", "Expanded", NULL};' in SOURCE
     assert 'expected ? a->saved_size_token : size_names[draft]' in SOURCE
+
+
+def test_pi_connected_packet_replaces_pending_validating_status_without_permission_action():
+    source=(Path(__file__).resolve().parents[2]/'ui/src/pi-desktop.inc').read_text()
+    branch=source.split('} else if (!g_strcmp0(type, "connected")) {',1)[1].split('else if (!g_strcmp0(type, "status"))',1)[0]
+    assert 'a->pi_connected = TRUE; pi_render(a);' in branch
+    assert 'set_status(a, "Pi owner connected · fresh human consent required for tools");' in branch
+    assert 'pi_send(' not in branch
+    assert 'pi_consent(' not in branch

@@ -10,8 +10,8 @@
   },
   "deployed_revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "deployed_binary_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
-  "phase": "Exact5392 pairing verified; idle absent-scope revocation ROOT CAUSE fixed and full475Python/79Node/21+21C validated SOURCE ONLY",
-  "current_task": "Independent recovery source review then safe exact-release transition preserving5392 first native acceptance",
+  "phase": "Recovery fix and actualSDK realbroker process shutdown/globalflock regression full476Python/79Node/21+21C PASS SOURCE ONLY; independent review next",
+  "current_task": "Independent source review of recovery/stale status/process regression; then separately authorized bounded current-owner recovery and regular NEW coherent bundle path",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -139,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Independent source review, then release/active-owner transition plan; do not silently change first acceptance root or force global inert gate",
+  "next_action": "Parent independent review; no active durable wait, no production signal authority. Historical artifact hashes verified; new service-full results archived.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -251,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-idle-revoke-root-cause.json",
+  "evidence_current": "docs/evidence/final-real-broker-clean-shutdown.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -271,5 +271,17 @@
   "active_owner_pid": 3125828,
   "active_run": null,
   "frame_scope": "Separate bounded latest-frame camera/official ScreenCast to local Omni approved for implementation, no current capture consent/activation. VIDEO file refusal binding external constraint.",
-  "last_completed_run": "01M7DJDJ3FQWVQGXE0SHW2R149"
+  "last_completed_run": "01M7DK46XH5VZX5J2RN18V54DX",
+  "future_acceptance_root": "New coherent immutable reviewed release permitted by parent; report only after frozen/reviewed; historical5392 untouched",
+  "live_signal_authority": "NONE for current5392 owner; requires separate bounded identity-pinned authorization",
+  "parallel_frame_ownership": {
+    "allowed_new_files": [
+      "python/src/hyprneuro/omni_frames.py",
+      "python/tests/test_omni_frames.py"
+    ],
+    "audit_only": "python/src/hyprneuro/temporary_capture.py",
+    "shared_files": "sidecar.py/UI/release/owner router require coordinated handoff",
+    "operations": "offline fixtures only; no capture, GUI, model calls or desktop actions"
+  },
+  "gui_action_authority": "Capability/help discussion only; no injection/record/replay/prime/unrestricted shell. Future separately scoped observe-act-verify freshness/focus/coordinates/scale/cancel gates; parent-only read profile unchanged."
 }

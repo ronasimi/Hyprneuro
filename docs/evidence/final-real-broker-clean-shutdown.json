@@ -1,0 +1,58 @@
+{
+  "recorded_utc": "2026-11-14T17:56:43.144365+00:00",
+  "status": "ACTUAL SDK/REAL BROKER PROCESS CLEAN-CLOSE SOURCE REGRESSION PASS; not deployed",
+  "source_base": "3772ea4df45abdfd0ef67b45d5adb02f7a42b062",
+  "test": "python/tests/test_pi_owner_service.py::ActualSDKServiceShutdownTests::test_idle_real_broker_detach_then_clean_process_shutdown_releases_inherited_lock",
+  "test_sha256": "a7b3b7c68e40a3f7eb5c2360a88928582590fb3babd4631cb5529ebc5c0570a2",
+  "proof": [
+    "Real private Python sidecar dispatcher/PermissionBroker/SQLite with absent authorization; actual SDK host API uses mock-only inference endpoint.",
+    "Actual pi_owner_service.service_lock FD inherited by Node; independent acquisition denied before and after authenticated control Disconnect.",
+    "Disconnect completes ordinary/activation_required with no authorization row; lifetime lock intentionally retained.",
+    "One fixture-only SIGTERM invokes actual host.close; Node exits0, checkpointclosed/guard absent, exact same kernel lock inode independently reacquired.",
+    "Two actual revokes, zero inference requests, zero native session journal, no grant/consent fabricated."
+  ],
+  "boundary": "API driver pins mock endpoint and uses production close path; not production host CLI/systemd or live deployment acceptance. No current production owner signal authorized or sent.",
+  "test_development_failures": [
+    "Initial fixture home parent incorrectly755: actual SDK refused unsafe private directory; fixed test to700, no production change.",
+    "Initial wait incorrectly expected checkpoint inode replacement; production truncates in place. Test now bounds mtime/completed ordinary content observation. Failure fixtures retained privately under /tmp/hn-sdk-service-*; original failures remain in tool transcript, final focused log is6pass."
+  ],
+  "full_validation": {
+    "run": "01M7DK46XH5VZX5J2RN18V54DX",
+    "elapsed_ms": 50482,
+    "python_passed": 476,
+    "python_skipped": 1,
+    "python_subtests_passed": 138,
+    "skip": "Pillow optional d1 visual gate",
+    "node_passed": 79,
+    "normal_C_cases": 21,
+    "sanitized_C_cases": 21,
+    "runner_exit_codes": {
+      "python": 0,
+      "node": 0,
+      "C": 0,
+      "sanitized_C": 0
+    }
+  },
+  "artifact_integrity": "Strengthened full-run results copied to service-full; original3772ea4 full logs restored byte-for-byte from full-3772ea4. Every original receipt artifact SHA256 verified, no historical failure/success relabeling.",
+  "transition_decision": "Parent explicitly permits NEW coherent immutable reviewed acceptance root, historical5392 unchanged. No live broker-only handoff machinery. No scope/permission carryover. Human root selection/activation/exactread remain separate.",
+  "next": [
+    "Independent review of3772ea4/c1582a1 and this service regression before freeze.",
+    "Documented regular release global-inert gate remains blocking for active owner and retained failed unit metadata.",
+    "If current buggy unactivated owner cannot close cleanly, separately authorize one identity-pinned bounded graceful SIGTERM after fresh gates; preserve failed checkpoint, label operational recovery NOT clean PASS. No retry/escalation/forced stop/reset/replay.",
+    "New coherent bundle exact review before fresh-unlocked app-only cutover, then genuine human new-root selection and verification/activation/exactread. New live owner must separately prove clean shutdown/exit/flock release before READY.",
+    "Frame components offline parallel only; future GUI action authority separately scoped. Mandatory video-file refusal remains external READY constraint."
+  ],
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/c-sanitized.log": "fcaabb68eadbb7e683b2a139661358edbd5c1e06bdcdf40a77273d9223770b65",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/c.log": "d7379faaae5710f62f9203fb0cb2814981306e22ddf6edb5a017532707363b9c",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/executed-full.sh": "5860c662bc8586151b7cd2f4507e6f2adab33e412f183ded2590a749da4a4cae",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/exit-status.json": "d5ee916cc29d500f827dee0c79cc5571849696c21c107e33f36205376c5579c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/full-fixture-root": "c8d7ef0810e3b2db572590c2d5e7020f466f0cf72088f2ccd016bd6419aface1",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/node.log": "080743a8ca00ce51ca8aa4216bd9ec7f7bfbd7ce98bc31a9b258186a28300b6a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/service-full/python.log": "d2f7b005dd9542458fc0577d3164cfef377702b446a534f72508f5619e2ae065"
+  },
+  "focused_log": {
+    "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/actual-sdk-lock-release.log",
+    "sha256": "349608bc561720954b4695249d6be0c62fced44d08ffc726bb83563b6071de42"
+  }
+}

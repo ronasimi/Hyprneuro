@@ -1,3 +1,27 @@
+## Recovery source + actual process/lock full suite PASS
+
+476Python/1skip/138subtests,79Node,21+21C; run01M7DK46XH5VZX5J2RN18V54DX
+completed0. ActualSDK+realbroker process fixture cleanclose0/closed/guardremoved,
+independent inheritedflock release sameinode; Disconnect retainslock bydesign.
+New receipt docs/evidence/final-real-broker-clean-shutdown.json. Original3772ea4
+log hashes all verified/restored; new results service-full. Independent source
+review next, NO production signal authority, current5392 untouched/unactivated
+at last verifiedstate. New coherent future acceptance root approved, no live
+broker handoff; regular active/failed-unit inert gate remains real blocker.
+Earlier running-state notes below historical.
+
+## Parent approves NEW coherent release, not broker handoff
+
+3772ea4 sourcefix full suite passed. Added actualSDK+realPythonbroker/SQLite
+subprocess inherited-service_lock clean-close regression:6service tests pass,
+new test uncommitted/full revalidation next. NO PRODUCTION SIGNAL AUTHORITY for
+current3125828; separate bounded approval needed, expectedoldbroker cleanup
+mayfail, operational exit/lockrelease NOTcleanPASS. Parent explicitly relaxes
+future5392acceptance pin: new immutable coherent reviewed owner/app/broker,
+HUMAN selected/freshconsent; historical5392 unchanged. No live broker proxy
+or migration machinery. Failed systemd unit metadata also blocks global inert
+gate; no reset-failed/guard deletion/replay authorized. Sequence in plan§20.
+
 ## Full recovery-source validation PASSED
 
 Durable01M7DJDJ3FQWVQGXE0SHW2R149 exit0:475Python/1skip/138subtests,

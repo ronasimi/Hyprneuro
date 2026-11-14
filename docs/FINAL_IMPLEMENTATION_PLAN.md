@@ -659,3 +659,103 @@ UI remains Legacy, models unchanged; existing source/media/video blockers retain
   guard is real, not permission to force-stop/bypass or reset unknown checkpoints.
 
 [Root-cause/full validation receipt](evidence/final-idle-revoke-root-cause.json).
+
+## 20. Approved coherent-release transition (supersedes future5392 acceptance pin)
+
+Parent decision: NO live broker-only handoff/proxy/migration machinery. Historical
+5392 root/source/descriptor/fixture remain unchanged, with handshake-only evidence.
+Future first-native acceptance may move to a NEW coherent immutable reviewed
+release, with actual HUMAN root selection and new activation/exactread decisions.
+No new root is named before freeze/review, no scope/permission carryover.
+
+Concrete constraint: current unactivated5392 owner still uses old broker. Existing
+explicit shutdown is its host SIGTERM path; old absent-scope revoke is expected to
+fail. Disconnect retains lifetime lock by design. Do not patch immutable code or
+restart sidecar under it to manufacture a clean shutdown. Any one identity-pinned
+bounded graceful SIGTERM needs SEPARATE authority (not yet granted). Preserve
+failed/unknown checkpoint and process/lock result; operational recovery is NOT a
+clean-shutdown/native acceptance PASS. No retry/escalation/reset/replay.
+
+Minimal sequence, BEFORE any live mutation:
+1. Independent source review of3772ea4 plus stale-statusc1582a1 and new fixture.
+2. Separately approve precise current-owner graceful recovery if required, with
+   fresh identity/no-work/authorization/human Disconnect/locker/logind gates and
+   bounded process-exit/independent flock-release observation.
+3. Retain historical unknown guards. Regular release helper requires all owner
+   units inactive/dead/PID0: retained failed systemd unit metadata is also a real
+   blocker. Do not reset-failed/clear checkpoint or relax gate without explicitly
+   reviewed exact operations; report it if live inventory confirms.
+4. Prepare NEW coherent source/app/broker/owner bundle via regular reviewed path;
+   independently review exact immutable hashes/operations before cutover, fresh
+   human unlock and maintained checks/lease; preserve DB/settings/weights.
+5. HUMAN selects new frozen root; verify exact descriptor/owner/broker/UI imports
+   and provenance. HUMAN activation/exact fixture read then actual native content,
+   continuation/journal; separately live idle/reconnect/revoke/restart/clean-close
+   and independent lock release. New-source clean close must PASS before READY.
+
+Isolated process regression now passes: actual installed SDK, real Python
+sidecar dispatcher/PermissionBroker/SQLite, actual service_lock FD inherited by
+Node, mock-only inference endpoint, authenticated-control detach leaves ordinary/
+activation_required and retains lifetime flock; one fixture-only SIGTERM calls
+SDK close, process exit0/checkpointclosed/guard absent, same lock inode independently
+reacquired, no scope/consent/inference/native journal. API driver pins mock URL;
+uses production close path, NOT a production systemd deployment/host-CLI acceptance.
+New service test6/6 passes under warnings-as-errors; full suite revalidation next.
+Test-development failures retained privately: Python parent directory default
+mode755 was correctly refused, corrected700; inode-change wait was wrong because
+checkpoint writes truncate in place, corrected to bounded completed content/mtime
+observation. No production source/permission/device/lifecycle action was taken.
+
+## 21. Observe → act → verify boundary (future separately scoped GUI capability)
+
+Discussion/help output for hyprctl/wdotool/bash establishes capability information,
+NOT unrestricted action authority. Keep the installed/current parent-read-only
+profile read-only; do not add desktop, shell, capture, network or lifecycle tools.
+Safe read-only installed-help/capability reporting may be considered later; no
+key/mouse injection, recording/replay/prime, capture activation or private upload
+is authorized by capability discussion or this implementation task.
+
+Future action gates must separately bind genuine HUMAN scope to: exact action/
+target, fresh observation age and sequence, current unlock/independent-locker
+state, focused app/window identity and changed-focus refusal, output/window
+coordinate origin and scale/transform mapping, bounded duration/event count,
+cancellation/Stop and disconnect/lock revocation. Observe → validate fresh scope
+→ act once → independently verify actual result; stale observation, ambiguous
+focus/mapping, cancellation or timeout must stop without automatic replay or
+broadening. Tool acknowledgement alone is not visible-result verification.
+
+Priority remains recovery source review/deployment and first real native exact
+read, then frame-based screen/camera. Parallel source-only ownership can be:
+- Recovery writer retains authorization.py,sidecar_store.py,test_authorization.py,
+  test_pi_owner_service.py,tests/pi-owner-readonly.mjs and recovery evidence.
+- Frame worker may exclusively own NEW python/src/hyprneuro/omni_frames.py and
+  python/tests/test_omni_frames.py; audit temporary_capture.py without editing.
+  No shared sidecar.py/UI/release/owner-router edits until explicit handoff.
+  Offline fixtures only: bounded latest immutable frame, low rate/backpressure,
+  Stop/lock/disconnect cancellation and disposal; no real camera/screen/mic,
+  compositor operations, inference or GUI tests competing with recovery.
+- Integrate actual permissioned camera/official ScreenCast and same Pi owner/
+  router/localOmni only through reviewed later shared-file work, genuine capture/
+  submission consent and real GUI acceptance. No GstPlay/video-file/ffprobe path.
+
+Production remains unchanged. Main root-cause fix3772ea4 is committed with trailer
+and completed full regression01M7DJDJ3FQWVQGXE0SHW2R149; stronger actualSDK process
+shutdown/inherited-lock regression is6/6 locally and full revalidation
+01M7DK46XH5VZX5J2RN18V54DX is awaiting its completion wake, not polled.
+Explicit fixture shutdown/exit0/flock release is source regression proof, not a
+production systemd clean-shutdown PASS or a normal-Disconnect release promise.
+
+### Actual SDK process/lock regression full validation completed
+
+- [x] Run01M7DK46XH5VZX5J2RN18V54DX exit0:476Python/1Pillow skip/138subtests,
+  79Node,21normal+21sanitizedC. Real private SDK/broker process clean-close,
+  inherited flock retention during Disconnect and independent release after
+  exit0 proven. NOT installed/live systemd acceptance.
+- [x] Strengthened logs archived service-full; original3772ea4 artifact hashes
+  all reverified after restoring original full logs, history preserved.
+- [ ] Independent source review, then separately authorized bounded old-owner
+  recovery/failed-unit metadata handling; no production signal authority yet.
+  Future NEW coherent immutable reviewed owner/app/broker permitted; historical
+  5392 unchanged. Frame worker ownership §21; no capture/actions granted.
+
+[Actual SDK clean-shutdown regression receipt](evidence/final-real-broker-clean-shutdown.json).

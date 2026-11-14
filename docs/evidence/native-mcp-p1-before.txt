@@ -1,0 +1,26 @@
+✖ actual Pi SDK descendant cleanup: orphan-early (1511.812215ms)
+✖ actual Pi SDK descendant cleanup: orphan-eof (1199.498607ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3828.558497
+
+✖ failing tests:
+
+test at tests/native-mcp.mjs:264:49
+✖ actual Pi SDK descendant cleanup: orphan-early (1511.812215ms)
+  Error: native fixture process survived: 2734198
+      at fixture (file:///home/ron/Workspace/hyprneuro-mcp-completion/tests/native-mcp.mjs:110:26)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests/native-mcp.mjs:264:49
+✖ actual Pi SDK descendant cleanup: orphan-eof (1199.498607ms)
+  Error: native fixture process survived: 2734221
+      at fixture (file:///home/ron/Workspace/hyprneuro-mcp-completion/tests/native-mcp.mjs:110:26)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

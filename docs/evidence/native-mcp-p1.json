@@ -1,0 +1,112 @@
+{
+  "recorded_utc": "2026-11-14T05:56:51.841138+00:00",
+  "scope": "P1 descendant-lifetime correction to source/offline fixtures only; independent targeted review pending",
+  "base_checkpoint": "f9ea60b4cddc9a70416f95765ef4c98e1f56b968",
+  "review": {
+    "id": "01M7BMRGTV6958SDX3SS7NYSR7/mcp-review",
+    "original_verdict": "BLOCK",
+    "finding": "P1: installed StdioTransport drops group ownership at direct server exit; cancels KILL escalation on parent exit during close",
+    "receipt_path": "/home/ron/Workspace/hyprneuro-mcp-tests/mcp-review-full.json",
+    "sha256": "13cc9bd9e3edf26db37de972dfe2cded9536defb7672c0a63df7d2dffa99a004"
+  },
+  "architecture_approved": "Public installed Pi PipeTransport + fixed detached Node group anchor. Only host-owned stdio lifecycle; no copied MCP framing/discovery/client, no SDK/global patch.",
+  "auth_scope": "Existing Pi SDK auth-provider/modelRegistry API. Trusted auth.provider can reuse a model-provider credential; not an MCP-only-secrets assertion. Fixtures use synthetic tokens only.",
+  "versions": {
+    "node": "v26.13.0",
+    "pi": "1.5.1",
+    "pi_mcp": "1.5.1"
+  },
+  "pre_fix": {
+    "command": "env -i HOME=/home/ron/Workspace/hyprneuro-mcp-tests/p1/home TMPDIR=/home/ron/Workspace/hyprneuro-mcp-tests/p1/tmp XDG_CONFIG_HOME=/home/ron/Workspace/hyprneuro-mcp-tests/p1/xdg XDG_CACHE_HOME=/home/ron/Workspace/hyprneuro-mcp-tests/p1/cache PI_CODING_AGENT_DIR=/home/ron/Workspace/hyprneuro-mcp-tests/p1/agent PATH=/usr/bin:/bin LANG=C.UTF-8 PI_OFFLINE=1 JITI_FS_CACHE=false PI_HARNESS_SDK=/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js timeout --signal=TERM --kill-after=5s 30s node --test --test-name-pattern='actual Pi SDK descendant cleanup' tests/native-mcp.mjs",
+    "exit_code": 1,
+    "passed": 0,
+    "failed": 2,
+    "log": "docs/evidence/native-mcp-p1-before.txt",
+    "log_sha256": "c617aa2c8e4dd888c1355f6f3d123471802b80aedf498082c802d22a2e379bc6",
+    "finally_cleanup": "Owned inert children recorded stable /proc start/group identity, checked live after shutdown, were individually SIGKILLed in finally; both PIDs absent at final inspection. No unowned process/group signaled. Cleanup error in finally is the visible failure, preserving a failing result rather than success.",
+    "child_pids": [
+      2734198,
+      2734221
+    ]
+  },
+  "final": {
+    "command": "MCP_TEST_ROOT=/home/ron/Workspace/hyprneuro-mcp-tests/p1/verified-final-2 PI_HARNESS_SDK=/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js tests/run-native-mcp-offline.sh",
+    "exit_code": 0,
+    "passed": 25,
+    "failed": 0,
+    "original_focused_cases": 17,
+    "new_cases": 8,
+    "log": "docs/evidence/native-mcp-p1-after.txt",
+    "log_sha256": "16470d6ae32b079d6fe7957396ac6f6477c9cc14ef22c496a3ffb738d29fd20f",
+    "environment": "Exact env -i, private paths and timeout in hashed checked-in script; actual subprocesses limited to private Workspace fixtures; no shared Durable parent",
+    "live_fixture_processes_remaining": [],
+    "reuse_check": "Deterministic identity/signal-spy rejection for absent/zombie/reused start/group/session; actual separate test-owned sentinel groups survive cancellation/close. No forced OS PID recycling or unrelated process signal."
+  },
+  "earlier_partial_after_runs": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/p1/after-initial.log",
+      "sha256": "be38464fff5b49334eaaa6a4a910992be9ba47d2e48653dbb570124d011face5",
+      "passed": 19,
+      "failed": 0
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/p1/expanded.log",
+      "sha256": "3f58aeae95b4b094e014aab8ce6005522167e2897b826b30f0f6ae2a634df92a",
+      "passed": 23,
+      "failed": 0
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/p1/expanded-2.log",
+      "sha256": "82748df31abd7795cd01ccaf7a764f492948c104dbd4c44358672f9a0ebb71fa",
+      "passed": 24,
+      "failed": 0
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/p1/verified-1.log",
+      "sha256": "10041bf36d225c4b47b16fe258dda990f0d0dc1f74b5e2644b4c836f4e41c0e3",
+      "passed": 24,
+      "failed": 0
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-mcp-tests/p1/verified-final.log",
+      "sha256": "4f775b4ab2514814f913bf19db5c698cce8eefe85b647f6e542e3c4b5393bca2",
+      "passed": 25,
+      "failed": 0
+    }
+  ],
+  "checks": [
+    "node --check on all 8 changed/new JS source/test/fixture files: PASS",
+    "bash -n tests/run-native-mcp-offline.sh: PASS",
+    "git apply --check tests/fixtures/native-mcp-harness.patch: PASS",
+    "git diff --check: PASS"
+  ],
+  "source_sha256": {
+    "extensions/tool-harness/native-mcp.mjs": "3adb056d1d7161fdbd7829375bc936631d7c0dd6db70068fe0e636c8d30fc6eb",
+    "extensions/tool-harness/owned-stdio.mjs": "383d2b8bd4d4ec1581964ec5de6fb4e7ceb19d26f822db80064280b51ba00f08",
+    "extensions/tool-harness/stdio-anchor.mjs": "001a1b51ff566e8067adf2386247851ee78d0788f3e7935ff0f0bad68b5b10cf",
+    "tests/native-mcp.mjs": "dafe4d0e66b4e4a5c5ad94eff184f54f452ca6cb6688c8c6e268e3cfc3aeff04",
+    "tests/owned-stdio.mjs": "ddcfebe0c0e2e0202b0ba1322874532af831f0676c83e3f65c8023280b8ae382",
+    "tests/run-native-mcp-offline.sh": "6b552984548716999cbc33b79277b8879ea0b9e6050372dd873dab869c0a853d",
+    "tests/fixtures/mcp-provider.mjs": "f0fd1a6a36ff56bd105b2e59677225e9dd6a780dfd6fbef7fdd9a10ab825e5ee",
+    "tests/fixtures/mcp-descendant.mjs": "80d9484da1a603204db82ebf1e5f11a8f87a1d62161a6fa59bc081c2bbcc27ed",
+    "tests/fixtures/owned-processes.mjs": "3baf73c79aae1454bbbd32f1b1e07ff1cc3dcd59a51b293c66d7dfaf0e904117",
+    "tests/fixtures/native-mcp-harness.patch": "f65f2c469f91927708ddca86181ac1fd1b5be749758801c9b251238f7368eea8",
+    "docs/NATIVE_MCP_P06.md": "e2bf21e18166a9fe8b122eb991090aaf9c38e5e8a51dda3e4076f8cafd67ff4e"
+  },
+  "installed_sdk_sha256": {
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/index.js": "7119a8b2a32d8e5e0d5f01318c6fae7535e137a55719c6c4955121ae41dfa967",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/index.d.ts": "c94f0ae177161cf847eac7536b9334d188878fff876bd7d826a30b18642cd3e3",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/transports/pipe.js": "2514d05132422b08e69b6f38f749b03cf3c585d50958885a5dadf6f9f77ee94d",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/transports/pipe.d.ts": "9632ab220c40a1c63b1a3e94e0a73acc21579a6363722dba4713fc3ed2ef3b37",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/transports/stdio.js": "25186bb2a9d6142928b03cd79ae4f8c881ab7af755e1e4d1425f3aa27d936c42",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js": "4569157e6038be9840fa514db4b00a27fd0be9e3622cc7b49a281de6c027d7ff"
+  },
+  "boundaries": [
+    "Defaults/read-only/broker/consent/exact native-call gates unchanged and offline regression-tested",
+    "No owner/index/sidecar/agent/residency/GTK edits; parent-owned 45e588b not imported",
+    "No package installs, pushes, deploys, global runtime edits, external queries or real key/auth-store reads",
+    "No full Node/Python/GUI/C or live-provider acceptance rerun claimed; original 64/65 full Node failure remains historical",
+    "Process groups are not a sandbox; setsid/different-group escape and hostile same-UID interference are outside containment; direct anchor/server reaped, orphan zombie entries may await system subreaper"
+  ],
+  "next": "Independent targeted P1 review of committed correction; parent-owned integration remains unapplied; separately authorized live provider/auth/L14 acceptance."
+}

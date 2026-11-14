@@ -1,3 +1,29 @@
+## Full recovery-source validation PASSED
+
+Durable01M7DJDJ3FQWVQGXE0SHW2R149 exit0:475Python/1skip/138subtests,
+79Node,21+21C. Receipt docs/evidence/final-idle-revoke-root-cause.json.
+No production lifecycle/permission/capture/source mutation. Next independent
+source review then safe release transition; preserve exact5392 first native
+acceptance and active owner/template guards, no forced stop/unknown reset.
+Earlier running-state entries below are historical.
+
+## Recovery source root cause fixed, full regression running
+
+ROOT CAUSE: idle/never-activated fixed task has no broker scope; disable unconditionally
+revokes and PermissionBroker/SQLite raised LookupError. Corrected absent revoke
+returns {revoked:false,reason:no_authorization}, no grant/row. ActualSDK+actualPython
+sidecar dispatcher/SQLite reproduces before (1of2fails) and2tests pass after,
+44Python/10subtests pass. DB/RPC failures remain unknown/no replay. Normal persistent
+detach still intentionally holds lifetime flock; explicit clean shutdown needed.
+Full isolated regression durable01M7DJDJ3FQWVQGXE0SHW2R149 running under machine lease.
+Changes UNCOMMITTED, installed5392 untouched, no live lifecycle retry/activation.
+Next validation/commit/review exact bundle; HUMAN read gate postponed by priority.
+Parallel frame worker: temporary_capture.py audit/new dedicated modules+tests,
+coordinate shared UI/sidecar.py/release tooling. Recovery writer owns
+authorization.py,sidecar_store.py,test_authorization.py,tests/pi-owner-readonly.mjs.
+Separate legitimate latest-frame camera/official ScreenCast localOmni scope, no
+capture currently consented/activated; old VIDEO-file refusal still external BLOCK.
+
 ## Exact5392 pairing PASS — activation/read still HUMAN
 
 Fresh actual descriptor/root/runtime/task/profile/session matched5392; owner3125828,

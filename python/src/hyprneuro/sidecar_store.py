@@ -714,7 +714,7 @@ class SidecarStore:
             cur = self.db.execute("UPDATE authorizations SET status='revoked' WHERE task_id=?",
                                   (task_id,))
         if cur.rowcount == 0:
-            raise LookupError("No authorization scope for task")
+            return {"revoked": False, "task_id": task_id, "reason": "no_authorization"}
         return {"revoked": True, "task_id": task_id}
 
     def auth_list(self):

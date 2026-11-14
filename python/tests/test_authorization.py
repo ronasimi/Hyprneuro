@@ -86,6 +86,22 @@ class CheckTests(unittest.TestCase):
         self.b.revoke("t1")
         self.assertEqual(self.b.check("t1", "read")["reason"], "scope_revoked")
 
+    def test_revoke_absent_is_idempotent_and_never_creates_a_scope(self):
+        for _ in range(2):
+            self.assertEqual(self.b.revoke("idle"), {
+                "revoked": False, "task_id": "idle", "reason": "no_authorization"})
+            self.assertEqual(self.b.list(), [])
+            self.assertEqual(self.b.check("idle", "read")["reason"], "no_authorization")
+        self.b.authorize("idle", ops=("read",))
+        self.assertTrue(self.b.revoke("idle")["revoked"])
+        self.assertTrue(self.b.revoke("idle")["revoked"])
+        self.assertEqual(self.b.check("idle", "read")["reason"], "scope_revoked")
+
+    def test_revoke_absent_does_not_accept_invalid_task_ids(self):
+        for task in (None, 1, "", "a\n", "a" * 129):
+            with self.subTest(task=task), self.assertRaises(ValueError):
+                self.b.revoke(task)
+
     def test_unknown_op_raises(self):
         with self.assertRaises(ValueError):
             self.b.check("t1", "teleport")
@@ -102,6 +118,31 @@ class PathWithinTests(unittest.TestCase):
 
 
 class StoreBackedBrokerTests(unittest.TestCase):
+    def test_idle_revocation_is_persistently_absent_but_store_errors_propagate(self):
+        import sqlite3, tempfile
+        from pathlib import Path
+        from hyprneuro.sidecar_store import SidecarStore
+        with tempfile.TemporaryDirectory() as d:
+            store = SidecarStore(Path(d) / "auth.db")
+            try:
+                for _ in range(2):
+                    b = PermissionBroker(store)
+                    self.assertEqual(b.revoke("idle"), {
+                        "revoked": False, "task_id": "idle", "reason": "no_authorization"})
+                    self.assertEqual(store.auth_list(), [])
+                    self.assertFalse(b.check("idle", "read")["allowed"])
+                b.authorize("idle", ops=("read",))
+                store.db.execute("CREATE TRIGGER fail_revoke BEFORE UPDATE ON authorizations BEGIN SELECT RAISE(ABORT, 'revocation failed'); END")
+                with self.assertRaises(sqlite3.IntegrityError):
+                    b.revoke("idle")
+                self.assertTrue(b.check("idle", "read")["allowed"])
+                store.db.execute("DROP TRIGGER fail_revoke")
+                self.assertTrue(b.revoke("idle")["revoked"])
+                self.assertTrue(b.revoke("idle")["revoked"])
+                self.assertEqual(PermissionBroker(store).check("idle", "read")["reason"], "scope_revoked")
+            finally:
+                store.close()
+
     def test_roundtrip_through_store(self):
         import json, tempfile
         from pathlib import Path

@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,readFile,writeFile,symlink,link,unlink,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {pathToFileURL} from 'node:url';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
 import {createServer} from 'node:http';
 import {createHost} from '../extensions/pi-owner/host.mjs';
 import {durablePolicy} from '../extensions/pi-owner/durable.mjs';
@@ -19,7 +20,7 @@ const tool=(name,args,id)=>({tool_calls:[{index:0,id,type:'function',function:{n
 
 const rewrites=[['approved\u00a0fixture.txt','approved fixture.txt'],['café.txt','cafe\u0301.txt'],["a'b.txt",'a’b.txt'],['capture 10 AM.png','capture 10\u202fAM.png']];
 
-async function fixture(run,overrides={}) {
+async function fixture(run,overrides={}, {realBroker=false}={}) {
   const cwd=process.cwd(),env={...process.env},root=await mkdtemp(join(tmpdir(),'hn-readonly-'));
   const ownerRoot=join(root,'owner'),workspace=join(ownerRoot,'home','workspace');
   await mkdir(workspace,{recursive:true,mode:0o700});await mkdir(join(ownerRoot,'durable'),{recursive:true,mode:0o700});
@@ -84,7 +85,25 @@ async function fixture(run,overrides={}) {
   const options={sdkPath,durableDir,piBin:'/home/ron/.pi/agent/bin/pi',root:ownerRoot,workspace,taskId:'readonly',appId:'fixture',
     profile:'read-only',normalOnly:true,readPaths:['fixture.txt','symlink','dirlink/outside','hardlink',...rewrites.map(([p])=>p)],childRead:true,
     textBaseUrl:`http://127.0.0.1:${server.address().port}/v1`,serve:false,
-    rpc:async p=>{broker.push(p);if(rpcFault(p))throw new Error('Synthetic broker acknowledgement lost');return p.action==='auth_check'?{allowed:true}:{authorized:true};},...overrides};
+    rpc:async p=>{
+      broker.push(p);if(rpcFault(p))throw new Error('Synthetic broker acknowledgement lost');
+      if(!realBroker)return p.action==='auth_check'?{allowed:true}:{authorized:true};
+      // Real dispatch/PermissionBroker/SQLite semantics, isolated fixture DB.
+      // In particular, a never-activated scope must not be mocked as authorized.
+      const result=spawnSync('python3',['-c',`
+import json,sys
+from hyprneuro.sidecar_store import SidecarStore
+from hyprneuro.sidecar import SidecarServer
+store=SidecarStore(sys.argv[1])
+try:
+ print(json.dumps(SidecarServer(store,assistant_enabled=True).dispatch(json.loads(sys.argv[2]))))
+finally:
+ store.close()
+`,join(root,'broker.sqlite3'),JSON.stringify(p)],{encoding:'utf8',timeout:5000,
+        env:{...process.env,PYTHONPATH:fileURLToPath(new URL('../python/src',import.meta.url)),PYTHONDONTWRITEBYTECODE:'1'}});
+      if(result.status!==0)throw new Error(result.stderr||String(result.error||'Real broker dispatch failed'));
+      return JSON.parse(result.stdout);
+    },...overrides};
   function listen(){host.owner.listeners.add(e=>{if(e.type==='consent'){approvals.push(e);host.owner.consent(e.id,approve(e));}});}
   async function open(){host=await createHost(options);listen();return host;}
   await open();let passed=false;
@@ -339,6 +358,44 @@ test('PERSISTENT empty idle service orderly restart does not require a fabricate
   assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
   assert.equal(f.host.owner.phase,'ordinary');
 },{parentOnly:true,childRead:false,persistent:true}));
+
+test('REAL BROKER persistent never-activated idle detach/reconnect/close needs no scope, consent, inference or fabricated journal',()=>fixture(async f=>{
+  assert.equal((await f.options.rpc({action:'auth_check',task_id:'readonly',op:'read'})).reason,'no_authorization');
+  for(let i=0;i<2;i++){
+    const id=f.host.session.sessionManager.getSessionId();
+    await f.host.owner.detachControl();
+    assert.equal(f.host.owner.phase,'ordinary');
+    assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
+    assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'ordinary');
+    assert.equal(f.host.session.sessionManager.getSessionId(),id,'same live owner/session after idle detach');
+    await f.reopen(); // No native file exists yet: do not fabricate journal identity.
+  }
+  assert.deepEqual((await f.options.rpc({action:'auth_list'})).scopes,[]);
+  assert.equal(f.requests.length,0);assert.equal(f.approvals.length,0);
+  await f.host.close();
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'closed');
+  await assert.rejects(readFile(join(f.ownerRoot,'owner.guard')),{code:'ENOENT'});
+},{parentOnly:true,childRead:false,persistent:true},{realBroker:true}));
+
+test('REAL BROKER persistent actual native read revokes existing scope and requires fresh activation/read after detach',()=>fixture(async f=>{
+  await f.chat(tool('read',{path:'fixture.txt'},'real_broker_read'),done);
+  assert.equal((await f.options.rpc({action:'auth_check',task_id:'readonly',op:'read',path:join(f.workspace,'fixture.txt')})).allowed,true);
+  await f.host.owner.detachControl();
+  assert.equal((await f.options.rpc({action:'auth_check',task_id:'readonly',op:'read'})).reason,'scope_revoked');
+  const approvals=f.approvals.length,id=f.host.session.sessionManager.getSessionId();
+  await f.reopen();assert.equal(f.host.session.sessionManager.getSessionId(),id,'real journal resumes unchanged');
+  await f.chat(tool('read',{path:'fixture.txt'},'real_broker_fresh'),done);
+  assert.equal(f.approvals.length,approvals+2);
+  f.fault(p=>p.action==='auth_revoke');
+  await assert.rejects(f.host.owner.detachControl(),/acknowledgement lost/);
+  assert.equal(f.host.owner.phase,'failed');
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'detach-unknown');
+  await assert.rejects(f.host.owner.chat({text:'never replay'},()=>{}),/admission closed/);
+  f.fault(()=>false); // Known fixture fault only; close must revoke, not reset/replay.
+  await f.host.close();
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'failed');
+  assert.ok(await readFile(join(f.ownerRoot,'owner.guard')));
+},{parentOnly:true,childRead:false,persistent:true},{realBroker:true}));
 
 test('PERSISTENT lost activation acknowledgement blocks new activation/model work and revokes fixed task on detach',()=>fixture(async f=>{
   f.fault(p=>p.action==='auth_create');

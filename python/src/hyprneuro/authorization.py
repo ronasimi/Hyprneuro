@@ -194,11 +194,15 @@ class PermissionBroker:
         return {"expanded": True, **scope.compact()}
 
     def revoke(self, task_id: str) -> dict:
-        scope = self._get(task_id)
-        if scope is None:
-            raise LookupError("No authorization scope for task")
+        if not isinstance(task_id, str) or _check_id(task_id, "task_id") is None:
+            raise ValueError("Invalid task_id")
         if self._store is not None:
             return self._store.auth_revoke(task_id)
+        scope = self._get(task_id)
+        if scope is None:
+            # Idle/denied activation never creates a scope. Already absent is
+            # safely denied, not a cleanup failure and never a new grant.
+            return {"revoked": False, "task_id": task_id, "reason": "no_authorization"}
         scope.status = "revoked"
         return {"revoked": True, "task_id": task_id}
 

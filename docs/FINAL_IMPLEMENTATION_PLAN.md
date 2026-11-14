@@ -604,3 +604,58 @@ UI remains Legacy, models unchanged; existing source/media/video blockers retain
   before installation. Media/video/historical failure blockers unchanged.
 
 [Exact pairing/status-source receipt](evidence/final-exact-owner-handshake.json).
+
+## 19. Ordered source recovery and separate frame-based Omni scope
+
+1. Exact5392 canonical root/descriptor/handshake is verified. NO chooser loop.
+2. ROOT CAUSE of idle unactivated detach-unknown/close-unknown reproduced with
+   actual SDK + real Python sidecar dispatcher/PermissionBroker/SQLite, not the
+   old all-success revoke mock: fixed task has no authorization, but revoke
+   raised LookupError. Correction makes absence an idempotent no-op
+   {revoked:false,reason:no_authorization}, does not create/adopt/grant scope.
+   Existing scope revocation still denies; invalid IDs and DB/RPC errors remain
+   failures and retain unknown guards. Baseline regression intentionally fails,
+   corrected focused44Python/10subtests and2actual-SDK+real-broker tests pass.
+   Initial test wrongly expected an empty, never-created native journal ID to
+   persist through restart; corrected to require same live-session identity and
+   actual content-bearing journal identity on reopen (no fabricated messages).
+   Normal persistent idle detach intentionally retains lifetime flock; clean
+   explicit shutdown—not Disconnect alone—must exit/release it. No production
+   lifecycle retried; old unknown checkpoints preserved, current5392 still live.
+3. Human activation/exact-fixture native read resumes only after this recovery
+   fix is reviewed and actual UI-ready; grants remain HUMAN, not this task's
+   autonomous authority. Then actual native result/continuation/journal and
+   idle/reconnect/revoke/restart gates, not SIGTERM success as READY.
+4. NEW APPROVED SCOPE: bounded frame-based camera/screen observation to LOCAL
+   Omni is distinct from refused video-file ingestion/prepare/ffprobe cleanup.
+   Implement/audit existing temporary_capture.py permission paths; official
+   ScreenCast portal, never raw grim fallback; explicit camera permission and
+   visible capture indicator/Stop; lock/disconnect revocation and device cleanup;
+   low-rate latest-frame-only bounded backpressure, immutable GtkPicture preview,
+   no queue/unbounded buffering/GstPlay/video decoding. Capture/submission needs
+   separate genuine HUMAN consent, no ambient activation or broader tool scope.
+   Source fixtures first, no private frames in Git; reviewed release and actual
+   GTK/local-Omni acceptance later, under lease/no competing inference.
+   Parent can assign frame worker new dedicated modules/tests plus
+   temporary_capture.py audit; coordinate shared sidecar.py/UI/release files.
+   Recovery writer owns authorization.py,sidecar_store.py,test_authorization.py,
+   tests/pi-owner-readonly.mjs. VIDEO-file refusal remains binding external BLOCK,
+   never execute/reformulate/retry/reroute its native prepare/cancel/ffprobe work.
+5. Monitoring installed counters, explicit skill loader, consented MCP live,
+   Durable/Hermes exclusive admission, recovery soak/final checklists remain.
+   Preserve DB/settings/weights; coherent commits, exact independent release
+   review before deployment, no unknown reset/replay/forced stop. No READY
+   promise with mandatory video-file acceptance externally blocked.
+
+### Recovery source validation completed
+
+- [x] Durable `01M7DJDJ3FQWVQGXE0SHW2R149` completed exit0:475Python,
+  1optional-Pillow skip,138subtests;79Node;21+21C. All four runner exits0.
+- [x] Idempotent absent revocation does not insert/adopt/grant; invalid task IDs,
+  SQLite update failure and RPC revocation failure remain fail-closed.
+- [ ] Independent exact source/release review and safe transition still required.
+  Installed5392/current live owner unchanged; no activation or lifecycle retry.
+  Preserve exact5392 first-acceptance requirement; active global owner/template
+  guard is real, not permission to force-stop/bypass or reset unknown checkpoints.
+
+[Root-cause/full validation receipt](evidence/final-idle-revoke-root-cause.json).

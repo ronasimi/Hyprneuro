@@ -1,0 +1,56 @@
+{
+  "recorded_utc": "2026-11-14T17:46:19.731269+00:00",
+  "status": "SOURCE FIX VALIDATED, NOT INSTALLED; independent review/release transition next",
+  "base_commit": "c1582a189faedf3b3626c15a7f2d3cff6f6072c6",
+  "root_cause": "Persistent never-activated/idle fixed binding has no authorization row. commands.disable unconditionally auth_revokes that fixed task; PermissionBroker.revoke raised LookupError on absent scope, causing detach-unknown then close-unknown. Prior all-success broker mock masked real Python/SQLite behavior. Actual SDK plus real sidecar dispatcher/PermissionBroker/SQLite regression reproduces this exact path. Original generic logs do not independently expose stack; other historical crash causes remain UNKNOWN.",
+  "fix": "PermissionBroker validates task ID and delegates persistent revoke directly to atomic UPDATE. In-memory/persistent absent scope returns {revoked:false,task_id,reason:no_authorization}; no insert/create/adoption/grant. Existing/repeated revocation still denies; genuine DB/RPC failures propagate and retain failed/unknown guards. No runtime owner/checkpoint reset or replay.",
+  "tests": {
+    "before": "Original production code: new Python absent/invalid-id tests fail; actual SDK+realbroker idle detach fails with LookupError, activated realbroker test passes. Before logs retained.",
+    "focused": "44 Python/10 subtests; 2 actualSDK+realbroker tests pass. Covers repeated idle detach/reopen without fabricated journal, real native read/revoke/fresh activation/exactread/journal resume, RPC revocation failure retaining detach-unknown/failed guard; SQLite trigger failure propagates and leaves scope active until successful revoke.",
+    "full": {
+      "run": "01M7DJDJ3FQWVQGXE0SHW2R149",
+      "elapsed_ms": 46828,
+      "python_passed": 475,
+      "python_skipped": 1,
+      "python_subtests_passed": 138,
+      "skip_reason": "Pillow optional d1 visual gate",
+      "node_passed": 79,
+      "normal_C_cases": 21,
+      "sanitized_C_cases": 21,
+      "runner_exit_codes": {
+        "python": 0,
+        "node": 0,
+        "C": 0,
+        "sanitized_C": 0
+      }
+    },
+    "test_development_correction": "First new empty-idle test incorrectly required sessionID persistence across restart with no native journal; corrected to preserve same live-session ID and to require persisted journal ID continuity only after actual native messages. Original intermediate assertion failure exists in tool transcript; after-node.log contains final focused results."
+  },
+  "lock_semantics": "Ordinary persistent Disconnect intentionally leaves live process/global lifetime flock. This fixes cleanup failure, not automatic root-switch termination. Explicit graceful close + process exit + independently released kernel flock still needs post-deployment live verification; previous SIGTERM/exit1 is NOT clean shutdown/native acceptance.",
+  "production": "Installed5392 source/descriptor/profile unchanged. Last leased status exact5392 owner3125828, ordinary/activation_required, UI3104230 connected. No new activation/read/consent, capture, lifecycle retry, signal, checkpoint mutation, source deployment or model restart. Old failed6f9 close-unknown evidence retained.",
+  "next_dependencies": [
+    "Independent source review of these exact changes before candidate/deployment.",
+    "Release transition must preserve requested exact5392 first acceptance and its descriptor, old unknown guards, current active-owner safety gates; staged/apply global inert template gate must not be bypassed or satisfied with forced stop.",
+    "Actual human activation/exactfixture read only once UI-ready; native tool/content/continuation/journal then reviewed live lifecycle gates.",
+    "Frame-based camera/ScreenCast localOmni approved as separate implementation scope, source fixtures first; real capture/submission consent absent. VIDEO-file refusal remains external BLOCK; no refused native video/ffprobe work."
+  ],
+  "source_sha256": {
+    "python/src/hyprneuro/authorization.py": "e23a5783ae8bccf2e1d6748768de1c5b51e315a5bc195f21781da8668413ffb8",
+    "python/src/hyprneuro/sidecar_store.py": "800345b3d72463232fe243f107152807f8700638ad29b97e5385ef3bc22b24ec",
+    "python/tests/test_authorization.py": "242577862ee672875e371c8296558c550105bd97f2bc0fc7a1cfe32d1c5973d0",
+    "tests/pi-owner-readonly.mjs": "a9395b334dfa2a89031e6f1311ca21f9410835c4cc2febacde53382404dc50d1"
+  },
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/after-node.log": "a37528d0ffa7f6cdebf601abceb64a68c250aaedde949f0fa55b3ca014f32630",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/after-python.log": "acaf540cc8f67df46b343b7a3193dcd2993db4d7d7baa7a2dbc32523f2152eee",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/before-node.log": "66c05ad325ce2cc12655f8a98875b8ff2a1f872c50ee72dea3cd2e0315cbc421",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/before-python.log": "f8464a74ca98c8e35fdfabbeb756f9035ecf7c5c8f2a7c095e2eed57bbc61a22",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/c-sanitized.log": "0e62e2834060d44487dd6a28258286fdd0f75c7ad34298f87b313a86fe9acaf1",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/c.log": "a7d962fc5d0d4dcb1d4e44ee000e47adcbd8a5b2ec90c769ade2f95526b61de1",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/exit-status.json": "d5ee916cc29d500f827dee0c79cc5571849696c21c107e33f36205376c5579c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/full-fixture-root": "417a281bfdd524e45d7f3350e861458528e7f62a86aabccb2b391b6ca8d62469",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/full.sh": "5860c662bc8586151b7cd2f4507e6f2adab33e412f183ded2590a749da4a4cae",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/node.log": "c65f634d75fd2e4321fdb4be5dd1e429158d3455558b0acd12815d3b830ab63d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-idle-revoke/python.log": "6b0e8c8a45fd646fda84564f273115cb907f4f05f8eb7cf351280a9102b58535"
+  }
+}

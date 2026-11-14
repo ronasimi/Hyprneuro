@@ -1,0 +1,33 @@
+✔ bounded typed schemas and strict trusted-only configuration (3.167104ms)
+✔ result/error shapes bounded before native conversion; no binary, metadata or error-body spill (0.855746ms)
+✔ actual Pi registration + native discovery + all five MCP invocations + native journal continuation (716.513984ms)
+✔ fresh denial and broker revocation prevent native dispatch (1805.281023ms)
+✔ native namespace direct/nested calls cannot bypass facade; disabled and read-only stay off (1013.964468ms)
+✔ native result errors, protocol failure, content boundaries and unknown outcomes are never replayed (3664.019738ms)
+✔ absolute timeout/cancel/initialize-stall and process-group cleanup are bounded (2094.312605ms)
+✔ model approval/server/URL fields and schema bounds cannot authorize native requests (2607.829958ms)
+✔ native discovery pagination fails closed instead of unbounded page loops (425.116282ms)
+✔ native StreamableHTTP reuses opaque Pi provider auth; offline fetch only, no external network or retry (375.33881ms)
+✔ actual Pi SDK descendant cleanup: orphan-early (502.417725ms)
+✔ actual Pi SDK descendant cleanup: orphan-eof (448.87195ms)
+✔ group reuse/lost/zombie identities never authorize a stale numeric group signal (1.803344ms)
+✔ actual SDK repeated cancel + concurrent/late close clean resistant descendants exactly once (437.776014ms)
+✔ actual SDK startup failure has bounded cleanup and no retained live anchor (364.849695ms)
+✔ actual SDK close racing native pipe open awaits real process cleanup (1093.103895ms)
+✔ host exit disconnects private IPC and self-cleans the pinned group (180.067935ms)
+✔ an assertion failure still explicitly cleans and reaps private SDK fixtures (416.921276ms)
+✔ REST metadata file absent/private/unknown/oversized/symlink cases do not enable ambient access (9.976664ms)
+✔ all REST tool arguments are bounded, exact and reject approval/endpoint injection before request (2.448926ms)
+✔ each REST provider has independent malformed/error handling and bounded untrusted response (3.531117ms)
+✔ REST destination failures are offline and never follow model-chosen URLs or management endpoints (0.616968ms)
+✔ provider configuration/credentials are explicit, disabled/missing fail without requests (4.571139ms)
+✔ documented Exa, Context7 resolution/context, Wikipedia search/extract schemas; bounded untrusted results (2.860368ms)
+✔ no guessed URL, redirects, private addresses, management endpoint, error body or credential leaks (7.48595ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14384.571348

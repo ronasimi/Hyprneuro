@@ -1,6 +1,7 @@
 // Native Pi MCP provider facade. The existing harness remains the permission,
 // consent, persistence and model-loop owner. No ambient config/auth discovery.
 import { isAbsolute } from 'node:path';
+import { ownedStdioTransport } from './owned-stdio.mjs';
 
 const fields = {
   exa_search:['query'], context7_resolve:['libraryName','query'],
@@ -59,7 +60,7 @@ export function boundedMcpResult(result) {
  */
 export function createNativeMcpProviders({sdk,mcp,credentials,servers={},bindings={},enabled={},readOnly=false,
     privateHome,timeoutMs=15000,logPath}={}) {
-  if(!sdk?.createMcpExtension||!mcp?.StdioTransport||!mcp?.StreamableHttpTransport||!credentials)
+  if(!sdk?.createMcpExtension||!mcp?.PipeTransport||!mcp?.StreamableHttpTransport||!credentials)
     throw new Error('Installed native Pi MCP API and explicit credential handle required');
   if(!isAbsolute(privateHome??'') || !isAbsolute(logPath??'') || !Number.isInteger(timeoutMs)||timeoutMs<50||timeoutMs>15000)
     throw new Error('Explicit private MCP HOME/log path and bounded timeout required');
@@ -139,14 +140,14 @@ export function createNativeMcpProviders({sdk,mcp,credentials,servers={},binding
     // otherwise resubmits the same HTTP tool POST after a 401. Fresh setup, not
     // automatic auth/replay, is required for this guarded retrieval profile.
     const inner=c.url?new mcp.StreamableHttpTransport({url:c.url,authProvider:authProvider?{token:authProvider.token.bind(authProvider)}:undefined,fetch:(url,init)=>fetch(url,{...init,redirect:'error'}),openGetStream:false,maxMessageBytes:MCP_MAX_MESSAGE,reconnect:{maxRetries:0}}):
-      new mcp.StdioTransport({command:c.command,args:c.args,cwd:c.cwd,inheritEnv:false,
-        env:{HOME:privateHome,PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},stderr:'pipe',maxStderrBytes:1024,maxMessageBytes:MCP_MAX_MESSAGE,closeTimeoutMs:200});
+      ownedStdioTransport(mcp,{command:c.command,args:c.args,cwd:c.cwd,
+        env:{HOME:privateHome,PATH:'/usr/bin:/bin',LANG:'C.UTF-8'},maxMessageBytes:MCP_MAX_MESSAGE});
     const pending=new Map();let closed,closing;
     const close=()=>closing??=(async()=>{closed=true;for(const p of pending.values())clearTimeout(p.timer);pending.clear();await inner.close();transports.delete(api);})();
     const api={
       server:entry.name,
       start:()=>inner.start(),close,setProtocolVersion:v=>inner.setProtocolVersion?.(v),
-      onClose:f=>inner.onClose(f),onError:f=>inner.onError(()=>{f(fail());void close();}),
+      onClose:f=>inner.onClose(f),onError:f=>inner.onError(()=>{f(fail());void close().catch(()=>{});}),
       onMessage:f=>inner.onMessage(message=>{
         const p=pending.get(message.id);
         // Drop ALL server requests/notifications (logs, sampling, roots, progress,
@@ -174,10 +175,10 @@ export function createNativeMcpProviders({sdk,mcp,credentials,servers={},binding
         } else if(!['initialize','tools/list','notifications/initialized','notifications/cancelled','ping'].includes(message.method))throw fail();
         if(message.id!==undefined) {
           if(pending.size>=8)throw fail();
-          const timer=setTimeout(()=>{void close();},timeoutMs);
+          const timer=setTimeout(()=>{void close().catch(()=>{});},timeoutMs);
           pending.set(message.id,{method:message.method,timer});
         }
-        try {await inner.send(message,options);}catch {void close();throw fail();}
+        try {await inner.send(message,options);}catch {void close().catch(()=>{});throw fail();}
       },
     };
     transports.add(api);return api;

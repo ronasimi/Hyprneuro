@@ -5,6 +5,8 @@ import { join,dirname } from 'node:path';
 import { pathToFileURL,fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
+import { ownedProcesses } from './fixtures/owned-processes.mjs';
+import { signalPinnedGroup } from '../extensions/tool-harness/owned-stdio.mjs';
 import { createNativeMcpProviders,boundedMcpResult,validateMcpArguments,MCP_MAX_TEXT } from '../extensions/tool-harness/native-mcp.mjs';
 
 if(!process.env.PI_HARNESS_SDK)throw new Error('PI_HARNESS_SDK required; installed SDK only, no installs');
@@ -12,6 +14,11 @@ const sdkURL=pathToFileURL(process.env.PI_HARNESS_SDK),sdk=await import(sdkURL);
 const mcp=await import(new URL('../../pi-mcp/dist/index.js',sdkURL));
 const {McpOAuthCredentialStore}=await import(new URL('./extensions/mcp/oauth.js',sdkURL));
 const {InMemoryAuthStorageBackend}=await import(new URL('./core/auth-storage.js',sdkURL));
+async function processIdentity(pid) {
+  const text=await readFile(`/proc/${pid}/stat`,'utf8').catch(e=>{if(e.code!=='ENOENT'&&e.code!=='ESRCH')throw e;return '';});
+  if(!text)return;const fields=text.slice(text.lastIndexOf(')')+2).split(' ');
+  return {pid,start:fields[19],group:Number(fields[2]),state:fields[0]};
+}
 const source=dirname(dirname(fileURLToPath(import.meta.url)));
 const base=process.env.TMPDIR;
 if(!base || !base.startsWith('/') || !base.includes('/Workspace/'))throw new Error('Set TMPDIR to a private Workspace test directory');
@@ -29,7 +36,9 @@ const stop=[{delta:{role:'assistant',content:'Fixture complete'}},{delta:{},fini
 
 async function fixture(options,run) {
   const root=await mkdtemp(join(base,'native-mcp-'));
-  let session,http;
+  let session,http,shutdownPromise;
+  let cleanupFailure;
+  const shutdown=()=>shutdownPromise??=(async()=>{if(session){const current=session;await current.abort();await current.extensionRunner.emit({type:'session_shutdown',reason:'quit'});current.dispose();session=undefined;}})();
   const priorFetch=globalThis.fetch;
   if(options.http)globalThis.fetch=(input,init)=>{
     const url=new URL(typeof input==='string'||input instanceof URL?input:input.url);
@@ -88,22 +97,38 @@ async function fixture(options,run) {
     }
     if(!options.noHarness&&!options.readOnly&&!options.skipNetwork)await session.extensionRunner.getCommand('hn-tools').handler('network',session.extensionRunner.createCommandContext());
     const calls=async()=>{try{return (await readFile(log,'utf8')).trim().split('\n').map(l=>JSON.parse(l));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
-    await run({root,session,manager,adapter,requests,confirmations,policy,events,errors,calls});
+    await run({root,session,manager,adapter,requests,confirmations,policy,events,errors,calls,shutdown});
     assert.deepEqual(errors,[]);
   } finally {
-    if(session){await session.abort();await session.extensionRunner.emit({type:'session_shutdown',reason:'quit'});session.dispose();}
+    try {await shutdown();}catch(e){cleanupFailure=e;}
     if(http){http.closeAllConnections();await new Promise(r=>http.close(r));}
-    // Independently verify no child in the native process group survived cleanup.
-    const rows=await readFile(join(root,'calls.jsonl'),'utf8').catch(()=> '');
-    for(const row of rows.trim().split('\n').filter(Boolean).map(l=>JSON.parse(l)))for(const pid of [row.pid,row.child].filter(Boolean)) {
-      for(let i=0;i<100;i++){try{process.kill(pid,0);}catch{break;}await wait(10);}
-      // Linux can briefly leave an orphan zombie awaiting its subreaper; that is
-      // not a live process, but the direct stdio server must be reaped by Pi.
-      const stat=await readFile(`/proc/${pid}/stat`,'utf8').catch(()=> '');
-      assert.ok(!stat || row.child===pid&&stat.slice(stat.lastIndexOf(')')+2).startsWith('Z '),`native fixture process survived: ${pid}`);
+    const survivors=await ownedProcesses(root);
+    if(survivors.length) {
+      cleanupFailure??=new Error('Owned fixture group survived shutdown');
+      for(const info of survivors)if(info.pid===info.group&&info.session===info.pid)signalPinnedGroup(info,'SIGKILL');
     }
+    // Even a pre-fix/assertion failure must not leak our private fixture child.
+    // Long-lived children record their own start/group identity before readiness.
+    const rows=(await readFile(join(root,'calls.jsonl'),'utf8').catch(()=> '')).trim().split('\n').filter(Boolean).map(l=>JSON.parse(l));
+    for(const row of rows)for(const pid of [row.pid,row.child].filter(Boolean)) {
+      let identity=await processIdentity(pid);
+      for(let i=0;i<100&&identity&&identity.state!=='Z';i++){await wait(10);identity=await processIdentity(pid);}
+      if(identity&&identity.state!=='Z') {
+        cleanupFailure??=new Error(`native fixture process survived: ${pid}`);
+        // Only the stable, inert child this test created; never signal a reused
+        // PID, a whole guessed group, or an unrelated process found in /proc.
+        if(row.ready&&row.start===identity.start&&row.group===identity.group) {
+          process.kill(pid,'SIGKILL');
+          for(let i=0;i<100;i++){identity=await processIdentity(pid);if(!identity||identity.state==='Z')break;await wait(10);}
+          if(identity&&identity.state!=='Z')throw new Error('Owned fixture emergency cleanup failed');
+        }
+      }
+    }
+    for(let i=0;i<100&&(await ownedProcesses(root)).length;i++)await wait(10);
+    assert.equal((await ownedProcesses(root)).length,0,'Emergency cleanup left an owned live fixture');
     globalThis.fetch=priorFetch;
     await rm(root,{recursive:true,force:true});
+    if(cleanupFailure)throw cleanupFailure;
   }
 }
 
@@ -243,3 +268,18 @@ test('native StreamableHTTP reuses opaque Pi provider auth; offline fetch only, 
     });
   }
 });
+
+
+for(const mode of ['orphan-early','orphan-eof'])test(`actual Pi SDK descendant cleanup: ${mode}`,{timeout:10000},()=>fixture({mode,responses:[tool('exa_search',{query:'fixture'}),stop]},async f=>{
+  const rows=await f.calls(),child=rows.find(r=>r.ready);assert.ok(child);
+  const server=rows.find(r=>r.pid),anchor=await processIdentity(server.parent);
+  assert.equal(server.group,server.parent);assert.ok(anchor&&anchor.state!=='Z');
+  const operation=mode==='orphan-early'?f.session.prompt('early server exit fixture'):f.shutdown();
+  for(let i=0;i<100;i++){const parent=await processIdentity(server.pid);if(!parent||parent.state==='Z')break;await wait(2);}
+  // Actual server exit must not release/reap the group anchor during cleanup.
+  const pinned=await processIdentity(server.parent);assert.equal(pinned?.start,anchor.start);assert.notEqual(pinned?.state,'Z');
+  await operation;
+  const start=Date.now();await f.shutdown();assert.ok(Date.now()-start<2000);
+  const identity=await processIdentity(child.child);
+  assert.ok(!identity||identity.state==='Z',`descendant remains live after ${mode}: ${identity?.state}`);
+}));

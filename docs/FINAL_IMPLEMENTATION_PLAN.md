@@ -295,3 +295,14 @@ verification includes selection, apply reuses it. Focused15/6subtests pass; new
 checker against actual held metadata passes, NOT approval of the frozen old
 helper. Next fresh source/full regression/build/bundle and independent re-review.
 [evidence/final-path-alias-p1.json](evidence/final-path-alias-p1.json).
+
+### Explicit duplicate destination / TOCTOU follow-up
+
+User-requested follow-up after f927a2f: duplicate canonical write destinations
+now refuse; trusted parent aliases must stay stable during exclusive cutover.
+Path/hash checks are not protection from malicious same-UID rename/retarget races
+and do not claim dirfd-pinned isolation. Shared staged/apply policy remains one
+function. Focused16/6subtests pass. f927a2f full464Python/1skip/113subtests,77Node,
+17+17C,fresh build/preparation passed; that candidate is retained/superseded, not
+relabelled. Next clean final source/fresh bundle and independent re-review.
+[evidence/final-path-alias-duplicate.json](evidence/final-path-alias-duplicate.json).

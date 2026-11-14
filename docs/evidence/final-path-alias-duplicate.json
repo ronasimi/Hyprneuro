@@ -1,0 +1,19 @@
+{
+  "recorded_utc": "2026-11-14T12:56:35.147993+00:00",
+  "scope": "Follow-up explicit duplicate-destination and TOCTOU contract requested by user",
+  "base": "f927a2f8a075f57009b6d408202ea0015cb98050",
+  "policy": "Shared release_targets in verifier; canonical baseline/destination identity lookup; final lexical file still checked for regular/sameUID/singlelink/hash; duplicate canonical write destinations refuse. Apply imports the same function, staged preflight calls it, no circular import or duplicated policy.",
+  "TOCTOU": "Trusted parent aliases must remain stable throughout exclusive operator cutover. Pathname/hash checks and repeated preflight do not eliminate malicious sameUID rename/retarget races; no dirfd-pinned/sandbox guarantee.",
+  "focused": "16passed,6subtests including aliased parent/hash drift/final symlink+hardlink denial/duplicate target/staged selection before runtime",
+  "previous_completed": "f927a2f combined464Python/1skip/113subtests,77Node,17+17C,fresh GTK17helpers and fresh immutable prepare/verify passed. Candidate hn-final-f927a2f retained but superseded by this follow-up; no apply or relabel.",
+  "previous_manifest_sha256": "ef973cd0167ef9c1babe5f07017480a965092a12c808da2e17c8e247a1b27d86",
+  "source_sha256": {
+    "scripts/apply_app_release.py": "9ef398b4b7c55c766fd82bffb6a331dd2912fe31b146883a001b6cf8f2f9de30",
+    "scripts/verify_app_release.py": "761bd0afbed85adcce03289cb5bfcfbe21e0c76e1a5184a6a626b9477348b128",
+    "python/tests/test_app_release_ops.py": "0954fc271c340091c0a8086b868e759b73903eb93f544d73f08c717bba69f070"
+  },
+  "focused_log": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/path-alias-p1/focused-duplicate.log",
+  "focused_log_sha256": "a7f85ddfab23b08afc6b8279340f2e01bd345aeb9eb28b6a2d1212299484e530",
+  "next": "Commit clean new source; full combined offline tests/build and actual prepare+staged verify selecting real aliased targets in NEW directory; return exact source/manifest hashes for independent re-review before cutover.",
+  "limits": "49c748d review BLOCK preserved; no GUI/app/model/service action or human consent supplied; original231 UNKNOWN; video prior refusal blocked."
+}

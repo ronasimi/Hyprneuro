@@ -165,6 +165,19 @@ class ReleaseOpsTests(unittest.TestCase):
             unit.unlink();os.link(original,unit)
             with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,lexical)
 
+    def test_duplicate_canonical_override_destinations_refuse_before_cutover(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);home=base/'units';home.mkdir()
+            common=base/'common';common.mkdir()
+            saved=common/'95-reviewed-readonly-release.conf';saved.write_text('same target')
+            for name in ['hyprneuro.service.d','hyprneuro-ui.service.d']:
+                (home/name).symlink_to(common,target_is_directory=True)
+            manifest={'units':[{'path':str(saved),'sha256':ops.digest(saved)}]}
+            with self.assertRaisesRegex(RuntimeError,'Duplicate canonical release destination'):
+                apply.release_targets(base,manifest,home)
+            self.assertEqual(saved.read_text(),'same target')
+
     def test_staged_verifier_checks_target_selection_before_runtime_checks(self):
         import json
         import tempfile

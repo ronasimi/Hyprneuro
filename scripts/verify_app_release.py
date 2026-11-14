@@ -62,6 +62,12 @@ def release_targets(bundle, manifest, unit_home):
         if dest.exists() or dest.is_symlink():
             raise RuntimeError('Existing owner template; separate review required')
         targets.append((bundle/'staged'/dest.name,dest))
+    canonical=[dest.resolve() for _,dest in targets]
+    if len(set(canonical))!=len(canonical):
+        raise RuntimeError('Duplicate canonical release destination; no cutover')
+    # Parent aliases are trusted and must stay stable through cutover. These
+    # pathname/hash checks do not eliminate hostile same-UID rename/retarget
+    # races; apply rechecks selection, but does not claim dirfd-pinned isolation.
     return targets
 
 

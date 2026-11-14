@@ -1,0 +1,90 @@
+{
+  "recorded_utc": "2026-11-14T14:54:31.372409+00:00",
+  "verdict": "BOUNDED RECOVERY RELEASED OLD PID/LOCK; OLD SHUTDOWN FAILED/UNKNOWN, NOT CLEAN; EXACT5392 HUMAN CONNECT NEXT",
+  "authority": "Explicit parent one exact-main SIGTERM with15s bounded observation after actual human Disconnect, repeated identity/no-critical-work/authorization/session checks; no force/escalation/retry/reset/replay.",
+  "human_disconnect_evidence": {
+    "private_image_path": "/home/ron/Pictures/Screenshots/20261114_094922.png",
+    "sha256": "a26b3743f625664b40ab00b0afb0a56be55ab1e74f27eedc9cfbdc56a0233fda",
+    "visual_provenance": "Parent read provided screenshot: Legacy sidecar/toolfree/Pi disconnected, Connect button, Legacy explicitly selected. Operator did not copy/publish/read full terminal image."
+  },
+  "result": {
+    "at_utc": "2026-11-14T14:51:43.756137+00:00",
+    "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+    "expected_pid": 3107869,
+    "expected_start": "43241373",
+    "authorization": "Explicit parent exact-main ONE SIGTERM after human Disconnect/idle/identity; bounded wait; NO force/SIGKILL/stop job/reset/replay/escalation",
+    "signal_sent": true,
+    "phase": "old-process-exited-global-lock-released",
+    "lock_inode": 85184,
+    "UI_before": {
+      "mode": "legacy",
+      "connected": false,
+      "read_callable": false,
+      "fresh_consent_required": true
+    },
+    "identity": {
+      "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+      "pid": 3107869,
+      "start": "43241373",
+      "exe": "/usr/bin/node",
+      "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "dropins": []
+    },
+    "cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-hyprneuro\\x2dpi\\x2downer.slice/hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+    "checkpoint_before_sha256": "a146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206",
+    "native_message_counts": {
+      "files": 0,
+      "user": 0,
+      "assistant": 0,
+      "toolResult": 0
+    },
+    "owner_TCP_sockets": [],
+    "exact_fixture_authorization": {
+      "ok": true,
+      "result": {
+        "allowed": false,
+        "reason": "no_authorization"
+      }
+    },
+    "locks_before": [
+      "54: FLOCK  ADVISORY  WRITE 3107869 00:4b:85184 0 EOF"
+    ],
+    "command": [
+      "systemctl",
+      "--user",
+      "kill",
+      "--kill-whom=main",
+      "--signal=SIGTERM",
+      "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service"
+    ],
+    "signal_command_exit": 0,
+    "locks_after": [],
+    "old_PID_exists": false,
+    "unit_after": "ActiveState=failed\nSubState=failed\nMainPID=0\nExecMainCode=1\nExecMainStatus=1\n",
+    "checkpoint_after_phase": "close-unknown",
+    "checkpoint_after_sha256": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea",
+    "guard_retained": true,
+    "UI_after": {
+      "mode": "legacy",
+      "connected": false,
+      "read_callable": false,
+      "fresh_consent_required": true
+    }
+  },
+  "retained_failure": "Old detach-unknown before signal, close-unknown afterward; unitfailed/status1/MainPID0; guard retained. No claim clean shutdown. Old root remains nonreplayable/quarantined, not cleared/adopted. Exact cleanup cause UNKNOWN; idle/unactivated Disconnect/shutdown liveness regression/fix required before READY.",
+  "preserved_checkpoint_hashes": {
+    "before": "a146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206",
+    "after": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea"
+  },
+  "next_human": "Now lock is independently released, click Connect Pi owner\u2026, choose /home/ron/Workspace/hn-final-5392ecf/owner, Open, stop/report; verify actual canonical newroot/descriptor552689c4\u202622cc7/profile handshake before separate human activation/exactfixture read. No auto selection/start/grant.",
+  "source_scope": "Installed UI/source5392/1ce5473c unchanged; oldroot native6f9 selection not accepted for first native pairing. No new model/app service commands, capture/clipboard/submission/inference or source edit. Models unchanged checked before/after.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/graceful-once.py": "72f377628c4a0b08386aaf157139057669153dd2480fcdb0746d1eaa6e10dbe9",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/graceful-result.json": "50373dea9ff092745a7b766c46459ee98ea8593a512301570bdac86a38398fae",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/signal.armed": "7dd5fdd8a4b5c671044401aa0ccfaa8197eb632dd09c842045c5938710b3d27a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/old-checkpoint-preserved.json": "a146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/old-checkpoint-after-signal.json": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea"
+  },
+  "limits": "Recovery is not native chat/read acceptance. All-media same-owner/router mandatory READY still blocked by binding VIDEO refusal/no workaround; original231/GTK first corruption UNKNOWN."
+}

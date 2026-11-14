@@ -10,8 +10,8 @@
   },
   "deployed_revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "deployed_binary_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
-  "phase": "GRACEFUL RECOVERY CONDITIONALLY AUTHORIZED; HUMAN DISCONNECT GATE NOT MET; SIGNAL NOT SENT",
-  "current_task": "Click Disconnect Pi \u2192 Legacy once; report Legacy or unavailable. Do NOT Connect exact5392 yet; parent relays after safe lock release. No activation/read consent implied.",
+  "phase": "One authorized graceful SIGTERM exited old6f9 PID/released global lock; old failure quarantined; human exact5392 Connect next",
+  "current_task": "Now lock is independently released, click Connect Pi owner\u2026, choose /home/ron/Workspace/hn-final-5392ecf/owner, Open, stop/report; verify actual canonical newroot/descriptor552689c4\u202622cc7/profile handshake before separate human activation/exactfixture read. No auto selection/start/grant.",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -31,7 +31,7 @@
     "Mandatory all-media parity including VIDEO before READY; binding refusal prevents current full READY"
   ],
   "blockers": [
-    "Conditional one-SIGTERM recovery authorized; human Disconnect/Legacy and repeated live preflight needed first. No signal sent; old failedowner holds lifetime lock, exact5392 still not connected.",
+    "Human exact5392 Connect/canonical descriptor/handshake then separate activation/exact read pending. Old6f9 unitFAILED/status1/close-unknown retained; cleanup liveness fix/regression needed before READY.",
     "Human persistent Connect/activation/exact-read/native outcome/idle/reconnect/revoke/restart acceptance pending",
     "ALL media same-owner/router integration and live acceptance mandatory; video provider refusal covers prepare-cancel + ffprobe child cleanup, no fake-process reformulation/reroute/retry",
     "Private capture/submission consent absent; no clipboard/camera/mic/screen access authorized",
@@ -139,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Click Disconnect Pi \u2192 Legacy once; report Legacy or unavailable. Do NOT Connect exact5392 yet; parent relays after safe lock release. No activation/read consent implied.",
+  "next_action": "Now lock is independently released, click Connect Pi owner\u2026, choose /home/ron/Workspace/hn-final-5392ecf/owner, Open, stop/report; verify actual canonical newroot/descriptor552689c4\u202622cc7/profile handshake before separate human activation/exactfixture read. No auto selection/start/grant.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -251,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-graceful-recovery-preflight.json",
+  "evidence_current": "docs/evidence/final-graceful-recovery-result.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -266,7 +266,7 @@
   "deployed_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
   "candidate_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "candidate_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
-  "active_owner_source": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
-  "active_owner_root": "/home/ron/Workspace/hn-final-6f9de3f/owner",
-  "active_owner_pid": 3107869
+  "active_owner_source": null,
+  "active_owner_root": null,
+  "active_owner_pid": null
 }

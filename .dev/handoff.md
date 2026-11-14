@@ -1,3 +1,18 @@
+## Current milestone — old PID/lock released; failed shutdown preserved
+
+After confirmed human Legacy and repeated live preflight, exactly one authorized
+old6f9 main SIGTERM exited3107869 and released global kernel lock within15s.
+No stop timer/SIGKILL/escalation/retry/reset/deletion. UnitFAILED/status1,
+checkpointclose-unknown and guard retained; originaldetach-unknown preserved.
+NOT clean shutdown/native acceptance. Idle/unactivated cleanup liveness bug needs
+regression/fix/review before READY. InstalledUI5392 unchanged, models unchanged.
+
+Next HUMAN Connect → `/home/ron/Workspace/hn-final-5392ecf/owner` → Open; stop/report.
+Verify actual newroot/descriptor/profile first; activation/exactread separate human.
+Evidence: `docs/evidence/final-graceful-recovery-result.json`.
+
+--- Historical checkpoints retained below ---
+
 ## Conditional graceful recovery — waiting human Disconnect
 
 Parent authorized exact old-main one SIGTERM with bounded wait/no force ONLY after

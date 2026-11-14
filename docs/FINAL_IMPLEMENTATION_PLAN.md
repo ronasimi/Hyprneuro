@@ -559,3 +559,24 @@ READ-ONLY acceptance PAUSED; all-media/video refusal blockers remain unchanged.
   canonical root/descriptor/profile; activation/exact read remain separate human.
 
 [Conditional recovery preflight](evidence/final-graceful-recovery-preflight.json).
+
+## 17. One-SIGTERM recovery result — lock released, failure retained
+
+- [x] Actual human Legacy screenshot parent-read/private; repeated leased sameUID/
+  local active unlocked Wayland+independent locker, exactPID3107869/start43241373/
+  cgroup/exe, no native messages/session/TCP or fixture authorization gates passed.
+- [x] Exactly ONE `systemctl --user kill --kill-whom=main --signal=SIGTERM` for old
+ 6f9 unit, command0; PID exited within15s and independent /proc/locks empty for
+  global inode85184. No systemctl stop/SIGKILL/escalation/retry/reset/lock deletion.
+- [x] Old unitFAILED/status1/MainPID0, checkpointclose-unknown, guard retained.
+  Originaldetach-unknown/private checkpoint and post-signal version preserved.
+  Operational lock release only, NOT clean shutdown/native acceptance.
+- [ ] Idle/unactivated Disconnect/shutdown failure needs exact-cause investigation
+  and deterministic/actual-SDK regression+source correction/review before READY.
+  Do not relabel old failed root ordinary/closed or automatically reuse it.
+- [ ] NOW HUMAN Connect exact `/home/ron/Workspace/hn-final-5392ecf/owner` → Open;
+  verify real canonical root/descriptor552689c4…22cc7/profile/session, then separate
+  human activation/exactfixture read consent. No blind repetition/auto-selection.
+
+[Sanitized recovery result](evidence/final-graceful-recovery-result.json). Current
+UI remains Legacy, models unchanged; existing source/media/video blockers retained.

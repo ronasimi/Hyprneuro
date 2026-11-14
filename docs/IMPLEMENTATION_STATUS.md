@@ -1,5 +1,16 @@
 # Implementation status and completion plan
 
+## Authorized normal baseline established — no new app deployment
+
+Plan committed as `06fc2b4`. Existing `lfm start all` ran once under the machine
+lease after skills and logind/locker checks. Text3039039/Omni3039041/D13039045 are
+active with matching health/model IDs; MoE remains inactive. Launcher/preset/unit
+hashes unchanged, installed/running UI still f6de29a2…76b5a5. This is **health and
+identity only**, not inference/GUI/owner acceptance. Source+exact-bundle independent
+review requested, not approved. Next: fresh immutable candidate prepare/verify;
+no app cutover before review and actual human unlocked confirmation.
+Receipt: [evidence/final-normal-baseline.json](evidence/final-normal-baseline.json).
+
 ## Current final implementation authorization and checklist
 
 The user's current instruction authorizes normal LFM startup, local live/UI

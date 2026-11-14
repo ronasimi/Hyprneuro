@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794641023141,
+  "updated_at_ms": 1794659170094,
   "status": "NOT READY",
   "git": {
-    "revision": "39e14a8952d8f9169937ab9de4d2271d15100b58",
+    "revision": "06fc2b4800b99536590f681514ed2c429a29ef53",
     "branch": "feat/pi-owner-gtk",
     "dirty": true,
-    "note": "Approved f9ea60b+09f5c43 cherry-picked onto292ce8c as0b856c6+39e14a8; required trailers retained. New same-session integration uncommitted for parent review; no push."
+    "note": "Plan06fc2b4 after parent integration d830015; this coherent baseline-evidence checkpoint pending commit. No push before review."
   },
   "deployed_revision": "1a6fb74: new installed UI/sidecar, user-selected legacy; persistent owner NOT installed",
   "deployed_source_sha256": "2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121",
   "deployed_binary_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
-  "phase": "MCP same-session SOURCE ONLY integration verified offline; parent checkpoint/review pending",
-  "current_task": "Parent checkpoint and independent review new uncommitted MCP owner/harness integration; monitor sampler deferred; no model start, bundle baseline bypass, install/freeze/apply.",
+  "phase": "Final plan checkpoint and authorized normal-stack baseline verified; exact candidate prep/review next",
+  "current_task": "Prepare/verify fresh exact immutable app-only release; independent parent source+bundle review before cutover, fresh actual human unlock and later consent gates",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -32,7 +32,6 @@
   ],
   "blockers": [
     "New MCP same-session integration awaits parent checkpoint/independent review; cleanup alone approved @2",
-    "Normal Text/Omni/D1 inactive at frozen292 preflight; user model-start approval pending; partial bundle not usable, no replay/bypass",
     "Original231 precise cause UNKNOWN; original fixture unavailable",
     "Persistent installed genuine-human Connect/activation/read/idle/reconnect/revoke/restart/legacy+media acceptance pending",
     "P12 cache-only EventIntake integration deferred; no model PID autodiscovery",
@@ -138,7 +137,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Parent checkpoint and independent review new uncommitted MCP owner/harness integration; monitor sampler deferred; no model start, bundle baseline bypass, install/freeze/apply.",
+  "next_action": "Prepare/verify fresh exact immutable app-only release; independent parent source+bundle review before cutover, fresh actual human unlock and later consent gates",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -241,12 +240,16 @@
     "verification": "Original path/SHA256 manifests identical; no edits or cherry-pick there"
   },
   "models": {
-    "source": "/home/ron/Workspace/hyprneuro-production-audit/frozen-292ce8c/refusal-runtime-metadata.log",
-    "note": "Last read-only preparation refusal metadata: Text/Omni/D1/MoE inactive, MainPID0. No model operation or new API/health/inference request; user start approval pending."
+    "text": "active PID3039039",
+    "omni": "active PID3039041",
+    "decision": "active PID3039045",
+    "moe": "inactive MainPID0",
+    "evidence": "docs/evidence/final-normal-baseline.json",
+    "policy": "Existing authorized lfm start all under lease; unchanged launcher/preset/unit hashes; no inference or Hermes switch"
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/native-mcp-integration.json",
+  "evidence_current": "docs/evidence/final-normal-baseline.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",

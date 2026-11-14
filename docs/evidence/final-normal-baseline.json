@@ -1,0 +1,131 @@
+{
+  "recorded_utc": "2026-11-14T12:26:10.091737+00:00",
+  "scope": "Authorized existing normal stack start + read-only health/identity baseline, NOT inference/GUI/owner acceptance",
+  "plan_commit": "06fc2b4800b99536590f681514ed2c429a29ef53",
+  "result": "baseline-verified",
+  "lease_command": "/home/ron/.pi/agent/npm/node_modules/.bin/pi-durable-subagents hold machine --max-wait20 -- /usr/bin/python /home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/normal-baseline.py",
+  "model_start_command": "/home/ron/.bin/lfm start all",
+  "start_exit": 0,
+  "desktop_before": {
+    "sessions": [
+      {
+        "session": "2",
+        "User": "1000",
+        "Remote": "no",
+        "Type": "wayland",
+        "Active": "yes",
+        "LockedHint": "no"
+      }
+    ],
+    "locker_check_exit": 1,
+    "locker_pids": [],
+    "safe": true
+  },
+  "desktop_after": {
+    "sessions": [
+      {
+        "session": "2",
+        "User": "1000",
+        "Remote": "no",
+        "Type": "wayland",
+        "Active": "yes",
+        "LockedHint": "no"
+      }
+    ],
+    "locker_check_exit": 1,
+    "locker_pids": [],
+    "safe": true
+  },
+  "models": {
+    "lfm@text.service": {
+      "Id": "lfm@text.service",
+      "ActiveState": "active",
+      "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+      "DropInPaths": "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf /home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf /home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf /home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf",
+      "NeedDaemonReload": "no",
+      "MainPID": "3039039",
+      "uid": 1000,
+      "start": "42560721",
+      "exe": "/usr/local/bin/llama-server",
+      "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983"
+    },
+    "lfm@omni.service": {
+      "Id": "lfm@omni.service",
+      "ActiveState": "active",
+      "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+      "DropInPaths": "",
+      "NeedDaemonReload": "no",
+      "MainPID": "3039041",
+      "uid": 1000,
+      "start": "42560722",
+      "exe": "/usr/local/bin/llama-server",
+      "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983"
+    },
+    "lfm@decision.service": {
+      "Id": "lfm@decision.service",
+      "ActiveState": "active",
+      "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+      "DropInPaths": "",
+      "NeedDaemonReload": "no",
+      "MainPID": "3039045",
+      "uid": 1000,
+      "start": "42560723",
+      "exe": "/usr/local/bin/llama-server",
+      "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983"
+    },
+    "lfm@moe.service": {
+      "Id": "lfm@moe.service",
+      "ActiveState": "inactive",
+      "FragmentPath": "/home/ron/.config/systemd/user/lfm@.service",
+      "DropInPaths": "/home/ron/.dotfiles/home/.config/systemd/user/lfm@moe.service.d/10-exclusive.conf",
+      "NeedDaemonReload": "no",
+      "MainPID": "0"
+    }
+  },
+  "endpoints": {
+    "8083": {
+      "health": "ok",
+      "model_ids": [
+        "lfm-decision"
+      ]
+    },
+    "8081": {
+      "health": "ok",
+      "model_ids": [
+        "lfm-text"
+      ]
+    },
+    "8082": {
+      "health": "ok",
+      "model_ids": [
+        "lfm-omni"
+      ]
+    }
+  },
+  "normal_LFM_MCP_mode": "off",
+  "configuration_sha256": {
+    "/home/ron/.config/systemd/user/lfm@.service": "259fe76ccd42d61ada52db545b5560f1d4d23597212365ca8cce9174440e23ff",
+    "/home/ron/.dotfiles/home/.bin/lfm": "f57ae318a6cae078c994e9544864c9a4b4952db4ce39653242fa56f83252a5ee",
+    "/home/ron/.dotfiles/home/.config/systemd/user/lfm@moe.service.d/10-exclusive.conf": "162813a382af0978c0e12a88e002a1487e780547be07b7b78f09291654ac9a01",
+    "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf": "fc0464ad3f2111960afbaaaa89125c5dfd9f224f635f6ee91adaa977c274ba71",
+    "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf": "94cfddbe7b4dd957eecea6e7614a8edb49b4c0345bad1db2df6cccbc71fe5e11",
+    "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf": "c2106876e590d35cdca2937415363a4acfba860e0b09a2c827100d9bff4d1717",
+    "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf": "b07e20f78a51e599237ee77ab4e345cd9434982cfa8159cbbf003136a6a71a30",
+    "/home/ron/.local/state/lfm/moe-model": "e45a696952698ea615285e91268d1ff0119dc9ba2768772b714bc353d01f89d3",
+    "/home/ron/.local/state/lfm/preset": "bd92c8d34747b12d337b8a0ee7d99505de92e2bdcfe7b51869e7662017e45e5a"
+  },
+  "configuration_unchanged": true,
+  "installed_UI": {
+    "pid": 2534881,
+    "installed_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+    "running_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5"
+  },
+  "disk_available_bytes": 124652793856,
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/normal-baseline.py": "a9b007f17ef59b03f4c6ab538c44bc081f01a6c6aa4a98f2f444dc9f0138bb2e",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/normal-baseline.json": "19deeb30d4f06cef04988b8d302960addd7d8e5cc09bea7f47b0f10273f61d8f",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/lfm-start-all.log": "86fa1ffba2505d96adcb2661bc62c161754849d67d536e9034bbb5fbe8e68cd6"
+  },
+  "boundaries": "No presets/config/weights/packages/global environment/DB/settings/app install change; no GUI, real inference or owner start; no real consent supplied. Video remains blocked, original231 UNKNOWN.",
+  "next": "Exact immutable committed candidate preparation/verify; independent source+bundle review before app cutover; fresh actual human unlock confirmation required"
+}

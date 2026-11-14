@@ -41,10 +41,10 @@ provider refusal** through another worker, tool, service or implementation.
   arch-packages, hyprland-control and layer-shell-debugging skills.
 - [x] Confirm starting worktree clean at `d830015`; MCP cleanup cherry-picks and
   parent integration checkpoint present. No source approval implied by a commit.
-- [ ] Commit this plan and current acceptance ledger with the required trailer.
-- [ ] Allocate private audit directory; record exact HEAD, dirty status, review
+- [x] Commit this plan and current acceptance ledger with the required trailer.
+- [x] Allocate private audit directory; record exact HEAD, dirty status, review
   identities and artifact/source hashes. No secrets/screenshots/DB contents in Git.
-- [ ] Request parent independent review of `d830015` integration, then the exact
+- [x] Request parent independent review of `d830015` integration, then the exact
   prepared descendant manifest/descriptor/units/binary/rollback before cutover.
 - [ ] Reconcile remote ancestry; publish coherent reviewed commits non-force only.
 
@@ -54,18 +54,18 @@ artifact hash, blocker and next dependency. Tick only the specific proven item.
 
 ## 1. Authorized normal-stack baseline (P01/P02 prerequisite)
 
-- [ ] Under the machine lease, record logind metadata and locker status before
+- [x] Under the machine lease, record logind metadata and locker status before
   model work; ask unlock on locked/ambiguous state. No GUI action yet.
-- [ ] Read actual `~/.bin/lfm` and effective model unit metadata. Confirm `start all`
+- [x] Read actual `~/.bin/lfm` and effective model unit metadata. Confirm `start all`
   means Text/Omni/D1 only. Refuse if another Hermes/inference owner is present.
-- [ ] Hash launcher, unit/drop-ins, model config/preset files without dumping
+- [x] Hash launcher, unit/drop-ins, model config/preset files without dumping
   credentials; capture installed UI/process identity and available RAM/disk.
-- [ ] Run **once** `/home/ron/.bin/lfm start all` under the lease. No preset, MCP,
+- [x] Run **once** `/home/ron/.bin/lfm start all` under the lease. No preset, MCP,
   weight, model command/config or package change. On failure retain logs; no blind retry.
-- [ ] Bound health/model-ID polling: Text8081 `lfm-text`, Omni8082 `lfm-omni`,
+- [x] Bound health/model-ID polling: Text8081 `lfm-text`, Omni8082 `lfm-omni`,
   D18083 `lfm-decision`; each active same-UID PID/start/executable/unit origin.
   MoE8080/unit must remain inactive. Health is not inference or tool acceptance.
-- [ ] Prove launcher/config hashes unchanged; record actual baseline receipt.
+- [x] Prove launcher/config hashes unchanged; record actual baseline receipt.
 
 ## 2. Exact immutable release and independent review (P01/P02)
 
@@ -215,5 +215,14 @@ sha256sum "$R/manifest.json" "$R/bin/hyprneuro-ui" "$R/owner/owner.json"
   artifact hashes; no blanket READY while any required gate or consent is missing.
   Video/provider-refusal and unsupported hardware remain explicit residual limits.
 
-Current next action: checkpoint plan, establish leased/lock-checked normal baseline,
-then prepare/review the exact app-only release. Do not skip to broader tools.
+Current next action: prepare/verify the exact app-only release from the committed
+checkpoint; parent independent source+bundle review before cutover. Do not skip to broader tools.
+
+## Latest execution receipt
+
+Plan checkpoint `06fc2b4`; normal baseline now verified under the machine lease:
+Text3039039/Omni3039041/D13039045 active, correct health/model IDs, MoE inactive.
+Logind+locker checks passed before/after; launcher/preset/unit hashes unchanged;
+installed/running UI still f6de29a2…76b5a5. No GUI/inference/owner acceptance yet.
+Exact metadata/artifact hashes: [evidence/final-normal-baseline.json](evidence/final-normal-baseline.json).
+Parent review was requested, not received. Next: prepare/verify the exact candidate.

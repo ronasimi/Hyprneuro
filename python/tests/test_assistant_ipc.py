@@ -9,7 +9,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from hyprneuro.sidecar import serve
 from hyprneuro.sidecar_client import request
@@ -291,15 +291,19 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(disc["manifests"], [])
 
     async def test_monitoring_over_ipc(self):
-        snap = await request({"action": "monitoring", "limit": 5}, socket_path=self.socket)
+        with patch("hyprneuro.agent.health", new_callable=AsyncMock, return_value=False):
+            snap = await request({"action": "monitoring", "limit": 5}, socket_path=self.socket)
         self.assertEqual(snap["schema"], "hyprneuro.monitoring/1")
         self.assertIn("cpu_pct", snap)
         self.assertIn("ram", snap)
-        self.assertIn("models", snap)
+        self.assertIsNone(snap["cpu_pct"])  # Resource collector is disabled.
+        self.assertIsNone(snap["ram"])
+        self.assertEqual(snap["models"], {"text": False, "omni": False})
         self.assertIn("apps", snap)
 
     async def test_ui_status_over_ipc(self):
-        status = await request({"action": "ui_status"}, socket_path=self.socket)
+        with patch("hyprneuro.agent.health", new_callable=AsyncMock, return_value=False):
+            status = await request({"action": "ui_status"}, socket_path=self.socket)
         self.assertEqual(status["schema"], "hyprneuro.ui_status/1")
         self.assertTrue(status["assistant_enabled"])
         self.assertIn("models", status)

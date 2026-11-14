@@ -1,10 +1,10 @@
-# P12 passive source stage (not installed acceptance)
+# P12 passive sampler and cached adapter (not installed acceptance)
 
-Scope: `monitor.py` and deterministic fixtures only. `event_stream.py`,
-`telemetry.py`, monitor/telemetry tests and the P12 plan were reviewed. Sidecar,
-agent, residency admission, lock hooks, GTK and service lifecycle remain untouched.
-The existing telemetry/1, monitoring/1 and UI resource-status shapes are unchanged.
-This stage is not a second background poller or a deployment.
+Scope: passive `monitor.py` plus the existing `event_stream.py` resource lifecycle,
+`sidecar.py` resource adapter and deterministic monitor/IPC fixtures. Agent,
+residency admission, lock hooks, owner/release, GTK and service/runtime files remain
+untouched. The existing telemetry/1, monitoring/1 and UI resource-status shapes are
+unchanged. This is source-only work, not a second background poller or a deployment.
 
 ## Sources and semantics
 
@@ -35,13 +35,24 @@ replaced on each sample; unavailable sources cannot retain old values. Delivery
 errors increment `Monitor.delivery_failures` without destroying the last sampled
 data; cancellation propagates normally.
 
-## Narrow parent-owned adapter contract
+## Integrated resource adapter contract
 
-- Reuse **one** `Monitor` instance per existing monitoring lifecycle, at the
-  existing opt-in setting. Sample once per tick; use the same snapshot for
-  `ResourceAlerts`, cached UI values and IPC. Do not call `sample()` on every RPC
-  or create another poller. The current sidecar UI CPU sleep sampler is still
-  present: replacing it is the parent's integration work, not done here.
+- `EventIntake.resource_alerts` retains **one** `Monitor` per existing opt-in
+  resource lifecycle (`alert_resources`). It samples once per tick, publishes
+  `resource_snapshot` and UI `resource_status` before awaiting alert delivery,
+  and passes that exact snapshot to `ResourceAlerts`. Slow delivery retains the
+  existing backpressure; it does not start a second sampler. Delivery failure
+  leaves the current cache available until the next sample replaces it.
+- Sidecar CPU/RAM adaptation reads only that cache: no per-RPC `sample()`, kernel
+  counter reads or sleep. Before the first sample, missing/reset CPU values are
+  null, not zero. A real sampled zero remains zero. Normal collector exit, failure
+  and cancellation clear the snapshot, reset resource status to its unavailable
+  startup state and release the monitor. Restart gets a new sampler/baseline.
+- Disabled resource monitoring returns null CPU/RAM even if handed an old cache.
+  Existing settings are startup settings, not live collector toggles: saving a
+  disabled setting does not stop an active collector until the existing restart
+  lifecycle applies it. That stop clears the old cache; a disabled startup does
+  not create a sampler. No new settings/restart mechanism is introduced here.
 - `Monitor(..., model_processes={role: {"pid": pid, "start_ticks": start}})` accepts
   already-known service process identities. Parent supplies/refreshes those
   identities using its existing lifecycle authority; this adapter never invokes
@@ -52,10 +63,16 @@ data; cancellation propagates normally.
   `os.statvfs`. Tests inject roots/clocks/statvfs; no extra discovery framework.
 - Keep existing IPC adapters: aggregate `cpu_percent.get("cpu")` → nullable
   `cpu_pct`; RAM percentage requires both `MemTotal > 0` and `MemAvailable`.
-  Missing RAM must not fall back to zero available memory. Preserve existing
-  monitoring/1 top-level `models` readiness semantics; process residency is not
-  readiness. `Telemetry.snapshot()` remains assistant counters/store size, not a
-  sampler, and needs no changes for this stage.
+  Missing RAM must not fall back to zero available memory. Require integer
+  `MemTotal > 0` and `0 <= MemAvailable <= MemTotal` in IPC, UI status and resource
+  alerts; retain the existing KiB/1024 rounded MB conversion and one-decimal UI
+  percentages. Preserve monitoring/1 top-level `models` readiness semantics:
+  `_model_health()` is unchanged, including its existing endpoint checks, cadence,
+  timeouts and cancellation. The whole RPC is **not** zero-I/O (readiness and store
+  reads remain); only its resource-counter path is cache-only. Process residency
+  is not readiness. No new identity probes, PID discovery or autostart are added;
+  identities remain unconfigured unless supplied by trusted lifecycle authority.
+  `Telemetry.snapshot()` remains assistant counters/store size, not a sampler.
 - Notifications remain on the existing local alert path, never Pi wake or an
   agent action. Existing escalation can score with D1/optionally explain alerts;
   this stage adds **no** inference, autonomous model start, or change to that
@@ -68,7 +85,38 @@ nonrecursively. Proc stat/diskstats reads cap at 256 KiB; meminfo/status at 16 K
 other reads at 4 KiB or 128 B. Oversized files are unavailable, not parsed prefixes.
 Enumeration may omit devices beyond caps; no completeness claim beyond bounds.
 
-## Deterministic verification
+## Cached integration verification (base `d830015`)
+
+`test_resources.py` adds deterministic coverage for multiple RPCs without resource
+sampling/kernel reads/sleep, identical detector/cache snapshots, slow alert delivery,
+delivery failure/recovery, invalid/missing RAM, genuine zero CPU/available RAM,
+startup/disabled/stopped nulls, normal exit, failure, restart and cancellation
+cleanup. IPC monitoring/status fixtures mock the existing readiness checks; RSS
+fixtures cannot change readiness. Existing passive sampler tests are unchanged.
+
+Both runs used the same existing Python 3.13 venv, with warnings treated as errors,
+inside a fresh user/network namespace with only loopback enabled. This permits
+suite-owned Unix/TCP fixtures, not access to installed services or outside network.
+No GUI, inference, model/service control or installed-counter acceptance was run.
+
+```sh
+PYTHON=/home/ron/Projects/Hyprneuro/python/.venv/bin/python
+unshare -Urn -- bash -c 'ip link set lo up && PYTHONPATH="$PWD/python/src" /home/ron/Projects/Hyprneuro/python/.venv/bin/python -W error -m pytest python/tests/test_resources.py python/tests/test_monitor.py python/tests/test_telemetry.py python/tests/test_assistant_ipc.py python/tests/test_feature_api.py python/tests/test_alerting.py python/tests/test_journal_replay.py -q -rs'
+unshare -Urn -- bash -c 'ip link set lo up && PYTHONPATH="$PWD/python/src" /home/ron/Projects/Hyprneuro/python/.venv/bin/python -W error -m pytest python/tests -q -rs'
+```
+
+- Focused: **85 passed, 24 subtests passed**.
+- Full: **461 passed, 1 skipped, 113 subtests passed**; only the existing optional
+  Pillow D1 visual-gate skip (`test_event_handoff.py:109`). No test failures or
+  warnings occurred. `git diff --check` passed.
+- Logs: `/home/ron/Workspace/hyprneuro-final-monitor-cache-evidence/{focused,full}.log`.
+  SHA-256, respectively:
+  `325254e052c436856c4f51632513499d0edfc514465b2432d7b4d39481966c17`,
+  `61b14c6fece27301d3dfe3345a414042fbfe5db0b7bd6c12e0c53bf6a56a2228`.
+- Parent independent source review is next. Installed lifecycle/UI/counter and
+  trusted model-role integration acceptance remain separate parent-owned work.
+
+## Prior passive-stage deterministic verification
 
 `python/tests/test_monitor.py` covers missing/malformed/recovered sources,
 CPU guest exclusion/frequency/hotplug/component resets, monotonic disk rates and
@@ -97,9 +145,10 @@ interpreter lacked pytest; the existing venv then ran the complete suite above.
 `git diff --check` passed. Full final test log SHA-256:
 `2bca4397634d5a246d5f1297963f7bec3c74fbbda087b650dc113bb2c5988266`.
 
-## Actual read-only machine observation
+## Historical passive-stage read-only machine observation
 
-Two ordinary snapshots separated by 0.3 s, no stress/model/inference/GUI/service/
+This evidence predates the cached integration above; it is not a new observation
+or installed acceptance for this change. Two ordinary snapshots separated by 0.3 s, no stress/model/inference/GUI/service/
 network-contact operation, no timing benchmark. No identity or private path was
 captured. Values are point-in-time evidence, not capacity/latency measurements:
 

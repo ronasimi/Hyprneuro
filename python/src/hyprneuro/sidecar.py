@@ -526,14 +526,6 @@ class SidecarServer:
         except (OSError, EOFError, asyncio.TimeoutError, ValueError) as exc:
             await self._write_frame(writer, {"type": "error", "error": str(exc)[:300]})
 
-    @staticmethod
-    def _read_cpu_times() -> tuple[int, int]:
-        with open("/proc/stat") as fh:
-            parts = fh.readline().split()
-        vals = [int(x) for x in parts[1:]]
-        idle = vals[3] + (vals[4] if len(vals) > 4 else 0)
-        return idle, sum(vals)
-
     async def _model_health(self) -> dict:
         from . import agent
         out = {}
@@ -545,35 +537,22 @@ class SidecarServer:
         return out
 
     async def _monitoring_snapshot(self, limit: int) -> dict:
-        """Bounded, model-free system + app monitoring snapshot for the UI."""
-        # CPU over a short sample.
-        cpu_pct = None
-        try:
-            idle0, total0 = self._read_cpu_times()
-            import time as _t
-            _t.sleep(0.1)
-            idle1, total1 = self._read_cpu_times()
-            d_total, d_idle = total1 - total0, idle1 - idle0
-            if d_total > 0:
-                cpu_pct = round(100.0 * (1.0 - d_idle / d_total), 1)
-        except (OSError, ValueError):
-            pass
-        # RAM from /proc/meminfo.
+        """Adapt cached resource counters; model readiness is a separate check."""
+        snapshot = (self.event_intake.resource_snapshot
+                    if self.event_intake and self.resources_enabled
+                    and self.active_settings.get("alert_resources", self.resources_enabled)
+                    else None) or {}
+        cpu_pct = snapshot.get("cpu_percent", {}).get("cpu")
+        if cpu_pct is not None:
+            cpu_pct = round(cpu_pct, 1)
         ram = None
-        try:
-            info = {}
-            with open("/proc/meminfo") as fh:
-                for line in fh:
-                    key, _, rest = line.partition(":")
-                    info[key.strip()] = int(rest.split()[0])  # kB
-            total = info.get("MemTotal", 0)
-            avail = info.get("MemAvailable", 0)
-            if total > 0:
-                used = total - avail
-                ram = {"total_mb": round(total / 1024), "used_mb": round(used / 1024),
-                       "pct": round(100.0 * used / total, 1)}
-        except (OSError, ValueError, IndexError):
-            pass
+        memory = snapshot.get("memory_kib", {})
+        total, available = memory.get("MemTotal"), memory.get("MemAvailable")
+        if (type(total) is int and type(available) is int
+                and total > 0 and 0 <= available <= total):
+            used = total - available
+            ram = {"total_mb": round(total / 1024), "used_mb": round(used / 1024),
+                   "pct": round(100.0 * used / total, 1)}
         # App context (focused + recent) if the assistant layer is active.
         apps = None
         if self.registry is not None:

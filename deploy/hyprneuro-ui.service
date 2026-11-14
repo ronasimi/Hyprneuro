@@ -5,7 +5,7 @@
 [Unit]
 Description=Hyprneuro overlay (GTK4 layer-shell, bottom-right)
 Documentation=file:///home/ron/Projects/Hyprneuro/docs/ARCHITECTURE.md
-After=hyprneuro.service wayland-session.target
+After=graphical-session.target hyprneuro.service wayland-session.target
 Wants=hyprneuro.service
 
 [Service]

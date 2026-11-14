@@ -1,0 +1,31 @@
+{
+  "recorded_utc": "2026-11-14T12:38:20.942105+00:00",
+  "scope": "App-only source/release UI ordering correction; no installed unit edit/lifecycle operation",
+  "held_bundle": "/home/ron/Workspace/hn-final-edaa238",
+  "held_manifest_sha256": "ba84ff5d8b81657dfd7f8140c7def9f98a44a444cc7a0752bb2f7f9e6e6a943f",
+  "finding": "Existing installed UI is enabled under graphical-session.target, which synthesizes After=UI; UI After=sidecar and sidecar After=graphical-session.target closes ordering cycle. Baseline analyzer fails exit1; prior composed candidate exits0 with cycle/job-deletion warnings, NOT warning-clean.",
+  "correction": "Explicit UI After=graphical-session.target in staged release drop-in and deploy UI unit; preserves existing sidecar/Wayland dependencies, default shutdown ordering and no autostart/enable changes. No global target/config edit.",
+  "proof": "Private composed installed/candidate copy with explicit edge verifies0/no diagnostics; isolated unit graph starting target reproduces old fail1 and fixed pass0/empty stderr.",
+  "focused": "13 passed,6subtests; no actual service operations",
+  "retained_initial_test_failure": "12passed/1failed/6subtests: analyzer without target as requested transaction root returned0 with job-deletion warnings; regression now explicitly requests graphical target transaction and asserts failure before fix and warning-free0 after. No expectation suppressed.",
+  "source_sha256": {
+    "scripts/prepare_app_release.py": "309f91e43d5cc82d85786d1072026d9b3d736fc12b04a3bf2e90de628c39a1ce",
+    "deploy/hyprneuro-ui.service": "56e5e707554b11d73fb89a3f45e223a10abb90b400bb5688f5b91f05619699f7",
+    "python/tests/test_app_release_ops.py": "0d33765e48f382b7402669a34274995684ee1739bef2a462400380da61ba2cc3"
+  },
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/focused.log": "5ed59680b53c039aecb653404de396cd16d87a1cb4defe4059a2a12b6f77e854",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/probe-default.log": "e38cef5dfdaa656a8f25915d93d50013f6b6110f8d9880bc96453039f908b0ac",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/probe-target.log": "78eedb233e2cc95033068f895cf68070f75bd6d1052d212f5c9e5905e1ae60fa",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/focused-final.log": "d9becfcdcc4a38562bdf581388063ba9f8f3e143f86ec264da80861950fcc8a6",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/probe/graphical-session.target": "0ed8b0db35f452a0004db0ac2f2e0de2d71cb9f15e42f9dfe2cda79c3d4e09f8",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/probe/hyprneuro.service": "f2e97ce26951c0af7d8d6cd95e8b800e7aaf155a54075760c54f6b1b0518338e",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/unit-ordering-fix/probe/hyprneuro-ui.service": "0c6898618bd9c78fc47421ea245942544149b7b783f3de9ea6ef17240b1acf3b",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-edaa238/unit-verify.log": "d40c03e8c79e2b4e2eddfa09338d2899d7d5a03ea3bacae2a6ac24b999007863",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-edaa238/baseline-unit-verify.log": "3b3568e3555af2e9798717a25c9f275e21bb234462e6c7070757adb4a3a5dce9",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-edaa238/unit-ordering-metadata.log": "14e63bb1d53feffba44d782f039477f073862c8e2679948d3239c123e2c92ea6",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-edaa238/unit-ordering-probe.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "next": "Commit correction, rerun full combined tests and prepare new immutable source identity; independent exact-bundle review before cutover. edaa238 stays retained held, never altered/relabelled.",
+  "boundaries": "No app/model/service/GUI/owner operation, permission or privacy change from correction. Baseline normal model start is separately authorized/recorded; original231 remains UNKNOWN; video refused/blocked."
+}

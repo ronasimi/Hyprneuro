@@ -19,6 +19,32 @@ with patch.dict(sys.modules,{'prepare_app_release':ops}):
 
 
 class ReleaseOpsTests(unittest.TestCase):
+    def test_ui_dropin_breaks_inherited_graphical_target_ordering_cycle(self):
+        import subprocess
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);runtime=base/'runtime';runtime.mkdir(mode=0o700)
+            (base/'graphical-session.target').write_text('[Unit]\nWants=hyprneuro.service hyprneuro-ui.service\n')
+            (base/'hyprneuro.service').write_text('[Unit]\nAfter=graphical-session.target\nWants=graphical-session.target\n[Service]\nExecStart=/usr/bin/true\n')
+            ui=base/'hyprneuro-ui.service'
+            original='[Unit]\nAfter=hyprneuro.service\nWants=hyprneuro.service\n[Service]\nExecStart=/usr/bin/true\n'
+            ui.write_text(original)
+            env={**os.environ,'SYSTEMD_UNIT_PATH':str(base)+':/usr/lib/systemd/user',
+                 'XDG_RUNTIME_DIR':str(runtime),'XDG_CONFIG_HOME':str(base/'config')}
+            command=['systemd-analyze','--user','verify',str(base/'hyprneuro.service'),str(ui),str(base/'graphical-session.target')]
+            before=subprocess.run(command,env=env,capture_output=True,text=True,timeout=5)
+            self.assertNotEqual(before.returncode,0)
+            self.assertIn('ordering cycle',before.stderr)
+            dropin=ops.ui_dropin('Environment=PYTHONDONTWRITEBYTECODE=1\n','Environment=HYPRNEURO_PI_UI=0\n')
+            self.assertIn('After=graphical-session.target',dropin)
+            self.assertNotIn('DefaultDependencies=no',dropin)
+            ui.write_text(original+'\n'+dropin)
+            after=subprocess.run(command,env=env,capture_output=True,text=True,timeout=5)
+            self.assertEqual(after.returncode,0,after.stderr)
+            self.assertEqual(after.stderr,'')
+            self.assertIn('After=graphical-session.target hyprneuro.service wayland-session.target',
+                          (ROOT/'deploy/hyprneuro-ui.service').read_text())
+
     def test_startup_proc_permission_race_retries_metadata_only(self):
         fields=f'MainPID={os.getpid()}\nActiveState=active\nFragmentPath=/synthetic.service\nDropInPaths='
         with patch.object(ops,'run',return_value=fields),patch.object(ops,'digest',side_effect=[PermissionError('exec pending'),'verified-hash']) as digest,patch.object(ops.time,'sleep') as sleep:

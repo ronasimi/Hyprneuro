@@ -250,3 +250,17 @@ passed455 Python/1skip/104subtests,77Node,17+17 C. Fresh post-pick combined test
 compile and immutable preparation follow from the next exact clean checkpoint;
 no old-source bundle was frozen or relabeled. Independent exact-bundle review
 still required before cutover. Evidence: [evidence/final-cache-integration.json](evidence/final-cache-integration.json).
+
+### First candidate held: inherited app ordering cycle
+
+Post-cache combined source at edaa238 passed461 Python/1skip/113subtests,
+77Node,17+17 existing C, then freshly built GTK17helpers and prepared immutable
+`/home/ron/Workspace/hn-final-edaa238`. It is **HELD, not approved for cutover**:
+composed unit verification returned0 with cycle/job-deletion warnings. Unchanged
+installed baseline verification returns1 with an unfixable graphical-session/UI/
+sidecar ordering cycle. Private probe of explicit UI After=graphical-session.target
+returns0/no diagnostics. App-only staged drop-in/deploy unit correction and
+isolated systemd graph regression now pass13tests/6subtests; first fixture failure
+is retained. No live unit or global target changed. Next fresh source/bundle
+identity must include this fix; never relabel edaa238 or replay its preparation.
+[evidence/final-app-ordering.json](evidence/final-app-ordering.json).

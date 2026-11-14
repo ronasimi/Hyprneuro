@@ -68,6 +68,13 @@ def prepare_parent_owner(source, owner, python, staged):
     return json.loads(private_file(owner/'owner.json').read_text())['task_id']
 
 
+
+def ui_dropin(common, mode):
+    # Explicit ordering prevents graphical-session.target's implicit After=UI
+    # from closing a cycle through UI -> sidecar -> graphical-session.target.
+    return '[Unit]\nAfter=graphical-session.target\n[Service]\n' + common + mode
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--commit', required=True)
@@ -187,7 +194,7 @@ main()
         'ExecStart=\nExecStart='+str(python)+' '+str(staged/'sidecar-entry.py')+' serve --allow-ingest --watch-hyprland --assistant-enabled --no-allow-capture --no-allow-on-demand --no-allow-browser --no-d1-visual --no-retention-enabled\n')
     ui_mode=(f'Environment="HYPRNEURO_PI_UI=0" "HYPRNEURO_PI_BRIDGE_PYTHON={python}"\nUnsetEnvironment=HYPRNEURO_PI_OWNER_DIR\n' if explicit_ui else
         f'Environment="HYPRNEURO_PI_UI=1" "HYPRNEURO_PI_OWNER_DIR={owner}" "HYPRNEURO_PI_BRIDGE_PYTHON={python}"\n')
-    (staged/'ui.conf').write_text('[Service]\n'+common+ui_mode)
+    (staged/'ui.conf').write_text(ui_dropin(common,ui_mode))
     launch=f'''#!/bin/sh
 set -eu
 # Parent must first approve review, machine lease, source deployment and fresh

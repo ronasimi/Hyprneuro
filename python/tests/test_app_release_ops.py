@@ -142,6 +142,41 @@ class ReleaseOpsTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
 
 
+    def test_target_selection_accepts_parent_aliases_but_refuses_final_links_and_hash_drift(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);canonical=base/'dotfiles/units';canonical.mkdir(parents=True)
+            lexical=base/'home/.config/systemd/user';lexical.parent.mkdir(parents=True)
+            lexical.symlink_to(canonical,target_is_directory=True)
+            unit=canonical/'hyprneuro-ui.service.d/95-reviewed-readonly-release.conf'
+            unit.parent.mkdir();unit.write_text('verified current override')
+            for recorded in [unit,lexical/unit.relative_to(canonical)]:
+                manifest={'units':[{'path':str(recorded),'sha256':ops.digest(unit)}]}
+                targets=apply.release_targets(base,manifest,lexical)
+                self.assertEqual(targets[-1][1],lexical/unit.relative_to(canonical))
+                self.assertTrue(targets[-1][1].samefile(unit))
+                unit.write_text('changed')
+                with self.assertRaisesRegex(RuntimeError,'Unreviewed release override'):
+                    apply.release_targets(base,manifest,lexical)
+                unit.write_text('verified current override')
+            manifest={'units':[{'path':str(unit),'sha256':ops.digest(unit)}]}
+            original=unit.with_name('original');unit.rename(original);unit.symlink_to(original)
+            with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,lexical)
+            unit.unlink();os.link(original,unit)
+            with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,lexical)
+
+    def test_staged_verifier_checks_target_selection_before_runtime_checks(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);(base/'backup').mkdir(mode=0o700)
+            (base/'manifest.json').write_text(json.dumps({'units':[]}))
+            with patch.object(verifier,'release_targets',side_effect=RuntimeError('target preflight refusal')) as targets,patch.object(verifier,'unit_identity') as identity:
+                with self.assertRaisesRegex(RuntimeError,'target preflight refusal'):
+                    verifier.verify(base)
+                targets.assert_called_once_with(base,{'units':[]},Path.home()/'.config/systemd/user')
+                identity.assert_not_called()
+
     def test_app_cutover_installs_template_but_never_starts_or_enables_owner(self):
         import json
         import sqlite3

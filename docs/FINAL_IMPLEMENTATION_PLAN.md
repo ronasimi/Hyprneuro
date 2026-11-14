@@ -283,3 +283,15 @@ it is retained, not hidden or labelled warning-clean. No app cutover, owner star
 GUI/installed-counter acceptance or human grant. Evidence-only commits after this
 freeze do not change or relabel the candidate's source identity.
 [evidence/final-frozen-bundle.json](evidence/final-frozen-bundle.json).
+
+###49c748d independent BLOCK retained: canonical override lookup
+
+Review01M7D1JJPEW9C14TTDA68ETZ5S/bundle-review found apply target selection
+compared lexical~/.config paths with systemd canonical~/.dotfiles paths and
+refused identical existing files before mutation.49c748d bundle stays immutable
+and BLOCKED. Shared target selection now lives in the read-only verifier, uses
+canonical lookup but preserves final-file UID/link/type/hash checks; staged
+verification includes selection, apply reuses it. Focused15/6subtests pass; new
+checker against actual held metadata passes, NOT approval of the frozen old
+helper. Next fresh source/full regression/build/bundle and independent re-review.
+[evidence/final-path-alias-p1.json](evidence/final-path-alias-p1.json).

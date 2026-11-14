@@ -9,7 +9,7 @@ import sqlite3
 import subprocess
 import time
 from prepare_app_release import digest, private_file, run
-from verify_app_release import verify
+from verify_app_release import verify, release_targets
 
 
 def desktop_safe(session):
@@ -28,24 +28,6 @@ def atomic_copy(src,dst,mode):
     fd=os.open(dst.parent,os.O_RDONLY|os.O_DIRECTORY)
     try:os.fsync(fd)
     finally:os.close(fd)
-
-
-def release_targets(bundle, manifest, unit_home):
-    """Replace only hash-pinned current app overrides; add an inert template."""
-    baseline={entry['path']:entry['sha256'] for entry in manifest['units']}
-    targets=[]
-    for unit,file in [('hyprneuro.service','sidecar.conf'),('hyprneuro-ui.service','ui.conf')]:
-        dest=unit_home/(unit+'.d')/'95-reviewed-readonly-release.conf'
-        if dest.exists() or dest.is_symlink():
-            if str(dest) not in baseline or digest(private_file(dest))!=baseline[str(dest)]:
-                raise RuntimeError('Unreviewed release override; no overwrite/adoption')
-        targets.append((bundle/'staged'/file,dest))
-    if manifest.get('persistent_owner'):
-        dest=unit_home/'hyprneuro-pi-owner@.service'
-        if dest.exists() or dest.is_symlink():
-            raise RuntimeError('Existing owner template; separate review required')
-        targets.append((bundle/'staged'/dest.name,dest))
-    return targets
 
 
 def main():

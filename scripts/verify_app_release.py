@@ -47,6 +47,25 @@ def check_owner_unit(unit, sha, instance):
 
 
 
+def release_targets(bundle, manifest, unit_home):
+    """Replace only hash-pinned current app overrides; add an inert template."""
+    baseline={str(Path(entry['path']).resolve()):entry['sha256'] for entry in manifest['units']}
+    targets=[]
+    for unit,file in [('hyprneuro.service','sidecar.conf'),('hyprneuro-ui.service','ui.conf')]:
+        dest=unit_home/(unit+'.d')/'95-reviewed-readonly-release.conf'
+        if dest.exists() or dest.is_symlink():
+            if digest(private_file(dest))!=baseline.get(str(dest.resolve())):
+                raise RuntimeError('Unreviewed release override; no overwrite/adoption')
+        targets.append((bundle/'staged'/file,dest))
+    if manifest.get('persistent_owner'):
+        dest=unit_home/'hyprneuro-pi-owner@.service'
+        if dest.exists() or dest.is_symlink():
+            raise RuntimeError('Existing owner template; separate review required')
+        targets.append((bundle/'staged'/dest.name,dest))
+    return targets
+
+
+
 def check_unit_backups(bundle, units):
     """Every pinned unit must remain restorable before any cutover mutation."""
     directory=bundle/'backup'
@@ -70,6 +89,8 @@ def verify(bundle, installed=False, legacy=False):
     if legacy and not installed:raise ValueError('--legacy requires installed phase')
     m=json.loads(private_file(bundle/'manifest.json').read_text())
     check_unit_backups(bundle,m['units'])
+    if not installed:
+        release_targets(bundle,m,Path.home()/'.config/systemd/user')
     source=bundle/'source'
     meta=m.get('editable_metadata')
     if meta and digest(private_file(meta['path']))!=meta['sha256']:raise RuntimeError('Editable metadata changed')

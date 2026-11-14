@@ -1,0 +1,22 @@
+{
+  "recorded_utc": "2026-11-14T12:53:49.690828+00:00",
+  "review": "01M7D1JJPEW9C14TTDA68ETZ5S/bundle-review",
+  "verdict": "BLOCK P1 canonical-versus-lexical unit override identity; no cutover",
+  "blocked_source": "49c748df2209f8e4054be0597e6bab1fcfa7ebde",
+  "blocked_bundle": "/home/ron/Workspace/hn-final-49c748d",
+  "review_receipt": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/bundle-review-49c748d-BLOCK.json",
+  "review_sha256": "9c86f12e816e81d4b06decaa945a2fc7c3aaa72ed6cf14932aff9f97347f9568",
+  "correction": "Move shared read-only target selection into verifier; canonicalize recorded/destination lookup identities while checking final original destination with private_file (no symlink/hardlink/foreign owner) and recorded hash. Staged verifier now selects targets before runtime checks; apply reuses it before marker/control/replacement.",
+  "focused": "15passed,6subtests; aliased parent directories supported; changed hash and final symlink/hardlink refused; verifier selection-before-runtime regression",
+  "actual_baseline_check": "Current corrected read-only verifier passes against held49c748d metadata including actual aliased parents. This is NOT approval of frozen old helper or deployment; candidate remains BLOCKED and unchanged.",
+  "source_sha256": {
+    "scripts/apply_app_release.py": "9ef398b4b7c55c766fd82bffb6a331dd2912fe31b146883a001b6cf8f2f9de30",
+    "scripts/verify_app_release.py": "21180551bcfb16ecce7cb162df02c25ef18210e7cb4601d6e4087eab586f050a",
+    "python/tests/test_app_release_ops.py": "8d10ed26bb81ba3f668dc78eb2837f9c5e0ecb30faaf5901e44f58be64c4d8d8"
+  },
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/path-alias-p1/focused.log": "7c54ece1696182d5f8870e9ce3632bef87c03fa577bb9dee78796e9fd574492d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/path-alias-p1/current-verifier-held-bundle.log": "d1f5607bbe28b914103cc953f9f898a7778e1cf23fb26e9ed4fe5d190fe142f9"
+  },
+  "next": "Fresh committed source identity, combined regression/build and new immutable bundle; independent re-review before cutover. No source/candidate mutation, model/app/GUI/inference/consent operation."
+}

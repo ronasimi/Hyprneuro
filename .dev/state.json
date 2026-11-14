@@ -1,17 +1,17 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794663693681,
+  "updated_at_ms": 1794665490427,
   "status": "NOT READY",
   "git": {
-    "revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+    "revision": "ef2772022183b1fa7542d2aa01398cfac214c488",
     "branch": "feat/pi-owner-gtk",
     "dirty": false,
-    "note": "Clean frozen source5392ecf at checkpoint; following evidence-only commit does not change candidate or installed6f9de3f."
+    "note": "Clean prior evidence HEAD at checkpoint; following evidence-only commit does not change installed reviewed source5392ecf."
   },
-  "deployed_revision": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
-  "deployed_binary_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
-  "phase": "New immutable5392ecf chooser+approved inert-template update bundle staged-verified; combined exact review required, not deployed",
-  "current_task": "Independent combined chooser+ops+exact new bundle review BEFORE any app update; then fresh actual human unlock/maintained lease+logind/locker+alias checks for once-only app-only update. Genuine human Connect re-test should visibly validate/connect or show classified error; activation/exact fixture consent remain separately HUMAN.",
+  "deployed_revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+  "deployed_binary_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+  "phase": "Reviewed5392ecf chooser app update applied once/attested installed Legacy; actual human new-folder retest next",
+  "current_task": "Open panel, click Connect Pi owner\u2026, select /home/ron/Workspace/hn-final-5392ecf/owner, then Open; report visible connecting/connected route or explicit error. Parent relays. No automated selection/approval. Activation and exactfixture read consent separate; no broader rights.",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -31,7 +31,7 @@
     "Mandatory all-media parity including VIDEO before READY; binding refusal prevents current full READY"
   ],
   "blockers": [
-    "Installed genuine chooser FAIL; new5392ecf immutable candidate needs independent combined chooser/ops/exact-bundle review before app-only update, then fresh human Connect/activation/read acceptance.",
+    "Corrected installed chooser human retest/native activation/exact read outcome/journal pending; old failure retained. Fresh UI3104230/sidecar3104225 no owner/grant.",
     "Human persistent Connect/activation/exact-read/native outcome/idle/reconnect/revoke/restart acceptance pending",
     "ALL media same-owner/router integration and live acceptance mandatory; video provider refusal covers prepare-cancel + ffprobe child cleanup, no fake-process reformulation/reroute/retry",
     "Private capture/submission consent absent; no clipboard/camera/mic/screen access authorized",
@@ -139,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Independent combined chooser+ops+exact new bundle review BEFORE any app update; then fresh actual human unlock/maintained lease+logind/locker+alias checks for once-only app-only update. Genuine human Connect re-test should visibly validate/connect or show classified error; activation/exact fixture consent remain separately HUMAN.",
+  "next_action": "Open panel, click Connect Pi owner\u2026, select /home/ron/Workspace/hn-final-5392ecf/owner, then Open; report visible connecting/connected route or explicit error. Parent relays. No automated selection/approval. Activation and exactfixture read consent separate; no broader rights.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -251,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-chooser-review-bundle.json",
+  "evidence_current": "docs/evidence/final-chooser-app-update.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -262,8 +262,8 @@
     "health_ids": "8081lfm-text/8082lfm-omni/8083lfm-decision healthy",
     "policy": "Metadata/health only; no inference or service operation"
   },
-  "deployed_source_commit": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
-  "deployed_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc",
+  "deployed_source_commit": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+  "deployed_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
   "candidate_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "candidate_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8"
 }

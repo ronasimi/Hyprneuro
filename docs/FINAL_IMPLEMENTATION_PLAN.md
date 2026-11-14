@@ -463,3 +463,30 @@ human-only scopes and binding video/media READY blockers remain unchanged.
 Installed6f9de3f/1f25fd78…f78e4 and chooser FAIL remain unchanged. Known Meson
 finalization warning retained. ALL-media/video provider-refusal blockers unchanged.
 [Exact review handoff](evidence/final-chooser-review-bundle.json).
+
+## 13. Reviewed chooser update applied once — actual human retest next
+
+- [x] Independent pinned review01M7D5PV642HZPDNG920FDP146/chooser-bundle-review
+  OK with notes; current fresh actual human unlock confirmation recorded.
+- [x] Leased once-only apply of5392ecf/ac67de19; independent maintained session2/
+  locker+trusted-parent aliases and staged/inactive-owner/baseline checks passed.
+- [x] Installed+/proc/exe1ce5473c…bfad4, UI3104230/sidecar3104225; source/import
+  origin/effective units match; owner6cde1591…d81a inert/inactive0/static, legacy
+  disconnected/read-not-callable/fresh-consent-required; DB quick_check/settings
+  preserved and final backup retained; normal model identities unchanged/MoE off.
+- [x] Replaced previous template1e7cbd85…d81a remains in verified backup with original
+ 0600 mode; no deletion/restoration/replay and no old frozen source/payload edit.
+- [ ] Human intentionally retests corrected Connect → EXACT new folder
+  `/home/ron/Workspace/hn-final-5392ecf/owner` → Open; report visible connected/
+  connecting/error. No automated click/consent; prior failed attempt is not a pass.
+- [ ] Subsequent native activation and exact fixture read dialogs answered HUMAN
+  only; actual native call/result/continuation/journal then denial/revoke/idle/
+  reconnect/restart gates. No scope beyond first normal-only parent READ-ONLY.
+- [ ] Continue permitted nonvideo parity audits/live model/UI workflows with one
+  owner/lease and separate private capture/submission consent; all-media READY
+  remains blocked by binding VIDEO refusal, never reroute/retry refused work.
+- [ ] Parent-reviewed ancestry and coherent non-force publication; no blanket READY.
+
+Receipt:[evidence/final-chooser-app-update.json](evidence/final-chooser-app-update.json).
+Known initial failures, old49c748d BLOCK,6f9 actual chooser FAIL, Meson/GdkPixbuf
+warnings and precise root-cause limits retained. This is app-update PASS only.

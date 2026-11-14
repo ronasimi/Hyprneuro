@@ -1,0 +1,190 @@
+{
+  "recorded_utc": "2026-11-14T14:11:30.423923+00:00",
+  "status": "REVIEWED UPDATE APPLIED ONCE; installed/legacy attested; HUMAN chooser/native acceptance next; NOT READY",
+  "source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+  "bundle": "/home/ron/Workspace/hn-final-5392ecf",
+  "manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
+  "binary_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+  "descriptor_sha256": "552689c410654c922b8c2403ca93ebf167bf659f3b1091a21031425919122cc7",
+  "review": "01M7D5PV642HZPDNG920FDP146/chooser-bundle-review OK with notes pinned source/ops/bundle only",
+  "review_receipt": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/chooser-bundle-approved.json",
+  "review_sha256": "f9975bc12999677488af961eed6db01b6b39f800ff4fc16461e66fbf11a5aec7",
+  "human_authority": "Current explicit USERFRESHCONFIRMS unlocked/will remain unlocked and proceed exact reviewed once-app-only update. No activation/read/private capture/submission consent inferred.",
+  "cutover": {
+    "source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+    "bundle": "/home/ron/Workspace/hn-final-5392ecf",
+    "session": "2",
+    "human_unlock_confirmation": "Fresh actual user confirmation in current instruction: session unlocked and will remain unlocked; operator did not change idle/locker",
+    "review": "01M7D5PV642HZPDNG920FDP146/chooser-bundle-review OK exact source/bundle",
+    "started_utc": "2026-11-14T14:09:19.629723+00:00",
+    "phase": "applied-verified-legacy-no-owner-consent",
+    "applied": true,
+    "trusted_parent_baseline": {
+      "/": {
+        "dev": 39,
+        "ino": 256,
+        "mode": 16749,
+        "uid": 0,
+        "canonical": "/",
+        "symlink": null
+      },
+      "/home": {
+        "dev": 52,
+        "ino": 256,
+        "mode": 16877,
+        "uid": 0,
+        "canonical": "/home",
+        "symlink": null
+      },
+      "/home/ron": {
+        "dev": 52,
+        "ino": 257,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron",
+        "symlink": null
+      },
+      "/home/ron/.config": {
+        "dev": 52,
+        "ino": 270,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron/.config",
+        "symlink": null
+      },
+      "/home/ron/.config/systemd": {
+        "dev": 52,
+        "ino": 1970688,
+        "mode": 41471,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd",
+        "symlink": "/home/ron/.dotfiles/home/.config/systemd"
+      },
+      "/home/ron/.config/systemd/user": {
+        "dev": 52,
+        "ino": 3537820,
+        "mode": 16877,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd/user",
+        "symlink": null
+      },
+      "/home/ron/.config/systemd/user/hyprneuro-ui.service.d": {
+        "dev": 52,
+        "ino": 9391477,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d",
+        "symlink": null
+      },
+      "/home/ron/.config/systemd/user/hyprneuro.service.d": {
+        "dev": 52,
+        "ino": 9391475,
+        "mode": 16832,
+        "uid": 1000,
+        "canonical": "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d",
+        "symlink": null
+      }
+    },
+    "command": [
+      "/home/ron/Projects/Hyprneuro/python/.venv/bin/python",
+      "/home/ron/Workspace/hn-final-5392ecf/staged/apply_app_release.py",
+      "/home/ron/Workspace/hn-final-5392ecf",
+      "--session",
+      "2",
+      "--parent-authorized",
+      "--fresh-user-unlock-confirmed"
+    ],
+    "apply_exit": 0,
+    "models_after": [
+      {
+        "unit": "lfm@text.service",
+        "pid": 3039039,
+        "start": "42560721",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": [
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf"
+        ]
+      },
+      {
+        "unit": "lfm@omni.service",
+        "pid": 3039041,
+        "start": "42560722",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": []
+      },
+      {
+        "unit": "lfm@decision.service",
+        "pid": 3039045,
+        "start": "42560723",
+        "exe": "/usr/local/bin/llama-server",
+        "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+        "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+        "dropins": []
+      }
+    ],
+    "UI_after": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 3104230,
+      "start": "43187696",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "sidecar_after": {
+      "unit": "hyprneuro.service",
+      "pid": 3104225,
+      "start": "43187693",
+      "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+      "exe_sha256": "20a5569a1bac8de02122347777b6cf2ae12ec1eafd42db990c6a0c5407f96b8e",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro.service",
+      "dropins": [
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "finished_utc": "2026-11-14T14:09:21.294896+00:00"
+  },
+  "postcheck": "{\"verified\": \"/home/ron/Workspace/hn-final-5392ecf\", \"commit\": \"5392ecfd40c2639485a2448d62fa6007a4b153af\", \"phase\": \"installed-legacy\", \"changed_services\": false}\n{\n  \"source\": \"5392ecfd40c2639485a2448d62fa6007a4b153af\",\n  \"phase\": \"legacy\",\n  \"ui_pid\": 3104230,\n  \"sidecar_pid\": 3104225,\n  \"ui_mode\": {\n    \"mode\": \"legacy\",\n    \"connected\": false,\n    \"read_callable\": false,\n    \"fresh_consent_required\": true\n  },\n  \"selected_monitoring\": [\n    {\n      \"schema\": \"hyprneuro.monitoring/1\",\n      \"ts_ms\": 1794665395079,\n      \"cpu_pct\": 0.9,\n      \"ram\": {\n        \"total_mb\": 15200,\n        \"used_mb\": 10064,\n        \"pct\": 66.2\n      },\n      \"models\": {\n        \"text\": true,\n        \"omni\": true\n      },\n      \"rpc_seconds\": 0.006532236991915852\n    },\n    {\n      \"schema\": \"hyprneuro.monitoring/1\",\n      \"ts_ms\": 1794665395112,\n      \"cpu_pct\": 3.4,\n      \"ram\": {\n        \"total_mb\": 15200,\n        \"used_mb\": 10094,\n        \"pct\": 66.4\n      },\n      \"models\": {\n        \"text\": true,\n        \"omni\": true\n      },\n      \"rpc_seconds\": 0.009663311997428536\n    },\n    {\n      \"schema\": \"hyprneuro.monitoring/1\",\n      \"ts_ms\": 1794665395141,\n      \"cpu_pct\": 3.4,\n      \"ram\": {\n        \"total_mb\": 15200,\n        \"used_mb\": 10094,\n        \"pct\": 66.4\n      },\n      \"models\": {\n        \"text\": true,\n        \"omni\": true\n      },\n      \"rpc_seconds\": 0.00588917697314173\n    }\n  ],\n  \"limits\": \"No GUI/rendering/native result/permission acceptance inferred; whole RPC includes existing readiness I/O. Null may correctly mean disabled/unavailable.\"\n}\n",
+  "data_owner_preservation": {
+    "database_quick_check": "ok",
+    "settings_sha256_unchanged": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+    "owner_namespace_inert_gate": "PASS; inactive/dead/PID0/static/no jobs/dropins/reload",
+    "owner_metadata": "ActiveState=inactive\nFragmentPath=/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service\nDropInPaths=\nUnitFileState=static\nMainPID=0\n",
+    "installed_owner_sha256": "6cde15911711bedc89d33147944d5afab9a4acfe3b771ae2a7cf21d81308d81a",
+    "previous_owner_backup_sha256": "1e7cbd85dc95ba69e61405ac0ee927c278b7587336bb8b60ea6f2ae61da6a744",
+    "previous_owner_original_mode": 384,
+    "pre_apply_consistent_backup": true,
+    "fixture_path": "/home/ron/Workspace/hn-final-5392ecf/owner/home/workspace/fixture.txt",
+    "fixture_sha256": "3586ec89e2f10bfa6455669e34a8aa0db2f5cd66929daaf0893a93706d554350"
+  },
+  "source_identity": "Reviewed source5392ecf and exact staged helpers/payload; /proc/exe and installed1ce5473c\u2026bfad4. Loaded sidecar PID/source origin matches new manifest; effective owner template6cde1591\u2026d81a installed inert/static; old1e7cbd85\u2026d81a original0600 replacement backup preserved, not deleted.",
+  "gates": "Exclusive lease, fresh unique sameUID/local active unlocked Wayland session2 AND independent no-locker checks maintained every0.2s while child applied. Trusted parent inode/mode/UID/symlink/canonical snapshot stable before/during/after; actual staged/inactive-owner/alias/baseline verified before one apply. No uncertain replay or rollback.",
+  "models": "Before/after normal model unit PID/start/exe/config identities match manifest exactly; MoE inactive. No model restart/switch/config/weight/preset change.",
+  "data": "Current SQLite quick_check ok, settings SHA unchanged, consistent final pre-apply backup retained; no content dump/stale restore.",
+  "next_human_action": "Open panel, click Connect Pi owner\u2026, select /home/ron/Workspace/hn-final-5392ecf/owner, then Open; report visible connecting/connected route or explicit error. Parent relays. No automated selection/approval. Activation and exactfixture read consent separate; no broader rights.",
+  "acceptance_limits": "Corrected live folder acceptance/native result remains UNPROVEN until genuine human retest. Old6f9 chooser compositor disconnect+automatic restart retained FAIL; precise protocol cause not claimed. Monitoring3metadata RPCs is not visual/cache-lifecycle acceptance.",
+  "required_media": "All-media same-Pi-owner/router capture/review/preview/playback/cancel/cleanup integration+live acceptance mandatory before READY. No private capture/upload/clipboard access without specific consent.",
+  "video": "Binding provider refusal covers preparecancel root cause+ffprobe child cleanup/fakeprocess workaround. No retry/reroute/enable/import/inference. READY remains blocked; original231/GTK first corruption UNKNOWN; later saved headless GstPlay134 is separate.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/apply-once.py": "8c0e73ab41001beddb97348e161f80af39bb88222809c7bf249db26ad22aa1f9",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/apply.log": "9af14cc39fbb860350c49f2cf1ce7e4b5e4b9784f1524e51abdb547566a44943",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/cutover.json": "d71b05ef73bcd21fad57a0bb8d92ec4044dd01806bdcab5a5b8a8f28d11811d2",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/data-owner-preservation.json": "3952b91ab4caca619ae8be5b399c14cf4923cc37443da4aab948a3e626d782b5",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/hyprland-help.log": "8407fb1e380798eec72db612e3752381658e8e44f7118a0079f45a26a71029a0",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/hyprland-version.log": "653a1fa7c348298ff6a17979ceb27ace724eaad9860358b182bd11251cbc6e07",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/operator.started": "dc51d5352029bab5e50542b45b13df808383f0ee8b9d883fae21566cb0d2f147",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/post-cutover-readonly.log": "dfe3512f6d1d6307b57d1272bab0f1d53787393845b56598bceebf457ab63d8b",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cutover-5392ecf/post-cutover-readonly.py": "801cb5649b9b296781a970d40f509b3c1d90de1b76866d4efb1c8cdc7c9c9128"
+  },
+  "remaining": "Persistent human first-read-only acceptance, permitted nonvideo parity/source audits and live workflows per plan, independent final/ancestry/nonforce publication; no READY until mandatory gates pass or blocking authority is legitimately resolved."
+}

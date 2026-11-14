@@ -1,5 +1,25 @@
 # Hyprneuro production acceptance — NOT READY
 
+## Current installed milestone — reviewed chooser update PASS, human retest next
+
+Reviewed5392ecfd40c2639485a2448d62fa6007a4b153af was applied ONCE from immutable
+hn-final-5392ecf after pinned independent review and current actual fresh human
+unlock confirmation; exclusive lease/maintained logind+locker+parent aliases passed.
+Installed+/proc/exe1ce5473c…bfad4, UI3104230/sidecar3104225, attested new imports/
+effective units. Owner template6cde1591…d81a inactive0/static; UI Legacy/disconnected/
+read-not-callable/fresh-consent-required. DB/settings/model identities preserved;
+old template backup/original0600 retained. No owner start/grant/capture/inference.
+
+Next HUMAN action: Connect Pi owner… → `/home/ron/Workspace/hn-final-5392ecf/owner`
+→ Open; report visible route/status or error. No blind old attempt replay or consent
+automation; activation/exact fixture read remain separately human. Corrected live
+chooser/native tool acceptance unproven. Old real chooser FAIL stays retained.
+All-media same-owner/router READY mandatory; VIDEO binding refusal/no workaround
+still blocks READY; original231 and GTK first corruption UNKNOWN.
+Receipt: `docs/evidence/final-chooser-app-update.json`.
+
+--- Historical checkpoints retained below ---
+
 ## Current replacement candidate — combined exact review required
 
 Source5392ecfd40c2639485a2448d62fa6007a4b153af includes chooser63c2548 and

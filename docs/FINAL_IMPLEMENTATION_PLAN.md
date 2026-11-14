@@ -237,3 +237,16 @@ corrected; focused9/9 passes, dedicated deadline assertions unchanged. Full fina
 regression remains required. Monitorf0e0d63 held pending independent review; no
 old-source bundle frozen or relabeled.
 [evidence/final-cancellation-preflight.json](evidence/final-cancellation-preflight.json).
+
+### Approved monitor source joined before release preparation
+
+`f0e0d634413664a8aad6b83c7b4965f3d40c2c9b` independently approved by
+`01M7D0DNNFRA3A48F7067GJQC0/cache-review`, cherry-picked as
+`e64feef51ecd9a01abcb14a58839f93774c29980` with trailer retained. All five
+source files exactly match the reviewed commit. One lifecycle sampler, cached
+resource RPC path; readiness checks unchanged. No installed counter claim.
+The failed preflight was corrected at `5e884e7`; combined source before this pick
+passed455 Python/1skip/104subtests,77Node,17+17 C. Fresh post-pick combined tests,
+compile and immutable preparation follow from the next exact clean checkpoint;
+no old-source bundle was frozen or relabeled. Independent exact-bundle review
+still required before cutover. Evidence: [evidence/final-cache-integration.json](evidence/final-cache-integration.json).

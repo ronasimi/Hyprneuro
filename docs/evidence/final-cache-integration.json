@@ -1,0 +1,26 @@
+{
+  "recorded_utc": "2026-11-14T12:32:07.504597+00:00",
+  "reviewed_commit": "f0e0d634413664a8aad6b83c7b4965f3d40c2c9b",
+  "cherry_pick": "e64feef51ecd9a01abcb14a58839f93774c29980",
+  "review": "01M7D0DNNFRA3A48F7067GJQC0/cache-review",
+  "review_scope": "Approved source integration, no installed lifecycle/UI/counter acceptance",
+  "review_receipt": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/cache-review-approved.json",
+  "review_sha256": "6c1648b21dd9d2291231e7e9bd2c7dc34b310eb9269b467b90d7eda6959b8d3b",
+  "source_sha256": {
+    "docs/P12_MONITORING.md": "d062fc750b9014f54a65e98d5b97cf83515023723f8f39681c07aff92f8a39b5",
+    "python/src/hyprneuro/event_stream.py": "ad3aae916c947b660ad766a61dddd7681434dda9aea529e4fa1e30964de4572c",
+    "python/src/hyprneuro/sidecar.py": "d3bfcc83db82865993203763d45be06ab7d8e44cc3b8037f43b883154daa791c",
+    "python/tests/test_assistant_ipc.py": "f05112af83f9e2f15b678ba7db5589402635719be2711e5afd858cd0ce839140",
+    "python/tests/test_resources.py": "0c375da66534dc48c5062bdcda7b03e14b718bbd88cb168649871101eae4032b"
+  },
+  "parent_artifacts": {
+    "/home/ron/Workspace/hyprneuro-final-monitor-cache-evidence/focused.log": "325254e052c436856c4f51632513499d0edfc514465b2432d7b4d39481966c17",
+    "/home/ron/Workspace/hyprneuro-final-monitor-cache-evidence/full.log": "61b14c6fece27301d3dfe3345a414042fbfe5db0b7bd6c12e0c53bf6a56a2228",
+    "/home/ron/Workspace/hyprneuro-final-monitor-cache-evidence/committed.diff": "7c4a56968418153e1ad4c2f309a3820541807e1c6358113e62c4dbc1d32045a7",
+    "/home/ron/Workspace/hyprneuro-final-monitor-cache-evidence/source.diff": "7c4a56968418153e1ad4c2f309a3820541807e1c6358113e62c4dbc1d32045a7"
+  },
+  "independent": "85 passed,24subtests; real serve/EventIntake/Monitor/UnixIPC10requests2lifecycles1sample each; cleanup/restart; no issues",
+  "full_parent_receipt": "461 passed,1skip,113subtests; reviewer verified receipt not independent full rerun",
+  "combined_current": "Pending fresh combined suite and build before exact new bundle review",
+  "boundaries": "Resource counter adaptation cache-only; existing readiness endpoint checks unchanged. No second poller/model PID discovery/autostart/privacy/schema/profile grant. Model stack/app state unchanged by cherry-pick; no installed monitor counter claim."
+}

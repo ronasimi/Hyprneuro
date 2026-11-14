@@ -31,7 +31,7 @@ test('private binary-auth bridge: distinct chat/control, exact ops, no JSON capa
     await new Promise(r=>denied.socket.once('close',r));
     c1=await client(root);c1.socket.write('null\n');assert.match((await c1.next()).error,/Object request/);c1.send({op:'on',id:'bad'});
     assert.match((await c1.next()).error,/Trusted UI/);
-    c1.send({op:'chat',id:'text',text:'hello'});assert.equal((await c1.next()).event.type,'delta');assert.equal((await c1.next()).result.settled,true);
+    c1.send({op:'chat',id:'text',text:'hello'});assert.equal((await c1.next()).event.type,'chat_admission');assert.equal((await c1.next()).event.type,'delta');assert.equal((await c1.next()).result.settled,true);
     c1.send({op:'chat',id:'route',text:'hello',recommend:true});assert.match((await c1.next()).error,/explicit trusted UI/);
     c1.send({op:'status',id:'state'});assert.equal((await c1.next()).result.state,'off');
     c2=await client(root,'control');c2.send({op:'on',id:'on'});const on=await c2.next();assert.equal(on.result.state,'on');
@@ -57,6 +57,7 @@ test('consent replies bypass queued chat, D1 recommendation never grants permiss
     const question=(await control.next()).event;assert.equal(question.type,'consent');assert.ok(!events.includes('on'));
     control.send({op:'consent',id:'answer',answer_id:question.id,allowed:true});
     assert.equal((await control.next()).result.accepted,true);
+    assert.equal((await chat.next()).event.type,'chat_admission');
     assert.equal((await chat.next()).event.type,'route_recommendation');
     assert.equal((await chat.next()).event.type,'consent');
     assert.equal((await chat.next()).result.settled,true);
@@ -70,7 +71,7 @@ test('actual async Python GTK-side transport authenticates, streams and cannot e
   const root=await mkdtemp(join(tmpdir(),'hn-python-client-'));let server;
   try {
     server=await serveOwner(root,fake());
-    const script=`import asyncio,sys\nfrom hyprneuro.pi_owner_client import PiOwnerClient\nasync def main():\n c=await PiOwnerClient.connect(sys.argv[1])\n assert (await c.call('status'))['state']=='off'\n assert (await c.call('chat',text='hello'))['settled']\n assert (await c.events.get())['event']['type']=='delta'\n try: await c.call('on')\n except PermissionError: pass\n else: raise AssertionError('chat escalated')\n await c.close()\nasyncio.run(main())\n`;
+    const script=`import asyncio,sys\nfrom hyprneuro.pi_owner_client import PiOwnerClient\nasync def main():\n c=await PiOwnerClient.connect(sys.argv[1])\n assert (await c.call('status'))['state']=='off'\n assert (await c.call('chat',text='hello'))['settled']\n assert (await c.events.get())['event']['type']=='chat_admission'\n assert (await c.events.get())['event']['type']=='delta'\n try: await c.call('on')\n except PermissionError: pass\n else: raise AssertionError('chat escalated')\n await c.close()\nasyncio.run(main())\n`;
     const p=spawn('/usr/bin/python3',['-c',script,root],{env:{...process.env,PYTHONPATH:resolve('python/src')},stdio:['ignore','pipe','pipe']});
     let error='';p.stderr.on('data',d=>error+=d);
     assert.equal(await new Promise(r=>p.on('close',r)),0,error);

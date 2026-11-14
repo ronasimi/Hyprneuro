@@ -1,0 +1,145 @@
+{
+  "schema": "hyprneuro.cancellation-source-validation/1",
+  "recorded_at_utc": "2026-11-14T23:14:17.900713+00:00",
+  "source_base": "afa13e470cb4676e717cf059c077c46108785863",
+  "source_end": "Commit containing this receipt; exact hash reported after commit (no self-hash fabrication).",
+  "verdict": "OFFLINE REQUIRED REGRESSIONS PASS; INDEPENDENT SOURCE REVIEW REQUIRED; NOT DEPLOYED; NOT READY",
+  "validation": {
+    "python": {
+      "passed": 478,
+      "skipped": 1,
+      "skip": "optional Pillow d1 visual gate",
+      "subtests_passed": 138,
+      "run": "01M7E55G134R9MF55CS4PZPQA1"
+    },
+    "node": {
+      "passed": 92,
+      "failed": 0,
+      "new_actual_SDK_cancellation_cases": 13,
+      "run": "01M7E5ACH6KWW2GEYYYYS615W1"
+    },
+    "C": {
+      "normal": {
+        "cases": 22,
+        "log": "/tmp/hn-can-full-kar56m_b/C/meson-logs/testlog.txt",
+        "sha256": "b561848c013a271d92dfb9a414c8566ee568fe9ac9fe2ec4410c05d3553faed7"
+      },
+      "asan_ubsan": {
+        "cases": 22,
+        "log": "/tmp/hn-can-full-kar56m_b/C-sanitized/meson-logs/testlog.txt",
+        "sha256": "78114ed792db02c312ae405fd61578a483b69df32c41dcf4ab9fe3fc7e23b2c1"
+      }
+    },
+    "source_equivalence": "All product source hashes identical across full Python/C r1 and Node r3. Only disconnect regression synchronization changed from r2 to r3; all current source/test hashes checked against r3 snapshot.",
+    "freshness": "Exclusive machine lease with half-second independent logind+locker watchdog during each full phase; zero watchdog failures."
+  },
+  "runs": {
+    "r1_full": {
+      "python": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "b20ed000c4c4485bd60f6faa0217b69d1b823425686434de9b5e049712455ff1"
+      },
+      "node": {
+        "exit": 1,
+        "locker_failure": [],
+        "log_sha256": "535fedf2f04204ed747de2c45ee69cc96f516bfdbcb2d35e48b928d889fcb8bb"
+      },
+      "C-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "28a3283da05ec18eef44c9d65f5889883fd90fc1655f1e8c85f687d4973c9eb7"
+      },
+      "C-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "c24123b996bf8d63bb88dc234bcbf6ca3b51b12bcb98a81efed7c32f493d960c"
+      },
+      "C-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "7c106cb3c5160ed3935dd7facdacae06015b041d756ac5bcff95132e12b93579"
+      },
+      "C-sanitized-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "2b4c3931e657c34817ac35a52b3bf6315555b01df8a71494ec0876be44e74c98"
+      },
+      "C-sanitized-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "09eaaa60ff677d7bb63b1f810a0262632c84ca931d81e25991ba4edf78961e8d"
+      },
+      "C-sanitized-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "bc59eaa5923cff05e865b9d6a09f84a26bc762325eb146085c3b1b24f396846a"
+      }
+    },
+    "r2_node_private_Workspace": {
+      "node-r2": {
+        "exit": 1,
+        "locker_failure": [],
+        "log_sha256": "5a86151b855c8a622938e7ebc4a0cf6ebd9a93d827254a077a93dc3b400ffa75"
+      }
+    },
+    "r3_node_persisted_terminal_barrier": {
+      "node-r3": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "73e0a4205e253007e0162d3edcf1142ac3d84b1f6a0a7a1f3f43cbacbdc87631"
+      }
+    }
+  },
+  "retained_failures": [
+    {
+      "run": "01M7E55G134R9MF55CS4PZPQA1",
+      "cause": "Test runner /tmp TMPDIR rejected by explicit private-Workspace guards in native-mcp and owned-stdio. No guard weakened; corrected external runner only."
+    },
+    {
+      "run": "01M7E58DFA9R9VXDTDR1VE90QT",
+      "cause": "91/92 pass; disconnect test read durable checkpoint when only in-memory failed phase was visible. Test now awaits serialized owner.queue completion, not a sleep or loosened assertion. Failed fixture and log retained."
+    }
+  ],
+  "warnings": "Fresh Meson setup exit0 emitted unclosed setup-log ResourceWarning; GdkPixbuf deprecation warnings retained. Not warning-free.",
+  "source_sha256": {
+    "extensions/pi-owner/host.mjs": "683785e5b55fbc6425d436cb943e653c1abd254dda2370d031d1da9162713bab",
+    "extensions/pi-owner/owner.mjs": "c67b1c41b1f25c121e243cab12962a255d6c0276acdacbc02f21f3fc943e3912",
+    "extensions/pi-owner/socket.mjs": "680528638d2d946d2d95cc44333c672dae13725ffeb326c4084f22eee2093561",
+    "extensions/tool-harness/index.mjs": "fb0d9f615a50efd0c5d19af6179a48dd989babdae3d19c4eac216c49d392b869",
+    "python/src/hyprneuro/pi_desktop_bridge.py": "14b1f6c85917ffe30cbcf8896f126c3a406cdbd85704588250aae8a0eb5f15e7",
+    "python/src/hyprneuro/pi_owner_client.py": "d4306ef2a057ab461f52ec81744db9977742bf914c439451511a580670c69b66",
+    "python/tests/test_pi_desktop_bridge.py": "8777b7481e6c6a4e374cf350b0b04af9454f035c3a77a059066838dd6ab53fc5",
+    "tests/pi-owner-socket.mjs": "8214215950023e1736877648005894ce9d9e4bb9153dfff95b3b4a50132e522e",
+    "ui/src/pi-desktop.inc": "6302d39dd8d1c7831f79ce0315c2ee7f5228e2d7449616fac96a04345f517ace",
+    "ui/tests/history.c": "9aa8fc1009fc4f6623e6bfb7b0bc17871381b6540c00c4dca3b9987322790541",
+    "extensions/pi-owner/cancellation.mjs": "b0f5ffc6e976e35207c418c0d73b5ecadf50f74ea1f2933b5145d9454d638e68",
+    "tests/pi-owner-cancellation.mjs": "45a75eaab27f8d9ec4ee8e8fce6ca771c42a460bec74f4b0cea8baed0b0dff8e"
+  },
+  "SDK_contract_sha256": {
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/types.d.ts": "c0ecd26c0170c7d6016c734ec38b551c7d8c7d8e6573f82f7f6a3818df84acd8",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/api/simple-options.js": "7e80e985f50d968dfd4422ed501d87280236470bff996c8f05f18d220dce1e53",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/api/openai-completions.js": "3221deb8b506eab9722d27694fc1bceb752d8786180999add590c2489ac91846",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/api/lazy.js": "8b8cdd13fdc49ff6e1785ecbdc8e20e86206892a18079a4349ca2910afb4d4b4",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/api/lazy.d.ts": "c36a6837822f06afd37c044948f5da7db7b0a6d84091e97cf26f67ffad33fde8",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/dist/utils/event-stream.js": "fe0d774b75db25ff0149d4267884bc4fd34db82d53c26843758d0eda2467ce65",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/node_modules/openai/core/streaming.mjs": "1b8fa8338dc28913351993382187962082f0af42c5274a009060de3263579842",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-ai/node_modules/openai/internal/stream-utils.mjs": "b809321f2c7fc12a0aee825b15df1e210ac84b6831bb74793d6e5b76d9f0840f"
+  },
+  "known_cancel_proof": "Same authenticated connection/exact active id+generation; synchronous request-local tool/native-fetch fence before abort; public SDK custom-fetch owned reader closure + public lazy onResult iterator/result drain; bounded completion; actual SDK idle/no pending consent/Durable work; default-transport persistent normal-only parent READONLY profile positively excludes child/MCP/provider paths. Native aborted partial remains native journal; durable cancelled-known is not settled/success.",
+  "proof_limits": "Owned client HTTP/body and SDK producer/dispatch closure only; not remote compute-stopped or physical TCP-peer ACK, not arbitrary SDK/provider compatibility. Missing/incompatible completion, native/HTTP uncertainty, tool attempts, late fetches, disconnect, close race and stalled cleanup retain UNKNOWN.",
+  "live_preservation": {
+    "checkpoint_phase": "chat-unknown",
+    "checkpoint_sha256": "7852643da02e7d9d35f55d86a93381786ac51e2fa3e2ff8ec261aded1f43f9b5",
+    "native_journal_sha256": "ec23e41c7d508a83d3e738a9b8a04cec6e8fcd28b6cb00df806b3462ed6a0738",
+    "owner_pid": 3356764,
+    "owner_start": "45955087",
+    "sole_flock_inode": 85184,
+    "sole_flock_pid": 3356764,
+    "UI_pid": 3349626,
+    "settings_sha256": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+    "operator_action": "Read-only hashes/process identity/kernel lock metadata; no live status mutation, native reset, revoke, signal, restart, shutdown, deployment or permission automation."
+  },
+  "next_dependency": "Parent independent exact-source review; no new bundle/deploy until review. Any later release and failed-owner transition require exact reviewed gate; never patch immutable installed bundle.",
+  "private_audit_directory": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-r1"
+}

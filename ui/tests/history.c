@@ -3,6 +3,21 @@
 #include "../src/hyprneuro.c"
 #undef main
 
+static void pi_cancelled_terminal(void) {
+    const char *cases[] = {
+        "{\"settled\":false,\"cancelled\":true,\"outcome\":\"cancelled-known\"}",
+        "{\"settled\":true,\"cancelled\":true,\"outcome\":\"cancelled-known\"}",
+        "{\"settled\":false,\"cancelled\":\"true\",\"outcome\":\"cancelled-known\"}",
+        "{\"settled\":false,\"cancelled\":true,\"outcome\":\"unknown\"}",
+        "{\"cancelled\":true,\"outcome\":\"cancelled-known\"}", "null", "[]"
+    };
+    for (guint i = 0; i < G_N_ELEMENTS(cases); i++) {
+        JsonParser *parser = json_parser_new();
+        g_assert_true(json_parser_load_from_data(parser, cases[i], -1, NULL));
+        g_assert_cmpint(pi_cancelled_result(json_parser_get_root(parser)), ==, i == 0);
+        g_object_unref(parser);
+    }
+}
 static void history_ownership(void) {
     App app = {0};
     app.history = g_ptr_array_new_with_free_func((GDestroyNotify)json_node_unref);
@@ -488,6 +503,7 @@ int main(int argc, char **argv) {
     g_test_add_func("/ui/audio-bounds-snapshot", audio_bounds_snapshot);
     g_test_add_func("/ui/inference-metrics", inference_metrics_format);
     g_test_add_func("/ui/reasoning-tags", reasoning_tags);
+    g_test_add_func("/ui/pi-cancelled-terminal", pi_cancelled_terminal);
     g_test_add_func("/ui/history-ownership", history_ownership);
     g_test_add_func("/ui/adjustment-callback", adjustment_callback);
     g_test_add_func("/ui/numeric-values", numeric_values);

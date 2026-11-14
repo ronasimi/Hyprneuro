@@ -1,0 +1,381 @@
+{
+  "schema": "hyprneuro.final-native-gui-acceptance/1",
+  "recorded_at_utc": "2026-11-14T22:31:12.056953+00:00",
+  "verdict": "PARTIAL; LIVE CANCELLATION RECOVERY BLOCKED; NOT READY",
+  "installed_source": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
+  "canonical_owner_root": "/home/ron/Workspace/hn-final-d3f3fa2/owner",
+  "owner_pid": 3356764,
+  "owner_start": "45955087",
+  "UI_pid": 3349626,
+  "native_session_id": "01a1dc0a-7599-7258-ac72-d2e9b97ad7df",
+  "first_fixture_workflow": {
+    "verdict": "PASS native guarded exact read + local continuation; human two-dialog confirmation separately supplied",
+    "tool_call": {
+      "entry_id": "60be1535",
+      "type": "toolCall",
+      "id": "r7D21jUqDMtG4MjIUU091LMGDNJol8DT",
+      "name": "read",
+      "arguments": {
+        "path": "fixture.txt"
+      }
+    },
+    "outcomes": [
+      "executing",
+      "completed"
+    ],
+    "result_bytes": 24,
+    "result_sha256": "3586ec89e2f10bfa6455669e34a8aa0db2f5cd66929daaf0893a93706d554350",
+    "matches_exact_fixture_bytes": true,
+    "continuation": {
+      "entry_id": "eca78412",
+      "stopReason": "stop",
+      "model": "lfm-text",
+      "provider": "hyprneuro-local",
+      "answer_bytes": 73,
+      "answer_sha256": "41e6a2e97e0108cf359420a97531846c8689be62da63efe5dc924e5ba1032b90",
+      "contains_actual_fixture": true,
+      "triple_fence_count": 2,
+      "ends_closing_fence": true,
+      "model_stop_not_length_error_abort": true
+    },
+    "original_native_journal_sha256": "fb6b667e55cd8dcede28c819b2eec6824a829129fff49950815a81a9310a7951",
+    "broker_scope": {
+      "task_id": "hn-service-3c222e33bfefe74ad9b0281e",
+      "app_id": "hyprneuro-parent-read",
+      "file_prefix": "/home/ron/Workspace/hn-final-d3f3fa2/owner/home/workspace",
+      "ops_json": "[\"read\"]",
+      "status": "active",
+      "approved": 0,
+      "created_ms": 0
+    },
+    "broker_approved_semantics": "approved0 is privileged brokerpolicy approval flag, NOT the separate GTK humanread consent flag; ordinary readscope uses sourceharness confirmations independently.",
+    "consent_audit_limit": "Current production code matches pending UUID/boolean in authenticated singleCONTROL memory, but does NOT persist distinct consentrequest/decision UUID events. Cannot fabricate requestIDs. Independent actualHUMAN confirms BOTH dialogs appeared and personallyAllowedeach for THISworkflow only; nativeguard/outcome proves guardedexecution, brokerrow alone not humanpermissionproof. Persistentconsent UUID audit gap remains to assess/fix before READY.",
+    "GUI": "Screenshot01 and06 show complete fixture response, both fences. Paste truncation not established. No further read performed."
+  },
+  "GUI_scope": {
+    "authority": "User delegated ordinary own-app GUI acceptance, synthetic no-tool prompts, UI preferences, streaming/cancel, navigation; NOT consent/permission decisions",
+    "lease": "machine lease each operation; fresh and repeated desktop_safe(logind session2 plus independent lockers)",
+    "target": "Only own layer namespacehyprneuro/PID3349626 on empty temporaryworkspace4, verified eDP-1 scale1 transform0, pointerwithin ownedgeometry, no overlapping foregroundlayers/otherclients",
+    "input_backend": "wdotool forced wlr-protocols after actual capability/help inspection; no install/globalconfig/record/replay/prime",
+    "capture": "Explicit manual own-app cropped grim captures on verified emptyworkspace only; NOT product capture framework, background recall, ScreenCast/portal fallback or model submission; no capture after returning originalworkspace1",
+    "new_permission_interactions": 0
+  },
+  "checks": {
+    "native_tool_free_multiline": "PASS: one Send click, exact two-line native user entry, UI_NATIVE_OK, local lfm-text stop, no new tool calls",
+    "CtrlEnter": "PASS newline inserted, no submission, original journal hash unchanged throughout draft",
+    "Enter": "MIXED: two initial Return attempts after CtrlEnter did not submit; no native admission/replay. Fresh --clearmodifiers Return then submitted two distinct later no-tool prompts. Root cause of initial failure UNKNOWN; do not call all Enter behavior passed or blame app without evidence.",
+    "streaming": "PASS actual partial numbered output visible while Send/Attach disabled and Cancel enabled; natural stop for cobalt turn; partial silver turn then aborted",
+    "reasoning": "PENDING: no actual reasoning channel observed; no synthetic/fabricated reasoning proof",
+    "history": "PASS in-process transcript retained across settings navigation and size toggles, same native session; restart/reconnect history not tested",
+    "scroll": "PASS terminal-history scroll up and active-stream scroll down/resume; user position retained into next chat. Active-stream scroll-up/longer soak not proven.",
+    "sizes": "PASS Normal527 -> Expanded855 -> Normal527, width766, same layer address/PID; original mode restored",
+    "preferences": "PASS draft did not persist; Save autoscroll off changed only ui_autoscroll; unsaved on + Reload restored saved off; Save on restored original settings bytes/SHA exactly. Normal/on/90%; monitoring/model settings unchanged. Error injection not attempted.",
+    "rendered_monitoring": "PASS limited CPU/RAM visible and updating in own chat; settings shows journal/network/resources observed running, saved on, draft on; no monitoring toggle changed. Not all monitoring/provider/soak gates.",
+    "native_metrics": "GAP native turn usage exists but GTK Prefill/Decode/Hit/Full remain \u2014. Native message.timestamp is request creation, not completion/TTFT; reported 2ms timestamp delta is NOT inference latency.",
+    "cancel": "FAIL recovery gate: one actual Cancel after visible silver-compass partial output and chat-intent; persisted native assistant aborted / Request was aborted, UI request-failed, owner chat-unknown. No extra tool calls. Fail-closed evidence is not a successful recoverable cancellation.",
+    "lifecycle": "BLOCKED by chat-unknown: no disconnect, reconnect, revoke, restart, shutdown, signal, takeover, native guard reset or replay after failure"
+  },
+  "cancel_terminal": {
+    "at_utc": "2026-11-14T22:27:44.992058+00:00",
+    "phase": "chat-unknown",
+    "native_last_role": "assistant",
+    "native_stop_reason": "aborted",
+    "native_error": "Request was aborted",
+    "native_total_tool_calls": 1,
+    "native_user_messages": 4,
+    "last_assistant_text_chars": 4108,
+    "journal_sha256": "ec23e41c7d508a83d3e738a9b8a04cec6e8fcd28b6cb00df806b3462ed6a0738",
+    "checkpoint_sha256": "7852643da02e7d9d35f55d86a93381786ac51e2fa3e2ff8ec261aded1f43f9b5",
+    "no_further_action": "No resend/reconnect/reset/close/shutdown performed after failedUI notice; preserve checkpoint"
+  },
+  "restoration": {
+    "original_workspace": 1,
+    "test_workspace": 4,
+    "restore_required": false,
+    "own_geometry": {
+      "address": "0x5608695e7210",
+      "x": 1145,
+      "y": 544,
+      "w": 766,
+      "h": 527,
+      "alpha": 1,
+      "namespace": "hyprneuro",
+      "pid": 3349626
+    },
+    "capture_scope": "Manual explicitownUIaudit only on emptyworkspace; no privateapps/globalconfig or productcapture enablement",
+    "restored_workspace": 1,
+    "restored_at_utc": "2026-11-14T22:29:15.341359+00:00",
+    "no_capture_after_restore": true,
+    "settings_sha_exactly_restored": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+    "unknown_checkpoint_unchanged": true,
+    "owner_connected_preserved_no_shutdown": true,
+    "restoration_initial_failure": "KeyError id on workspace list entry without ID; no dispatch occurred; copies already preserved, then safe .get filter used"
+  },
+  "retained_failures": {
+    "initial_Return": "Two non-submitting attempts retained; later fresh Return successes do not erase failure",
+    "first_long_prompt": "120-line cobalt turn naturally completed before intendedcancel. Not cancel acceptance.",
+    "misleading_capture_names": "03-native-busy.png is actually retained draft/no submission;15-scroll-up-during-stream.png is actually after natural terminal. Names describe initial intent only; inspect image/record for actual verdict.",
+    "expanded_first_capture": "05 captured transient resize surface mismatch;05b stable owned expanded view is clean; both retained.",
+    "restore_first_attempt": "Workspace list contained entries without id; KeyError before dispatch; copies already preserved. .get(id) filtered entries; original workspace1 restored and rechecked. No production operation replay."
+  },
+  "source_findings": {
+    "owner_chat": "extensions/pi-owner/owner.mjs marks native aborted/error as failed and chat-unknown intentionally; waitForIdle/signal/nativeFailed checks fail closed. Do not bypass persisted guard.",
+    "consent": "Matching request UUIDs live only in pending consent map, not durable decision records; human confirmation does not create missing machine audit IDs.",
+    "UI_metrics": "Native turn_end usage emitted, GTK completion path does not present native timing/usage metrics."
+  },
+  "next_dependency": "Parent independent exact-source review using final-cancellation-source-validation.json; no new bundle/deploy until review. Separate exact failed-live-owner transition authorization/gates still required.",
+  "external_VIDEO_blocker": "Mandatory video-file refusal remains external READY blocker; no refused work or capture framework change attempted.",
+  "private_artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/first-native-d3f3fa2/audit-readonly.py",
+      "sha256": "8ed744c8b5be9bdb6eeac457ec6dfa92d2f49d4ad44b6355475781862b56a975",
+      "bytes": 6611
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/first-native-d3f3fa2/native-session-preserved.jsonl",
+      "sha256": "fb6b667e55cd8dcede28c819b2eec6824a829129fff49950815a81a9310a7951",
+      "bytes": 6637
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/first-native-d3f3fa2/verified-native-chain.json",
+      "sha256": "1cf25aacc13d85bd987ddddb2e46ea2608bf70178ba58888cedd1ab595505ce6",
+      "bytes": 7610
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/01-native-first-own-ui.png",
+      "sha256": "53f02fb3ebec83c0f0b07fae6a210ffd8d227efde2c3f2d874eb2d39e365a00f",
+      "bytes": 227517
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/02-multiline-draft.png",
+      "sha256": "8c50733bc1934dc45824b1ff3609ab5cb52338383437a5dd37efb664ead10f51",
+      "bytes": 182711
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/03-native-busy.png",
+      "sha256": "16f57337c4910a7cc5b47004d9a4d71adb8bd994cfad3faa8ea1ab0e87d86f6c",
+      "bytes": 231804
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/03b-clearmodifiers-enter.png",
+      "sha256": "c5f569281261f96e0c24f34fae082e99344af517aafb5c9618f7c831ceb48c05",
+      "bytes": 231715
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/03c-send-click-busy.png",
+      "sha256": "d8f523e67619bd99866c3353c5bc3f21753d0f102a229c143d4a472ce48878b7",
+      "bytes": 231130
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/04-native-multiline-terminal.png",
+      "sha256": "16b56577d98a6b1b55a5905d4d92b1fc2e8a7641414c20ea3a0556b6584912ea",
+      "bytes": 234080
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/05-expanded-layout.png",
+      "sha256": "054b7b15cbfa157b9cbb8b24644706b9883aeddde5ac884e0da8a875432dac30",
+      "bytes": 338175
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/05b-expanded-settled.png",
+      "sha256": "d8fa4d001804331b5791ca7f3785c45c24b29d4a5d2bfe56b2c57a6f05feb449",
+      "bytes": 338823
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/06-normal-restored.png",
+      "sha256": "9cb8431536e5aa02ecec7522022138f52f58cc0648dbe4c8d00aae1abaf85209",
+      "bytes": 233749
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/07-settings-open.png",
+      "sha256": "cc9d0d69ca16ba78b6347e3a9cdc5bc78707e287776406c7ae381a634a51f05d",
+      "bytes": 180308
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/08-autoscroll-draft-off.png",
+      "sha256": "41ab5a54164edf081015524b0ef7bea2ea89087cc0c255a36ef12c9baa9d4fbb",
+      "bytes": 181039
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/09-autoscroll-saved-off.png",
+      "sha256": "f73243251082b80096abc283abda7a767905f7cc7f0a56e1bb78d58f06874509",
+      "bytes": 180499
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/10-reload-discarded-draft-on.png",
+      "sha256": "7d0f0fcf247d708966ffd817ff1bffd8d11e1872d64093bf3fe6087613eb5f3e",
+      "bytes": 180395
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/11-settings-exactly-restored.png",
+      "sha256": "50c5d936f7dc9bab8ad4ad762fd686b3bdcf5fc0ab1a332c7798e0f61a034739",
+      "bytes": 180236
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/12-long-synthetic-draft.png",
+      "sha256": "2339bfa62cbe30ee950056a248b60e172db3fe41e34da5fca27ad830645c7483",
+      "bytes": 255670
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/13-fresh-draft-return.png",
+      "sha256": "0be9598316082c67616665a5ba279c25487298233e2b522af2bdcfb65385913c",
+      "bytes": 235767
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/14-streaming-in-progress.png",
+      "sha256": "665f7bfae8141bf08f05a5bb5f43b634eb0e8c98f091c515e234ed56ef62811d",
+      "bytes": 313783
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/15-scroll-up-during-stream.png",
+      "sha256": "4f6ac63a5819c6d1de32e1165ca57b051b684b6adf7ba257cd2534c78f87c186",
+      "bytes": 235848
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/17-cancel-test-started.png",
+      "sha256": "dfb450107836ffd66cf4f6f7eaa7de06a3553286ebd95f7d2938caecfff49b7e",
+      "bytes": 235561
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/18-cancel-test-admitted-stream.png",
+      "sha256": "54daf5a0c7ffddfa64635ba004bd794e1589e4718c6d14204d1e89b8740178d9",
+      "bytes": 302999
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/19-cancel-requested.png",
+      "sha256": "0f804aa16bef2e0cb8fdbbbeed943818ecb3862ebbef58e4fae0fe8603f3537a",
+      "bytes": 319134
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/cancel-checkpoint-preserved.json",
+      "sha256": "7852643da02e7d9d35f55d86a93381786ac51e2fa3e2ff8ec261aded1f43f9b5",
+      "bytes": 864
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/cancel-request.json",
+      "sha256": "8ec489094f12fc60df97e79fa59fc6b06cd2c851025e07453be4a7add153815b",
+      "bytes": 238
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/cancel-terminal-inspection.json",
+      "sha256": "b5eb8b77d071b1af26db4d893a3e925bb4d722923574fd52db2e158ceae920d9",
+      "bytes": 586
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/cancel-test-admission.json",
+      "sha256": "0ca21a3a93285a6b4bd6bf768cd5263ec55b181f3ebfb1f7efc5f7c7f12c4e24",
+      "bytes": 573
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/draft-test.json",
+      "sha256": "8a2267097ee151fddfd53e861a2e22c263055b8fa76e0538e84472161efa93e5",
+      "bytes": 316
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/enter-initial-failure.json",
+      "sha256": "fa64960d8e36d5697474e830436eb2c59acfa7d21875908347292d044bc30c00",
+      "bytes": 393
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/grimblast-help.log",
+      "sha256": "c8f33d88d850b7dd9068527b9e3c0b106261bed71fe87f3acdc97ff4f43437fb",
+      "bytes": 835
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/help.log",
+      "sha256": "8407fb1e380798eec72db612e3752381658e8e44f7118a0079f45a26a71029a0",
+      "bytes": 4103
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/initial-own-ui.json",
+      "sha256": "b75af321cadf4cc2858b04d8614308f9817322856d8c9512cf536beefddad18c",
+      "bytes": 1225
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/native-multiline-send.json",
+      "sha256": "3e072ec79c3a766ad9c85b3d94feb15a94d1022210bba19b05904bb979033b9d",
+      "bytes": 858
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/native-session-after-cancel-preserved.jsonl",
+      "sha256": "ec23e41c7d508a83d3e738a9b8a04cec6e8fcd28b6cb00df806b3462ed6a0738",
+      "bytes": 18780
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/preferences-before.json",
+      "sha256": "77245c1de4974826c76b38cd4e8f68aa932f643bb94a2e439955fbc617c9cc19",
+      "bytes": 393
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/preferences-restored.json",
+      "sha256": "c10e510ac22b72049065f1e0f10d7ad3636f9ff8edf5cd6e28ead07bb4189d3c",
+      "bytes": 376
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/preferences-save-off.json",
+      "sha256": "3fde04250dfdba365bb7f57150dc175974d10501cf4ad2e797067ff391c3da42",
+      "bytes": 214
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/return-driver-debug.log",
+      "sha256": "72c0fab33d015bffa73ef20fb001dc2ebf5bf0c3f7008328626f54c6704446f2",
+      "bytes": 192
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/send-click-before.json",
+      "sha256": "3a30e027490244d24f4fedc5e5e6cb4fbad35db41480d7d24a80f78abfddfd8f",
+      "bytes": 212
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/streaming-test-input.json",
+      "sha256": "4f4a26a3d0188dfb4bf7bb892f0d20e24936e6b954c521d959b74be82c989b48",
+      "bytes": 295
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/ui_ops.py",
+      "sha256": "b6a67e235306fc3498590f995d088ea6927270bf8641cc75f8d1ebb14ea769f7",
+      "bytes": 2370
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/version.log",
+      "sha256": "653a1fa7c348298ff6a17979ceb27ace724eaad9860358b182bd11251cbc6e07",
+      "bytes": 570
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/wdotool-capabilities.json",
+      "sha256": "d0110c9cabb0f1b7fdcdcaa830e11b685dad21ccac2aad550a4e18d95c16e713",
+      "bytes": 1078
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/wdotool-info.log",
+      "sha256": "72b4e689ac0272a06fb403f11c8c0b54471c8a4a9b1938352eee46e33b00d190",
+      "bytes": 655
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/gui-d3f3fa2/workspace-restore.json",
+      "sha256": "1fb02b7bd59985c316ecb30196e78d1293578de2d6acdb518561bc46eb0d8c9d",
+      "bytes": 862
+    }
+  ],
+  "final_readonly_validation": {
+    "private_artifact_hashes_verified": 46,
+    "readonly_untrusted_owner_status": {
+      "owner_phase": "failed",
+      "state": "failed",
+      "tools": [
+        "read"
+      ]
+    },
+    "no_checkpoint_or_journal_mutation": true,
+    "sole_flock_pid": 3356764,
+    "flock_inode": 85184,
+    "settings_exactly_restored": true,
+    "UI_and_owner_identity_unchanged": true
+  },
+  "source_only_decision": {
+    "approved": "Narrow confirmed tool-free user cancellation, authoritative admission fence/drain/transport closure proof required; independent review; current live failed guard untouched.",
+    "implementation_status": "Implemented source-only bounded correlated cancel and request-local default-SDK custom-fetch/body ownership + public lazy onResult drain. Required offline validation PASS:478 Python+138 subtests/1 optional skip;92 Node;22 C+22 sanitized C and fresh GTK builds. Independent source review required. No live guard/source changes.",
+    "blocking_boundary": "Public custom fetch and public lazy observer onResult contracts inspected in actual installed SDK1.5.1; require positive owned body closure, producer drain and SDK idle. Remote compute-stopped/TCP-peer acknowledgement is not claimed.",
+    "test_requirements": "Actual SDK + loopback mock streams only; pre-token/text/finish races, late tool calls, pending granted tool/child/provider, ambiguous socket/HTTP/native failure, repeated cancel/concurrent close/multiple prompts/reconnect without replay."
+  }
+}

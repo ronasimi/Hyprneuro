@@ -150,10 +150,10 @@ class DesktopBridge:
             elif op == 'cancel':
                 target = self.chat_client
                 self.cancel_requested = True
-                await self.deny_pending()
-                if target:
-                    await target.close()  # aborts only this chat, no replay
-                result = {'cancel_requested': True}
+                try:
+                    result = await target.cancel_chat() if target else {'cancel_requested': True}
+                finally:
+                    await self.deny_pending()
             elif op == 'consent':
                 cid, approved = packet.get('answer_id'), packet.get('allowed')
                 if not isinstance(cid, str) or cid not in self.consents or type(approved) is not bool:

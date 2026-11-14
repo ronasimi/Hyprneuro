@@ -146,7 +146,8 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.launch()
         await self.until('status')
         await self.send('chat', text='slow')
-        await self.until('event')
+        while (await self.until('event'))['event']['type'] != 'delta':
+            pass  # A generation receipt is not actual native prompt admission.
         await self.send('cancel')
         await self.until('error', 'chat')
         await self.send('status')
@@ -208,8 +209,9 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_cancel_targets_original_connection_not_a_later_chat(self):
         class Client:
             closed = False
-            async def close(self):
+            async def cancel_chat(self):
                 self.closed = True
+                return {'cancel_requested': True}
         original, later = Client(), Client()
         packets = []
         async def send(packet):
@@ -217,7 +219,7 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
         bridge = DesktopBridge(self.owner_dir, send)
         bridge.chat_client = original
         async def deny_pending():
-            # An old chat may settle while cancel awaits a consent response.
+            # Consent cleanup cannot retarget an already captured cancellation.
             bridge.chat_client = later
             await asyncio.sleep(0)
         bridge.deny_pending = deny_pending
@@ -307,3 +309,37 @@ class DesktopBridgeTests(unittest.IsolatedAsyncioTestCase):
                 await client.call('on')
         finally:
             await client.close()
+
+
+class CorrelatedCancelTests(unittest.IsolatedAsyncioTestCase):
+    async def test_waiting_cancel_cannot_retarget_reused_connection(self):
+        client = object.__new__(PiOwnerClient)
+        client.chat_id, client.chat_generation = 'original', None
+        client.chat_admitted = asyncio.Event()
+        called = []
+        async def call(*args, **kwargs):
+            called.append((args, kwargs))
+        client.call = call
+        task = asyncio.create_task(client.cancel_chat())
+        await asyncio.sleep(0)
+        client.chat_id, client.chat_generation = 'later', 'later-generation'
+        client.chat_admitted.set()
+        self.assertEqual(await task, {'cancelled': False, 'reason': 'no_active_chat'})
+        self.assertEqual(called, [])
+
+    async def test_cancel_receipt_before_consent_cleanup_not_socket_drop(self):
+        order, packets = [], []
+        class Client:
+            async def cancel_chat(self):
+                order.append('correlated-cancel-drained')
+                return {'settled': False, 'cancelled': True, 'outcome': 'cancelled-known'}
+        async def send(packet):
+            packets.append(packet)
+        bridge = DesktopBridge('/unused-private-fixture', send)
+        bridge.chat_client = Client()
+        async def deny_pending():
+            order.append('consent-cleanup')
+        bridge.deny_pending = deny_pending
+        await bridge.request({'op': 'cancel'})
+        self.assertEqual(order, ['correlated-cancel-drained', 'consent-cleanup'])
+        self.assertEqual(packets[-1]['result'], {'settled': False, 'cancelled': True, 'outcome': 'cancelled-known'})

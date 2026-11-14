@@ -19,6 +19,8 @@ class PiOwnerClient:
     def __init__(self, reader, writer, trusted):
         self.reader, self.writer, self.trusted = reader, writer, trusted
         self.pending = {}
+        self.chat_id = self.chat_generation = None
+        self.chat_admitted = asyncio.Event()
         self.events = asyncio.Queue(maxsize=64)
         self.read_task = asyncio.create_task(self._read(), name='pi-owner-ui-transport')
 
@@ -59,27 +61,46 @@ class PiOwnerClient:
             raise
 
     async def call(self, op, **fields):
-        if op not in ('chat', 'status', 'on', 'off', 'consent'):
+        if op not in ('chat', 'status', 'on', 'off', 'consent', 'cancel'):
             raise ValueError('Unknown Pi owner operation')
-        allowed = {'chat': {'text', 'recommend'}, 'consent': {'answer_id', 'allowed'}, 'status': set(), 'on': set(), 'off': set()}
+        allowed = {'chat': {'text', 'recommend'}, 'consent': {'answer_id', 'allowed'}, 'cancel': {'chat_id', 'generation'}, 'status': set(), 'on': set(), 'off': set()}
         if fields.keys() - allowed[op]:
             raise ValueError('Unknown Pi owner fields')
         if (op in ('on', 'off', 'consent') or op == 'chat' and fields.get('recommend') is True) and not self.trusted:
             raise PermissionError('Trusted UI control channel required')
         if self.read_task.done() or len(self.pending) >= 8:
             raise ConnectionError('Pi owner disconnected or request bound reached')
+        if op == 'chat' and self.chat_id is not None:
+            raise ValueError('One active chat per connection')
+        if op == 'cancel' and self.trusted:
+            raise PermissionError('Cancel belongs to its own chat connection')
         rid = uuid.uuid4().hex
         data = (json.dumps({'op': op, 'id': rid, **fields}, ensure_ascii=False) + '\n').encode('utf-8')
         if len(data) > MAX_FRAME:
             raise ValueError('Pi owner frame exceeds bound')
         future = asyncio.get_running_loop().create_future()
         self.pending[rid] = future
+        if op == 'chat':
+            self.chat_id, self.chat_generation = rid, None
+            self.chat_admitted.clear()
         try:
             self.writer.write(data)
             await self.writer.drain()
             return await future
         finally:
             self.pending.pop(rid, None)
+            if op == 'chat' and self.chat_id == rid:
+                self.chat_id = self.chat_generation = None
+
+    async def cancel_chat(self):
+        target_id = self.chat_id
+        if target_id is None:
+            return {'cancelled': False, 'reason': 'no_active_chat'}
+        async with asyncio.timeout(2):
+            await self.chat_admitted.wait()
+        if self.chat_id != target_id:
+            return {'cancelled': False, 'reason': 'no_active_chat'}
+        return await self.call('cancel', chat_id=target_id, generation=self.chat_generation)
 
     async def _read(self):
         error = ConnectionError('Pi owner disconnected; outcomes may be unknown, never retry mutations')
@@ -98,6 +119,15 @@ class PiOwnerClient:
                         else:
                             future.set_result(packet.get('result'))
                 else:
+                    event = packet.get('event', {})
+                    if event.get('type') == 'chat_admission':
+                        generation = event.get('generation')
+                        if (packet.get('type') != 'event' or self.chat_id is None
+                                or packet.get('id') != self.chat_id or not isinstance(generation, str)
+                                or len(generation) != 36 or any(c not in '0123456789abcdef-' for c in generation)):
+                            raise ValueError('Invalid chat generation')
+                        self.chat_generation = generation
+                        self.chat_admitted.set()
                     self.events.put_nowait(packet)
         except (OSError, ValueError, asyncio.QueueFull, asyncio.CancelledError):
             error = ConnectionError('Pi owner stream interrupted; review native session/checkpoint')

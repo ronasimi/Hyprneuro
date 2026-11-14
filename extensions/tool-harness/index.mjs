@@ -8,7 +8,7 @@ const FILE_TOOLS = ['read', 'write', 'edit', 'bash'];
 const props = {read:['path','offset','limit'], write:['path','content'], edit:['path','edits'], bash:['command','timeout']};
 
 // Factory injected with Pi's public exports: no separate model client or loop.
-export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, readOnly = false, normalOnly = false, parentOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
+export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, nativeScope, readOnly = false, normalOnly = false, parentOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
   if(parentOnly&&(!readOnly||!normalOnly))throw new Error('Parent-only requires normal-only READ-ONLY');
   if(normalOnly&&!readOnly)throw new Error('Normal-only mode requires READ-ONLY profile');
   if(readOnly)providers=undefined;
@@ -89,7 +89,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
           await owner.closed;
         } catch(e){await owner.stop().catch(()=>{});throw e;}
       }});
-    if(native)pi.registerProvider('hyprneuro-local', {streamSimple:(model,context,options)=>guardedStream(native,model,context,options,handoff?.token,inferenceGate),api:'openai-completions',apiKey:'local-no-credential',
+    if(native)pi.registerProvider('hyprneuro-local', {streamSimple:(model,context,options)=>guardedStream(nativeScope?nativeScope(native):native,model,context,options,handoff?.token,inferenceGate),api:'openai-completions',apiKey:'local-no-credential',
       models:(normalOnly?[['lfm-text',8081,131072]]:[['lfm-text',8081,131072],['lfm-omni',8082,32768],['lfm-moe',8080,65536]]).map(([id,port,contextWindow])=>({
         id,name:id,baseUrl:id==='lfm-text'?textBaseUrl:`http://127.0.0.1:${port}/v1`,contextWindow,maxTokens:2048,reasoning:false,
         input:id==='lfm-omni'?['text','image']:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0},
@@ -183,6 +183,7 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     });
     // No model-facing approval, scope expansion or subprocess-delegation APIs.
     pi.on('tool_call', async event => {
+      try{toolAdmission?.();}catch(error){return {block:true,reason:error.message,terminate:true};}
       if(parentOnly&&event.toolName!=='read')return {block:true,reason:'Parent-only owner permits read only; no helpers or delegation',terminate:true};
       if(readOnly&&!active)return {block:true,reason:'READ-ONLY tools not activated',terminate:true};
       // Only the exact one-shot nested native call of an already guarded provider.
@@ -232,6 +233,8 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       toolAdmission?.();
       await outcomes.record({id,key,status:'executing'});
       try {
+        // The durable executing record awaited I/O; seal races must not dispatch.
+        toolAdmission?.();signal?.throwIfAborted();
         const result = await execute(args, active.workspace);
         signal?.throwIfAborted();
         await outcomes.record({id,key,status:'completed',result});

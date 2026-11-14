@@ -1,7 +1,7 @@
 // Two binary challenge-response credentials: chat != trusted UI control. Neither
 // credential nor Hermes/lease capabilities ever appear in JSON or model context.
 import { createServer } from 'node:net';
-import { createHmac,randomBytes,timingSafeEqual } from 'node:crypto';
+import { createHmac,randomBytes,randomUUID,timingSafeEqual } from 'node:crypto';
 import { chmod,lstat,mkdir,readFile,realpath,writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 export const MAX_FRAME=65536;
@@ -26,7 +26,7 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
   const server=createServer(socket=>{
     if(sockets.size>=8){socket.destroy();return;}sockets.add(socket);
     const nonce=randomBytes(32);socket.write(nonce);
-    let authenticated=false,role,buffer=Buffer.alloc(0),unsubscribe,pending=0;
+    let authenticated=false,role,buffer=Buffer.alloc(0),unsubscribe,pending=0,chat;
     const cancel=new AbortController();
     const timer=setTimeout(()=>socket.destroy(),5000);
     const send=value=>{
@@ -43,16 +43,31 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
       if(!value||Array.isArray(value)||typeof value!=='object')throw new Error('Object request required');
       const {op,id}=value;
       if(typeof id!=='string'||!/^[\w.-]{1,80}$/.test(id))throw new Error('Bounded correlation id required');
-      const fields={status:['op','id'],on:['op','id'],off:['op','id'],consent:['op','id','answer_id','allowed'],chat:['op','id','text','recommend'],read:['op','id','call','exec','tool_id','args']};
+      const fields={status:['op','id'],on:['op','id'],off:['op','id'],consent:['op','id','answer_id','allowed'],cancel:['op','id','chat_id','generation'],chat:['op','id','text','recommend'],read:['op','id','call','exec','tool_id','args']};
       if(!fields[op]||Object.keys(value).some(k=>!fields[op].includes(k)))throw new Error('Unknown operation/fields');
       if(role==='read'&&op!=='read'||op==='read'&&(role!=='read'||!read))throw new Error('Read bridge role has no chat/control/lifecycle authority');
       if(op==='read')return read(value,cancel.signal);
       if(['on','off','consent'].includes(op)&&role!=='control')throw new Error('Trusted UI control authentication required');
       if(op==='chat'&&value.recommend===true&&role!=='control')throw new Error('recommend=true requires explicit trusted UI preference');
+      if(op==='cancel') {
+        if(role!=='chat'||!chat||value.chat_id!==chat.id||value.generation!==chat.generation)
+          throw new Error('Cancel requires same connection and exact active chat generation');
+        if(!chat.requested){chat.requested=true;chat.fence?.();chat.abort.abort(chat.reason);}
+        // Acknowledgement is the completed/drained chat outcome, never abort().
+        return chat.done;
+      }
       if(op==='status')return owner.status();
       if(op==='consent'){owner.consent(value.answer_id,value.allowed);return {accepted:true};}
       if(op==='on'||op==='off')return owner.transition(op);
-      return owner.chat(value,event=>send({id,type:'event',event}),cancel.signal);
+      if(chat)throw new Error('One active chat per connection');
+      const current={id,generation:randomUUID(),requested:false,abort:new AbortController(),
+        reason:new Error('Explicit correlated user cancellation'),disconnected:()=>cancel.signal.aborted};
+      chat=current;
+      send({id,type:'event',event:{type:'chat_admission',generation:current.generation}});
+      try {
+        current.done=owner.chat(value,event=>send({id,type:'event',event}),AbortSignal.any([cancel.signal,current.abort.signal]),current);
+        return await current.done;
+      }finally{if(chat===current)chat=undefined;}
     }
     socket.on('data',chunk=>{
       buffer=Buffer.concat([buffer,chunk]);

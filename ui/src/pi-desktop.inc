@@ -61,6 +61,13 @@ static void pi_route_update(App *a) {
         "Text → Pi owner · native tools require fresh host consent");
 }
 
+static gboolean pi_cancelled_result(JsonNode *result) {
+    JsonNode *settled = jmember(result, "settled"), *cancelled = jmember(result, "cancelled");
+    return jboolean(cancelled) && json_node_get_boolean(cancelled) &&
+        jboolean(settled) && !json_node_get_boolean(settled) &&
+        !g_strcmp0(jstr(jmember(result, "outcome")), "cancelled-known");
+}
+
 static void pi_finish_chat(App *a, gboolean success, const char *error) {
     if (!a->busy || !a->pi_chat) return;
     ChatDoneData *d = g_new0(ChatDoneData, 1);
@@ -352,8 +359,12 @@ static void pi_packet(App *a, JsonNode *packet) {
     } else if (!g_strcmp0(type, "result") || !g_strcmp0(type, "error")) {
         gboolean ok = !strcmp(type, "result");
         if (!g_strcmp0(op, "chat")) {
-            JsonNode *settled = jmember(jmember(packet, "result"), "settled");
-            pi_finish_chat(a, ok && jboolean(settled) && json_node_get_boolean(settled),
+            JsonNode *result = jmember(packet, "result");
+            JsonNode *settled = jmember(result, "settled");
+            if (ok && pi_cancelled_result(result)) {
+                pi_finish_chat(a, FALSE, "Cancelled: confirmed tool-free terminal, not a successful reply");
+                set_status(a, "Pi chat cancelled · known tool-free terminal");
+            } else pi_finish_chat(a, ok && jboolean(settled) && json_node_get_boolean(settled),
                 ok ? NULL : "Pi request failed/interrupted; review native session. No retry.");
         } else if (!g_strcmp0(op, "on") || !g_strcmp0(op, "off")) {
             if (!strcmp(op, "on")) a->pi_on_pending = FALSE;

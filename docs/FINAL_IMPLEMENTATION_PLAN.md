@@ -7,6 +7,16 @@ passed. Baseline: clean `d830015` on `feat/pi-owner-gtk`; original231 remains
 
 ## Current installed gate and mandatory media scope
 
+**Latest runtime (section 29):** coherent reviewed `d3f3fa2` at
+`/home/ron/Workspace/hn-final-d3f3fa2/owner`; UI3349626, owner3356764.
+The human-approved single fixture read and local native continuation are verified.
+Ordinary delegated GUI checks partially passed, but one admitted no-tool
+cancellation left **`chat-unknown`**. Preserve that checkpoint; no reconnect,
+reset, replay or shutdown through the guard. Preferences and original workspace
+are restored. No overall READY; remaining media/provider/lifecycle gates stand.
+
+**Historical 6f9 cutover, superseded by sections 27–29 (not current runtime):**
+
 Reviewed source **6f9de3fe2cb7f0c0f36071327fb7ea97765f2512** was applied once
 from immutable `hn-final-6f9de3f` after pinned review@2, fresh actual human unlock
 confirmation, exclusive lease, maintained logind+locker checks and stable trusted
@@ -936,6 +946,10 @@ Humannewrootstep only AFTER successful installedattestation, not before.
 
 ## 28. Actual HUMAN coherent newroot pairing PASS; activation/exactread next
 
+**Historical next-step instructions below were completed by the human. Do not
+repeat either consent question or the fixture read. Section 29 records the
+independent verification and subsequent cancellation blocker.**
+
 Fresh maintained leasedchecks afterhumanDONE verifiedactualcanonicald3f3fa2root,
 descriptor287364…ca0f, UI3349626/source7a634…2560, owner3356764/start45955087
 Nodehostexactd3source/env/read-onlynormal-onlyparent-onlypersistent/child0.
@@ -960,3 +974,152 @@ dialog, reportactualstate; do notretry or changeprofile.
 Then operator must inspectactualnativecontent-bearingtoolresult/continuation/
 journal, not correctquote/status alone. Otherlive/lifecycle/media/VIDEOgates
 remain notREADY. [Handshake/preciseHUMANstep](evidence/final-human-coherent-owner-handshake.json).
+
+## 29. Native fixture chain verified; delegated GUI partial; cancellation BLOCKED
+
+[Sanitized evidence and private artifact hashes](evidence/final-native-chain-gui-cancel-blocked.json).
+Installed source remains immutable `d3f3fa2eff33b7b68e86d70c8ca1066296e837c6`;
+no frozen bundle, production source, model, unit or native guard was patched.
+All GUI operations held the machine lease with repeated local active/unlocked
+logind session2 and independent locker checks. Installed Hyprland skills and
+actual runtime/input capabilities were inspected before use.
+
+### Completed single fixture workflow
+
+- [x] Actual human separately confirmed personally allowing both activation and
+  the exact-file read dialog. This is authorization for that completed workflow
+  only; no future read/capture/provider/lifecycle permission follows.
+- [x] Read-only independent audit found exactly one native `read` tool call,
+  args `{"path":"fixture.txt"}`, call ID
+  `r7D21jUqDMtG4MjIUU091LMGDNJol8DT`; matching guarded custom outcomes
+  `executing` then `completed`, matching successful native tool result.
+- [x] Tool result is exactly 24 bytes and equals the fixture byte-for-byte,
+  SHA256 `3586ec89e2f10bfa6455669e34a8aa0db2f5cd66929daaf0893a93706d554350`.
+  Local `hyprneuro-local` / `lfm-text` continuation ends `stop`, not length/error/
+  abort, and contains both code fences. Own-GTK captures show the complete
+  fixture answer; truncated user paste is not evidence of stream truncation.
+- [x] Exact broker task/app/workspace/read-only scope checked using read-only
+  SELECT. `approved=0` is the separate privileged broker-policy field, **not**
+  proof that the human denied GTK consent. No production `auth_revoke` probe.
+- [ ] Durable per-request consent-decision UUID audit remains missing. Source
+  uses matching authenticated in-memory pending UUIDs but does not persist
+  distinct consent request/decision events. Human confirmation is explicitly
+  separate evidence; no machine audit UUIDs were fabricated.
+
+### Ordinary own-GUI acceptance (delegated, not permission automation)
+
+Tests targeted only layer namespace `hyprneuro`, PID3349626, on temporary empty
+workspace4; verified monitor eDP-1, scale1, transform0, own geometry, no other
+clients/overlapping foreground layers, forced inspected `wlr-protocols` backend.
+Manual own-app cropped screenshots are private audit evidence, **not** product
+capture-framework enablement, background recall, raw ScreenCast fallback or a
+model submission. No private apps were captured; no consent/security dialog was
+acted upon. No package, global compositor setting, recorder/replay or prime.
+
+- [x] Synthetic two-line no-tool message: Ctrl+Enter inserted a newline without
+  submission; one Send-button click preserved exact two-line native input,
+  produced `UI_NATIVE_OK` and local native `stop`, with no additional tool call.
+- [ ] Enter is **mixed**, not blanket PASS: two initial injected Return attempts
+  after Ctrl+Enter did not submit; journal remained unchanged and draft retained.
+  Later fresh `--clearmodifiers Return` successfully submitted two distinct
+  synthetic no-tool prompts. Initial input-driver/focus/modifier cause UNKNOWN;
+  no app defect or universal Enter success is inferred.
+- [x] Actual native incremental numbered output observed while Send/attachment
+  controls disabled and Cancel enabled. Normal completion returned settled UI;
+  canceled turn instead showed request-failed, never a false success label.
+- [x] In-process native/GTK history retained across settings navigation and
+  Normal527 → Expanded855 → Normal527, same layer/PID and width766.
+- [x] Scroll up through completed history; position remained paused into the
+  next chat; scrolling down during actual streaming resumed current output.
+  Active-stream scroll-up and a longer soak are not independently proven.
+- [x] UI preferences: draft-only change did not persist; Save autoscroll off
+  changed **only** `ui_autoscroll`; unsaved on + Reload discarded draft; Save on
+  restored original settings **byte-for-byte**, SHA256
+  `fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4`.
+  Active/saved/draft Normal/on/90%; model and monitoring flags unchanged.
+- [x] Limited rendered monitoring proof: CPU/RAM visible and updating; Settings
+  shows journal/network/resources observed running, saved on, draft on. This
+  is not all monitoring/provider/residency/soak acceptance.
+- [ ] Native Prefill/Decode/Hit/Full remain `—` despite native usage events.
+  Actual timing/usage rendering remains a gap. Native `message.timestamp`
+  reflects request creation, not completion; a 2ms timestamp delta is **not**
+  inference latency or TTFT. No reasoning-channel output was observed.
+- [ ] Settings failure-path injection, reconnect/restart history and supported
+  live clean shutdown remain untested; no production failure was manufactured.
+
+### Cancellation is a concrete recovery blocker, not a clean lifecycle PASS
+
+The first 120-line cobalt synthetic reply naturally completed before the
+intended cancel; that is **not** cancellation acceptance. A separate 400-line
+silver synthetic reply was submitted with explicit no-tool/no-file instructions.
+Visible partial output established actual admission before one own-GTK
+`Cancel Pi chat` click. Native assistant persisted `stopReason=aborted`,
+`Request was aborted`, 4108 text characters. Four total user messages now exist
+(first approved fixture plus three synthetic no-tool prompts); total tool calls
+remain **one**, the original approved read.
+
+- Current owner3356764/start45955087 remains connected, process not stopped.
+- Owner checkpoint: **`chat-unknown`**, SHA256
+  `7852643da02e7d9d35f55d86a93381786ac51e2fa3e2ff8ec261aded1f43f9b5`.
+- Native journal SHA256:
+  `ec23e41c7d508a83d3e738a9b8a04cec6e8fcd28b6cb00df806b3462ed6a0738`.
+- Native error/abort deliberately marks owner failed in `owner.mjs`; the
+  retained guard is fail-closed behavior, **not** a recoverable-cancel PASS.
+- Private native journal/checkpoint copies preserved with mode0600. No resend,
+  retry, disconnect, reconnect, revoke, restart, signal, shutdown, guard reset,
+  adoption or takeover after the failed UI notice.
+- Original workspace1 restored and rechecked; no capture after restoration.
+  Exact original settings restored. Initial restoration script encountered a
+  workspace entry without `id` and stopped **before dispatch**; filtering with
+  `.get('id')` corrected inspection without replaying a production operation.
+
+Capture filenames retain initial intent, not verdict: `03-native-busy.png`
+actually shows retained draft/no submission; `15-scroll-up-during-stream.png`
+is after natural completion. Initial expanded capture has transient resize
+surface mismatch; stable `05b` is clean. All evidence retained, not overwritten
+or promoted to PASS.
+
+**Source-only direction approved:** implement a narrowly proven tool-free user
+cancellation path, independently reviewed. Admission must be fenced before
+cancel; positive authoritative SDK/request/dispatch/drain/transport closure
+proof is required, including late queued calls. Any tool admission, unresolved
+consent, child/provider work, HTTP/native error or uncertainty retains unknown.
+Known canceled is not a successful answer. Existing live failed guard remains
+untouched; no replay or permission carryover.
+
+**Concrete implementation boundary found during source inspection:** current
+`DesktopBridge.request(cancel)` closes the chat socket; `serveOwner` sees only
+socket-close abort, indistinguishable from transport loss. SDK1.5.1's native
+OpenAI stream runs a background async function and exposes event/result streams,
+not an authoritative transport-closed promise. Neither a terminal UI/native
+event nor `waitForIdle()` alone proves that background transport has drained.
+That bounded correlated-cancel/public-custom-fetch architecture was separately
+approved and is now implemented **source-only**. Further full SDK contract
+inspection found the public lazy observer `onResult` after inner iterator/result
+drain; it is required alongside owned fetch/body closure and actual SDK idle.
+No terminal event or abort flag alone is treated as proof. Known cancellation is
+persisted distinctly from success; uncertain/tool-bearing/error cases remain
+unknown. The existing live failed owner/guard is unchanged.
+
+Focused offline checks passed: **13 actual-SDK loopback cancellation + 13 socket
++ 17 Python bridge tests**. Required full isolated validation is now PASS:
+**478 Python + 138 subtests, one optional-Pillow skip; 92 Node; 22 normal C +
+22 ASan/UBSan C**, with fresh normal/sanitized GTK application builds.
+[Exact source-validation receipt](evidence/final-cancellation-source-validation.json).
+The first Node run retained two private-Workspace TMPDIR guard refusals; the
+second retained91/92 with a test reading durable state before checkpoint I/O
+finished. Corrected runner and test await the actual serialized completion;
+final full Node run92/92. No product-source changes between validation runs.
+Meson setup ResourceWarnings and GdkPixbuf deprecations remain, not warning-free. Source contract,
+invariants, test cases and retained development failures are documented in
+[the source-only review note](evidence/final-cancellation-source-invariants.md).
+
+**Next dependency:** parent independent exact-source review, then coherent
+exact-bundle review before any new bundle installation/deployment. No routine
+commit permission question; a coherent source commit with the required trailer
+is authorized after these checks. Consent-audit/native-metrics gaps and a
+separately authorized recovery plan for this exact failed live owner remain.
+Existing unknown guard is not implicitly cleared by GUI delegation or source
+tests. Historical recovery signal/reset authorities remain consumed.
+All same-owner media/provider/Hermes/Durable/skills/soak/live lifecycle gates and
+the externally binding VIDEO-file refusal remain mandatory; **NOT READY**.

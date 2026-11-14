@@ -8,6 +8,7 @@ import { admit } from '../tool-harness/residency.mjs';
 import { Providers } from '../tool-harness/providers.mjs';
 import { privateDirectory,serveOwner } from './socket.mjs';
 import { PiOwner } from './owner.mjs';
+import { CancellationScope } from './cancellation.mjs';
 import { recommendHermes } from './routing.mjs';
 import { durablePolicy,durableRuntime } from './durable.mjs';
 
@@ -71,10 +72,10 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
   const syncDirectory=async path=>{const fd=await open(path,'r');try{await fd.sync();}finally{await fd.close();}};
   await guard.sync();await syncDirectory(root); // durable guard BEFORE any runtime effect
   let owner,session,socket;
-  const checkpoint=async phase=>{
+  const checkpoint=async (phase,outcome)=>{
     let persistedSession;
     if(session?.sessionManager.getSessionFile()) {
-      session.sessionManager.appendCustomEntry('hyprneuro.pi-owner/1',{phase});
+      session.sessionManager.appendCustomEntry('hyprneuro.pi-owner/1',{phase,...(outcome?{outcome}:{})});
       try {
         const file=session.sessionManager.getSessionFile();
         const fd=await open(file,'r+');try{await fd.sync();}finally{await fd.close();}
@@ -86,7 +87,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       }
     }
     const fd=await open(join(root,'checkpoint.json'),'w',0o600);
-    try {await fd.writeFile(JSON.stringify({phase,session:persistedSession,configuration}));await fd.sync();}finally{await fd.close();}
+    try {await fd.writeFile(JSON.stringify({phase,session:persistedSession,configuration,...(outcome?{outcome}:{})}));await fd.sync();}finally{await fd.close();}
     await syncDirectory(root);
   };
   try {
@@ -110,6 +111,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     }
     const sdk=await import(pathToFileURL(sdkPath));
     const aiURL=new URL('../../pi-ai/dist/index.js',pathToFileURL(sdkPath));
+    const nativeInjected=!!native;
     native??={lazyStream:(await import(aiURL)).lazyStream,streamSimple:(await import(new URL('./api/openai-completions.js',aiURL))).streamSimple};
     // Dedicated home only; never drain/resume the parent's existing workflows.
     process.env.DSA_HOME=home;process.env.DSA_CACHE_HOME=join(home,'cache');process.env.DSA_SCOPE='off';process.env.PI_CODING_AGENT_DIR=agentDir;
@@ -127,12 +129,14 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const settings=sdk.SettingsManager.inMemory({retry:{enabled:false,provider:{maxRetries:0}},compaction:{enabled:false},cacheWarming:'off'});
     const runtime=await sdk.ModelRuntime.create({authPath:join(agentDir,'auth.json'),modelsPath:null,modelsStorePath:join(agentDir,'models-store.json'),refreshOnCreate:false,allowModelNetwork:false});
     const approvedChildReads=new Set();
-    const policy=durablePolicy({workspace,preflight:()=>readWorkspace(workspace,root),readOnly,childRead,onReadApproved:request=>approvedChildReads.add(request),phase:()=>owner?.closing?'closed':owner?.phase??'closed',
+    const policy=durablePolicy({workspace,preflight:()=>readWorkspace(workspace,root),readOnly,childRead,onReadApproved:request=>approvedChildReads.add(request),phase:()=>owner?.closing||owner?.currentChat?.closed?'closed':owner?.phase??'closed',
       broker:op=>checkBroker(rpc,taskId,appId,op,workspace),approve:request=>owner.approve(request)});
     providers=readOnly?undefined:providers??await Providers.load();
     const extension=harnessExtension(sdk,{rpc,providers,native,readOnly,normalOnly,parentOnly,readPaths,textBaseUrl,binding:Object.freeze({workspace,taskId,appId}),confirm:request=>owner.approve(request),durableGuard:policy,
-      toolAdmission:()=>{if(owner?.closing||!['ordinary','hermes'].includes(owner?.phase))throw new Error('Owner transition blocks new tool side effects');},
+      nativeScope:native=>owner?.currentChat?.native(native)??native,
+      toolAdmission:()=>{owner?.currentChat?.toolAdmission();if(owner?.closing||!['ordinary','hermes'].includes(owner?.phase))throw new Error('Owner transition blocks new tool side effects');},
       inferenceGate:(role,token)=>{
+        owner?.currentChat?.assertOpen();
         if(owner?.closing||!['ordinary','hermes'].includes(owner?.phase))throw new Error('Owner transition blocks native background inference');
         if(normalOnly){if(role!=='text'||token)throw new Error('Normal-only owner permits existing text only; no exclusive admission');return async()=>{};}
         return admit(role,token);
@@ -177,7 +181,10 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       return commands.moe(value==='on'?'start':'finish',context());
     };
     const recommend=route??((text,signal)=>recommendHermes(runtime,runtime.getAllModels().find(m=>m.provider==='hyprneuro-decision'),text,admit,signal));
-    owner=new PiOwner({session,durable:parentOnly?{...durable,quiesce:async()=>{if(durable.status().workflows.length)throw new Error('Unexpected parent-only Durable work; no automatic drain/adoption');}}:durable,command,lifecycleUnavailable:normalOnly?'Lifecycle unavailable: normal-only owner; all-client cooperation unverified':undefined,checkpoint,route:recommend,settleParent:()=>session.waitForIdle(),cancelTransition:()=>commands.cancel(),prepare:async()=>{
+    owner=new PiOwner({session,cancellation:persistent&&!nativeInjected?()=>{
+      if(!session.isIdle||owner.consents.size||durable.status().workflows.length)throw new Error('Cancellation admission requires idle parent-only session');
+      return new CancellationScope();
+    }:undefined,cancellationIdle:()=>session.isIdle&&owner.consents.size===0&&owner.listeners.size>0&&!owner.detaching&&!owner.closing&&durable.status().workflows.length===0,durable:parentOnly?{...durable,quiesce:async()=>{if(durable.status().workflows.length)throw new Error('Unexpected parent-only Durable work; no automatic drain/adoption');}}:durable,command,lifecycleUnavailable:normalOnly?'Lifecycle unavailable: normal-only owner; all-client cooperation unverified':undefined,checkpoint,route:recommend,settleParent:()=>session.waitForIdle(),cancelTransition:()=>commands.cancel(),prepare:async()=>{
         if(persistent&&(!owner.listeners.size||owner.detaching))throw new Error('Trusted UI required; owner idle/disconnected');
         if(persistent&&!activated){
           await checkpoint('activation-intent');

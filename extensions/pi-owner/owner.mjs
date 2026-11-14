@@ -2,8 +2,8 @@
 import { randomUUID } from 'node:crypto';
 
 export class PiOwner {
-  constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,callTimeoutMs=300000}) {
-    Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,callTimeoutMs});
+  constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,cancellation,cancellationIdle,callTimeoutMs=300000}) {
+    Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,cancellation,cancellationIdle,callTimeoutMs});
     this.phase='ordinary';this.queue=Promise.resolve();this.listeners=new Set();this.consents=new Map();this.closed=false;
   }
   emit(event){for(const listener of this.listeners)listener(event);}
@@ -12,6 +12,7 @@ export class PiOwner {
     const result=this.queue.then(work);this.queue=result.catch(()=>{});return result;
   }
   async approve(request) {
+    if(this.currentChat)this.currentChat.toolAdmission();
     request.signal?.throwIfAborted();
     if(!this.listeners.size)throw Object.assign(new Error('No authenticated trusted control UI; denied'),{code:'HUMAN_DENIED'});
     const id=randomUUID();let timer,abort;
@@ -83,14 +84,15 @@ export class PiOwner {
       await this.checkpoint(this.phase);throw error;
     } finally {this.transitionKind=undefined;}
   }
-  chat({text,recommend=false},emit,signal) {
+  chat({text,recommend=false},emit,signal,cancelRequest) {
     if(typeof text!=='string'||!text.trim()||text.length>16000||typeof recommend!=='boolean')throw new Error('Bounded text/recommend required');
     return this.serial(async()=>{
       const originalSignal=signal,deadline=new AbortController(),external=()=>deadline.abort(originalSignal.reason);
       signal?.addEventListener('abort',external,{once:true});if(signal?.aborted)external();
       signal=deadline.signal;
       const timer=setTimeout(()=>deadline.abort(new Error('Pi request deadline; inspect checkpoint, no replay')),this.callTimeoutMs);
-      const interrupt=()=>{this.disconnectControl();this.session.clearQueue?.();void Promise.resolve(this.session.abort?.()).catch(()=>{});};
+      let aborting;
+      const interrupt=()=>{this.currentChat?.seal();this.disconnectControl();this.session.clearQueue?.();aborting=Promise.resolve(this.session.abort?.());void aborting.catch(()=>{});};
       signal.addEventListener('abort',interrupt,{once:true});
       try {
       signal?.throwIfAborted();
@@ -121,13 +123,18 @@ export class PiOwner {
       }
       signal?.throwIfAborted();
       await this.checkpoint('chat-intent');
-      let nativeFailed=false;
+      let scope;
+      try{scope=this.cancellation?.();}catch(error){this.phase='failed';await this.checkpoint('chat-unknown');throw error;}
+      this.currentChat=scope;
+      if(cancelRequest)cancelRequest.fence=()=>scope?.seal();
+      let nativeFailed=false,stopReason,nativeError;
       const unsub=this.session.subscribe(event=>{
         const update=event.assistantMessageEvent;
         if(event.type==='message_update'&&['text_delta','thinking_delta'].includes(update?.type)) {
           for(let i=0;i<update.delta.length;i+=4000)emit({type:'delta',channel:update.type==='text_delta'?'answer':'reasoning',text:update.delta.slice(i,i+4000)});
         } else if(event.type==='message_end'&&event.message?.role==='assistant') {
-          if(['error','aborted'].includes(event.message.stopReason))nativeFailed=true;
+          stopReason=event.message.stopReason;nativeError=event.message.errorMessage;
+          if(['error','aborted'].includes(stopReason))nativeFailed=true;
           const usage=Object.fromEntries(['input','output','cacheRead','cacheWrite','totalTokens'].filter(k=>
             Number.isFinite(event.message.usage?.[k])&&event.message.usage[k]>=0).map(k=>[k,event.message.usage[k]]));
           emit({type:'turn_end',stopReason:event.message.stopReason,usage});
@@ -139,8 +146,24 @@ export class PiOwner {
         // is not successful: retain the unknown guard and never replay it.
         if(nativeFailed)throw new Error('Native Pi request failed; inspect checkpoint, no replay');
         await this.checkpoint(this.phase);return {settled:true};}
-      catch(error){this.phase='failed';await this.checkpoint('chat-unknown');throw error;}
-      finally{unsub();}
+      catch(error){
+        // Only the same authenticated request's explicit cancel can qualify;
+        // socket loss, deadline, HTTP errors, tools and unknown drains cannot.
+        if(scope&&cancelRequest?.requested&&signal.reason===cancelRequest.reason&&
+            !cancelRequest.disconnected()&&!this.closing&&this.phase==='ordinary'&&stopReason==='aborted'&&nativeError==='Request was aborted') {
+          try {
+            await aborting;await this.session.waitForIdle();
+            if(await scope.drained()&&this.cancellationIdle()) {
+              const outcome={kind:'cancelled-known',generation:cancelRequest.generation};
+              await this.checkpoint(this.phase,outcome);
+              if(cancelRequest.disconnected()||this.closing||this.detaching)throw new Error('Cancellation acknowledgement lost admission');
+              return {settled:false,cancelled:true,outcome:'cancelled-known'};
+            }
+          }catch(proofError){error=new AggregateError([error,proofError],'Cancellation proof failed; inspect checkpoint, no replay');}
+        }
+        this.phase='failed';await this.checkpoint('chat-unknown');throw error;
+      }
+      finally{unsub();scope?.seal();this.currentChat=undefined;if(cancelRequest)cancelRequest.fence=undefined;}
       } finally {clearTimeout(timer);signal.removeEventListener('abort',interrupt);originalSignal?.removeEventListener('abort',external);}
     });
   }

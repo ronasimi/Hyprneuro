@@ -1,5 +1,28 @@
 # Offline GTK acceptance follow-up — live production still NOT READY
 
+## Current installed checkpoint — human READ-ONLY acceptance next
+
+Reviewed6f9de3f app-only cutover completed exactly once after review@2 and fresh
+actual human unlock confirmation, maintained lease/logind/locker/parent-alias checks.
+Installed UI3072857/sidecar3072852, binary1f25fd78…f78e4; normal models unchanged,
+MoE inactive. Owner template installed inert/static/inactive0; UI legacy/disconnected.
+Current DB quick_check ok/settings unchanged; no owner start/grant/capture/inference.
+Human Connect selects `/home/ron/Workspace/hn-final-6f9de3f/owner`; activation and
+exact fixture.txt consent remain separately human. Do not automate approval.
+
+**NOT READY: all-media same-Pi-owner/router parity now mandatory**, including
+images/WAV/video and permission-backed screen/camera/microphone capture, review,
+preview/playback/cancel/cleanup. No silent legacy fallback. VIDEO binding provider
+refusal covers prepare-cancel root cause + unconditional ffprobe child cleanup;
+no fake-process workaround, reroute, fix/repro/enable/import/inference. Saved later
+headless GstPlay abort134 distinct from GTK first-corruption UNKNOWN. Full media
+READY blocked; permitted non-video work follows first READ-ONLY gates and parent
+single-writer coordination. Old49c748d BLOCK retained; original231 UNKNOWN.
+
+[Plan](FINAL_IMPLEMENTATION_PLAN.md);[receipt](evidence/final-app-cutover.json).
+
+--- Historical checkpoints retained below ---
+
 Parent/user authorized the unlocked offline window after source checkpoint
 `e0d7e84`. This supersedes that checkpoint's **blocked local GTK** gate only.
 Nothing was installed or activated live; the installed UI was not the candidate.

@@ -1,18 +1,17 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794660391281,
+  "updated_at_ms": 1794661991912,
   "status": "NOT READY",
   "git": {
-    "revision": "49c748df2209f8e4054be0597e6bab1fcfa7ebde",
+    "revision": "e1504a023ac3ab525e1ea286a6c22e261a29ad83",
     "branch": "feat/pi-owner-gtk",
-    "dirty": true,
-    "note": "Frozen release source49c748d; this evidence-only receipt checkpoint does not change/relabel candidate source. Required trailers retained; no push before independent review."
+    "dirty": false,
+    "note": "Clean prior evidence HEAD at checkpoint; following evidence-only commit does not change installed frozen source6f9de3f."
   },
-  "deployed_revision": "1a6fb74: new installed UI/sidecar, user-selected legacy; persistent owner NOT installed",
-  "deployed_source_sha256": "2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121",
-  "deployed_binary_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
-  "phase": "Corrected6f9de3f immutable bundle prepared/verified; exact independent re-review required before cutover",
-  "current_task": "Independent re-review source6f9de3f and hn-final-6f9de3f manifest5e0730f1; then fresh actual human unlock/lock/lease/baseline gates before app-only cutover; human Connect/activation/read thereafter",
+  "deployed_revision": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
+  "deployed_binary_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
+  "phase": "Reviewed app-only cutover completed once/verified installed-legacy; genuine human persistent acceptance next",
+  "current_task": "Human Connect selects prepared6f9de3f owner, then separate activation/exact fixture consent and native result/journal acceptance. Parent coordinates allowed non-video media audit; all-media READY blocked by binding video refusal.",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -28,16 +27,16 @@
     "Physical hotkey",
     "Long-duration/full mixed/local-workflow/recovery acceptance",
     "Read-only memory GTK workflow; broader recall/history/search pagination not accepted",
-    "Video remains absent from isolated integration; original candidate lifecycle/play gate/locator are blocked"
+    "Video remains absent from isolated integration; original candidate lifecycle/play gate/locator are blocked",
+    "Mandatory all-media parity including VIDEO before READY; binding refusal prevents current full READY"
   ],
   "blockers": [
-    "Exact49c748d bundle review BLOCK P1 lexical/canonical target mismatch; corrected source/fresh bundle independent re-review required",
-    "Fresh actual user unlocked confirmation and maintained logind+locker checks before GUI/cutover",
-    "Persistent installed genuine-human Connect/activation/exact-read/idle/reconnect/revoke/restart/legacy+media acceptance pending",
-    "Cache source integrated/reviewed but no installed monitor lifecycle/UI/counter acceptance",
-    "Original231 precise cause UNKNOWN; initial cancellation and ordering diagnostics retained",
-    "Live provider schema/auth/destination/discovery/submission consent and queries unverified; video stays blocked by prior refusal/no reroute",
-    "Meson setup exit0 emits retained ResourceWarning for unclosed setup log; not a warning-clean tool run"
+    "Human persistent Connect/activation/exact-read/native outcome/idle/reconnect/revoke/restart acceptance pending",
+    "ALL media same-owner/router integration and live acceptance mandatory; video provider refusal covers prepare-cancel + ffprobe child cleanup, no fake-process reformulation/reroute/retry",
+    "Private capture/submission consent absent; no clipboard/camera/mic/screen access authorized",
+    "Original231 and GTK first corruption UNKNOWN; saved later headless GstPlay finalized/mutex abort134 retained",
+    "Installed monitoring RPC checked3times; UI render/counter/lifecycle acceptance pending",
+    "Meson finalization ResourceWarning and historical GTK/portal/hotkey/workflow gaps retained"
   ],
   "last_known_good": null,
   "historical_state_superseded": {
@@ -139,7 +138,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Independent re-review source6f9de3f and hn-final-6f9de3f manifest5e0730f1; then fresh actual human unlock/lock/lease/baseline gates before app-only cutover; human Connect/activation/read thereafter",
+  "next_action": "Human Connect selects prepared6f9de3f owner, then separate activation/exact fixture consent and native result/journal acceptance. Parent coordinates allowed non-video media audit; all-media READY blocked by binding video refusal.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -251,7 +250,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-frozen-bundle-corrected.json",
+  "evidence_current": "docs/evidence/final-app-cutover.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -261,5 +260,7 @@
     "checked_at": "2026-11-13T18:42:19.734963-05:00",
     "health_ids": "8081lfm-text/8082lfm-omni/8083lfm-decision healthy",
     "policy": "Metadata/health only; no inference or service operation"
-  }
+  },
+  "deployed_source_commit": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
+  "deployed_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc"
 }

@@ -5,6 +5,25 @@ checklist, not a claim that a source test, old installed run or planned action
 passed. Baseline: clean `d830015` on `feat/pi-owner-gtk`; original231 remains
 **UNKNOWN**. Initial failures and prior review BLOCK receipts stay retained.
 
+## Current installed gate and mandatory media scope
+
+Reviewed source **6f9de3fe2cb7f0c0f36071327fb7ea97765f2512** was applied once
+from immutable `hn-final-6f9de3f` after pinned review@2, fresh actual human unlock
+confirmation, exclusive lease, maintained logind+locker checks and stable trusted
+parent aliases. Installed UI3072857/sidecar3072852; binary
+`1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4`.
+Model identities unchanged; default legacy/disconnected; inert owner inactive0/static.
+Current DB quick_check and settings unchanged. Native human Connect/activation/
+exact-read still pending. [Cutover receipt](evidence/final-app-cutover.json).
+
+**Latest user requirement: ALL media paths must be integrated and live accepted
+before production READY.** Images, WAV/audio, VIDEO, screen/camera/microphone
+permission-backed capture, review/preview/playback, cancellation and cleanup must
+use the same Pi owner/router; silent legacy fallback is not parity. This is not
+permission to expand the first parent READ-ONLY profile or capture/submit media.
+The prior VIDEO provider refusal remains binding, therefore full READY is blocked:
+no excluding video from the required matrix, rerouting, enabling or retrying it.
+
 ## Authority, ownership and stop rules
 
 The user now authorizes coherent implementation/plan commits, reviewed non-force
@@ -108,14 +127,14 @@ sha256sum "$R/manifest.json" "$R/bin/hyprneuro-ui" "$R/owner/owner.json"
 
 ## 3. Reviewed app-only cutover (P02)
 
-- [ ] Confirm exact review approval matches manifest/source/binary/descriptor/
+- [x] Confirm exact review approval matches manifest/source/binary/descriptor/
   unit and helper hashes. Reverify models, baseline units/settings and backups.
-- [ ] Obtain fresh actual human unlocked confirmation AND independent session/
+- [x] Obtain fresh actual human unlocked confirmation AND independent session/
   locker checks. Standing deployment authorization does not manufacture this.
-- [ ] Under lease apply once using reviewed staged helper and verified session:
+- [x] Under lease apply once using reviewed staged helper and verified session:
   `"$P" "$R/staged/apply_app_release.py" "$R" --session "$SESSION" --parent-authorized --fresh-user-unlock-confirmed`.
   Never set confirmation flags without their actual evidence.
-- [ ] Only app UI/sidecar stop/start; inert owner template installed, no owner
+- [x] Only app UI/sidecar stop/start; inert owner template installed, no owner
   start/enable/autostart. Verify live entrypoint PID/import-origin attestation,
   build/installed/running SHA, effective units, sockets, legacy default/no binding,
   current DB integrity/settings preserved and model identities unchanged.
@@ -158,7 +177,8 @@ sha256sum "$R/manifest.json" "$R/bin/hyprneuro-ui" "$R/owner/owner.json"
   black95 border, live namespace/blur and app-scoped compatibility documented.
 - [ ] Synthetic PNG/JPEG/WebP and supported canonical WAV: picker/cancel, inline
   review/playback/remove, immutable submitted bytes and actual Omni answer;
-  error/oversize/unsupported inputs and hide/cleanup. No video acceptance.
+  error/oversize/unsupported inputs and hide/cleanup. Video acceptance remains
+  separately required but BLOCKED by the binding refusal; no execution here.
 - [ ] Synthetic stored observation/search/details/recall exact provenance and
   timestamps through restart; no new capture or private-history submission.
 - [ ] Physical hotkey requires actual user confirmation. Portal cleanup/GTK
@@ -213,9 +233,11 @@ sha256sum "$R/manifest.json" "$R/bin/hyprneuro-ui" "$R/owner/owner.json"
   review, coherent trailer-bearing commits and non-force push after ancestry check.
 - [ ] Update plan/acceptance ledger with per-row PASS/FAIL/BLOCKED/N/A and private
   artifact hashes; no blanket READY while any required gate or consent is missing.
-  Video/provider-refusal and unsupported hardware remain explicit residual limits.
+  Video/provider-refusal and required unavailable media hardware are production
+  blockers, not residual exclusions that permit READY.
 
-Current next action: independent exact49c748d source+bundle review; fresh human
+Historical next action (superseded by installed6f9de3f gate above): independent
+exact49c748d source+bundle review; fresh human
 unlock confirmation and lock/baseline recheck before app-only cutover. See latest
 execution receipt below; no cutover/owner activation or automatic consent yet. Do not skip to broader tools.
 
@@ -319,3 +341,42 @@ marker or owner start. Unit analyzer0/empty. Installed UI/model identities uncha
 Old49c748d BLOCK retained; new candidate not approved for cutover until exact
 independent re-review. Known Meson finalization warning retained.
 [evidence/final-frozen-bundle-corrected.json](evidence/final-frozen-bundle-corrected.json).
+
+## 9. Mandatory all-media parity — new user gate (after first READ-ONLY acceptance)
+
+- [ ] Parent coordinates one source writer/audit; inventory each source/installed/
+  runtime path and failure against the matrix before implementing non-refused work.
+- [ ] PNG/JPEG/WebP attachments: picker/drop, preview/remove, validation/limits,
+  immutable submitted bytes, actual Omni answer via the SAME Pi owner/session/router.
+- [ ] Canonical WAV/audio attachments: validate, review, playback/pause/replay/
+  remove, cancel/errors/cleanup, actual Omni answer through that same owner/router.
+- [ ] Screenshot and screen/camera capture: genuine foreground portal/device
+  permission, indicator, review/preview/remove, lock/exclusion/denial/cancel/close/
+  session release; no raw capture fallback. No capture without separate consent.
+- [ ] Microphone: genuine foreground permission/indicator, review/playback/remove,
+  cancel/close/release, private submission separately authorized; no ambient recording.
+- [ ] VIDEO file/capture/preview/playback/cancellation/cleanup and live Omni parity:
+  **BLOCKED by binding provider refusal. No execution or implementation here.**
+- [ ] No clipboard read/record without actual consent. Every private capture or
+  submission reviewed/authorized by the human; no consent automation.
+- [ ] Same Pi owner/router integration, retained session/journal/provenance, clear
+  unavailable/blocked statuses, no silent legacy-media escape, no scope widening of
+  first READ-ONLY profile; separate human authorization for broader capabilities.
+- [ ] Non-refused media source fixes and isolated regression tests followed by new
+  independently reviewed source/bundle and actual UI/live Omni acceptance. Do not
+  patch immutable installed candidate or touch refused shared lifecycle work under
+  a non-video label; escalate any scope overlap before implementing/reproducing.
+
+### Binding VIDEO scope and saved failures (documentation only)
+
+Authoritative audit `01M7D2MSBKJ2S2NBR9N39F6KES/video-scope`; original refusal
+`01M7B2MJE8EH581K8BH6EV6E2B`, sessions@1:51 and@2:183: provider cybersecurity-risk
+stop errors. Scope includes native prepare/cancel root cause AND unconditional
+ffprobe recorded-child cleanup. Latest human direction explicitly rejects the
+audit's suggested fake-process reformulation as an exemption/workaround. No other
+worker/provider, implementation, repro retry, unsafe enable/import/inference.
+
+Retain earlier passes AND saved later HEADLESS GstPlay prepare-cancel failure:
+`finalized` assertion, `g_mutex_clear` uninitialised/locked mutex, exit134. This is
+not the GTK GUI crash. First GTK corruption and original231 precise cause remain
+UNKNOWN. No tests/probes executed for this documentation; no READY with video excluded.

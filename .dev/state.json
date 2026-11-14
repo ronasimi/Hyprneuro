@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794661991912,
+  "updated_at_ms": 1794663693681,
   "status": "NOT READY",
   "git": {
     "revision": "e1504a023ac3ab525e1ea286a6c22e261a29ad83",
@@ -10,8 +10,8 @@
   },
   "deployed_revision": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
   "deployed_binary_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
-  "phase": "Reviewed app-only cutover completed once/verified installed-legacy; genuine human persistent acceptance next",
-  "current_task": "Human Connect selects prepared6f9de3f owner, then separate activation/exact fixture consent and native result/journal acceptance. Parent coordinates allowed non-video media audit; all-media READY blocked by binding video refusal.",
+  "phase": "Installed genuine Connect FAIL: Wayland disconnect/auto-restart; source chooser correction verified offline, new ops/release review pending",
+  "current_task": "Parent approves narrowly scoped update handling or assigns ops writer, independently reviews exact chooser correction, then fresh full-source immutable bundle and review before app-only update. Genuine human chooser retest only after review/update, then activation/exact read remain separately human.",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -31,6 +31,7 @@
     "Mandatory all-media parity including VIDEO before READY; binding refusal prevents current full READY"
   ],
   "blockers": [
+    "Real human chooser failed; no activation/read consent. New source fixed offline; existing inert owner template update refuses by current policy, requires parent-approved backup/replacement + independent new source/bundle review before update.",
     "Human persistent Connect/activation/exact-read/native outcome/idle/reconnect/revoke/restart acceptance pending",
     "ALL media same-owner/router integration and live acceptance mandatory; video provider refusal covers prepare-cancel + ffprobe child cleanup, no fake-process reformulation/reroute/retry",
     "Private capture/submission consent absent; no clipboard/camera/mic/screen access authorized",
@@ -138,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Human Connect selects prepared6f9de3f owner, then separate activation/exact fixture consent and native result/journal acceptance. Parent coordinates allowed non-video media audit; all-media READY blocked by binding video refusal.",
+  "next_action": "Parent approves narrowly scoped update handling or assigns ops writer, independently reviews exact chooser correction, then fresh full-source immutable bundle and review before app-only update. Genuine human chooser retest only after review/update, then activation/exact read remain separately human.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -213,7 +214,7 @@
     "matching16x16transparentSettings/arrow",
     "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
   ],
-  "verified_this_checkpoint": "Focused16passed/6subtests;full465Python/1skip/113subtests,77Node,17normal+17sanitized existing C,fresh GTK17helpers;exact source export/build/backup/origin/descriptor/units and staged verify passed",
+  "verified_this_checkpoint": "467Python/1skip/113subtests;77Node;21normal+21sanitized C passed. Fresh builds contain only existing GdkPixbuf deprecation warnings; no GUI/portal/model/video action.",
   "verified_this_audit": [
     "Shared focus through actual disposable Unix chat IPC injects current skill exactly once, preserves complete DEFAULT_SYSTEM, exact native WAV; MP4 and malformed WAV rejected before mocked inference",
     "Approved skill snapshot with ingest/capture off and no execution grants; existing live-focus ingest consent gate preserved",
@@ -250,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-app-cutover.json",
+  "evidence_current": "docs/evidence/final-connect-chooser-failure.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",

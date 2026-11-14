@@ -125,6 +125,7 @@ struct App {
 
     gboolean pi_parent_only, pi_normal_only, pi_optin, pi_connected, pi_transition, pi_chat, pi_native_error, pi_rendering;
     gboolean pi_on_pending, pi_off_pending, pi_dead, pi_selecting;
+    char *pi_connect_error;
     char *pi_state, *pi_consent_id;
     GtkSwitch *pi_switch;
     GtkWidget *pi_label, *pi_route, *pi_cancel, *pi_connect, *pi_row;

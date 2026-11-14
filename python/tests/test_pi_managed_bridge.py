@@ -80,6 +80,7 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.bridge.connect=wrong
         await self.bridge.request({'op':'connect','root':str(self.root)})
         self.assertTrue(self.clients[0].closed);self.assertIsNone(self.bridge.control)
+        self.assertIn('parent READ-ONLY',self.packets[-1]['error'])
         self.assertNotIn('connected',[p['type'] for p in self.packets])
         (self.root/'owner.sock').unlink();self.starts.clear()
         async def fail(root):self.starts.append(str(root));raise RuntimeError('unknown start outcome')
@@ -91,3 +92,30 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.bridge.request({'op':'connect','root':str(self.root),'approved':True})
         self.assertEqual(self.starts,[])
         self.assertEqual(self.packets[-1]['type'],'error')
+
+    async def test_connect_failure_stage_is_visible_without_exception_or_secret_reflection(self):
+        with patch('hyprneuro.pi_managed_bridge.load_config',side_effect=ValueError('SECRET_PRIVATE_PATH')):
+            await self.bridge.request({'op':'connect','root':str(self.root)})
+        error=self.packets[-1]
+        self.assertEqual(error['op'],'connect');self.assertIn('owner.json',error['error'])
+        self.assertNotIn('SECRET_PRIVATE_PATH',json.dumps(error))
+        self.assertEqual(self.starts,[]);self.assertEqual(self.clients,[])
+        self.guard.unlocked=False
+        await self.bridge.request({'op':'connect','root':str(self.root)})
+        self.assertIn('unlocked Wayland',self.packets[-1]['error'])
+        self.assertNotIn('owner.json',self.packets[-1]['error'])
+
+    async def test_service_and_authentication_failure_are_distinct_and_never_auto_replayed(self):
+        async def fail_start(root):
+            self.starts.append(str(root));raise RuntimeError('SECRET_PRIVATE_PATH')
+        self.bridge.start_service=fail_start
+        await self.bridge.request({'op':'connect','root':str(self.root)})
+        self.assertIn('starting/waiting',self.packets[-1]['error'])
+        self.assertEqual(len(self.starts),1)
+        (self.root/'owner.sock').touch()
+        async def fail_auth(root,*,trusted):raise ConnectionError('SECRET_AUTH')
+        self.bridge.connect=fail_auth
+        await self.bridge.request({'op':'connect','root':str(self.root)})
+        self.assertIn('authenticating',self.packets[-1]['error'])
+        self.assertNotIn('SECRET',json.dumps(self.packets))
+        self.assertEqual(len(self.starts),1)

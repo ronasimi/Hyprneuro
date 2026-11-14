@@ -1,0 +1,81 @@
+{
+  "recorded_utc": "2026-11-14T13:41:33.677422+00:00",
+  "verdict": "Installed genuine Connect chooser FAIL; source correction passes offline tests, NOT installed/reviewed",
+  "user_observation": "Human clicked Connect, selected exact reviewed prepared owner folder, then Open; nothing happens. No activation/read/tool consent granted. Do not request blind repeat.",
+  "installed_source": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
+  "installed_binary_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
+  "runtime_metadata": {
+    "UI": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 3080438,
+      "start": "42931973",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "mode": {
+      "mode": "legacy",
+      "connected": false,
+      "read_callable": false,
+      "fresh_consent_required": true
+    },
+    "owner": "ActiveState=inactive\nMainPID=0\n",
+    "owner_files": [
+      "home",
+      "owner.json"
+    ],
+    "installed_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4"
+  },
+  "observed_failure": "Journal proves UI3072857 lost Wayland compositor connection2026-11-14 08:26:41 local, exit1; existing systemd Restart policy restarted UI as3080438 at08:26:43. Owner remains inactive0, only home/owner.json exist; UI legacy/disconnected. Operator did not restart/reapply.",
+  "cause_classification": "Definite source defect: Connect GtkFileDialog exports layer-shell a->win as portal parent unlike already-correct attachment picker. This exact-version incompatibility is documented in layer-shell skill. Observed disconnect matches; current saved log has no precise protocol error/backtrace, so causal confirmation remains pending fresh reviewed human GUI test. Not merely invisible owner activation; no owner service ran.",
+  "secondary_defects": "Chooser ignored GError and nonlocal selection; lacked cancellable/focus yielding/stale-result guard. Async managed bridge collapsed stages, GTK discarded provided error and route could remain connecting.",
+  "correction": "Unparented NULL-parent chooser, yield/restore keyboard, shared cancellable prevents overlapping pickers and blocks send, hide/stop cancels, stale/hidden/busy/dead/nonlocal result refuses; accepted callback sends one connect frame, no consent. Static classified descriptor/unlock/service/auth/profile errors have per-request exception ownership, no shared stage race or secret reflection; GTK persists bounded plain-text error in route until explicit user action.",
+  "regression": "Controlled original6f9 chooser compiled into mock-only headless harness fails parent-null assertion, exit134 as expected; no real portal or owner connection. This intentional unit assertion is NOT the separate saved video GstPlay abort134. Corrected four callback tests and existing17C pass normal+sanitized.",
+  "focused": "38Python/6subtests passed; one initial misplaced test assertion caused37pass/1fail, corrected and retained log. Earlier readonly diagnostic ui_status call lacked path argument (TypeError), then corrected; no mutation.",
+  "full": "467Python/1skip/113subtests;77Node;21normal+21sanitized C passed. Fresh builds contain only existing GdkPixbuf deprecation warnings; no GUI/portal/model/video action.",
+  "source_sha256": {
+    "python/src/hyprneuro/pi_managed_bridge.py": "91d288d409ad2086c5d634fd81adc3ff26a9c6fea014d01bdd028c50e5659f4a",
+    "python/tests/test_pi_managed_bridge.py": "56b6c36f8ba07b9aa1b5fbaa47053fd1ff97ec893337d775ffbe723c16d5420d",
+    "ui/src/hyprneuro.c": "081db61270dedc4fbb87b412f865dede96a199b8e6a3e128d7ad07c033cd81a3",
+    "ui/src/pi-desktop.inc": "63ca3df2be0b285e1ee6c927b25c30a9909a716caf0e9b7cb6365fb1eb210c16",
+    "ui/src/pi-picker.inc": "74ee4a52fb00204c80d9d189444c95c34775e4530d774170a58ccb096e8f6533",
+    "ui/tests/pi_picker.c": "3d0d96d766c4de7f4308e194205f1527dd8e151bd650213099a64e6ca18e1f96",
+    "ui/meson.build": "97f3b2f81611775cb55a616946f8af125ba36769b301896aa80a4532d69df3f2"
+  },
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/baseline-picker-test": "67a4da59afe1be9da2c67ff2f1aa23439d8283fb57760514494e35a86cf87f6d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/baseline-picker-test.c": "8a3ca40eedd68b4c4c83fdbf8e9827eabc668cf971ce4db6bd7431ca6cbad656",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/baseline-picker.inc": "8a508f5ccdcbed181958598f4403ff21e49a37ce1aac81f5e9206d18e1426e53",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/baseline-regression.exit": "e726b440cc164001999e718b51780d80314709efe06e7857282377be9111127b",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/baseline-regression.log": "5a7840e09d1c21afc8987ad5e4a1130bed0c146d86709f6c20ba3991ae488520",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/build-final.log": "837978f8c86a64cbbd1109db5e92621858806de71d5ee937bbb6605c9b664c89",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/build.log": "f3c7bb5004d2c87e75cea9299cf3e955e79b0d2b7a3a17ffa1916a3cc1dc1161",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/c-final.log": "08b4e31758060faad7e5a30743bcf9c6a6abc7cd834b419dbe6b690ef151f301",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/c.log": "777b5dcf3a3ed729daf68d65fa361e830b95413e78756c6688d08f26bf5bdb4b",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/compositor-filtered.log": "c8e555b99e679e0b53a155ad1c6893cea367bcbfdbd943471f8691967d309159",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/focused-python-final.log": "c092a2e4101d389b7bf1179a66e51f1f0330735bcf3c6a0dcfa78c5ccb452349",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/focused-python-initial-classification-assertion-placement.log": "b29be2a6c69b18ebc06389c8c56aceb12caf63994608722704ac8d1e4f0cc472",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/focused-python.log": "ab0adfcf8d81574058197de4e511fcfa05171f743218d02376f4d51ef48790f5",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/metadata.json": "667c0408348930d0e42a6c23feb478ef202be6f11b9b785a0a011a997ad49de2",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/owner-journal.log": "19c4e28b2f54ea8f217db4e622b0a5c758efa7b77ce2dc0394b6d159568c0b2e",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/sanitized-build-final.log": "5f999759e7e9645590efc8fe9654ba69c7d43ce9a0f343eeb6fdcc3516ccf70d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/sanitized-build.log": "ec19359b503d5241833be25f9961c0428ba9635d2e5934e5b1ff27af1bdf61a0",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/sanitized-c-final.log": "75e8f8995e391c953c69e1d661aa0e21c251cddfceea7da308444bbad197b1b3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/sanitized-c.log": "bc32e08fce870487298ca52dc0637e89b0f73089ccd0a3dfc108d2bc1defb717",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/connect-failure/ui-journal.log": "70b166a042fcacbb8bc7ee298a0ee969440d64700adb01e9ee93a7c8597eb977",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/c-sanitized.log": "fcaabb68eadbb7e683b2a139661358edbd5c1e06bdcdf40a77273d9223770b65",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/c.log": "e354da5ea5e3a79dacde807791f6851b6928bbb48aea29ecf0e20f7f36e9c93a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/exit-status.json": "d5ee916cc29d500f827dee0c79cc5571849696c21c107e33f36205376c5579c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/full-fixture-root": "bb9701caaac48f5a90c82b043c264c3f20da31802681b2274989c6b7cb8b9183",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/full.sh": "44929c10512ffdf3d30fbfc8e5fa764cb9868a7318cfdc2809253fd678dddfba",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/node.log": "38394a975b970ee86ab047d67c413ea2b0c0818d7f9ea782071f4039fd642b03",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-connect-fix/python.log": "1cf63adf1eaf89edbca342dbba88fc3f4a078a97f3871a7dbd3cab6387eaf005"
+  },
+  "new_bundle_blocker": "verify_app_release.release_targets refuses any pre-existing hyprneuro-pi-owner@.service; prepare captures only UI/sidecar unit files, not existing owner template. Current installed reviewed inert template exists. Cannot prepare a passing new bundle by bypass/removal/relabel; request explicit reviewed hash-pinned backup/replacement policy with inactive owner instances before changes.",
+  "next": "Parent approves narrowly scoped update handling or assigns ops writer, independently reviews exact chooser correction, then fresh full-source immutable bundle and review before app-only update. Genuine human chooser retest only after review/update, then activation/exact read remain separately human.",
+  "limits": "No deployed frozen file changed, no app/owner/model service action, no fake real activation/consent, capture or clipboard access. Delegated live acceptance paused. Video implementation/repro/ffprobe cleanup/fake-process workaround still refused; original231/GTK first corruption UNKNOWN."
+}

@@ -46,11 +46,13 @@ static void pi_route_update(App *a) {
     }
     if (a->pi_row) gtk_widget_set_visible(a->pi_row, a->pi_optin);
     if (!a->pi_optin) {
-        gtk_label_set_text(GTK_LABEL(a->pi_route), "Legacy sidecar · tool-free chat/media · Pi disconnected");
+        gtk_label_set_text(GTK_LABEL(a->pi_route), a->pi_connect_error ? a->pi_connect_error :
+            "Legacy sidecar · tool-free chat/media · Pi disconnected");
         return;
     }
     if (!a->pi_connected) {
-        gtk_label_set_text(GTK_LABEL(a->pi_route), "Pi disconnected/connecting · no tools available · no fallback; Disconnect returns to Legacy");
+        gtk_label_set_text(GTK_LABEL(a->pi_route), a->pi_connect_error ? a->pi_connect_error :
+            "Pi disconnected/connecting · no tools available · no fallback; Disconnect returns to Legacy");
         return;
     }
     gtk_label_set_text(GTK_LABEL(a->pi_route), a->attachment_b64 ?
@@ -91,6 +93,8 @@ static void pi_render(App *a) {
 }
 
 static void pi_owner_unavailable(App *a) {
+    g_free(a->pi_connect_error);
+    a->pi_connect_error = g_strdup("Pi disconnected/unavailable · no tools or fallback; inspect checkpoint before reconnect");
     a->pi_parent_only = FALSE; a->pi_normal_only = FALSE; a->pi_connected = FALSE; a->pi_transition = FALSE;
     a->pi_on_pending = a->pi_off_pending = FALSE;
     g_free(a->pi_state); a->pi_state = g_strdup("unavailable");
@@ -308,9 +312,10 @@ static void pi_packet(App *a, JsonNode *packet) {
     const char *type = jstr(jmember(packet, "type"));
     const char *op = jstr(jmember(packet, "op"));
     if (!g_strcmp0(type, "disconnected")) {
-        pi_owner_unavailable(a); a->pi_optin = FALSE; pi_render(a);
+        pi_owner_unavailable(a); a->pi_optin = FALSE;
+        g_clear_pointer(&a->pi_connect_error, g_free); pi_render(a);
         set_status(a, "Legacy mode explicitly selected · Pi tools unavailable");
-    } else if (!g_strcmp0(type, "connected")) { a->pi_connected = TRUE; pi_render(a); }
+    } else if (!g_strcmp0(type, "connected")) { g_clear_pointer(&a->pi_connect_error, g_free); a->pi_connected = TRUE; pi_render(a); }
     else if (!g_strcmp0(type, "status")) {
         a->pi_parent_only = pi_parent_only_ready(jmember(packet, "result"));
         a->pi_normal_only = pi_normal_only_ready(jmember(packet, "result"));
@@ -353,7 +358,13 @@ static void pi_packet(App *a, JsonNode *packet) {
             if (!ok) { g_free(a->pi_state); a->pi_state = g_strdup("failed"); }
             pi_render(a);
         }
-        if (!ok) set_status(a, "Pi request failed · review owner/checkpoint · no retry");
+        if (!ok && !g_strcmp0(op, "connect")) {
+            const char *error = jstr(jmember(packet, "error"));
+            g_free(a->pi_connect_error);
+            a->pi_connect_error = g_strdup(error && g_utf8_strlen(error, -1) <= 300 ? error :
+                "Pi connection refused · no tools available · review owner/checkpoint; no retry");
+            pi_route_update(a); set_status(a, a->pi_connect_error);
+        } else if (!ok) set_status(a, "Pi request failed · review owner/checkpoint · no retry");
     } else if (!g_strcmp0(type, "notice")) {
         set_status(a, "Pi consent denied: action details exceeded display bound");
     } else if (!g_strcmp0(type, "unavailable")) pi_owner_unavailable(a);
@@ -397,6 +408,7 @@ static void pi_start(App *a) {
     pi_read_next(a);
 }
 static void pi_stop(App *a) {
+    if (a->pi_selecting && a->picker_cancel) g_cancellable_cancel(a->picker_cancel);
     pi_close_dialog(a);
     if (a->pi_io) g_cancellable_cancel(a->pi_io);
     if (a->pi_out) g_output_stream_close(a->pi_out, NULL, NULL);
@@ -408,28 +420,7 @@ static char *pi_status_frame(App *a) {
         a->pi_optin ? "pi" : "legacy", a->pi_connected ? "true" : "false",
         a->pi_connected && a->pi_parent_only ? "true" : "false");
 }
-static void pi_owner_selected(GObject *object, GAsyncResult *result, gpointer data) {
-    App *a = data; a->pi_selecting = FALSE; pi_route_update(a);
-    GFile *file = gtk_file_dialog_select_folder_finish(GTK_FILE_DIALOG(object), result, NULL);
-    if (!file) return; /* chooser cancellation leaves Legacy/draft untouched */
-    char *root = g_file_get_path(file); g_object_unref(file);
-    if (root && !a->busy && !a->pi_optin) {
-        a->pi_optin = TRUE; pi_render(a); /* explicit intent; never fallback on failure */
-        pi_send(a, "connect", root, FALSE);
-    }
-    g_free(root);
-}
-static void pi_connect_clicked(GtkButton *button, gpointer data) {
-    (void)button; App *a = data;
-    if (a->busy) { set_status(a, "Cancel/settle current chat before changing mode; no replay"); return; }
-    if (a->pi_optin) { pi_send(a, "disconnect", NULL, FALSE); return; }
-    if (a->pi_selecting) return;
-    a->pi_selecting = TRUE; pi_route_update(a);
-    GtkFileDialog *dialog = gtk_file_dialog_new();
-    gtk_file_dialog_set_title(dialog, "Select prepared private Pi owner root — not personal files");
-    gtk_file_dialog_select_folder(dialog, a->win, NULL, pi_owner_selected, a);
-    g_object_unref(dialog);
-}
+#include "pi-picker.inc"
 static void pi_build(App *a) {
     a->pi_connect = gtk_button_new_with_label("Connect Pi owner…");
     gtk_widget_set_tooltip_text(a->pi_connect, "Explicitly select a prepared private parent-read owner. No permissions from settings; fresh human activation/read consent required.");

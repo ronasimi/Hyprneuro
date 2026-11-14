@@ -13,8 +13,10 @@ confirmation, exclusive lease, maintained logind+locker checks and stable truste
 parent aliases. Installed UI3072857/sidecar3072852; binary
 `1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4`.
 Model identities unchanged; default legacy/disconnected; inert owner inactive0/static.
-Current DB quick_check and settings unchanged. Native human Connect/activation/
-exact-read still pending. [Cutover receipt](evidence/final-app-cutover.json).
+Current DB quick_check and settings unchanged. Human Connect was attempted and
+FAILED: UI lost Wayland connection and existing systemd policy restarted it as
+3080438; owner inactive0, no activation/read consent. Live acceptance PAUSED
+until reviewed chooser correction/update; do not request blind repeat. [Cutover receipt](evidence/final-app-cutover.json).
 
 **Latest user requirement: ALL media paths must be integrated and live accepted
 before production READY.** Images, WAV/audio, VIDEO, screen/camera/microphone
@@ -380,3 +382,28 @@ Retain earlier passes AND saved later HEADLESS GstPlay prepare-cancel failure:
 `finalized` assertion, `g_mutex_clear` uninitialised/locked mutex, exit134. This is
 not the GTK GUI crash. First GTK corruption and original231 precise cause remain
 UNKNOWN. No tests/probes executed for this documentation; no READY with video excluded.
+
+## 10. Installed genuine chooser failure — blocks further live acceptance
+
+- [x] Retain real human exact-folder+Open failure, installed6f9de3f/1f25fd78…f78e4
+  identities and journal: UI3072857 lost compositor08:26:41, systemd auto-restarted
+ 3080438; owner inactive0, UI legacy/disconnected, no grant/read.
+- [x] Source defect identified: Connect exports layer-shell window as portal parent,
+  unlike existing attachment picker. Current logs prove disconnect, not exact
+  protocol backtrace; corrected live causality remains unproven until human retest.
+- [x] Correct unparented/focus/cancellable/stale-result/error handling and retained
+  route errors; classified async descriptor/unlock/service/auth/profile failures,
+  no arbitrary exception/credential reflection or shared per-request stage race.
+- [x] Mock-only actual callback regression old134(NULL-parent assertion), new4tests
+  plus17existingC normal/sanitized;38focusedPython/6subtests;full467Python/1skip/
+ 113subtests,77Node,21+21C. No real portal or Connect/approval automation.
+- [ ] Parent decision on existing inert owner-template update: current helper
+  deliberately refuses it and existing baseline does not back it up. Require
+  reviewed hash-pinned backup/replacement/rollback with inactive owner instances;
+  do NOT remove/bypass existing template or patch frozen installed bundle.
+- [ ] Independently review new source and fresh immutable bundle before app-only
+  update; then genuine human chooser retest under maintained gates (no blind retry).
+- [ ] Activation/exact fixture read still human; broader media/live acceptance
+  paused meanwhile, binding video refusal/no READY remains unchanged.
+
+[Failure/correction receipt](evidence/final-connect-chooser-failure.json).

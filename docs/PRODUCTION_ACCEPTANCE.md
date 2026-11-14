@@ -1,5 +1,30 @@
 # Hyprneuro production acceptance — NOT READY
 
+## Current blocker — genuine installed Connect chooser failed
+
+Human selected exact prepared6f9de3f owner and Open, reported nothing. Journal
+proves UI3072857 lost Wayland connection08:26:41 and existing systemd policy
+restarted it3080438; installed1f25fd78…f78e4 unchanged, owner inactive0, UI legacy.
+No activation/read grant. Do not ask blind repeat; delegated live acceptance paused.
+
+Source now corrects layer-shell portal parenting (NULL), focus/cancellable/stale
+callbacks and visible persistent errors; managed error stages are private per
+request and never reflect exception secrets. Known invalid parent source defect
+matches disconnect, but exact protocol trace/live causal confirmation is absent.
+Mock-only callback test fails old parent assertion; new21+21C and full467Python/
+1skip/113subtests,77Node pass. Source NOT reviewed/installed; need new bundle.
+Current helpers refuse existing inert owner template and do not back it up:
+parent must approve narrow pinned replacement/rollback policy before preparation,
+not bypass safeguards. Preserve frozen6f9de3f and original49c748d BLOCK.
+
+All-media READY remains mandatory and blocked by VIDEO refusal: no refused
+prepare-cancel/ffprobe cleanup task, fake-process workaround or reroute. Original231
+and GTK first corruption UNKNOWN. No new GUI/consent/service/media execution.
+
+[Plan](FINAL_IMPLEMENTATION_PLAN.md);[receipt](evidence/final-connect-chooser-failure.json).
+
+--- Historical checkpoints retained below ---
+
 ## Current installed checkpoint — human READ-ONLY acceptance next
 
 Reviewed6f9de3f app-only cutover completed exactly once after review@2 and fresh

@@ -22,6 +22,12 @@ async def command(*args):
             await process.wait()
 
 
+class OwnerConnectError(RuntimeError):
+    def __init__(self, stage):
+        super().__init__("Owner connect refused; no replay")
+        self.stage = stage
+
+
 class ManagedDesktopBridge(DesktopBridge):
     def __init__(self, send, *, connect=None, guard=None, start_service=None):
         kw = {'connect': connect} if connect else {}
@@ -51,37 +57,46 @@ class ManagedDesktopBridge(DesktopBridge):
 
     async def attach(self, root):
         async with self.connection_lock:
-            if self.control or self.failed:
-                raise ValueError('Disconnect/review before another explicit connect')
-            await self.ensure_unlocked()
-            config = await asyncio.to_thread(load_config, root)
-            self.root = str(root)
-            if not (Path(root) / 'owner.sock').exists():
-                await self.start_service(root)  # once, never retry a start/mutation
-                async with asyncio.timeout(10):
-                    while not (Path(root) / 'owner.sock').exists():
-                        await self.ensure_unlocked()
-                        await asyncio.sleep(.05)
-            await self.ensure_unlocked()
-            control = await self.connect(self.root, trusted=True)
+            stage = 'connection'
             try:
-                status = await asyncio.wait_for(control.call('status'), 5)
-                if (status.get('persistent') is not True or status.get('parent_only') is not True
-                        or status.get('normal_only') is not True or status.get('tools') != ['read']
-                        or status.get('owner_phase') != 'ordinary' or status.get('state') != 'unavailable'
-                        or status.get('workspace') != str(Path(root) / 'home/workspace')
-                        or status.get('task_id') != config['task_id'] or status.get('app_id') != 'hyprneuro-parent-read'
-                        or status.get('read_paths') != sorted(str(Path(root) / 'home/workspace' / p) for p in config['read_paths'])):
-                    raise ValueError('Wrong or unknown owner profile/session; no adoption')
+                if self.control or self.failed:
+                    raise ValueError('Disconnect/review before another explicit connect')
+                stage = "unlock"
                 await self.ensure_unlocked()
-            except BaseException:
-                await control.close()
-                raise
-            self.control = control
-            self.workers = [asyncio.create_task(self.events(control, host=True)), asyncio.create_task(self.poll())]
-            self.monitor = asyncio.create_task(self.monitor_connection())
-            await self.send({'type': 'connected'})
-            await self.send({'type': 'status', 'result': status})
+                stage = "descriptor"
+                config = await asyncio.to_thread(load_config, root)
+                self.root = str(root)
+                if not (Path(root) / 'owner.sock').exists():
+                    stage = "service"
+                    await self.start_service(root)  # once, never retry a start/mutation
+                    async with asyncio.timeout(10):
+                        while not (Path(root) / 'owner.sock').exists():
+                            await self.ensure_unlocked()
+                            await asyncio.sleep(.05)
+                await self.ensure_unlocked()
+                stage = "authentication"
+                control = await self.connect(self.root, trusted=True)
+                try:
+                    stage = 'profile'
+                    status = await asyncio.wait_for(control.call('status'), 5)
+                    if (status.get('persistent') is not True or status.get('parent_only') is not True
+                            or status.get('normal_only') is not True or status.get('tools') != ['read']
+                            or status.get('owner_phase') != 'ordinary' or status.get('state') != 'unavailable'
+                            or status.get('workspace') != str(Path(root) / 'home/workspace')
+                            or status.get('task_id') != config['task_id'] or status.get('app_id') != 'hyprneuro-parent-read'
+                            or status.get('read_paths') != sorted(str(Path(root) / 'home/workspace' / p) for p in config['read_paths'])):
+                        raise ValueError('Wrong or unknown owner profile/session; no adoption')
+                    await self.ensure_unlocked()
+                except BaseException:
+                    await control.close()
+                    raise
+                self.control = control
+                self.workers = [asyncio.create_task(self.events(control, host=True)), asyncio.create_task(self.poll())]
+                self.monitor = asyncio.create_task(self.monitor_connection())
+                await self.send({'type': 'connected'})
+                await self.send({'type': 'status', 'result': status})
+            except Exception as error:
+                raise OwnerConnectError(stage) from error
 
     async def monitor_connection(self):
         # No whole-service600s timer: verify only while this UI is connected.
@@ -137,8 +152,20 @@ class ManagedDesktopBridge(DesktopBridge):
             if not (op == 'cancel' or op == 'consent' and packet.get('allowed') is False):
                 await self.ensure_unlocked()
             await super().request(packet)
-        except Exception:
-            await self.send({'type': 'error', 'op': op, 'error': 'Owner connect/request refused. Review service/checkpoint; no retry or fallback. Explicit disconnect returns to legacy.'})
+        except Exception as failure:
+            # Static stage messages only: never expose exception paths, credentials
+            # or backend bodies. GTK retains this connect failure in its route row.
+            stages = {
+                'unlock': 'Pi connect refused: local unlocked Wayland session required.',
+                'descriptor': 'Pi connect refused: select the prepared private folder containing valid owner.json.',
+                'service': 'Pi connect failed starting/waiting for the owner service; inspect service/checkpoint.',
+                'authentication': 'Pi connect failed authenticating the owner socket; inspect service/checkpoint.',
+                'profile': 'Pi connect refused: owner is not the exact normal-only parent READ-ONLY profile.',
+            }
+            error = stages.get(failure.stage) if op == 'connect' and isinstance(failure, OwnerConnectError) else None
+            await self.send({'type': 'error', 'op': op, 'error':
+                             (error + ' No retry/fallback; Disconnect returns to Legacy.') if error else
+                             'Owner connect/request refused. Review service/checkpoint; no retry or fallback. Explicit disconnect returns to legacy.'})
 
     async def close(self):
         await self.detach()

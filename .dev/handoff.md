@@ -1,3 +1,27 @@
+## Current frozen final candidate — independent review gate
+
+Plan/checklists: `docs/FINAL_IMPLEMENTATION_PLAN.md`.
+Normal stack was explicitly authorized and started under lease:Text3039039,
+Omni3039041,D13039045 active/healthy correct IDs;MoE inactive;config hashes unchanged.
+The reviewed cache source is integrated as e64feef. Final source49c748d includes
+MCP wiring, admitted-cancellation fixture correction and app-only explicit UI
+ordering fix. Candidate `/home/ron/Workspace/hn-final-49c748d` is prepared, payload
+read-only and verified, **not installed or approved for cutover**.247source files,
+5unit backups,DB/settings rollback,actual import origins verified;unit analyzer
+exit0/**empty diagnostics**. Earlier edaa238 candidate remains HELD/unchanged.
+
+Combined **462 Python/1skip/113subtests;77Node;17+17 existing C;fresh GTK17helpers**.
+Initial Python cancellation failure and old ordering-cycle diagnostics retained;
+Meson finalization ResourceWarning retained. Installed/running UI still
+f6de29a2…76b5a5. No apply,owner start/enable,GUI workflow or installed-counter claim.
+Parent must independently review exact49c748d source/bundle,then fresh actual
+human unlock confirmation + independent gates before once-only app cutover.
+Genuine Connect/activation/exactread remains human. Video blocked/no reroute;
+original231 UNKNOWN. **NOT READY.**
+Receipt: `docs/evidence/final-frozen-bundle.json`.
+
+--- Historical handoff retained below ---
+
 ## Current MCP same-session source integration — uncommitted review checkpoint
 
 Approved `f9ea60b` + `09f5c43` cherry-picked onto `292ce8c` as `0b856c6` +

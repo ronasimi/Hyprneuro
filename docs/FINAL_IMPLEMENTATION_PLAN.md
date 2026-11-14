@@ -69,26 +69,26 @@ artifact hash, blocker and next dependency. Tick only the specific proven item.
 
 ## 2. Exact immutable release and independent review (P01/P02)
 
-- [ ] Select the exact latest coherent committed descendant. Parent monitor work
+- [x] Select the exact latest coherent committed descendant. Parent monitor work
   may join only after its isolated review and combined regression; do not imply
   runtime monitoring acceptance if absent. Freeze one source identity, not a
   moving branch or dirty working copy.
-- [ ] Full offline Python/Node and normal+sanitized C helpers; compile current GTK
+- [x] Full offline Python/Node and normal+sanitized C helpers; compile current GTK
   in isolated private paths under the lease. Retain initial failures. Latest
   historical evidence is455 Python/1skip/104subtests,77 Node,17+17 C, not a new run.
-- [ ] Prepare at a fresh short canonical private path; pin source tree to git
+- [x] Prepare at a fresh short canonical private path; pin source tree to git
   objects, manifest, binary, staged helpers, descriptor, exact read fixture and
   native SDK/Durable paths. Exported source/payload become owner-read-only.
-- [ ] Verify current UI rollback executable, SQLite online backup quick_check,
+- [x] Verify current UI rollback executable, SQLite online backup quick_check,
   settings copy and **every** unit backup path/UID/type/mode/link/hash before any
   mutation. Never publish private backup contents.
-- [ ] Verify staged/actual import origins, effective current app units/drop-ins,
+- [x] Verify staged/actual import origins, effective current app units/drop-ins,
   composed candidate unit syntax and inert owner template (no ambient drop-ins).
   Descriptor: normal-only, read-only, parent-only, fixture HOME/workspace; no
   providers/children/residency lifecycle grants or ambient discovery.
-- [ ] `verify_app_release.py` succeeds against unchanged current app and model
+- [x] `verify_app_release.py` succeeds against unchanged current app and model
   identities; installed binary/settings/config untouched by preparation.
-- [ ] Send parent immutable paths and hashes; **independent exact-bundle approval
+- [x] Send parent immutable paths and hashes; **independent exact-bundle approval
   required before apply**. A source-only review is not cutover/live acceptance.
 
 Preparation commands (run together under the machine lease, only after step1):
@@ -215,8 +215,9 @@ sha256sum "$R/manifest.json" "$R/bin/hyprneuro-ui" "$R/owner/owner.json"
   artifact hashes; no blanket READY while any required gate or consent is missing.
   Video/provider-refusal and unsupported hardware remain explicit residual limits.
 
-Current next action: prepare/verify the exact app-only release from the committed
-checkpoint; parent independent source+bundle review before cutover. Do not skip to broader tools.
+Current next action: independent exact49c748d source+bundle review; fresh human
+unlock confirmation and lock/baseline recheck before app-only cutover. See latest
+execution receipt below; no cutover/owner activation or automatic consent yet. Do not skip to broader tools.
 
 ## Latest execution receipt
 
@@ -264,3 +265,21 @@ isolated systemd graph regression now pass13tests/6subtests; first fixture failu
 is retained. No live unit or global target changed. Next fresh source/bundle
 identity must include this fix; never relabel edaa238 or replay its preparation.
 [evidence/final-app-ordering.json](evidence/final-app-ordering.json).
+
+### Current frozen bundle:49c748d — review required, not applied
+
+Exact source `49c748df2209f8e4054be0597e6bab1fcfa7ebde`, candidate
+`/home/ron/Workspace/hn-final-49c748d`. Manifest SHA256
+`0fbbedcc3cdb05ae548392dc943db78492d98674b3ad51b764b5b1862f4d06e7`;
+binary `df9a1a178e6135c59fe6622e3020d868568bae6fd4313146f19ca03486bc599d`.
+Combined462 Python/1skip/113subtests;77Node;17+17 existing C;fresh GTK17helpers.
+All247 source files matched exact git objects;5unit rollback copies verified;
+SQLite backup quick_check=ok; actual old/candidate import origins verified.
+Composed app/template unit verification:exit0, **empty diagnostics**. Installed
+UI f6de29a2…76b5a5 and model PIDs3039039/3039041/3039045 unchanged;MoE inactive.
+Post-interruption staged verifier and hashes rechecked, no replay/rebuild.
+Meson emitted an unclosed setup-log ResourceWarning at finalization despite exit0;
+it is retained, not hidden or labelled warning-clean. No app cutover, owner start,
+GUI/installed-counter acceptance or human grant. Evidence-only commits after this
+freeze do not change or relabel the candidate's source identity.
+[evidence/final-frozen-bundle.json](evidence/final-frozen-bundle.json).

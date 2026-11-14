@@ -540,3 +540,22 @@ native first-read acceptance remain unproven. All prior/video blockers unchanged
 
 [Recovery blocker](evidence/final-controlled-root-switch-blocked.json). Current
 READ-ONLY acceptance PAUSED; all-media/video refusal blockers remain unchanged.
+
+## 16. Bounded graceful recovery authorized — human Disconnect still pending
+
+- [x] Parent explicitly authorizes one exact-unit main SIGTERM only after reviewed
+  identity/idle/admission/transport conditions; NO systemctl stop auto-kill timer,
+  SIGKILL/processgroup/global kill/reset/replay/lock deletion or escalation.
+- [x] Exact3107869/start43241373/cgroup/exe ownership verified; native messages0,
+  no persisted session or TCP sockets; fixture read auth_check=false/no_authorization.
+  Existing cleanup-failure log reviewed, checkpoint privately preserved unchanged.
+- [ ] HUMAN Disconnect Pi → Legacy once, confirm Legacy or report unavailable.
+  Current UI Pi intent/disconnected, so no signal issued. Do not Connect newroot yet.
+- [ ] Repeat all live identity/no-critical-work/session/locker gates; one authorized
+  SIGTERM; bounded observe actual process exit AND global kernel lock release. If
+  pending work, drift, failure or deadline: STOP, no escalation/retry. Keep FAILED
+  checkpoint nonreplayable, do not call recovery native acceptance.
+- [ ] Only after release confirmed, HUMAN exact5392 root Connect/Open; verify actual
+  canonical root/descriptor/profile; activation/exact read remain separate human.
+
+[Conditional recovery preflight](evidence/final-graceful-recovery-preflight.json).

@@ -1,3 +1,12 @@
+## Conditional graceful recovery — waiting human Disconnect
+
+Parent authorized exact old-main one SIGTERM with bounded wait/no force ONLY after
+human Disconnect + repeated live identity/critical-work checks. Preflight PID/start/
+cgroup match, native messages0/no TCP, fixture auth false; checkpoint/log preserved.
+UI currently Pi intent/disconnected, not Legacy; NO signal sent. Human must click
+Disconnect Pi → Legacy once and stop before newroot Connect. Evidence:
+`docs/evidence/final-graceful-recovery-preflight.json`.
+
 ## Current blocker — exact-root switch paused on old detach-unknown
 
 User requires5392 root (not mixed6f9 acceptance). NewUI human chooser/old6f9

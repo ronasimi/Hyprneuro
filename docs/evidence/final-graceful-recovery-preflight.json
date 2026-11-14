@@ -1,0 +1,52 @@
+{
+  "recorded_utc": "2026-11-14T14:42:00.654946+00:00",
+  "phase": "GRACEFUL RECOVERY CONDITIONALLY AUTHORIZED; HUMAN DISCONNECT GATE NOT MET; SIGNAL NOT SENT",
+  "authorization": "Parent explicit one exact managed6f9-main SIGTERM only after identity/no critical work/human-disconnected review; bounded wait, no systemctl stop TimeoutStop escalation, SIGKILL, processgroup/global kill, reset/replay/clear lock. Preserve unknown checkpoint/state.",
+  "preflight": {
+    "identity": {
+      "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+      "pid": 3107869,
+      "start": "43241373",
+      "exe": "/usr/bin/node",
+      "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "dropins": []
+    },
+    "cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/app-hyprneuro\\x2dpi\\x2downer.slice/hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+    "checkpoint_phase": "detach-unknown",
+    "checkpoint_has_persisted_native_session": false,
+    "native_message_counts": {
+      "files": 0,
+      "user": 0,
+      "assistant": 0,
+      "toolResult": 0
+    },
+    "owner_TCP_sockets": [],
+    "exact_fixture_read_authorization": {
+      "ok": true,
+      "result": {
+        "allowed": false,
+        "reason": "no_authorization"
+      }
+    },
+    "UI": {
+      "mode": "pi",
+      "connected": false,
+      "read_callable": false,
+      "fresh_consent_required": true
+    },
+    "signal_sent": false,
+    "blocked_until": "Confirmed human Disconnect -> verified Legacy/no active transport; then exact identity/no critical work recheck under fresh lease before one SIGTERM with bounded wait/no escalation"
+  },
+  "reviewed_log": "09:18:17 start;09:31:33 Pi owner cleanup failed; manual checkpoint review required. No exception/cause detail; detach-unknown remains UNKNOWN/nonreplayable.",
+  "signal": null,
+  "result": "No lifecycle action; waiting confirmed human Disconnect/Legacy. Then repeat live identity/work/lock/session gates before authorized one signal, observe bounded PID exit+kernel lock release; failure means STOP/manual decision.",
+  "next_human": "Click Disconnect Pi \u2192 Legacy once; report Legacy or unavailable. Do NOT Connect exact5392 yet; parent relays after safe lock release. No activation/read consent implied.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/graceful-preflight.json": "b9c91fd95de067eb1d598abbfce938da97e9dfe6ec9aff030a10cf6ba7119e0c",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/old-checkpoint-preserved.json": "a146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/reviewed-owner-journal.log": "a959c8c4d4b2142c5c2a58fabf28c496fe266d40a666fcb9fca48747cb6a32c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/systemctl-help.log": "2c80facf5ca5594b60d0ceb1beba69ee95010e4c29a1dcdb463d8ec6c9b4d19f"
+  },
+  "limits": "Only metadata/read-only exact auth_check, no source/service/GUI/model operation, scope revoke unnecessary because exact authorization false. No capture/clipboard/video work. Original failures and media READY blockers retained."
+}

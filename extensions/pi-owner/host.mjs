@@ -37,10 +37,19 @@ async function readWorkspace(workspace,root) {
 // Explicit paths; no package install, auto-discovery, existing auth/token stores,
 // service setup, or independent conversation framework.
 export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId,appId,
-    rpc=sidecar,model,native,providers,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,parentOnly=false,persistent=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
+    rpc=sidecar,model,native,providers,mcpAdapter,authorizeMcpDiscovery,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,parentOnly=false,persistent=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
   if(process.env.HYPRNEURO_PI_OWNER_ENABLE!=='1')throw new Error('Pi owner is opt-in and source/mock-only, not activated');
   if(!['standard','read-only'].includes(profile)||typeof normalOnly!=='boolean'||typeof childRead!=='boolean'||typeof parentOnly!=='boolean')throw new Error('Explicit supported owner profile/mode required');
   const readOnly=profile==='read-only';
+  if(mcpAdapter){
+    if(readOnly)throw new Error('READ-ONLY owner forbids native MCP adapters');
+    if(providers)throw new Error('Choose one provider facade for the single owner session');
+    if(!mcpAdapter.providers||!Array.isArray(mcpAdapter.extensions)||!Array.isArray(mcpAdapter.discovery)||!Array.isArray(mcpAdapter.nativeToolNames))
+      throw new Error('Explicit guarded native MCP adapter required');
+    if(mcpAdapter.discovery.length&&(!authorizeMcpDiscovery||await authorizeMcpDiscovery(mcpAdapter.discovery)!==true))
+      throw new Error('Trusted discovery and credential/destination authorization required');
+    providers=mcpAdapter.providers;
+  }
   if(typeof persistent!=='boolean'||persistent&&(!parentOnly||!normalOnly||!readOnly||childRead))throw new Error('Persistent service requires normal-only parent READ-ONLY; no children');
   if(parentOnly&&(!readOnly||!normalOnly||childRead))throw new Error('Parent-only requires normal-only READ-ONLY and child-read disabled');
   if(normalOnly&&!readOnly||childRead&&!readOnly)throw new Error('Normal-only/child read require explicit READ-ONLY profile');
@@ -133,7 +142,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const decision=(await import(new URL('./api/typesafe-system-one.js',aiURL))).classify;
     const loader=new sdk.DefaultResourceLoader({cwd:workspace,agentDir,settingsManager:settings,
       noExtensions:true,noSkills:true,noThemes:true,noPromptTemplates:true,noContextFiles:true,
-      additionalExtensionPaths:parentOnly?[]:[join(durableDir,'index.js')],extensionFactories:[extension,...(normalOnly?[]:[pi=>{
+      additionalExtensionPaths:parentOnly?[]:[join(durableDir,'index.js')],extensionFactories:[...(mcpAdapter?.extensions??[]),extension,...(normalOnly?[]:[pi=>{
         pi.registerProvider('hyprneuro-decision',{apiKey:'local-no-credential',classifiers:{'typesafe-system-one':{classify:decision}},
           models:[{type:'classifier',id:'d1-omni-600m',name:'D1 advisory',api:'typesafe-system-one',baseUrl:'http://127.0.0.1:8083/v1',
             contextWindow:1024,input:['text'],cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}]});
@@ -144,11 +153,12 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     model??={id:'lfm-text',provider:'hyprneuro-local',api:'openai-completions',name:'lfm-text',baseUrl:textBaseUrl,reasoning:false,
       input:['text'],contextWindow:131072,maxTokens:2048,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}};
     ({session}=await sdk.createAgentSession({cwd:workspace,agentDir,modelRuntime:runtime,model,sessionManager:manager,settingsManager:settings,
-      resourceLoader:loader,thinkingLevel:'off',tools:parentOnly?['read']:readOnly?['read','subagents']:['read','write','edit','bash','subagents']}));
+      resourceLoader:loader,thinkingLevel:'off',tools:parentOnly?['read']:readOnly?['read','subagents']:['read','write','edit','bash','subagents',...(providers?.names??[]),...(mcpAdapter?.nativeToolNames??[])]}));
     const singleSession=async()=>{throw new Error('Single owner session; reset/fork/reload requires trusted restart/review');};
     let errors=[];await session.bindExtensions({onError:error=>errors.push(error),commandContextActions:{
       waitForIdle:()=>session.waitForIdle(),newSession:singleSession,fork:singleSession,navigateTree:singleSession,switchSession:singleSession,reload:singleSession}});
     if(parentOnly)session.setActiveToolsByName(['read']);
+    else if(mcpAdapter)session.setActiveToolsByName(['read','write','edit','bash','subagents']);
     if(errors.length||!parentOnly&&!session.extensionRunner.getCommand('subagents')&&!session.getActiveToolNames().includes('subagents'))
       throw new Error('Native Durable unavailable in owner session: '+JSON.stringify(errors));
     const context=()=>session.extensionRunner.createCommandContext();

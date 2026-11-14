@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp,mkdir,cp,readFile,rm,writeFile } from 'node:fs/promises';
+import { mkdtemp,mkdir,readFile,rm,writeFile } from 'node:fs/promises';
 import { join,dirname } from 'node:path';
 import { pathToFileURL,fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { ownedProcesses } from './fixtures/owned-processes.mjs';
+import { harnessExtension } from '../extensions/tool-harness/index.mjs';
+import { createHost } from '../extensions/pi-owner/host.mjs';
 import { signalPinnedGroup } from '../extensions/tool-harness/owned-stdio.mjs';
 import { createNativeMcpProviders,boundedMcpResult,validateMcpArguments,MCP_MAX_TEXT } from '../extensions/tool-harness/native-mcp.mjs';
 
@@ -36,9 +37,25 @@ const stop=[{delta:{role:'assistant',content:'Fixture complete'}},{delta:{},fini
 
 async function fixture(options,run) {
   const root=await mkdtemp(join(base,'native-mcp-'));
-  let session,http,shutdownPromise;
-  let cleanupFailure;
-  const shutdown=()=>shutdownPromise??=(async()=>{if(session){const current=session;await current.abort();await current.extensionRunner.emit({type:'session_shutdown',reason:'quit'});current.dispose();session=undefined;}})();
+  let session,http,host,shutdownPromise;
+  const savedEnv={...process.env};
+  let cleanupFailure,passed=false,requests;
+  const shutdown=()=>shutdownPromise??=(async()=>{
+    if(host){
+      await host.close();host=undefined;session=undefined;
+      // Owner close drains its PRIVATE native Durable runtime. Do not delete its
+      // ledger/lock while the idle-exiting orchestrator still owns those paths.
+      const {readerLedger}=await import(new URL('./dist/orchestrator/reader-ledger.js',pathToFileURL(process.env.PI_HARNESS_DURABLE+'/')));
+      const {processAlive}=await import(new URL('./dist/orchestrator/snapshot.js',pathToFileURL(process.env.PI_HARNESS_DURABLE+'/')));
+      const deadline=Date.now()+3000;
+      while(true){
+        const o=readerLedger(join(root,'owner/durable')).state.state.orchestrator;
+        if(!o||o.exited||!processAlive(o.pid,o.start))break;
+        if(Date.now()>deadline)throw new Error('Private Durable fixture still owns its ledger; retain paths');
+        await wait(10);
+      }
+    }else if(session){const current=session;await current.abort();await current.extensionRunner.emit({type:'session_shutdown',reason:'quit'});current.dispose();session=undefined;}
+  })();
   const priorFetch=globalThis.fetch;
   if(options.http)globalThis.fetch=(input,init)=>{
     const url=new URL(typeof input==='string'||input instanceof URL?input:input.url);
@@ -48,11 +65,6 @@ async function fixture(options,run) {
   try {
     const workspace=join(root,'workspace'),agentDir=join(root,'agent'),home=join(root,'home');
     for(const p of [workspace,agentDir,home])await mkdir(p,{mode:0o700});
-    // Apply the supplied integration contract to a PRIVATE SOURCE COPY only.
-    // Production owner/index files remain untouched in this task.
-    await cp(join(source,'extensions/tool-harness'),join(root,'extensions/tool-harness'),{recursive:true});
-    execFileSync('git',['apply',join(source,'tests/fixtures/native-mcp-harness.patch')],{cwd:root,env:{PATH:'/usr/bin:/bin'}});
-    const {harnessExtension}=await import(pathToFileURL(join(root,'extensions/tool-harness/index.mjs')));
     const log=join(root,'calls.jsonl');
     const config={sdk,mcp,privateHome:home,logPath:join(root,'mcp.log'),credentials:new McpOAuthCredentialStore(new InMemoryAuthStorageBackend()),
       timeoutMs:options.timeoutMs??1000,servers:{fixture:{command:process.execPath,args:[join(source,'tests/fixtures/mcp-provider.mjs'),log,options.mode??'normal'],cwd:workspace}},
@@ -61,7 +73,7 @@ async function fixture(options,run) {
       config.servers={fixture:{url:'https://offline-fixture.invalid/mcp',auth:{provider:'mock'}}};
     }
     const adapter=createNativeMcpProviders(config);
-    const requests=[],confirmations=[],policy=[],events=[],errors=[];
+    requests=[];const confirmations=[],policy=[],events=[],errors=[];
     let step=0;
     http=createServer(async(req,res)=>{
       let body='';for await(const c of req)body+=c;
@@ -78,27 +90,46 @@ async function fixture(options,run) {
     await writeFile(join(workspace,'fixture.txt'),'synthetic read');
     const harness=harnessExtension(sdk,{rpc,providers:adapter.providers,confirm,
       initial:options.noHarness?undefined:{workspace,taskId:'mcp-fixture',appId:'fixture-app'},
-      readOnly:options.readOnly??false,normalOnly:options.readOnly??false,readPaths:['fixture.txt'],binding:{workspace,taskId:'mcp-fixture',appId:'fixture-app'}});
+      readOnly:options.readOnly??false,normalOnly:options.readOnly??false,parentOnly:options.parentOnly??false,readPaths:['fixture.txt'],binding:{workspace,taskId:'mcp-fixture',appId:'fixture-app'}});
     const probe=pi=>pi.registerTool({name:'probe',label:'probe',description:'fixture raw nested call',parameters:{type:'object',properties:{}},
       execute:async(_id,_args,signal,_update,ctx)=>{const o=await ctx.executeTool('mcp__fixture__web_search_exa',{query:'escape'},{signal});return {...o.result,isError:o.isError};}});
     const settings=sdk.SettingsManager.inMemory({retry:{enabled:false,provider:{maxRetries:0}},compaction:{enabled:false},cacheWarming:'off'});
     const loader=new sdk.DefaultResourceLoader({cwd:workspace,agentDir,settingsManager:settings,noExtensions:true,noSkills:true,noPromptTemplates:true,noThemes:true,noContextFiles:true,
       extensionFactories:[...adapter.extensions,...(options.noHarness?[probe]:[harness])]});
-    await loader.reload();assert.deepEqual(loader.getExtensions().errors,[]);
+    if(!options.owner){await loader.reload();assert.deepEqual(loader.getExtensions().errors,[]);}
     const runtime=await sdk.ModelRuntime.create({authPath:join(agentDir,'auth.json'),modelsPath:null,modelsStorePath:join(agentDir,'models-store.json'),refreshOnCreate:false,allowModelNetwork:false});
     runtime.registerProvider('mock',{baseUrl:`http://127.0.0.1:${http.address().port}/v1`,apiKey:'fixture-only',api:'openai-completions',
       models:[{id:'fixture',name:'fixture',reasoning:false,input:['text'],contextWindow:32768,maxTokens:1024,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}]});
     const manager=sdk.SessionManager.create(workspace,join(root,'sessions'));
-    ({session}=await sdk.createAgentSession({cwd:workspace,agentDir,modelRuntime:runtime,model:runtime.getModel('mock','fixture'),resourceLoader:loader,settingsManager:settings,sessionManager:manager,thinkingLevel:'off'}));
-    session.subscribe(e=>events.push(e));await session.bindExtensions({onError:e=>errors.push(e)});
+    if(options.owner){
+      if(!process.env.PI_HARNESS_DURABLE)throw new Error('Installed Durable path required for owner integration');
+      process.env.HYPRNEURO_PI_OWNER_ENABLE='1';process.env.HYPRNEURO_RESIDENCY_DIR=join(root,'residency');
+      await mkdir(process.env.HYPRNEURO_RESIDENCY_DIR,{mode:0o700});
+      await mkdir(join(root,'owner/durable'),{recursive:true,mode:0o700});
+      await writeFile(join(root,'owner/durable/config.json'),JSON.stringify({exactCapture:false,k:{idleExitMs:200}}),{mode:0o600});
+      host=await createHost({sdkPath:process.env.PI_HARNESS_SDK,durableDir:process.env.PI_HARNESS_DURABLE,piBin:'/home/ron/.pi/agent/bin/pi',
+        root:join(root,'owner'),workspace,taskId:'mcp-fixture',appId:'fixture-app',serve:false,
+        model:runtime.getModel('mock','fixture'),mcpAdapter:adapter,authorizeMcpDiscovery:async requests=>{
+          assert.deepEqual(requests,[{server:'fixture',destination:process.execPath,credential:'none; private stdio environment'}]);return true;
+        },rpc,route:async()=>false});
+      host.runtime.registerProvider('mock',{baseUrl:`http://127.0.0.1:${http.address().port}/v1`,apiKey:'fixture-only',api:'openai-completions',
+        models:[{id:'fixture',name:'fixture',reasoning:false,input:['text'],contextWindow:32768,maxTokens:1024,cost:{input:0,output:0,cacheRead:0,cacheWrite:0}}]});
+      host.owner.listeners.add(event=>{if(event.type==='consent')void confirm(event).then(ok=>host.owner.consent(event.id,ok));});
+      session=host.session;
+      await host.owner.prepare();
+    }else ({session}=await sdk.createAgentSession({cwd:workspace,agentDir,modelRuntime:runtime,model:runtime.getModel('mock','fixture'),resourceLoader:loader,settingsManager:settings,sessionManager:manager,thinkingLevel:'off'}));
+    session.subscribe(e=>events.push(e));if(!host)await session.bindExtensions({onError:e=>errors.push(e)});
     if(adapter.providers.names.length && !['init-stall','pagination'].includes(options.mode)) {
       const start=Date.now();
       while(true){try{adapter.providers.available(adapter.providers.names[0]);break;}catch{if(Date.now()-start>3000)throw new Error('native discovery did not finish');await wait(10);}}
     }
     if(!options.noHarness&&!options.readOnly&&!options.skipNetwork)await session.extensionRunner.getCommand('hn-tools').handler('network',session.extensionRunner.createCommandContext());
     const calls=async()=>{try{return (await readFile(log,'utf8')).trim().split('\n').map(l=>JSON.parse(l));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
-    await run({root,session,manager,adapter,requests,confirmations,policy,events,errors,calls,shutdown});
-    assert.deepEqual(errors,[]);
+    await run({root,session,manager:session.sessionManager,host,adapter,requests,confirmations,policy,events,errors,calls,shutdown});
+    assert.deepEqual(errors,[]);passed=true;
+  } catch(error) {
+    await writeFile(join(root,'failure.json'),JSON.stringify({error:error.stack,requests,entries:session?.sessionManager.getEntries()},null,2));
+    throw error;
   } finally {
     try {await shutdown();}catch(e){cleanupFailure=e;}
     if(http){http.closeAllConnections();await new Promise(r=>http.close(r));}
@@ -126,8 +157,11 @@ async function fixture(options,run) {
     }
     for(let i=0;i<100&&(await ownedProcesses(root)).length;i++)await wait(10);
     assert.equal((await ownedProcesses(root)).length,0,'Emergency cleanup left an owned live fixture');
+    for(const key of Object.keys(process.env))if(!(key in savedEnv))delete process.env[key];
+    Object.assign(process.env,savedEnv);
     globalThis.fetch=priorFetch;
-    await rm(root,{recursive:true,force:true});
+    if(passed&&!cleanupFailure)await rm(root,{recursive:true,force:true});
+    else console.error('Native MCP failure fixture retained:',root);
     if(cleanupFailure)throw cleanupFailure;
   }
 }
@@ -193,7 +227,7 @@ test('native namespace direct/nested calls cannot bypass facade; disabled and re
     assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,0);
     assert.ok(f.events.some(e=>e.type==='tool_execution_end'&&e.isError));
   });
-  for(const options of [{enabled:{}},{readOnly:true}])await fixture({...options,responses:[tool('exa_search',{query:'escape'}),stop]},async f=>{
+  for(const options of [{enabled:{}},{readOnly:true},{readOnly:true,parentOnly:true}])await fixture({...options,responses:[tool('exa_search',{query:'escape'}),stop]},async f=>{
     assert.deepEqual(f.adapter.providers.names,[]);await f.session.prompt('disabled fixture');assert.equal((await f.calls()).length,0);
   });
 });
@@ -283,3 +317,61 @@ for(const mode of ['orphan-early','orphan-eof'])test(`actual Pi SDK descendant c
   const identity=await processIdentity(child.child);
   assert.ok(!identity||identity.state==='Z',`descendant remains live after ${mode}: ${identity?.state}`);
 }));
+
+
+test('owner same-session native MCP continuation and cancellation use the guarded loader',{timeout:15000},async()=>{
+  await fixture({owner:true,responses:[tool('exa_search',{query:'public docs'}),stop]},async f=>{
+    const id=f.session.sessionManager.getSessionId();
+    await f.host.owner.chat({text:'Offline owner fixture'},()=>{});
+    assert.equal(f.session.sessionManager.getSessionId(),id);
+    assert.ok(!f.session.getActiveToolNames().some(n=>n.startsWith('mcp__')));
+    assert.equal(f.session.getAllTools().filter(t=>t.name.startsWith('mcp__')).length,5);
+    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,1);
+    assert.equal(f.confirmations.length,3); // fixture activation, network scope, exact query
+    assert.match(f.confirmations.at(-1).detail,/native MCP: fixture/);
+    assert.match(JSON.stringify(f.requests.at(-1).messages),/untrusted/);
+    const reopened=sdk.SessionManager.open(f.manager.getSessionFile());
+    const result=reopened.getEntries().find(e=>e.type==='message'&&e.message.role==='toolResult');
+    assert.equal(result.message.nestedCalls.calls.length,1);
+    assert.equal(reopened.getEntries().filter(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.status==='completed').length,1);
+  });
+  await fixture({owner:true,timeoutMs:2000,responses:[tool('exa_search',{query:'stall'}),stop]},async f=>{
+    const run=f.host.owner.chat({text:'Offline cancellation fixture'},()=>{});
+    for(let i=0;i<100&&!(await f.calls()).some(c=>c.method==='tools/call');i++)await wait(10);
+    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,1);
+    await f.session.abort();await assert.rejects(run,/Native Pi request failed/);
+    assert.equal(f.host.owner.phase,'failed');
+    assert.ok(f.manager.getEntries().some(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.status==='unknown'));
+    await assert.rejects(f.host.owner.chat({text:'No replay'},()=>{}));
+    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,1);
+  });
+});
+
+test('owner refuses missing/denied discovery authorization and all read-only adapter injection before connection',async()=>{
+  const adapter=createNativeMcpProviders({sdk,mcp,credentials:{},privateHome:base,logPath:join(base,'unused-mcp.log'),
+    servers:{fixture:{url:'https://offline-fixture.invalid/mcp',auth:{provider:'fixture-auth'}}},
+    bindings:{exa_search:bindings.exa_search},enabled:{exa:true}});
+  const saved=process.env.HYPRNEURO_PI_OWNER_ENABLE;process.env.HYPRNEURO_PI_OWNER_ENABLE='1';
+  const prior=globalThis.fetch;let connections=0;
+  globalThis.fetch=()=>{connections++;throw new Error('No discovery authorized');};
+  try{
+    assert.deepEqual(adapter.discovery,[{server:'fixture',destination:'https://offline-fixture.invalid/mcp',credential:'Pi provider: fixture-auth'}]);
+    for(const extra of [{},{authorizeMcpDiscovery:async()=>false},{authorizeMcpDiscovery:async()=>{throw new Error('Fixture consent failed');}}])
+      await assert.rejects(createHost({mcpAdapter:adapter,...extra}),/authorization required|Fixture consent failed/);
+    await assert.rejects(createHost({mcpAdapter:adapter,profile:'read-only',normalOnly:true,parentOnly:true,authorizeMcpDiscovery:()=>assert.fail('Must not ask')}),/READ-ONLY owner forbids/);
+    assert.equal(connections,0);
+  }finally{globalThis.fetch=prior;if(saved===undefined)delete process.env.HYPRNEURO_PI_OWNER_ENABLE;else process.env.HYPRNEURO_PI_OWNER_ENABLE=saved;}
+});
+
+
+test('owner same-session fresh human denial and broker revocation never dispatch native MCP',{timeout:15000},async()=>{
+  for(const deny of ['human','network','submit_external','post-consent'])await fixture({owner:true,
+    responses:[tool('exa_search',{query:'denied'}),stop],
+    approve:r=>deny!=='human'||!r.title.startsWith('Allow '),
+    broker:(m,confirmations)=>!(m.op===deny||deny==='post-consent'&&confirmations.some(c=>c.title==='Allow exa_search?')),
+  },async f=>{
+    await f.host.owner.chat({text:'Synthetic denial only'},()=>{});
+    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,0);
+    assert.ok(f.events.some(e=>e.type==='tool_execution_end'&&e.isError));
+  });
+});

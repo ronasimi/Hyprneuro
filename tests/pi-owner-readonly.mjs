@@ -292,6 +292,10 @@ test('parent-only activation advertises and executes read only; forged delegatio
   const spec={action:'run',request:'forged-parent-child',agent:'delegate',task:'CHILD_READ_TASK',tools:[],model:'hyprneuro-local/lfm-text',once:true,writer:false,context:'fresh',cwd:f.workspace,timeoutMs:10000};
   const blocked=await host.session.extensionRunner.emitToolCall({type:'tool_call',toolName:'subagents',toolCallId:'forced_registered_delegate',input:spec});
   assert.equal(blocked.block,true);assert.equal(blocked.terminate,true);assert.match(blocked.reason,/Parent-only/);
+  for(const toolName of ['exa_search','mcp__fixture__web_search_exa','list_mcp_resources','read_mcp_resource']) {
+    const native=await host.session.extensionRunner.emitToolCall({type:'tool_call',toolName,toolCallId:'forged_mcp',parentToolCallId:'forged_facade',input:{query:'no'}});
+    assert.equal(native.block,true);assert.equal(native.terminate,true);assert.match(native.reason,/Parent-only/);
+  }
   await f.chat(tool('subagents',spec,'forged_parent_delegate'),body=>{assert.match(body.messages.at(-1).content,/Tool subagents not found/);return done;});
   await f.chat(tool('read',{path:'not-allowlisted'},'parent_scope_escape'),done);
   assert.equal(f.approvals.length,approvals);

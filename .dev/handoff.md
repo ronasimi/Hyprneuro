@@ -1,3 +1,32 @@
+## Current MCP same-session source integration — uncommitted review checkpoint
+
+Approved `f9ea60b` + `09f5c43` cherry-picked onto `292ce8c` as `0b856c6` +
+`39e14a8`, retaining required trailers. Cleanup approval:
+**01M7BMRGTV6958SDX3SS7NYSR7/mcp-review@2** (25/25, zero live fixtures).
+New owner/harness integration is **uncommitted and independently unreviewed**.
+Both patch sites applied; same loader/session, adapter before harness, exact SDK
+allowlist, no raw active names, no second/ambient MCP extension. Explicit trusted
+connection/discovery + credential/destination authorization is required before
+extension loading; each query still needs network/submission broker checks and
+fresh exact consent. Read-only owners reject adapters; normal installed parent
+profile remains provider-free. No live providers or credential lookup.
+
+Combined offline checks: **455 Python/1 skip/104 subtests;77 Node;17 existing
+normal +17 sanitized C helpers**, no rebuild. Focused **28/28**. Initial26/27 and
+0/1 diagnostic retained: missing SDK allowlist names prevented dispatch; exact
+allowlist correction now proves continuation/cancellation/denials. Post-scan:
+zero live owned fixtures. Original231 remains **UNKNOWN**; old failures retained.
+Installed/running UI PID2534881 SHA256 `f6de29a2…76b5a5` unchanged.
+
+Normal stack was inactive at the failed `292ce8c` bundle preflight; user approval
+for model start remains pending. No restart/bypass/replay, model/service lifecycle,
+GUI, actual inference, freeze/apply/install or tool auto-grant. Cached monitor
+EventIntake sampler deferred. Next: parent checkpoint + independent integration
+review, not deployment. Exact hashes/commands/approval receipt:
+`docs/evidence/native-mcp-integration.json`.
+
+--- Historical checkpoint retained below ---
+
 # Current rollback P1 correction checkpoint (2026-11-13)
 
 HEAD45e588b, uncommitted single-writer source changes ready for parent checkpoint

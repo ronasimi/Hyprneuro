@@ -194,6 +194,12 @@ export function createNativeMcpProviders({sdk,mcp,credentials,servers={},binding
     });
     api.on('session_shutdown',async()=>{permits.clear();await Promise.all([...transports].map(t=>t.close()));});
   };
-  return {providers,extensions:[gate,sdk.createMcpExtension({credentials,logPath,createTransport:transport,
+  // Trusted host must authorize this exact discovery/credential pairing BEFORE
+  // binding the extension: session_start may connect without a model tool call.
+  const discovery=Object.freeze([...allowedServers].map(server=>Object.freeze({server,
+    destination:servers[server].url??servers[server].command,
+    credential:servers[server].url?(servers[server].auth?.provider?`Pi provider: ${servers[server].auth.provider}`:'explicit native OAuth store'):'none; private stdio environment',
+  })));
+  return {providers,discovery,nativeToolNames:Object.freeze(Object.values(activeBindings).map(nativeName)),extensions:[gate,sdk.createMcpExtension({credentials,logPath,createTransport:transport,
     loadConfig:()=>({servers:[],errors:[],autoEnableCodemode:false}),updateConfig:()=>{throw new Error('MCP config is trusted/session-only');},openUrl:()=>{throw new Error('Interactive sign-in requires separate trusted setup');}})]};
 }

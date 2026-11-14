@@ -1,0 +1,146 @@
+{
+  "recorded_utc": "2026-11-14T07:34:11.178431+00:00",
+  "scope": "SOURCE ONLY; owner/harness integration uncommitted for parent checkpoint and independent review; NOT READY",
+  "base": "292ce8c8c7efe7e91b07cf9e7e6aef928b2b0a0b",
+  "head": "39e14a8952d8f9169937ab9de4d2271d15100b58",
+  "cherry_picks": {
+    "f9ea60b4cddc9a70416f95765ef4c98e1f56b968": "0b856c6bae297fa530e81ce6de06c77b37b28a20",
+    "09f5c4397ac48811f8f5ce89ec8869ab34fd85f0": "39e14a8952d8f9169937ab9de4d2271d15100b58"
+  },
+  "cleanup_approval": {
+    "identity": "01M7BMRGTV6958SDX3SS7NYSR7/mcp-review@2",
+    "verdict": "OK with notes; prior cleanup P1 resolved; 25/25 actual-SDK offline, zero live fixtures",
+    "scope": "09f5c43 adapter cleanup only, NOT current owner integration or deployment",
+    "receipt": "/home/ron/Workspace/hyprneuro-production-audit/mcp-approved-review.json",
+    "sha256": "be47be5c25a476edb961e5f2a95f4638d13e29163f81715e1822bc4c1bb11be9"
+  },
+  "source_sha256": {
+    "extensions/pi-owner/host.mjs": "2d01e91724cabe0a35393ce73f55e5fbacf30c06bf64c9953d931a63a690f302",
+    "extensions/tool-harness/index.mjs": "46c061a5b46d931c661bb0114b157c144b96a2d585922d123efddb4a657f6e79",
+    "extensions/tool-harness/native-mcp.mjs": "00ebb3e68ee70e04a6e3477520202690cda417246557d03840324513afde2287",
+    "extensions/tool-harness/owned-stdio.mjs": "383d2b8bd4d4ec1581964ec5de6fb4e7ceb19d26f822db80064280b51ba00f08",
+    "extensions/tool-harness/stdio-anchor.mjs": "001a1b51ff566e8067adf2386247851ee78d0788f3e7935ff0f0bad68b5b10cf",
+    "tests/native-mcp.mjs": "6859c6d4f92cc00d293edb6f9e3688be470278bc1ecf3c0d4a23e2f1672948ae",
+    "tests/pi-owner-readonly.mjs": "518824d6776933b2b4ac74b68f30aa9be1a031d89030e4aa5f50dbac8e0c5fa7",
+    "tests/run-native-mcp-offline.sh": "fe18d5547a29faf3df9588d271dad71b41723e8097865e2d52c60313ebbf69de",
+    "tests/fixtures/native-mcp-harness.patch": "f65f2c469f91927708ddca86181ac1fd1b5be749758801c9b251238f7368eea8",
+    "docs/NATIVE_MCP_P06.md": "33b2052eb7c153982202ba1c9cb2a4fb235fc65a3c329edd0e84532109b35db5"
+  },
+  "installed_sdk_sha256": {
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/index.js": "7119a8b2a32d8e5e0d5f01318c6fae7535e137a55719c6c4955121ae41dfa967",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/index.d.ts": "c94f0ae177161cf847eac7536b9334d188878fff876bd7d826a30b18642cd3e3",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/transports/pipe.js": "2514d05132422b08e69b6f38f749b03cf3c585d50958885a5dadf6f9f77ee94d",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/transports/pipe.d.ts": "9632ab220c40a1c63b1a3e94e0a73acc21579a6363722dba4713fc3ed2ef3b37",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-mcp/dist/transports/stdio.js": "25186bb2a9d6142928b03cd79ae4f8c881ab7af755e1e4d1425f3aa27d936c42",
+    "/home/ron/.pi/agent/install/releases/1.5.1/node_modules/@earendil-works/pi-coding-agent/dist/index.js": "4569157e6038be9840fa514db4b00a27fd0be9e3622cc7b49a281de6c027d7ff"
+  },
+  "validation": {
+    "focused": "28 passed on final lifecycle fixture source; actual installed SDK; canonical harness + same-session owner + native stdio + offline HTTP stub; command lifecycle-focused.sh",
+    "combined": "455 Python passed, 1 skipped, 104 subtests;77 Node passed;17 existing C helpers normal +17 ASan/UBSan/leaks; no C rebuild",
+    "full_command": "hold machine -- bash /home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/full.sh",
+    "exit_status": {
+      "python": 0,
+      "node": 0,
+      "C": 0,
+      "sanitized_C": 0
+    },
+    "post_scan": [
+      {
+        "root": "/home/ron/Workspace/hn-mcp-integration-YrfLLx",
+        "live_owned": []
+      },
+      {
+        "root": "/home/ron/Workspace/hn-mcp-integration-QAX0Fv",
+        "live_owned": []
+      },
+      {
+        "root": "/home/ron/Workspace/hn-mcp-integration-uCM95s",
+        "live_owned": []
+      },
+      {
+        "root": "/home/ron/Workspace/hn-mcp-integration-BbNsxr",
+        "live_owned": []
+      },
+      {
+        "root": "/home/ron/Workspace/hn-mcp-combined-rZ3M1C",
+        "live_owned": []
+      },
+      {
+        "root": "/home/ron/Workspace/hn-mcp-integration-2z4YkH",
+        "live_owned": []
+      }
+    ],
+    "checks": [
+      "node --check changed JS",
+      "bash -n tests/run-native-mcp-offline.sh",
+      "git apply --reverse --check tests/fixtures/native-mcp-harness.patch",
+      "git diff --check",
+      "6 installed-SDK hashes match approved cleanup receipt",
+      "owned-stdio/stdio-anchor unchanged from approved cleanup"
+    ],
+    "fixture_cleanup": "Each new owner fixture waits for its private native Durable ledger identity to report exit before deleting paths, using explicit private idleExitMs200 test config. No shared home, process or model lifecycle. Full combined suites rerun after this test-only cleanup tightening; first passing combined logs also retained."
+  },
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/c-full.log": "2c87bfa6de0e54f7de66f10d00c2fa657437e04e4222c904aa9b49877dcbb1fc",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/c-sanitized-full.log": "95c30b39b244e04044b1afeeee21ccfed447079c11b44490d78cdcb5443b697c",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/c-sanitized.log": "cef95bea1bf85e3094a5f9273da9caca8dd881ae5fe0df32b0a82f605b951650",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/c.log": "3e26296c83c02b55bc47507b686cab5433efc07ad04964b2154ee1c92c804dc9",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/corrected-fixture-root": "f069240d040c3aca6f11cc65deee7ef16a14950295354840ef1ff08537a8e399",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/corrected.log": "36622481bed3e96de1787f00f4d13bdccd0cea93e50e7ae1ff221048c07c9e4d",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/corrected.sh": "c11b5f1a55438a0bb1b73123abf974a8d19c195013c98be4b4c9169cddc79321",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/diagnostic-fixture-root": "89294ebf18a3a41b9ed307536aac3df3acfb1062e80ae6c2681505658a536f45",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/diagnostic.log": "faff4244c185abcd441dcb0e05f247169a17286243d5ef2172dbbb19c59da8d8",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/diagnostic.sh": "fd3b344ce37271b8789a7d096d6fadcbcf442bcd46e7d83fbce16467bec1c0ec",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/exit-status.json": "d5ee916cc29d500f827dee0c79cc5571849696c21c107e33f36205376c5579c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/first-combined-c-sanitized.log": "cef95bea1bf85e3094a5f9273da9caca8dd881ae5fe0df32b0a82f605b951650",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/first-combined-c.log": "69246cf33c54f2bc17c20013a847ebd252202757b9bf9a7c7caf2b6bc0104f7a",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/first-combined-exit-status.json": "d5ee916cc29d500f827dee0c79cc5571849696c21c107e33f36205376c5579c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/first-combined-node.log": "5e92171af966858dedb7d59c1d1f199ecf6f3dc976c1ee2b6e62a396a741d1a2",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/first-combined-python.log": "1c5e03bcab5703cb2a6f382814a3bc85ed2bd09bbec7ec225da935eceae478ff",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused-final-fixture-root": "70aa8d142e3220b1adf1c64cb4e76f4c7717d9f02aef6df783aa31e5975ad563",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused-final.log": "aa4448cde33eecbd9e02994b597f0143528ea5f54db878e65d4fcdfc4e41ae9a",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused-final.sh": "41d379d4ebed444590e51529f8c28e6f13a577fbc5bc3a7a3ee2abb332c4e519",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused-fixture-root": "bf13d5d2ab269274acdebb6aeaa0fc32d1b97d9408635722bbec85b0991363ba",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused.log": "c5b8c0256255235254069e6e8d7a8847f93d5c907f557a7d4342fdb8bd7aa652",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused.sh": "575fde7fb3b8d6deb6ec76e38d4d49f1e6fa814d53f3b44897168a2bac1b95ad",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/full-fixture-root": "04af917246c56393bce2e7cab92b1c68987644d9b5833db822b24d195bb9aaea",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/full.sh": "23b6f1ae43c4e55985cc991ccde86729ab674e317d4b5bc01616a9c8128344c4",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/lifecycle-fixture-root": "abd5e77c5567fa59373e0b7be333efddc005be367bbb15268ea3d1023e2e016d",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/lifecycle-focused.log": "6e9e64f7474fe60ec5f0c5136b04829aa4b9c7c2c0689acc2aa19cc1f98c1282",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/lifecycle-focused.sh": "9336039543e53d34816e6594dbae6eaf428605c706c5c6e1cca0cba992fbedb2",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/node.log": "00173d62e457eb9235d5a27745bd6018df939f769f0e4d004ad57304a4d0dc11",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/owned-fixture-scan.json": "909d76f58ba9bc251348f40e6d1f3e78cdcd56f70574ded2fb836e91e156601c",
+    "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/python.log": "3bffba1cf11d6f7532218b0b8e14b7dbd6c55abf6a92d28618d028563c35dedb"
+  },
+  "retained_failures": [
+    {
+      "log": "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/focused.log",
+      "result": "26/27; owner continuation expected1 native dispatch observed0",
+      "cause": "SDK tools is a hard allowlist; facade/native names excluded. Corrected exact allowlist and removed raw names from active loadout; no wildcard."
+    },
+    {
+      "log": "/home/ron/Workspace/hyprneuro-production-audit/mcp-owner-integration/diagnostic.log",
+      "result": "0/1 diagnostic confirms Tool exa_search not found",
+      "fixture": "/home/ron/Workspace/hn-mcp-integration-QAX0Fv/tmp/native-mcp-iWs17l",
+      "note": "Initial focused fixture was removed by inherited fixture-finally before retention correction; failure log retained. Diagnostic fixture and failure.json retained; no suppressed failures."
+    }
+  ],
+  "gates": [
+    "Both patch sites applied after parent-only/read-only rejection; exact provider nested permit only; forward id/ctx",
+    "One owner AgentSession/resource loader; adapter extensions before harness; no default/ambient MCP",
+    "Discovery callback must separately authorize exact destination/auth source before extension loading; missing/denied/throw fails closed",
+    "All facade requests retain pre/post-consent network + submit_external checks and exact synthetic human consent in tests",
+    "Read-only owner rejects adapters before authorization; persistent parent-only descriptor/profile remains unchanged and provider-free",
+    "Cancellation -> unknown -> failed admission, no replay; owned fixed-group cleanup unchanged"
+  ],
+  "installed": {
+    "UI_pid": 2534881,
+    "installed_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+    "running_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
+    "owner_template_installed": false,
+    "changed": false
+  },
+  "excluded": "No model/service lifecycle, GUI, real inference, external provider connection/network credential lookup, install, freeze, apply, tool auto-grants or monitoring sampler integration. DB/settings/weights/config unchanged.",
+  "open": "Original231 remains UNKNOWN; historical 64/65 and initial integration failures retained; live provider schema/auth/human acceptance unverified; normal model stack awaits user; fresh bundle prep prohibited until prerequisite and exact new-source review.",
+  "next": "Parent checkpoint/review new uncommitted integration; no new integration commit by worker. Monitor cached sampler deferred."
+}

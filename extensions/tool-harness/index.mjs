@@ -185,6 +185,9 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     pi.on('tool_call', async event => {
       if(parentOnly&&event.toolName!=='read')return {block:true,reason:'Parent-only owner permits read only; no helpers or delegation',terminate:true};
       if(readOnly&&!active)return {block:true,reason:'READ-ONLY tools not activated',terminate:true};
+      // Only the exact one-shot nested native call of an already guarded provider.
+      // Keep AFTER read-only/parent-only checks; raw namespace calls stay denied.
+      if(!readOnly && active && providers?.allowsNativeCall?.(event))return;
       if(event.toolName==='subagents'&&durableGuard) {
         try {
           if(!validated(event.toolCallId))throw new Error('Incomplete native delegation call');
@@ -287,6 +290,6 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     }
     for (const definition of (readOnly?[]:providers?.tools ?? [])) pi.registerTool({...definition, executionMode:'sequential',
       execute:(id,args,signal,onUpdate,ctx) => run(definition.name,id,args,signal,onUpdate,ctx,
-        input => providers.execute(definition.name,input,signal))});
+        input => providers.execute(definition.name,input,signal,{id,ctx}))});
   };
 }

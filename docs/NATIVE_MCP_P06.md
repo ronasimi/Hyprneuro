@@ -1,16 +1,23 @@
 # P06 native MCP — source/offline, not deployed
 
-Base **2be64a4**, original checkpoint **f9ea60b**, independent adapter/tests/docs only.
-The P1 process-lifetime correction below is source-verified and awaits targeted
-independent review; it does not erase the original BLOCK. **P06/L14 remain PARTIAL**:
-actual native Pi MCP is now exercised offline; live Exa, Context7 and Wikipedia
-queries and installed-owner integration are **unverified**. No existing owner,
-harness index, residency, GTK, sidecar or agent source was edited. No installation,
-global MCP/config/model/service changes, external queries or real keys were used.
+**Current source integration — not deployed:** approved cleanup commits
+`f9ea60b` + `09f5c43` were cherry-picked onto approved `292ce8c` as
+`0b856c6bae297fa530e81ce6de06c77b37b28a20` +
+`39e14a8952d8f9169937ab9de4d2271d15100b58` (existing co-author trailers retained).
+Independent cleanup approval: **01M7BMRGTV6958SDX3SS7NYSR7/mcp-review@2**,
+25/25 actual-SDK offline checks, zero live owned fixtures. That approval is for
+adapter cleanup, **not the new uncommitted owner/harness integration**.
+
+**P06/L14 remain PARTIAL.** Live Exa/Context7/Wikipedia bindings, auth and queries
+are unverified. No installed-owner change, live provider connection, model start,
+network credential lookup, permission grant, GUI or bundle preparation follows
+from this source integration. The persistent normal-only parent READ-ONLY profile
+remains provider-free. Monitor/EventIntake cache integration is deferred.
+Historical failures and original231 **UNKNOWN** remain unchanged below.
 
 ## Implementation
 
-`extensions/tool-harness/native-mcp.mjs` returns `{providers, extensions}` for the
+`extensions/tool-harness/native-mcp.mjs` returns `{providers, extensions, discovery, nativeToolNames}` for the
 existing harness and the **same Pi AgentSession**. It uses installed Pi 1.5.1
 `createMcpExtension`, `registerMcpServer`, native discovery, and
 `ExtensionToolContext.executeTool`. Pi still owns the model loop, native tool
@@ -91,27 +98,43 @@ read-only checks. No blanket MCP/codemode/deferred-tool allowlist is safe.
   its <=1s best-effort session DELETE. Unknown external outcomes stay `unknown`,
   never automatically replayed.
 
-## Minimal parent integration contract (not applied to runtime)
+## Applied source integration contract — independent review pending
 
-`tests/fixtures/native-mcp-harness.patch` is an **unapplied two-site patch** for
-`extensions/tool-harness/index.mjs`:
+Both sites of `tests/fixtures/native-mcp-harness.patch` are now applied to
+`extensions/tool-harness/index.mjs`: the exact one-shot nested-call exception is
+**after** parent-only/read-only checks, and provider execution receives `{id,ctx}`.
+The patch remains a historical contract fixture; check it with
+`git apply --reverse --check tests/fixtures/native-mcp-harness.patch`.
+Tests import the actual integrated harness, no patched private copy.
 
-1. Permit only `providers.allowsNativeCall(event)` for the exact nested dispatch,
-   after parent-only/read-only rejection and before raw-model-call validation.
-2. Pass `{id,ctx}` to `providers.execute` (REST providers ignore the extra argument).
+Trusted embedding code may supply `mcpAdapter` to `createHost`, with an explicit
+`authorizeMcpDiscovery(discovery)` callback. It must return exactly `true` after
+separate trusted connection/discovery and credential/destination authorization;
+missing/false/throw refuses **before extension loading or connection**. Discovery
+records pin each enabled server's destination (HTTPS URL or absolute executable)
+and auth source (named Pi provider, explicit native OAuth store, or private stdio
+without inherited credentials). They contain no token values. Stdio remains trusted
+unsandboxed code; approve its fixed configuration separately, not just its name.
+This callback is not a model-facing permission or an automatic consent implementation.
+No production callback or CLI/environment enablement is supplied.
 
-The native tests apply this exact patch to a private source copy. Unmodified
-runtime intentionally cannot invoke this adapter; it fails closed without the
-context/exception. `git apply --check tests/fixtures/native-mcp-harness.patch`
-checks the handoff against this base. Parent coordinates both runtime sites.
+The standard owner supplies the adapter's providers to its harness and loads
+`...adapter.extensions` **before** that harness in its existing resource loader
+and single AgentSession. No second default MCP extension or ambient config loader
+is added. The SDK's `tools` option is also a **hard allowlist**: it now includes
+configured facade names and only the adapter's exact bound native tool names.
+Native names are removed from the active loadout after binding; activating them
+manually still cannot bypass exact guarded-call permits. No namespace wildcard,
+resource helper, search or codemode privilege is granted. REST providers ignore
+the extra execution-context argument; existing REST dispatch uses the same allowlist.
 
-In the separately approved standard owner (never the persistent parent-only read
-service), construct the adapter with installed `sdk`, installed `pi-mcp` exports,
-explicit private `credentials` handle, owner-private `privateHome` / `logPath`,
-trusted `servers`, trusted `bindings`, and explicit `enabled` booleans. Give its
-`providers` to the existing harness and add `...adapter.extensions` to the **same**
-resource loader before the harness factory. Do not load a second default MCP
-extension beside it. Use native SDK extension binding/shutdown as usual.
+No adapter means no native MCP extension. Read-only owners **reject** injected MCP
+adapters before discovery authorization, and read-only harnesses discard providers.
+The installed normal-only parent service and its descriptor/unit remain unchanged.
+Credentials, server bindings and enablement remain trusted embedding inputs, never
+model arguments. All query calls retain existing pre/post-consent `network` +
+`submit_external` checks, exact fresh approval, admission and persisted outcomes.
+Cancellation/unknown completion seals admission without retry/replay.
 
 The installed MCP credential-store implementation/type is in the installed
 `pi-coding-agent/dist/extensions/mcp/oauth.js`; tests use its
@@ -221,7 +244,7 @@ same-session registration in its owned files, without broadening the read-only
 service, then separately authorizes provider setup and real human-consented L14.
 
 
-## P1 process-lifetime review correction — source only, targeted review pending
+## P1 process-lifetime review correction — historical receipt, later approved @2
 
 Full independent review **01M7BMRGTV6958SDX3SS7NYSR7/mcp-review** was fetched and
 read. Its **BLOCK/P1** is retained: installed Pi1.5.1 `StdioTransport.close()`
@@ -275,7 +298,7 @@ an alternate client. `owned-stdio.mjs` owns only spawn/write/close; the fixed
   non-running zombie awaiting the system subreaper. Checks assert zero **live**
   fixture descendants, not that all orphan zombie proc entries vanished.
 
-### Exact current offline validation
+### Historical09f5c43 offline validation (25/25; before owner integration)
 
 ```sh
 MCP_TEST_ROOT=/home/ron/Workspace/hyprneuro-mcp-tests/p1/verified-final-2 \
@@ -303,5 +326,31 @@ operation or real user consent is claimed. New source/helper hashes and exact
 commands/log hashes are in the P1 receipt. No full Node/Python/GUI/C rerun is claimed
 for this narrow correction. The original64/65 full result remains historical;
 parent separately owns publication-race fix **45e588b**, not cherry-picked here.
-**Next:** independent targeted P1 review, then parent-owned runtime integration;
+**Next:** independent review of the new parent-owned source integration;
 live provider/auth compatibility and human-consented L14 remain separate gates.
+
+
+## Combined integration validation
+
+Focused actual installed-SDK suite: **28/28 pass**, using the canonical integrated
+harness. Adds same-owner/session native discovery, facade permissions, nested
+journal continuation, fresh human denial, pre/post-consent broker revocation,
+cancellation -> UNKNOWN -> no replay, and absent/denied discovery authorization.
+Parent-only actual-SDK regression explicitly rejects facade/native/resource calls.
+New owner fixtures also await private native Durable idle-exit before removing
+its ledger/lock; no shared orchestrator is adopted or stopped.
+All authorization here is synthetic fixture consent, not live user authorization.
+The initial focused run **26/27** and its diagnostic failure are retained: discovery
+worked but SDK `tools` excluded facade/native dispatch. Exact allowlist correction
+is covered by the passing owner-session checks, not a retry-for-pass claim.
+Full combined suite result and source/log hashes: see
+[evidence/native-mcp-integration.json](evidence/native-mcp-integration.json).
+
+Updated focused command (requires installed Durable for owner-session fixtures):
+
+```sh
+MCP_TEST_ROOT=/private/Workspace/new-test-directory \
+PI_HARNESS_SDK=/installed/pi-coding-agent/dist/index.js \
+PI_HARNESS_DURABLE=/installed/pi-durable-subagents \
+  tests/run-native-mcp-offline.sh
+```

@@ -14,7 +14,34 @@ Pending branches are not implicitly merged or deployed.
 At that earlier checkpoint the read-only-owner profile was pending. Current
 installed/bounded-fixture results supersede that state below; P01 remains partial.
 
-## Current rollback preflight correction — source only, re-review pending
+## Current MCP same-session source integration — uncommitted review checkpoint
+
+Approved `f9ea60b` + `09f5c43` cherry-picked onto `292ce8c` as `0b856c6` +
+`39e14a8`, retaining required trailers. Cleanup approval:
+**01M7BMRGTV6958SDX3SS7NYSR7/mcp-review@2** (25/25, zero live fixtures).
+New owner/harness integration is **uncommitted and independently unreviewed**.
+Both patch sites applied; same loader/session, adapter before harness, exact SDK
+allowlist, no raw active names, no second/ambient MCP extension. Explicit trusted
+connection/discovery + credential/destination authorization is required before
+extension loading; each query still needs network/submission broker checks and
+fresh exact consent. Read-only owners reject adapters; normal installed parent
+profile remains provider-free. No live providers or credential lookup.
+
+Combined offline checks: **455 Python/1 skip/104 subtests;77 Node;17 existing
+normal +17 sanitized C helpers**, no rebuild. Focused **28/28**. Initial26/27 and
+0/1 diagnostic retained: missing SDK allowlist names prevented dispatch; exact
+allowlist correction now proves continuation/cancellation/denials. Post-scan:
+zero live owned fixtures. Original231 remains **UNKNOWN**; old failures retained.
+Installed/running UI PID2534881 SHA256 `f6de29a2…76b5a5` unchanged.
+
+Normal stack was inactive at the failed `292ce8c` bundle preflight; user approval
+for model start remains pending. No restart/bypass/replay, model/service lifecycle,
+GUI, actual inference, freeze/apply/install or tool auto-grant. Cached monitor
+EventIntake sampler deferred. Next: parent checkpoint + independent integration
+review, not deployment. Exact hashes/commands/approval receipt:
+[evidence/native-mcp-integration.json](evidence/native-mcp-integration.json).
+
+## Historical rollback preflight correction — subsequently approved at292ce8c
 
 Independent45e588b review `01M7BMPVB2S124KHZJ6EM9X060/release-review` retained
 **BLOCK: one P1** (unverified saved unit backups before replacing overrides).
@@ -37,7 +64,7 @@ GUI, permission, publication freeze or apply. Parent source checkpoint and targe
 review next. [PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md) and
 [evidence/persistent-rollback-p1.json](evidence/persistent-rollback-p1.json).
 
-## Current source correction and release-preparation gate
+## Historical source correction and release-preparation gate
 
 The targeted2be64a4 review **01M7BF8Q9JFQ6G8Y38H62AJTFG approved source only**;
 both original P1s are closed. Subsequent native-error/terminal-event corrections

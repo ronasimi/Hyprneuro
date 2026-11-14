@@ -1,3 +1,16 @@
+## Current blocker — exact-root switch paused on old detach-unknown
+
+User requires5392 root (not mixed6f9 acceptance). NewUI human chooser/old6f9
+handshake PASS retained. Fresh metadata observed disconnected UI, but old owner
+PID3107869 remains active and holds global lifetime lock; saved checkpoint now
+`detach-unknown`, phasefailed, activation_required. Precise cleanup cause UNKNOWN.
+No service stop/reset/replay, new chooser retry, activation/read or force action.
+Exact checkpoint preserved privately; source unchanged. Parent recovery decision
+needed before lock release/human exact-root Connect. No automatic root substitution.
+Evidence: `docs/evidence/final-controlled-root-switch-blocked.json`.
+
+--- Historical checkpoints retained below ---
+
 ## Current live gate — connected, but owner root differs from requested root
 
 Human chooser retest completed without losing new5392 UI3104230. Peer metadata

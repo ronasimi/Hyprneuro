@@ -1,0 +1,61 @@
+{
+  "recorded_utc": "2026-11-14T14:35:17.487294+00:00",
+  "status": "CONTROLLED EXACT5392 SWITCH AUTHORIZED; BLOCKED old owner detach-unknown/lifetime lock; no forced stop/replay",
+  "authority": "User explicitly chose exact5392 root, rejects mixed6f9 first native acceptance. Human-controlled Disconnect/reselection only, activation/exactread separate; report state risk before any forced stop.",
+  "chooser_result": "PASS actual human folder selection/newUI5392 stayed alive and handshake validated against old reviewed6f9 root; not newroot/native read pass. Source provenance remains UI5392/nativeowner6f9.",
+  "fresh_metadata": {
+    "UI": {
+      "mode": "pi",
+      "connected": false,
+      "read_callable": false,
+      "fresh_consent_required": true
+    },
+    "old_owner": {
+      "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+      "pid": 3107869,
+      "start": "43241373",
+      "exe": "/usr/bin/node",
+      "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "dropins": []
+    },
+    "old_owner_status": {
+      "state": "failed",
+      "owner_phase": "failed",
+      "normal_only": true,
+      "parent_only": true,
+      "persistent": true,
+      "tools": [
+        "read"
+      ],
+      "tool_permission": "activation_required",
+      "session_id": "01a1da6c-615a-7280-92bb-4d49bb71e456"
+    },
+    "kernel_lifetime_lock": {
+      "path": "/run/user/1000/hyprneuro/pi-owner-service.lock",
+      "inode": 85184,
+      "owner_lines": [
+        "54: FLOCK  ADVISORY  WRITE 3107869 00:4b:85184 0 EOF"
+      ]
+    },
+    "operator_action": "metadata/untrusted status only, no disconnect/stop/start/Connect/activation/consent"
+  },
+  "checkpoint_summary": {
+    "source": "/home/ron/Workspace/hn-final-6f9de3f/owner/checkpoint.json",
+    "sha256": "a146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206",
+    "phase": "detach-unknown",
+    "copy": "private audit only; no source checkpoint edit/reset/replay"
+  },
+  "unknown_outcome": "Old owner now phasefailed/checkpointdetach-unknown. Latest read-only status activation_required/toolsread; no activation/read/consent/chat by operator. Exact cleanup exception/cause UNKNOWN; do not reset/adopt/replay or pretend ordinary/idle cleanup success.",
+  "lock_risk": "/proc/locks proves FLOCK advisory WRITE held by3107869 on global pi-owner-service.lock inode85184. Source pi_owner_service.service_lock retains inheritable fd lifetime; ManagedDesktopBridge.detach closes transports/revokes scope, does not stop persistent service. New root cannot start while old lock remains.",
+  "human_sequence_limit": "First fresh snapshot observed Legacy/disconnected; later snapshot Pi intent/disconnected/read-not-callable. Operator sent no UI/disconnect/stop action. Actual intervening human sequence not confirmed; do not attribute actions or request blind repeat.",
+  "readonly_safety": "Untrusted status client does not trigger onControlDisconnect: socket.mjs only calls it for authenticated CONTROL last-close. No trusted control authentication performed. Only metadata, existing checkpoint preservation, source read.",
+  "preservation": "Copied exact old checkpoint privately without changing original; SHAa146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206; raw checkpoint not committed. All active state/grants/keys/source unchanged.",
+  "next": "Parent review failed detach checkpoint/source/logs and explicit recovery decision. Pause human Connect until old runtime lock safely released by separately authorized recovery; no force-stop, reset-failed, lifecycle grants, root substitution or automatic migration. Then human exact5392 selection and canonical root/descriptor/handshake verification before human activation/exactread.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/checkpoint-summary.json": "2614c6f5dce95f13e2e368902cdd1d27039a0177e61dd5a0826ef5b6c5abc8c7",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/old-checkpoint-preserved.json": "a146ff0a445913940a00922f9e256d22760ad3081d43cdaef40a5ffc9b512206",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/controlled-root-switch/pre-switch-readonly.json": "45a967ae376f53372f56a1aa1abad1c4647eed08adce53669bac847106a370db"
+  },
+  "limits": "No service/model/GUI action, capture/clipboard/submission/inference/grant/source edit. Installed5392 app unchanged; model/DB/settings preserved. VIDEO binding refusal/all-media READY blocker unchanged; original231/GTK first corruption UNKNOWN."
+}

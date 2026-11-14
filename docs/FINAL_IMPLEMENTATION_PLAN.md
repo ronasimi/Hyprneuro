@@ -518,3 +518,25 @@ warnings and precise root-cause limits retained. This is app-update PASS only.
 [Root/status receipt](evidence/final-human-connect-root-mismatch.json). Corrected
 chooser accepted a HUMAN folder and app remained alive; exact new5392 root and
 native first-read acceptance remain unproven. All prior/video blockers unchanged.
+
+## 15. Human-authorized exact-root switch — STOP on detach-unknown
+
+- [x] User chose exact5392 root, NOT mixed6f9 first native acceptance. Actual older
+  folder handshake/newUI chooser PASS retained with source distinction only.
+- [x] Fresh leased logind/locker+UI metadata first showed Legacy/disconnected;
+  subsequently Pi intent/disconnected. No operator UI action; human sequence not
+  fully confirmed, no fabricated Disconnect/Connect consent.
+- [x] Old6f9 owner3107869 still holds global kernel lifetime lock inode85184.
+  Persistent UI Disconnect does not stop service. No blind new-root Connect.
+- [x] Old status nowFAILED, activation_required; saved checkpointdetach-unknown.
+  Preserved exact checkpoint privately SHAa146ff0a…512206. Cleanup cause UNKNOWN;
+  no resetting/adoption/replay/forced stop. Untrusted status socket close is not
+  the control-detach trigger (source checks authenticated control role).
+- [ ] Parent reviews failed detach and authorizes explicit safe recovery before
+  service stop/lock release. No active owner forced off to make a check pass.
+- [ ] Only after safe release, intentional HUMAN Connect exact5392 owner; verify
+  canonical actual root + descriptor552689c4…22cc7 + profile/session handshake;
+  activation and exact fixture read remain separately human. No automatic selection.
+
+[Recovery blocker](evidence/final-controlled-root-switch-blocked.json). Current
+READ-ONLY acceptance PAUSED; all-media/video refusal blockers remain unchanged.

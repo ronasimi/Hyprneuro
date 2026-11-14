@@ -439,3 +439,27 @@ UNKNOWN. No tests/probes executed for this documentation; no READY with video ex
 
 [Ops evidence](evidence/final-owner-template-update.json). Installed chooser failure,
 human-only scopes and binding video/media READY blockers remain unchanged.
+
+## 12. Current chooser+inert-template replacement bundle — independent review next
+
+- [x] Source5392ecfd40c2639485a2448d62fa6007a4b153af committed clean, includes
+  chooser63c2548 and authorized narrow template update policy.
+- [x] NEW immutable `/home/ron/Workspace/hn-final-5392ecf`; manifest
+  `ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8`;
+  binary `1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4`;
+  descriptor `552689c410654c922b8c2403ca93ebf167bf659f3b1091a21031425919122cc7`.
+- [x] Actual preparation/freeze/staged verify pass;6unit backups incl pinned
+  prior6f9 template1e7cbd85…d81a/original0600; exact source blobs/import origins,
+  DB/settings backups checked; unit analyzer0/empty; no apply/owner markers.
+- [x] Full471Python/1skip/133subtests,77Node,21+21C;fresh exported GTK21helpers.
+- [ ] Independent combined chooser+ops+EXACT bundle review before app-only update.
+- [ ] Fresh actual human unlock confirmation plus maintained lease/logind/locker/
+  parent aliases and baseline before once-only update. Do not reuse old confirmation
+  automatically or replay unknown outcomes. No owner start/enable/grants.
+- [ ] Only AFTER reviewed update: ask human to repeat chooser intentionally under
+  monitored gates; expect visible validating/connect state or classified retained
+  error, then separate genuine activation/read dialogs. Do not automate consent.
+
+Installed6f9de3f/1f25fd78…f78e4 and chooser FAIL remain unchanged. Known Meson
+finalization warning retained. ALL-media/video provider-refusal blockers unchanged.
+[Exact review handoff](evidence/final-chooser-review-bundle.json).

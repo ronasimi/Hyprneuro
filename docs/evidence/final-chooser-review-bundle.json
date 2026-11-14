@@ -1,0 +1,107 @@
+{
+  "recorded_utc": "2026-11-14T13:57:11.971369+00:00",
+  "status": "NEW IMMUTABLE CHOOSER+OPS REVIEW BUNDLE; NOT APPLIED",
+  "source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+  "bundle": "/home/ron/Workspace/hn-final-5392ecf",
+  "sha256": {
+    "manifest.json": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
+    "bin/hyprneuro-ui": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+    "owner/owner.json": "552689c410654c922b8c2403ca93ebf167bf659f3b1091a21031425919122cc7",
+    "staged/hyprneuro-pi-owner@.service": "6cde15911711bedc89d33147944d5afab9a4acfe3b771ae2a7cf21d81308d81a",
+    "staged/prepare_app_release.py": "9ed6a5bbdb2437e4e12b83c2e6c2531d1b1eb7d8f72cb42035694947b4c92a53",
+    "staged/verify_app_release.py": "aaf6255ec37b2699a7715304fb1bbec60b64796eb8f5ee2fb4632978c551d16c",
+    "staged/apply_app_release.py": "3826802b38d39bca17bb109736147bb0a01e8c3dae9f5efb97ecd1e8aa96ac63"
+  },
+  "changes": [
+    "63c2548a3b440b362a2984d5b78e025bf1782888 chooser NULL-parent/focus/cancellation/error visibility/per-request managed connect stages",
+    "5392ecfd40c2639485a2448d62fa6007a4b153af approved prior exact applied inert owner-template pin/private backup/global-inert guard and rollback metadata"
+  ],
+  "tests": "Focused42Python/26subtests;full471Python/1skip/133subtests,77Node,21normal+21sanitized C including4headless actual chooser callbacks. Fresh exported GTKbuild/test21helpers passed.",
+  "source_files": 256,
+  "source_identity": "All exported files compared byte-for-byte against exact git objects; staged helpers match frozen source. Candidate/actual old sidecar import origins attested;6unit backups including original owner template with original mode. Backup SQLite quick_check ok; current installed/running source remains6f9de3f/1f25fd78\u2026f78e4.",
+  "owner_template_baseline": {
+    "path": "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-pi-owner@.service",
+    "role": "owner-template",
+    "sha256": "1e7cbd85dc95ba69e61405ac0ee927c278b7587336bb8b60ea6f2ae61da6a744",
+    "mode": 384,
+    "previous_bundle": "/home/ron/Workspace/hn-final-6f9de3f",
+    "previous_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc",
+    "backup": "/home/ron/Workspace/hn-final-5392ecf/backup/5-hyprneuro-pi-owner@.service"
+  },
+  "staged_validation": "Before/after freeze verifier passes using SAME imported release_targets policy; actual canonical/lexical aliases, private backups and exact prior applied manifest pin/global inert owner gate pass. Unit analyzer0/empty. No template/service start/enable/owner process or tool consent supplied.",
+  "previous_source": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
+  "previous_bundle": "/home/ron/Workspace/hn-final-6f9de3f",
+  "previous_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc",
+  "baseline_UI": {
+    "unit": "hyprneuro-ui.service",
+    "pid": 3080438,
+    "start": "42931973",
+    "exe": "/home/ron/.local/bin/hyprneuro-ui",
+    "exe_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
+    "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+    "dropins": [
+      "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+      "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+    ]
+  },
+  "baseline_sidecar": {
+    "unit": "hyprneuro.service",
+    "pid": 3072852,
+    "start": "42806610",
+    "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+    "exe_sha256": "20a5569a1bac8de02122347777b6cf2ae12ec1eafd42db990c6a0c5407f96b8e",
+    "fragment": "/home/ron/.config/systemd/user/hyprneuro.service",
+    "dropins": [
+      "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d/95-reviewed-readonly-release.conf"
+    ]
+  },
+  "models": [
+    {
+      "unit": "lfm@text.service",
+      "pid": 3039039,
+      "start": "42560721",
+      "exe": "/usr/local/bin/llama-server",
+      "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+      "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+      "dropins": [
+        "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/debug.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/disable-warmup.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/logfile.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/lfm@text.service.d/no-prewarm.conf"
+      ]
+    },
+    {
+      "unit": "lfm@omni.service",
+      "pid": 3039041,
+      "start": "42560722",
+      "exe": "/usr/local/bin/llama-server",
+      "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+      "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+      "dropins": []
+    },
+    {
+      "unit": "lfm@decision.service",
+      "pid": 3039045,
+      "start": "42560723",
+      "exe": "/usr/local/bin/llama-server",
+      "exe_sha256": "c229acff2ae94ddbe30a76e66c828937bf49559218964978df58e86c69380983",
+      "fragment": "/home/ron/.config/systemd/user/lfm@.service",
+      "dropins": []
+    }
+  ],
+  "known_failure": "Genuine prior human Connect selected exact6f9 owner then Open, reported nothing. Original UI lost Wayland compositor and systemd auto-restarted3080438; owner inactive/no native acceptance. Layer-parent source defect fixed, but precise protocol cause and corrected real GUI success remain unproven until reviewed update+genuine human retest. No blind retry.",
+  "warnings": "Known Meson setup finalization unclosed-log ResourceWarning retained, plus existing GdkPixbuf deprecations; unit verification itself empty. No warning-clean overall build claim.",
+  "rollback": "Existing owner template is replacement with role=owner-template in units, pinned backup and originalmode0600; restore it, not delete. No active owners stopped to pass; unknown/active/enabled/job/dropin/reload/drift/unsafe file/backup states refuse. No rollback executed; late apply guard retained; trusted-parent/sameUID TOCTOU boundary explicit.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/baseline-and-origins.json": "ff31b289dcdf352182e2cd01e6180ff4dd52e9b53b6410fefbbdc1d5eba89315",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/prepare-and-verify.sh": "cf6714c7b0afca8721992dddc8dcd7e40c19c95213a5a2df0197716d028b4e88",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/prepare.log": "cce9c6dddbe2a7fe42c32ea4e78c938d48d3baa08309bd917d259a54f2fa79a0",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/unit-check/hyprneuro-ui.service": "3ad343fc77397b9d9d8709470f2a9ee85ddf3d0229595245b037075a16eb0782",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/unit-check/hyprneuro.service": "a9bc234399a02004211cff18396092a0a6bc59b20b05b6c13633a7711af190f8",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/unit-verify.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/verify-before-freeze.log": "ae09796d4bc7aba5c7d5f95b6e55ede516c94d8659815ef0da50d52547a11331",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/candidate-5392ecf/verify-final.log": "ae09796d4bc7aba5c7d5f95b6e55ede516c94d8659815ef0da50d52547a11331"
+  },
+  "next": "Independent combined chooser+ops+exact new bundle review BEFORE any app update; then fresh actual human unlock/maintained lease+logind/locker+alias checks for once-only app-only update. Genuine human Connect re-test should visibly validate/connect or show classified error; activation/exact fixture consent remain separately HUMAN.",
+  "limits": "No new app/owner/model service action, frozen old bundle mutation, capture/clipboard/media submission/inference/consent automation. Delegated live acceptance paused. All-media same-owner/router READY mandatory; VIDEO binding refusal includes preparecancel+ffprobe cleanup/fakeprocess workaround: BLOCK no reroute or repro. Original231 and GTK first corruption UNKNOWN; historical49c748d BLOCK retained."
+}

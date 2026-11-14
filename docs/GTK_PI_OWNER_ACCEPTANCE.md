@@ -1,5 +1,24 @@
 # Offline GTK acceptance follow-up — live production still NOT READY
 
+## Current replacement candidate — combined exact review required
+
+Source5392ecfd40c2639485a2448d62fa6007a4b153af includes chooser63c2548 and
+approved inert owner-template update policy. NEW frozen `/home/ron/Workspace/hn-final-5392ecf`;
+manifestac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8;
+binary1ce5473c…bfad4. Full471Python/1skip/133subtests,77Node,21+21C; fresh
+exported GTK21helpers;6unit backups including exact previous owner template,
+originalmode0600, previous manifest pin/global inert checks;unit analyzer0/empty.
+Preparation/staged verification passed, NO apply/owner markers.
+
+Independent chooser+ops+exact-bundle review next, then fresh actual human unlock
+and maintained gates before app-only update. Installed6f9de3f/1f25fd78…f78e4 and
+real chooser FAIL are unchanged, not a pass. No blind human retry until reviewed
+update; human Connect/activation/exact-read remain separate. Meson warning retained.
+All-media READY mandatory; binding video refusal/no workaround still blocks READY.
+Receipt: `docs/evidence/final-chooser-review-bundle.json`.
+
+--- Historical checkpoints retained below ---
+
 ## Current blocker — genuine installed Connect chooser failed
 
 Human selected exact prepared6f9de3f owner and Open, reported nothing. Journal

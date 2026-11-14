@@ -3,15 +3,15 @@
   "updated_at_ms": 1794663693681,
   "status": "NOT READY",
   "git": {
-    "revision": "e1504a023ac3ab525e1ea286a6c22e261a29ad83",
+    "revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
     "branch": "feat/pi-owner-gtk",
     "dirty": false,
-    "note": "Clean prior evidence HEAD at checkpoint; following evidence-only commit does not change installed frozen source6f9de3f."
+    "note": "Clean frozen source5392ecf at checkpoint; following evidence-only commit does not change candidate or installed6f9de3f."
   },
   "deployed_revision": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
   "deployed_binary_sha256": "1f25fd7877812e560899a39351276eff7739639ab557d25a808eed0dc25f78e4",
-  "phase": "Chooser63c2548 plus approved pinned inert-owner template update pass full offline tests; new immutable bundle/review next",
-  "current_task": "Commit coherent new source, prepare NEW immutable bundle using exact prior6f9de3f/5e0730f1 manifest pin, independent combined chooser+ops+exact-bundle review before app-only update; genuine human chooser retest and activation/exactread remain separate.",
+  "phase": "New immutable5392ecf chooser+approved inert-template update bundle staged-verified; combined exact review required, not deployed",
+  "current_task": "Independent combined chooser+ops+exact new bundle review BEFORE any app update; then fresh actual human unlock/maintained lease+logind/locker+alias checks for once-only app-only update. Genuine human Connect re-test should visibly validate/connect or show classified error; activation/exact fixture consent remain separately HUMAN.",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -31,7 +31,7 @@
     "Mandatory all-media parity including VIDEO before READY; binding refusal prevents current full READY"
   ],
   "blockers": [
-    "Genuine installed chooser FAIL persists until new source+fresh immutable bundle review/update; approved existing-template update policy now implemented and tested, not yet candidate/release-approved.",
+    "Installed genuine chooser FAIL; new5392ecf immutable candidate needs independent combined chooser/ops/exact-bundle review before app-only update, then fresh human Connect/activation/read acceptance.",
     "Human persistent Connect/activation/exact-read/native outcome/idle/reconnect/revoke/restart acceptance pending",
     "ALL media same-owner/router integration and live acceptance mandatory; video provider refusal covers prepare-cancel + ffprobe child cleanup, no fake-process reformulation/reroute/retry",
     "Private capture/submission consent absent; no clipboard/camera/mic/screen access authorized",
@@ -139,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Commit coherent new source, prepare NEW immutable bundle using exact prior6f9de3f/5e0730f1 manifest pin, independent combined chooser+ops+exact-bundle review before app-only update; genuine human chooser retest and activation/exactread remain separate.",
+  "next_action": "Independent combined chooser+ops+exact new bundle review BEFORE any app update; then fresh actual human unlock/maintained lease+logind/locker+alias checks for once-only app-only update. Genuine human Connect re-test should visibly validate/connect or show classified error; activation/exact fixture consent remain separately HUMAN.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -214,7 +214,7 @@
     "matching16x16transparentSettings/arrow",
     "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
   ],
-  "verified_this_checkpoint": "Focused42Python/26subtests including12 zero-service/write/marker refusal cases and other-instance enumeration cases. Full471Python/1skip/133subtests,77Node,21normal+21sanitized C including chooser callback pass.",
+  "verified_this_checkpoint": "Focused42Python/26subtests;full471Python/1skip/133subtests,77Node,21normal+21sanitized C including4headless actual chooser callbacks. Fresh exported GTKbuild/test21helpers passed.",
   "verified_this_audit": [
     "Shared focus through actual disposable Unix chat IPC injects current skill exactly once, preserves complete DEFAULT_SYSTEM, exact native WAV; MP4 and malformed WAV rejected before mocked inference",
     "Approved skill snapshot with ingest/capture off and no execution grants; existing live-focus ingest consent gate preserved",
@@ -251,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-owner-template-update.json",
+  "evidence_current": "docs/evidence/final-chooser-review-bundle.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -263,5 +263,7 @@
     "policy": "Metadata/health only; no inference or service operation"
   },
   "deployed_source_commit": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
-  "deployed_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc"
+  "deployed_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc",
+  "candidate_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+  "candidate_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8"
 }

@@ -226,3 +226,14 @@ Logind+locker checks passed before/after; launcher/preset/unit hashes unchanged;
 installed/running UI still f6de29a2…76b5a5. No GUI/inference/owner acceptance yet.
 Exact metadata/artifact hashes: [evidence/final-normal-baseline.json](evidence/final-normal-baseline.json).
 Parent review was requested, not received. Next: prepare/verify the exact candidate.
+
+### Preflight failure retained; no candidate prepared
+
+First full preflight at f68cb7c:454 Python passed/1failed/1skip/104subtests;
+77Node and17+17 C passed. The cancellation fixture raced its50ms whole-chat
+deadline before admission under a logged289ms stall. Controlled100ms connect
+delay reproduces the old-budget failure. Cancellation-phase budget/cleanup only
+corrected; focused9/9 passes, dedicated deadline assertions unchanged. Full final
+regression remains required. Monitorf0e0d63 held pending independent review; no
+old-source bundle frozen or relabeled.
+[evidence/final-cancellation-preflight.json](evidence/final-cancellation-preflight.json).

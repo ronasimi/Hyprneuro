@@ -1,0 +1,24 @@
+{
+  "recorded_utc": "2026-11-14T12:29:55.423773+00:00",
+  "base": "f68cb7c1e10feae8682494e634f1e7900954a569",
+  "scope": "Test-only cancellation phase/cleanup correction; production bridge/deadlines unchanged",
+  "initial": "454 Python passed/1 failed/1 skip/104subtests;77Node passed;17normal+17sanitized C helpers; preparation NOT reached",
+  "finding": "Cancellation fixture used50ms whole-chat budget while waiting for admitted chat. Retained log records289ms event-loop stall at authentication; deadline correctly closed before request. Fixture then waited for nonexistent admission. Peer wait_closed BrokenPipe was an additional uncaught fixture-finally error.",
+  "controlled_before": "Same private test with100ms delayed connection and old50ms budget deterministically fails1/1 waiting for admission; original machine-stall precise cause not established.",
+  "correction": "Cancellation-only fixture uses5s outer budget, deliberately delays connection100ms, requires actual admission before explicit cancel, retains300ms cancellation watchdog/EOF/exactly-one submission assertions, always joins task; peer finally tolerates only ConnectionError while always removing handler. Dedicated50ms whole-chat/auth/event-drain deadline tests unchanged.",
+  "focused": "9/9 passed warnings-as-errors including controlled delayed admission cancellation",
+  "test_sha256": "d100b514704ff6ba3425d52f0bcbe8042a2367cba41800d10ace2a97e3d9e4c1",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/python.log": "fe9f68f75a3a3bbb67e3643c8e73130f8b4132be0721c3b8891dbc7b11203e9a",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/node.log": "a56fc7d1a997922060384e62f5fe03406c80816c5c4ec4b923689f47d3f7a30d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/c.log": "b666122fb9389a429c5f9e45f5aa65c076db756ac3986fd6da68736b24b0fe73",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/c-sanitized.log": "fb139fc59195662e5e899b6703ef4d5c5dba21ffcf7ba4671f1826981fc504ec",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/exit-status.json": "62e130221bf3738e680b9d3bdffc4073db64bc50eeed7515552981be27a9b798",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/test_cancel_admission_before.py": "ea61a40e000d2b7b386e2b4fc60e9a972b53cfbb5566dc525a50162c0864aa7b",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/check-cancel.sh": "b103a4f25318d87a81459e855cd7625c46a4bdf5ca2f8bdec754095f8ed1e97e",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/cancel-before.log": "482bbc1f8eedbbad4dfa019844cd850bcad1bd34336c61ea5c85ade9f4b3466d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression/cancel-after.log": "b790ae7f94d2781466afc0756e17900c7e7f21da92b41ff87a0888ba1631a733"
+  },
+  "next": "Full combined regression on committed correction; monitorf0e0d63 held until independent approval; fresh post-integration release identity and review before cutover",
+  "boundaries": "No product runtime, model/config/preset/package/app/consent change. Original231 remains UNKNOWN; old failures retained."
+}

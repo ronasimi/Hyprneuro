@@ -103,8 +103,12 @@ class AuthenticatedStallTests(unittest.IsolatedAsyncioTestCase):
         finally:
             record['eof'].set()
             writer.close()
-            await writer.wait_closed()
-            self.handlers.discard(task)
+            try:
+                await writer.wait_closed()
+            except ConnectionError:
+                pass  # The peer deliberately aborts during deadline/cancel tests.
+            finally:
+                self.handlers.discard(task)
 
     async def until(self, predicate, timeout=.6):
         async with asyncio.timeout(timeout):
@@ -187,15 +191,24 @@ class AuthenticatedStallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.calls, [])
 
     async def test_cancelled_chat_has_one_submission_and_immediate_server_eof(self):
-        self.bridge = DesktopBridge(str(self.root), self.send, chat_timeout=.05)
+        async def delayed_connect(root):
+            # Cancellation must exercise an ADMITTED request, not race the50ms
+            # whole-chat deadline while credentials/authentication are pending.
+            await asyncio.sleep(.1)
+            return await PiOwnerClient.connect(root)
+        self.bridge = DesktopBridge(str(self.root), self.send, connect=delayed_connect, chat_timeout=5)
         task = asyncio.create_task(self.bridge.chat('synthetic cancelled request'))
-        await self.until(lambda: any(c['op'] == 'chat' for c in self.calls))
-        task.cancel()
-        with self.assertRaises(asyncio.CancelledError):
-            await asyncio.wait_for(task, .3)
-        await self.until(lambda: self.connections[0]['eof'].is_set())
-        self.assertEqual([c['op'] for c in self.calls], ['chat'])
-        self.assertIsNone(self.bridge.chat_client)
+        try:
+            await self.until(lambda: any(c['op'] == 'chat' for c in self.calls), timeout=1)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await asyncio.wait_for(task, .3)
+            await self.until(lambda: self.connections[0]['eof'].is_set())
+            self.assertEqual([c['op'] for c in self.calls], ['chat'])
+            self.assertIsNone(self.bridge.chat_client)
+        finally:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     async def test_concurrent_disconnect_and_cancellation_with_multiple_pending_consents(self):
         timers = await self.attach_pending()

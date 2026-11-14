@@ -759,3 +759,92 @@ production systemd clean-shutdown PASS or a normal-Disconnect release promise.
   5392 unchanged. Frame worker ownership §21; no capture/actions granted.
 
 [Actual SDK clean-shutdown regression receipt](evidence/final-real-broker-clean-shutdown.json).
+
+## 22. Source APPROVED; actual baseline blocks freeze, separate ops authority needed
+
+Independent review01M7DKA51PV7KYKM8RJ3S0X816/recovery-source-review APPROVES
+exactd3f3fa2 (ae43c23..d3f3fa2); source/freeze only, NOT deployment/recovery reset.
+Fresh leased read-only inventory2026-11-14T18:01:56Z:
+- Current5392 owner3125828/start43468243, exact Node/hash/cgroup/host path,
+  ordinary/activation_required/session01a1da8e-fee2-73e5-9173-da6770fc3778.
+  UI3104230 still Pi connected/read-callable; HUMAN Disconnect required first.
+- Nativefiles/user/assistant/toolResult0, auth_check denied:no_authorization,
+  ownerTCP0, jobs0; globalflock inode85184 held onlyby3125828.
+- Current checkpoint2c143d7c7005250187a520e24a0f78c8fe8ccb346599f8327920d2c2f110646d
+  ordinary/no persistedsession; guard retained. Descriptor552689c4…22cc7 intact.
+- Old6f9 unit failed/MainPID0/exit1/nojob/static; checkpoint
+ 700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea
+  close-unknown/no nativefiles, guard retained. Both states block global inert gate.
+- Private journals/checkpoint copies hashed; source inventory helper errors
+  (missing optionalpsutil, no-jobs nonJSON response) corrected without packages or
+  mutating commands; detailed receipt retains failures and final evidence.
+
+No existing owner close RPC: supported process shutdown is SIGTERM→host.close;
+normal-only on/off is not shutdown. No broker handoff/old source edit permitted.
+Minimal requested operations: humanDisconnect→fresh gate recheck→SEPARATELY
+authorized one exactmainSIGTERM/15s exit+kernelrelease observation→preserve
+postfailed/unknown evidence→explicitly authorized exactunit systemd reset-failed
+metadata ONLYif needed/dead/nojobs (NEVER owner checkpoint/guard reset/start)→
+regular fresh candidate preparation. No signal/reset authorized or performed yet.
+
+[Approved-source transition inventory](evidence/final-approved-recovery-transition-inventory.json).
+
+### Conditional recovery authority (not yet exercised)
+
+Parent chose option2: ONE exactmainSIGTERM ONLY to5392unit3125828/start43468243
+AFTER actual HUMAN Disconnect→Legacy confirmation and repeated maintained leased
+identity/no-newwork/no-activation/read-grant/checkpoint/guard/journal/logind/locker
+gates. Parent is requesting human Disconnect; it has NOT yet been confirmed.
+If already exited do not signal. At most15s observe exact exit and independently
+released same-inode global flock; stop on drift/timeout/retention, no escalation.
+No systemctlstop/secondSignal/SIGKILL/groupkill or nativeguard/checkpoint reset.
+NO reset-failed authority: preserve postcheckpoint/log hashes, exactdeadunit
+Active/Sub/Result/MainPID/job/restart state and request separate pinned metadata
+decision. Operational recovery is NOT clean/newfixedowner shutdown acceptance.
+
+## 23. Actual5392 operational retirement done once — failed shutdown retained
+
+Actual HUMAN text+private screenshot20261114_155843.png independently parent-read
+as Legacy/tool-free/Pi disconnected/Connect button. Authoritative backend matched
+Legacy/connectedfalse/readCallablefalse. No nonexistent Disconnect re-ask/click.
+Known idle failure nowphasefailed/checkpointdetach-unknown (preSHA1f45c15e…1ab42),
+not stale ordinary assumption; exactPID3125828/start43468243/unit/exe/cgroup,
+no nativefiles/user/assistant/toolResults/auth/TCP/jobs/children rechecked under
+maintainedlease/logind+independentlocker checks; privatebeforeguard/logs preserved.
+
+- [x] Exactly ONE `systemctl --user kill --kill-whom=main --signal=SIGTERM` to
+  exact5392 ownerunit returned0; no second signal/stop/KILL/escalation.
+- [x] Within15s exactPID exited; globalflock inode85184 independently reacquired
+  then released, sameinode/no lockfile deletion; /proc/locks noholder.
+- [x] Both old5392 and6f9 units failed/PID0/ControlPID0/nojob/static/Restartno/
+  NRestarts0/exit1. Current5392 checkpointclose-unknown SHA
+ c34f0a98c0a3d3ac5600fbbd22b57e4f5a293f758c0f07d5e95f61b1e36c9d72;
+  old6f9 unchanged700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea.
+  Both guards retained unchanged, zero nativefiles, jobs0.
+- [ ] Separate pinned exact2unit systemd reset-failed metadata authority still
+  REQUIRED to satisfy regular prepare globalinactive guard. No reset performed
+  or granted; NEVER nativecheckpoint/guard reset/replay/start.
+
+This is OPERATIONAL RECOVERY ONLY, not clean shutdown or native/newfixedowner
+acceptance. No newowner/connect/autoselect/activation/read/capture/model/app update.
+[5392 retirement receipt](evidence/final-5392-graceful-retirement-result.json).
+
+## 24. Separately authorized exact dead-unit metadata cleanup complete
+
+Parent explicitly authorized ONE argv-only `systemctl --user reset-failed` for
+exact5392 and6f9 units, conditional freshsameUID/exactfailed/PID0/ControlPID0/
+emptycgroups/nojobs/noprocesses/free sameinode85184/privatebackuphashes/lease+
+logind+locker gates. All passed; commandexit0, no repeat/broader reset.
+Both units now inactive/dead/PID0/nojob/static/Restartno; unchanged strict
+check_owner_inert PASS. SystemdResultsuccess aftermetadatareset is NOT oldclean
+shutdown acceptance; prior exit1/failedlogs permanently retained. Both native
+close-unknown checkpoints and guards hash-identical; no native auth/session/
+event/lock/source changes or ownerstart/retry/replay. No broader reset authority.
+
+Next: regular NEW coherent immutable source d3f3fa2 candidate preparation/freeze,
+sourceexport/import/rollback/DB/models/unitordering verification, exact independent
+bundle+ops review before app-only cutover, freshhumanunlock at actual cutover.
+No newroot reported until frozen/reviewed; human selection/activation/read remain
+separate. Historical5392 stays unchanged; mandatoryVIDEOfile externalBLOCK remains.
+
+[Exact dead-unit metadata receipt](evidence/final-exact-dead-unit-metadata-cleanup.json).

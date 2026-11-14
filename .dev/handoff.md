@@ -1,3 +1,48 @@
+## Baseline legitimately inert; regular NEW candidate prep next
+
+Parent separatelyauthorizedONEexact2unitreset-failedmetadata done0 afterfresh
+dead/nojobs/noprocesses/flockfree+hash+locker gates. Bothinactive/dead/PID0/
+static/nojobs/Restartno; existingstrictinertguardPASS. Native5392/6f9closeunknown
+checkpoints+guards hashidentical, no replay/start/reset. Priorfailedshutdown
+NOTcleanPASS; historicalreceipts retained. Bothsignal/reset authorityconsumed.
+Next regular NEW coherent immutable source d3f3fa2 freeze→independentexactbundle
+review→freshhumanunlockreviewedcutover→HUMANnewrootselection/activation/read.
+No broker migration, no oldbundle edits, capture/GUI actions notgranted.
+
+## One5392 TERM consumed, operational lock release PASS / shutdown FAILED
+
+AfteractualhumanLegacy confirmation + freshgates, exactmainTERM3125828/start
+43468243once returned0, PIDexited/inode85184flock independentlyfree within15s.
+No retry/escalation/reset. Bothownerunits failedPID0/nojob/Restartno/NRestarts0/
+exit1;5392checkpointcloseunknown c34f0a98…c9d72, old6f9unchanged700f1de…e8ea.
+Bothguardsunchanged/nativefiles0. SourcefixNOTinstalled, oldcleanup NOTclean
+acceptance. Separatepinned2unit systemd metadatareset decision required;
+NOreset-failed authority yet, NEVERnativecheckpoint/guard reset/start/replay.
+Receipt docs/evidence/final-5392-graceful-retirement-result.json.
+
+## Conditional one TERM authorized, HUMAN Disconnect still pending
+
+Parent option2: exact5392main3125828/start43468243 onceONLY afteractual
+HUMANDisconnectLegacy +freshmaintainedlease/locker/logind/identity/no-work/
+no-activation/readgrant/checkpointguardlog gates.15s process+sameinodeflock
+observe; no secondSignal/stop/KILL/groupkill/reset/replay. NOreset-failed
+authority. Ifalreadyexitednosignal. NeedpostexitActive/Sub/Result/MainPID/
+job/restartstate +checkpointguardloghash receipt beforeparentmetadatadecision.
+Humanconfirmation NOTyetreceived; zero signal/mutation. Parentasksusernow.
+
+## d3f3fa2 APPROVED; transition inventory actual/blocked
+
+Fresh18:01:56Z owner3125828/start43468243 exact5392ordinary/activation_required,
+no nativefiles/auth/TCP/jobs; UI3104230 stillPiconnected. Lockinode85184 holder3125828.
+Old6f9failedPID0/exit1; retainedcloseunknown guard+hash700f1de…e8ea. Current
+ordinarycheckpoint2c143d…646d preserved. Bothactive/failed blocknormalprepare.
+Receipt final-approved-recovery-transition-inventory.json; source approval
+01M7DKA51PV7KYKM8RJ3S0X816/recovery-source-review notsignal/reset/deploygrant.
+Next request one conditional exactmainSIGTERM afterHUMANDisconnect/freshgates,
+15s exit/flock observation; retainfailure operational-only. Exactsystemd
+reset-failedmetadata separatelyexplicitly authorized ifdead/nojobs only,
+neverownercheckpoint/guard/session reset/start/replay. No mutation yet.
+
 ## Recovery source + actual process/lock full suite PASS
 
 476Python/1skip/138subtests,79Node,21+21C; run01M7DK46XH5VZX5J2RN18V54DX

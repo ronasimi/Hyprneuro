@@ -10,8 +10,8 @@
   },
   "deployed_revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "deployed_binary_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
-  "phase": "Recovery fix and actualSDK realbroker process shutdown/globalflock regression full476Python/79Node/21+21C PASS SOURCE ONLY; independent review next",
-  "current_task": "Independent source review of recovery/stale status/process regression; then separately authorized bounded current-owner recovery and regular NEW coherent bundle path",
+  "phase": "Exact authorized dead5392+6f9 systemd metadata reset ONCE; bothinactive/dead/PID0/nojobs/strictinertPASS; nativeunknown guards unchanged",
+  "current_task": "Regular NEW coherent immutable candidate preparation from independently approved d3f3fa2, no oldroot adoption",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -139,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Parent independent review; no active durable wait, no production signal authority. Historical artifact hashes verified; new service-full results archived.",
+  "next_action": "Prepare/export/build/verify/freeze new d3f3fa2 bundle under lease; independent exactbundle/ops review before any cutover",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -251,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-real-broker-clean-shutdown.json",
+  "evidence_current": "docs/evidence/final-exact-dead-unit-metadata-cleanup.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -267,13 +267,13 @@
   "candidate_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "candidate_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
   "active_owner_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
-  "active_owner_root": "/home/ron/Workspace/hn-final-5392ecf/owner",
-  "active_owner_pid": 3125828,
+  "active_owner_root": null,
+  "active_owner_pid": null,
   "active_run": null,
   "frame_scope": "Separate bounded latest-frame camera/official ScreenCast to local Omni approved for implementation, no current capture consent/activation. VIDEO file refusal binding external constraint.",
   "last_completed_run": "01M7DK46XH5VZX5J2RN18V54DX",
   "future_acceptance_root": "New coherent immutable reviewed release permitted by parent; report only after frozen/reviewed; historical5392 untouched",
-  "live_signal_authority": "NONE for current5392 owner; requires separate bounded identity-pinned authorization",
+  "live_signal_authority": "CONSUMED exactly once for5392PID3125828/start43468243; NO further signal authority",
   "parallel_frame_ownership": {
     "allowed_new_files": [
       "python/src/hyprneuro/omni_frames.py",
@@ -283,5 +283,11 @@
     "shared_files": "sidecar.py/UI/release/owner router require coordinated handoff",
     "operations": "offline fixtures only; no capture, GUI, model calls or desktop actions"
   },
-  "gui_action_authority": "Capability/help discussion only; no injection/record/replay/prime/unrestricted shell. Future separately scoped observe-act-verify freshness/focus/coordinates/scale/cancel gates; parent-only read profile unchanged."
+  "gui_action_authority": "Capability/help discussion only; no injection/record/replay/prime/unrestricted shell. Future separately scoped observe-act-verify freshness/focus/coordinates/scale/cancel gates; parent-only read profile unchanged.",
+  "source_review": {
+    "status": "APPROVED",
+    "commit": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
+    "review": "01M7DKA51PV7KYKM8RJ3S0X816/recovery-source-review"
+  },
+  "systemd_reset_failed_authority": "CONSUMED once exact2units only; no broader reset authority"
 }

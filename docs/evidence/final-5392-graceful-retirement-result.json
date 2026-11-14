@@ -1,0 +1,271 @@
+{
+  "recorded_utc": "2026-11-14T21:02:21.400535+00:00",
+  "verdict": "ONE AUTHORIZED EXACT-MAIN SIGTERM completed; PID/lock released, old shutdown FAILED/UNKNOWN not clean or native acceptance",
+  "source_review": "APPROVED d3f3fa2/01M7DKA51PV7KYKM8RJ3S0X816/recovery-source-review; corrected broker not yet deployed",
+  "result": {
+    "at_utc": "2026-11-14T21:01:14.635987+00:00",
+    "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service",
+    "expected_pid": 3125828,
+    "expected_start": "43468243",
+    "authority": "Parent explicit ONE conditional exactmainTERM after actual HUMAN Connect-button/screenshotLegacy confirmation + repeated fresh gates;15s observation only; no failed/native metadata reset",
+    "signal_sent": true,
+    "reset_performed": false,
+    "human_evidence": {
+      "path": "/home/ron/Pictures/Screenshots/20261114_155843.png",
+      "sha256": "54c269ce3d0c3a660d4a4c194c7db9026c741f06fbd64538d56ddcaacb1b4d41",
+      "observer": "Parent read actual image as Legacy/tool-free/Pi disconnected, Connect Pi owner button; no image copied or published"
+    },
+    "preflight": {
+      "at_utc": "2026-11-14T21:01:14.960151+00:00",
+      "identity": {
+        "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service",
+        "pid": 3125828,
+        "start": "43468243",
+        "exe": "/usr/bin/node",
+        "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+        "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+        "dropins": []
+      },
+      "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-hyprneuro\\x2dpi\\x2downer.slice/hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service",
+      "cmdline": [
+        "/usr/bin/node",
+        "/home/ron/Workspace/hn-final-5392ecf/source/extensions/pi-owner/host.mjs"
+      ],
+      "owner_units": [
+        {
+          "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service",
+          "load": "loaded",
+          "active": "active",
+          "sub": "running",
+          "description": "Hyprneuro explicit parent-only Pi owner"
+        },
+        {
+          "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+          "load": "loaded",
+          "active": "failed",
+          "sub": "failed",
+          "description": "Hyprneuro explicit parent-only Pi owner"
+        }
+      ],
+      "owner_unit_details": {
+        "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service": {
+          "LoadState": "loaded",
+          "ActiveState": "active",
+          "SubState": "running",
+          "FragmentPath": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+          "DropInPaths": "",
+          "UnitFileState": "static",
+          "Job": "",
+          "NeedDaemonReload": "no",
+          "MainPID": "3125828",
+          "Result": "success",
+          "ExecMainStatus": "0"
+        },
+        "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service": {
+          "LoadState": "loaded",
+          "ActiveState": "failed",
+          "SubState": "failed",
+          "FragmentPath": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+          "DropInPaths": "",
+          "UnitFileState": "static",
+          "Job": "",
+          "NeedDaemonReload": "no",
+          "MainPID": "0",
+          "Result": "exit-code",
+          "ExecMainStatus": "1"
+        }
+      },
+      "jobs": [],
+      "checkpoints": {
+        "5392": {
+          "path": "/home/ron/Workspace/hn-final-5392ecf/owner/checkpoint.json",
+          "sha256": "1f45c15eead30580b4fd686fe5592b8c0dc3aa9795456f69ba60472cda01ab42",
+          "phase": "detach-unknown",
+          "persisted_session": false,
+          "guard_exists": true,
+          "native_counts": {
+            "files": 0,
+            "user": 0,
+            "assistant": 0,
+            "toolResult": 0
+          }
+        },
+        "6f9": {
+          "path": "/home/ron/Workspace/hn-final-6f9de3f/owner/checkpoint.json",
+          "sha256": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea",
+          "phase": "close-unknown",
+          "persisted_session": false,
+          "guard_exists": true,
+          "native_counts": {
+            "files": 0,
+            "user": 0,
+            "assistant": 0,
+            "toolResult": 0
+          }
+        }
+      },
+      "profile": {
+        "persistent": true,
+        "parent_only": true,
+        "normal_only": true,
+        "state": "failed",
+        "owner_phase": "failed",
+        "tools": [
+          "read"
+        ],
+        "tool_permission": "activation_required",
+        "workspace": "/home/ron/Workspace/hn-final-5392ecf/owner/home/workspace",
+        "read_paths": [
+          "/home/ron/Workspace/hn-final-5392ecf/owner/home/workspace/fixture.txt"
+        ],
+        "task_id": "hn-service-bfa6dbaaeba384a483947f44",
+        "app_id": "hyprneuro-parent-read",
+        "session_id": "01a1da8e-fee2-73e5-9173-da6770fc3778"
+      },
+      "authorization": {
+        "allowed": false,
+        "reason": "no_authorization"
+      },
+      "owner_TCP_sockets": [],
+      "global_lock": {
+        "path": "/run/user/1000/hyprneuro/pi-owner-service.lock",
+        "inode": 85184,
+        "holders": [
+          "50: FLOCK  ADVISORY  WRITE 3125828 00:4b:85184 0 EOF"
+        ]
+      },
+      "UI_identity": {
+        "unit": "hyprneuro-ui.service",
+        "pid": 3104230,
+        "start": "43187696",
+        "exe": "/home/ron/.local/bin/hyprneuro-ui",
+        "exe_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+        "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+        "dropins": [
+          "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+          "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+        ]
+      },
+      "UI": {
+        "mode": "legacy",
+        "connected": false,
+        "read_callable": false,
+        "fresh_consent_required": true
+      },
+      "sidecar_identity": {
+        "unit": "hyprneuro.service",
+        "pid": 3104225,
+        "start": "43187693",
+        "exe": "/home/ron/.local/share/uv/python/cpython-3.13.15-linux-x86_64-gnu/bin/python3.13",
+        "exe_sha256": "20a5569a1bac8de02122347777b6cf2ae12ec1eafd42db990c6a0c5407f96b8e",
+        "fragment": "/home/ron/.config/systemd/user/hyprneuro.service",
+        "dropins": [
+          "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro.service.d/95-reviewed-readonly-release.conf"
+        ]
+      },
+      "descriptor_sha256": "552689c410654c922b8c2403ca93ebf167bf659f3b1091a21031425919122cc7",
+      "template_sha256": "6cde15911711bedc89d33147944d5afab9a4acfe3b771ae2a7cf21d81308d81a",
+      "signal_sent": false,
+      "reset_performed": false,
+      "preserved_artifacts": {
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/first-current-checkpoint-5392-preserved.json": "1f45c15eead30580b4fd686fe5592b8c0dc3aa9795456f69ba60472cda01ab42",
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/first-current-journal-5392.log": "42f5e0369a394b269e6f2f603906285e7940d07c2b1ff48c204cf1f064d654ca",
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/inventory.py": "e6e08b9df20608d52107e062114d6291bc973e945c6d99d077d0ffff13928c10",
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/journal-5392.log": "42f5e0369a394b269e6f2f603906285e7940d07c2b1ff48c204cf1f064d654ca",
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/journal-other-owner.log": "f3fe88b7260e13a7b282a244fec3b9ccde363b7244542e6845e176db5f7bee2a",
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/checkpoint-5392-preserved.json": "1f45c15eead30580b4fd686fe5592b8c0dc3aa9795456f69ba60472cda01ab42",
+        "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/pre-signal/checkpoint-6f9-preserved.json": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea"
+      }
+    },
+    "guard_hashes_before": {
+      "/home/ron/Workspace/hn-final-5392ecf/owner/owner.guard": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "/home/ron/Workspace/hn-final-6f9de3f/owner/owner.guard": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "signal_command": [
+      "systemctl",
+      "--user",
+      "kill",
+      "--kill-whom=main",
+      "--signal=SIGTERM",
+      "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service"
+    ],
+    "signal_command_returncode": 0,
+    "signal_stdout": "",
+    "signal_stderr": "",
+    "deadline_seconds": 15,
+    "process_exited": true,
+    "independent_flock_released": true,
+    "same_lock_inode": 85184,
+    "phase": "exact-owner-exited-global-flock-independently-released",
+    "owner_unit_details": {
+      "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service": {
+        "LoadState": "loaded",
+        "ActiveState": "failed",
+        "SubState": "failed",
+        "FragmentPath": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+        "DropInPaths": "",
+        "UnitFileState": "static",
+        "Job": "",
+        "NeedDaemonReload": "no",
+        "Restart": "no",
+        "MainPID": "0",
+        "ControlPID": "0",
+        "Result": "exit-code",
+        "NRestarts": "0",
+        "ExecMainCode": "1",
+        "ExecMainStatus": "1"
+      },
+      "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service": {
+        "LoadState": "loaded",
+        "ActiveState": "failed",
+        "SubState": "failed",
+        "FragmentPath": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+        "DropInPaths": "",
+        "UnitFileState": "static",
+        "Job": "",
+        "NeedDaemonReload": "no",
+        "Restart": "no",
+        "MainPID": "0",
+        "ControlPID": "0",
+        "Result": "exit-code",
+        "NRestarts": "0",
+        "ExecMainCode": "1",
+        "ExecMainStatus": "1"
+      }
+    },
+    "checkpoints_after": {
+      "5392": {
+        "sha256": "c34f0a98c0a3d3ac5600fbbd22b57e4f5a293f758c0f07d5e95f61b1e36c9d72",
+        "phase": "close-unknown",
+        "guard_exists": true,
+        "guard_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "native_files": 0
+      },
+      "6f9": {
+        "sha256": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea",
+        "phase": "close-unknown",
+        "guard_exists": true,
+        "guard_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "native_files": 0
+      }
+    },
+    "locks_after": [],
+    "jobs_after": [],
+    "failed_metadata_reset_necessary_for_existing_prepare": [
+      "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d5392ecf-owner.service",
+      "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service"
+    ],
+    "acceptance": "OPERATIONAL RECOVERY ONLY: old shutdown failed/unknown, not clean/native/newfixedowner acceptance",
+    "preserved_post_artifacts": {
+      "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/post-exit/journal-5392.log": "a9252622daf7e6efcc2d2f4a8ea92ca9e67339a2562a6f2a5f2a7abe8aba3424",
+      "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/post-exit/journal-6f9.log": "f3fe88b7260e13a7b282a244fec3b9ccde363b7244542e6845e176db5f7bee2a",
+      "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/post-exit/checkpoint-5392-preserved.json": "c34f0a98c0a3d3ac5600fbbd22b57e4f5a293f758c0f07d5e95f61b1e36c9d72",
+      "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/post-exit/checkpoint-6f9-preserved.json": "700f1de58dbb7dcab17f835ded4a0bf5c1e5ab9e4eb27b42ecdae812e807e8ea"
+    }
+  },
+  "private_result_sha256": "1e4fddcb87453adf120666b1916fe9567871194e7d7716484c654ee05f9c12fe",
+  "private_result_path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/recovery-transition-d3f3fa2/post-exit/result.json",
+  "boundary": "No second signal/systemctlstop/KILL/group kill/reset-failed/nativeguard or checkpoint reset/replay/lock deletion/reconnect/newowner/autoselect. SIGTERM legitimately changed5392checkpoint detach-unknown\u2192close-unknown; original/pre-signal/post bytes preserved. Old6f9 checkpoint/guard unchanged. Screenshot private, path/hash only.",
+  "inspection_adjustment": "First fresh old inventory correctly refused obsolete ordinary-phase assumption after actual HUMAN Disconnect had triggered known idle detach failure. Saved new detach-unknown evidence; next preflight explicitly accepted only ordinary or failed+detach-unknown with sameexactidentity/no nativework/noauth and verified Legacy. Originalinitial evidence paths restored from preserved originals.",
+  "next": "Separate parent decision for exact two dead failed systemd unit metadata only. Existing regular preparation requires all instances inactive/dead/PID0; both failedmetadata blocks. No permission granted yet; native checkpoints/guards remain unknown and must not be reset/restarted."
+}

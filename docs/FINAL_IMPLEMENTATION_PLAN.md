@@ -306,3 +306,16 @@ function. Focused16/6subtests pass. f927a2f full464Python/1skip/113subtests,77No
 17+17C,fresh build/preparation passed; that candidate is retained/superseded, not
 relabelled. Next clean final source/fresh bundle and independent re-review.
 [evidence/final-path-alias-duplicate.json](evidence/final-path-alias-duplicate.json).
+
+### Current replacement bundle:6f9de3f — independent re-review next
+
+Source6f9de3fe2cb7f0c0f36071327fb7ea97765f2512;
+`/home/ron/Workspace/hn-final-6f9de3f`;manifest
+5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc.
+Focused16/6subtests;full465Python/1skip/113subtests,77Node,17+17C,fresh GTK17.
+Actual preparation/staged verification and shared target selection accept both
+real aliased existing destinations; three canonical targets distinct; no apply
+marker or owner start. Unit analyzer0/empty. Installed UI/model identities unchanged.
+Old49c748d BLOCK retained; new candidate not approved for cutover until exact
+independent re-review. Known Meson finalization warning retained.
+[evidence/final-frozen-bundle-corrected.json](evidence/final-frozen-bundle-corrected.json).

@@ -1,5 +1,20 @@
 # Implementation status and completion plan
 
+## Current final implementation authorization and checklist
+
+The user's current instruction authorizes normal LFM startup, local live/UI
+acceptance and reviewed reversible app-only deployment. The executable order and
+per-step checklists are now [FINAL_IMPLEMENTATION_PLAN.md](FINAL_IMPLEMENTATION_PLAN.md).
+Baseline: clean `d830015`; MCP integration is committed, not independently approved
+by its cleanup review. First gate is persistent normal-only parent READ-ONLY,
+then progressive separately consented capabilities. Genuine human activation/read/
+discovery/submission consent remains manual. Video/prior provider refusal stays
+BLOCKED; no reroute. Monitor cache integration belongs to the parent's isolated
+writer. Previous "awaiting normal-start permission" entries below are historical;
+actual startup/live acceptance is not yet performed by this checkpoint.
+**NOT READY.** Original231 remains UNKNOWN; initial failures remain retained.
+
+
 **Verdict: PARTIAL / NOT READY.** Planning baseline: published `5446e9c` on
 `feat/application-aware-assistant`. This document supersedes stale present-tense
 status in older checkpoint inventories, not their historical evidence. Verify

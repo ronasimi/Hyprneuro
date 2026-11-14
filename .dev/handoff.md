@@ -1,3 +1,12 @@
+## Approved source-only owner-template follow-up
+
+Chooser63c2548 plus narrowly authorized release-ops policy now passes full471Python/
+1skip/133subtests,77Node,21+21C. Existing template requires exact previous applied
+manifest pin/private backup/original mode; global inert/static guard, no service
+stop/start or grants. Actual current metadata guard passes read-only. Next commit/
+fresh bundle/combined exact review before update; installed chooser FAIL persists.
+Evidence: docs/evidence/final-owner-template-update.json.
+
 ## Current blocker — genuine installed Connect chooser failed
 
 Human selected exact prepared6f9de3f owner and Open, reported nothing. Journal

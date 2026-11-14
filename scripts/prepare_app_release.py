@@ -33,6 +33,76 @@ def private_file(path):
     return p
 
 
+def check_owner_inert(template, previous_instance):
+    """Read-only global gate: no enabled template/instances, jobs or live owners."""
+    pattern='hyprneuro-pi-owner@*.service'
+    try:
+        files=json.loads(run('systemctl','--user','list-unit-files','--no-pager','--output=json',pattern,timeout=10))
+        loaded=json.loads(run('systemctl','--user','list-units','--all','--no-pager','--output=json',pattern,timeout=10))
+        if (not isinstance(files,list) or len(files)!=1 or not isinstance(files[0],dict) or
+                files[0].get('unit_file')!=template.name or files[0].get('state')!='static'):
+            raise ValueError('Owner template/instance enabled or unknown')
+        if not isinstance(loaded,list):raise ValueError('Unknown owner enumeration')
+        instances={previous_instance}
+        for item in loaded:
+            name=item['unit']
+            if not re.fullmatch(r'hyprneuro-pi-owner@.+\.service',name) or item['load']!='loaded' or item['active']!='inactive' or item['sub']!='dead' or item['job_id']!=0:
+                raise ValueError('Active/unknown owner instance or pending job')
+            instances.add(name)
+        for name in sorted(instances):
+            fields=dict(line.split('=',1) for line in run('systemctl','--user','show',name,
+                '-p','LoadState','-p','ActiveState','-p','SubState','-p','MainPID','-p','UnitFileState',
+                '-p','FragmentPath','-p','DropInPaths','-p','NeedDaemonReload','-p','Job',timeout=10).splitlines())
+            fields['FragmentPath']=str(private_file(fields['FragmentPath']).resolve())
+            if fields!={'LoadState':'loaded','ActiveState':'inactive','SubState':'dead','MainPID':'0',
+                        'UnitFileState':'static','FragmentPath':str(template.resolve()),'DropInPaths':'','NeedDaemonReload':'no','Job':''}:
+                raise ValueError('Owner instance not inert/exact')
+    except (OSError,RuntimeError,ValueError,KeyError,IndexError,TypeError,subprocess.SubprocessError) as error:
+        raise RuntimeError('Owner template/instances not verifiably inert; no cutover') from error
+
+
+def check_owner_baseline(template, entry):
+    """A previous exact applied manifest pins ownership; never adopt ambient units."""
+    try:
+        previous=Path(entry['previous_bundle'])
+        st=previous.lstat()
+        if (not previous.is_absolute() or previous!=previous.resolve() or not stat.S_ISDIR(st.st_mode) or
+                st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)!=0o700):
+            raise ValueError('Private canonical previous release required')
+        private_file(previous/'apply.completed')
+        manifest=private_file(previous/'manifest.json')
+        old=json.loads(manifest.read_text())
+        file=private_file(template)
+        if (entry['path']!=str(file.resolve()) or entry['role']!='owner-template' or
+                stat.S_IMODE(file.stat().st_mode)!=entry['mode'] or entry['mode'] not in (0o400,0o600) or
+                digest(manifest)!=entry['previous_manifest_sha256'] or old.get('persistent_owner') is not True or
+                old['staged_files'][template.name]!=entry['sha256'] or digest(file)!=entry['sha256'] or
+                not re.fullmatch(r'hyprneuro-pi-owner@.+\.service',old['owner_unit'])):
+            raise ValueError('Unreviewed owner template/mode or previous manifest drift')
+        check_owner_inert(template,old['owner_unit'])
+    except (OSError,ValueError,KeyError,TypeError) as error:
+        raise RuntimeError('Owner template baseline missing, unsafe or changed; no adoption/cutover') from error
+
+
+def backup_owner_template(template, backup, index, previous, previous_sha):
+    if not template.exists() and not template.is_symlink():
+        if previous is not None or previous_sha is not None:
+            raise RuntimeError('Previously reviewed owner template missing; no cutover')
+        return None
+    if previous is None or previous_sha is None:
+        raise RuntimeError('Existing owner template requires exact previous applied manifest pin')
+    file=private_file(template)
+    entry=dict(path=str(file.resolve()),role='owner-template',sha256=digest(file),
+        mode=stat.S_IMODE(file.stat().st_mode),previous_bundle=str(previous),previous_manifest_sha256=previous_sha,
+        backup=str(backup/(str(index)+'-'+template.name)))
+    check_owner_baseline(template,entry)
+    with Path(entry['backup']).open('xb') as stream:stream.write(file.read_bytes())
+    Path(entry['backup']).chmod(0o600)
+    if digest(entry['backup'])!=entry['sha256']:raise RuntimeError('Owner template backup changed')
+    check_owner_baseline(template,entry)
+    return entry
+
+
 def unit_identity(name):
     fields = dict(line.split('=', 1) for line in run('systemctl', '--user', 'show', name,
         '-p', 'MainPID', '-p', 'ActiveState', '-p', 'FragmentPath', '-p', 'DropInPaths').splitlines())
@@ -79,6 +149,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--commit', required=True)
     parser.add_argument('--output', required=True, type=Path)
+    parser.add_argument('--previous-bundle', type=Path, help='Exact previously reviewed/applied owner-template release')
+    parser.add_argument('--previous-manifest-sha256', help='Pinned reviewed previous manifest SHA256; never ambient adoption')
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[1]
     commit = run('git', '-C', str(repo), 'rev-parse', args.commit + '^{commit}')
@@ -115,6 +187,9 @@ def main():
             target = backup/(str(len(units))+'-'+file.name)
             shutil.copyfile(file,target)
             units.append(dict(path=name, backup=str(target), sha256=digest(file), mode=stat.S_IMODE(file.stat().st_mode)))
+    owner_baseline=backup_owner_template(Path.home()/'.config/systemd/user/hyprneuro-pi-owner@.service',
+        backup,len(units),args.previous_bundle,args.previous_manifest_sha256)
+    if owner_baseline:units.append(owner_baseline)
     # Only named path metadata is retained. No ambient credentials or env dump.
     env = dict(x.split(b'=',1) for x in Path('/proc',str(sidecar['pid']),'environ').read_bytes().split(b'\0') if b'=' in x)
     home = env[b'HOME'].decode()
@@ -223,7 +298,7 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
             raise RuntimeError('Unexpected release symlink')
         p.chmod(0o500 if p.is_dir() or p.stat().st_mode&0o111 else 0o400)
     source.chmod(0o500)
-    manifest=dict(explicit_ui=explicit_ui,persistent_owner=explicit_ui,commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,
+    manifest=dict(explicit_ui=explicit_ui,persistent_owner=explicit_ui,commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,owner_template_baseline=owner_baseline,
         python=str(python),import_origins=origins,installed_ui=str(installed),installed_mode=stat.S_IMODE(installed.stat().st_mode),
         installed_sha256=digest(installed),binary=str(bin_dir/'hyprneuro-ui'),binary_sha256=digest(bin_dir/'hyprneuro-ui'),
         database=dict(path=str(db),backup=str(backup/'observations.sqlite3'),backup_sha256=digest(backup/'observations.sqlite3'),quick_check='ok'),

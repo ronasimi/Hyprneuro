@@ -57,6 +57,9 @@ def main():
         src.backup(dst,pages=256,progress=progress,sleep=.02)
         if dst.execute('PRAGMA quick_check').fetchall()!=[('ok',)]:raise RuntimeError('Final backup failed')
     desktop_safe(a.session)
+    # Recheck shared destination/inert-owner policy after final DB backup. No
+    # service stop/adoption is ever used to make an active owner pass this gate.
+    targets=release_targets(a.bundle,m,Path.home()/'.config/systemd/user')
     for src,dst in targets:
         dst.parent.mkdir(mode=0o700,exist_ok=True)
         atomic_copy(src,dst,0o600)

@@ -306,3 +306,113 @@ class ReleaseOpsTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])
             backup.chmod(0o700);backup.rename(base/'real-backup');backup.symlink_to(base/'real-backup')
             with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])
+
+    def owner_update_fixture(self, base):
+        import json
+        home=base/'home/.config/systemd/user';home.mkdir(parents=True)
+        backup=base/'backup';backup.mkdir(mode=0o700)
+        previous=base/'previous';previous.mkdir(mode=0o700)
+        template=home/'hyprneuro-pi-owner@.service';template.write_text('previous reviewed inert template');template.chmod(0o400)
+        old={'persistent_owner':True,'staged_files':{template.name:ops.digest(template)},
+             'owner_unit':'hyprneuro-pi-owner@previous.service'}
+        (previous/'manifest.json').write_text(json.dumps(old));(previous/'manifest.json').chmod(0o400)
+        (previous/'apply.completed').write_text('previous completed')
+        def manager(*args,**kw):
+            if 'list-unit-files' in args:return json.dumps([{'unit_file':template.name,'state':'static','preset':None}])
+            if 'list-units' in args:return '[]'
+            return '\n'.join(['LoadState=loaded','ActiveState=inactive','SubState=dead','MainPID=0',
+                'UnitFileState=static','FragmentPath='+str(template),'DropInPaths=','NeedDaemonReload=no','Job='])
+        with patch.object(ops,'run',side_effect=manager):
+            entry=ops.backup_owner_template(template,backup,0,previous,ops.digest(previous/'manifest.json'))
+        manifest={'persistent_owner':True,'units':[entry],'owner_template_baseline':entry}
+        return home,template,entry,manifest,manager
+
+    def test_existing_inert_owner_is_pinned_backed_up_and_restored_not_removed(self):
+        import tempfile
+        import stat
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);home,template,entry,manifest,manager=self.owner_update_fixture(base)
+            with patch.object(ops,'run',side_effect=manager) as reads:
+                targets=apply.release_targets(base,manifest,home)
+            self.assertEqual(targets[-1][1],template)
+            alias=base/'aliased-unit-directory';alias.symlink_to(home,target_is_directory=True)
+            def aliased(*args,**kw):return manager(*args).replace(str(template),str(alias/template.name))
+            with patch.object(ops,'run',side_effect=aliased):
+                self.assertEqual(apply.release_targets(base,manifest,alias)[-1][1],alias/template.name)
+            self.assertTrue(all(call.args[2] in ['list-unit-files','list-units','show'] for call in reads.call_args_list))
+            self.assertEqual(entry['mode'],0o400);self.assertEqual(ops.digest(entry['backup']),entry['sha256'])
+            candidate=base/'replacement';candidate.write_text('new reviewed inert template')
+            apply.atomic_copy(candidate,template,0o600)
+            apply.atomic_copy(Path(entry['backup']),template,entry['mode'])
+            self.assertTrue(template.exists());self.assertEqual(ops.digest(template),entry['sha256'])
+            self.assertEqual(stat.S_IMODE(template.stat().st_mode),0o400)
+
+    def test_owner_update_refusals_precede_all_service_write_actions_and_marker(self):
+        import json
+        import tempfile
+        cases=['missing-backup','corrupt-backup','hash-drift','mode-drift','active-owner','enabled-template',
+               'unknown-enumeration','pending-job','dropin','foreign-owner','final-symlink','final-hardlink']
+        for case in cases:
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as directory:
+                base=Path(directory);home,template,entry,manifest,manager=self.owner_update_fixture(base)
+                saved=Path(entry['backup'])
+                if case=='missing-backup':saved.unlink()
+                if case=='corrupt-backup':saved.write_text('changed')
+                if case=='hash-drift':template.chmod(0o600);template.write_text('changed');template.chmod(entry['mode'])
+                if case=='mode-drift':template.chmod(0o644)
+                if case in ['final-symlink','final-hardlink']:
+                    original=template.with_name('original');template.rename(original)
+                    if case=='final-symlink':template.symlink_to(original)
+                    else:os.link(original,template)
+                def changed(*args,**kw):
+                    result=manager(*args)
+                    if case=='enabled-template' and 'list-unit-files' in args:return result.replace('static','enabled')
+                    if case=='unknown-enumeration' and 'list-units' in args:return '{}'
+                    if 'show' in args:
+                        if case=='active-owner':return result.replace('ActiveState=inactive','ActiveState=active')
+                        if case=='pending-job':return result.replace('Job=','Job=42 /job/42')
+                        if case=='dropin':return result.replace('DropInPaths=','DropInPaths=/unreviewed.conf')
+                    return result
+                (base/'manifest.json').write_text(json.dumps(manifest))
+                argv=['apply',str(base),'--session','synthetic','--parent-authorized','--fresh-user-unlock-confirmed']
+                uid=os.getuid()
+                with patch.object(sys,'argv',argv),patch.object(Path,'home',return_value=base/'home'),patch.object(apply,'desktop_safe'),patch.object(ops,'run',side_effect=changed),patch.object(apply.subprocess,'run') as control,patch.object(apply,'atomic_copy') as write,patch.object(os,'getuid',return_value=uid+1 if case=='foreign-owner' else uid):
+                    with self.assertRaises(RuntimeError):apply.main()
+                    control.assert_not_called();write.assert_not_called()
+                self.assertFalse((base/'apply.started').exists())
+
+    def test_owner_update_requires_previous_exact_applied_manifest_no_ambient_adoption(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);home,template,entry,manifest,manager=self.owner_update_fixture(base)
+            with patch.object(ops,'run',side_effect=manager):
+                for changes in [{'previous_manifest_sha256':'0'*64},{'previous_bundle':str(base/'missing')},{'mode':0o600}]:
+                    with self.subTest(changes=changes),self.assertRaises(RuntimeError):
+                        ops.check_owner_baseline(template,{**entry,**changes})
+                (Path(entry['previous_bundle'])/'apply.completed').unlink()
+                with self.assertRaises(RuntimeError):ops.check_owner_baseline(template,entry)
+                with self.assertRaises(RuntimeError):ops.backup_owner_template(template,base/'backup',1,None,None)
+                manifest['units']=[]
+                with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
+                template.unlink()
+                with self.assertRaises(RuntimeError):apply.release_targets(base,manifest,home)
+
+    def test_global_owner_enumeration_refuses_other_active_unknown_or_enabled_instances(self):
+        import tempfile
+        import json
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);home,template,entry,manifest,manager=self.owner_update_fixture(base)
+            other={'unit':'hyprneuro-pi-owner@another.service','load':'loaded','active':'inactive','sub':'dead','job_id':0}
+            def inert(*args,**kw):return json.dumps([other]) if 'list-units' in args else manager(*args)
+            with patch.object(ops,'run',side_effect=inert) as reads:
+                ops.check_owner_baseline(template,entry)
+                self.assertTrue(any('hyprneuro-pi-owner@another.service' in c.args for c in reads.call_args_list))
+            for changes in [{'active':'active'},{'active':'failed'},{'load':'not-found'},{'job_id':4},{'sub':'running'}]:
+                def unsafe(*args,**kw):return json.dumps([{**other,**changes}]) if 'list-units' in args else manager(*args)
+                with self.subTest(changes=changes),patch.object(ops,'run',side_effect=unsafe):
+                    with self.assertRaises(RuntimeError):ops.check_owner_baseline(template,entry)
+            def enabled(*args,**kw):
+                if 'list-unit-files' in args:return json.dumps([{'unit_file':template.name,'state':'static'}, {'unit_file':other['unit'],'state':'enabled'}])
+                return manager(*args)
+            with patch.object(ops,'run',side_effect=enabled):
+                with self.assertRaises(RuntimeError):ops.check_owner_baseline(template,entry)

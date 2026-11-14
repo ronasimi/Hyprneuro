@@ -7,7 +7,7 @@ import socket
 import struct
 import stat
 from pathlib import Path
-from prepare_app_release import digest, private_file, unit_identity, run
+from prepare_app_release import digest, private_file, unit_identity, run, check_owner_baseline
 
 
 def check_ui_mode(env, manifest, legacy):
@@ -59,8 +59,14 @@ def release_targets(bundle, manifest, unit_home):
         targets.append((bundle/'staged'/file,dest))
     if manifest.get('persistent_owner'):
         dest=unit_home/'hyprneuro-pi-owner@.service'
+        entry=manifest.get('owner_template_baseline')
         if dest.exists() or dest.is_symlink():
-            raise RuntimeError('Existing owner template; separate review required')
+            if not entry or manifest['units'].count(entry)!=1:
+                raise RuntimeError('Existing owner template unreviewed/unbacked; no adoption')
+            check_unit_backups(bundle,[entry])
+            check_owner_baseline(dest,entry)
+        elif entry:
+            raise RuntimeError('Reviewed previous owner template missing; no cutover')
         targets.append((bundle/'staged'/dest.name,dest))
     canonical=[dest.resolve() for _,dest in targets]
     if len(set(canonical))!=len(canonical):

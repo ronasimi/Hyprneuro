@@ -1,0 +1,42 @@
+{
+  "recorded_utc": "2026-11-14T13:53:58.530047+00:00",
+  "status": "SOURCE ONLY; approved bounded existing-inert-template update policy implemented; no deployment",
+  "approval": "Parent approved option1: narrow previous exact applied template pin+private backup+verified replacement/rollback; all instances inert/static; no stopping active owners or enabling/starting/grants.",
+  "chooser_source": "63c2548a3b440b362a2984d5b78e025bf1782888; genuine installed chooser failure and offline correction retained",
+  "policy": "Preparation --previous-bundle and --previous-manifest-sha256 required if template exists. Private canonical prior root, sameUID/singlelink manifest+completed marker, exact reviewed prior manifest SHA and staged template SHA pin actual owner file; original private mode captured. No ambient template adoption. Private exclusive backup and original-mode entry appended to units, role=owner-template, owner_template_baseline records same entry.",
+  "preflight": "Generic all-unit backups verified before any mutation. Same shared release_targets calls owner baseline/private file/hash/mode/previous proof and global inert gate; apply imports it and rechecks after final DB backup before writes. Existing canonical alias/final-link/duplicate-destination checks unchanged.",
+  "inert_guard": "Bounded read-only systemctl list-unit-files/list-units/show enumerates entire owner namespace plus prior instance. Exactly static template; no enabled/autostart concrete instance. Every observed/prior instance loaded/inactive/dead/MainPID0/static/exact canonical regular fragment/no dropins/no pending daemon reload/no Job. Unknown, active, failed, malformed list or command error refuses. No stop/reset-failed/adoption to make gate pass. Trusted-parent TOCTOU boundary still explicit, not dirfd-pinned isolation.",
+  "rollback": "Replaced template uses pinned backup and original mode, restored atomically alongside other replaced unit entries, NOT deleted. Only genuinely new verified candidate additions are removable. Positive regression installs synthetic replacement then restores previous bytes and original0400 mode. No actual rollback/action.",
+  "tests": "Focused42Python/26subtests including12 zero-service/write/marker refusal cases and other-instance enumeration cases. Full471Python/1skip/133subtests,77Node,21normal+21sanitized C including chooser callback pass.",
+  "actual_guard": {
+    "actual_reviewed_previous_template_baseline": {
+      "role": "owner-template",
+      "path": "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "mode": 384,
+      "sha256": "1e7cbd85dc95ba69e61405ac0ee927c278b7587336bb8b60ea6f2ae61da6a744",
+      "previous_bundle": "/home/ron/Workspace/hn-final-6f9de3f",
+      "previous_manifest_sha256": "5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc"
+    },
+    "inert_gate": "PASS; read-only systemctl list-unit-files/list-units/show, no service control or activation"
+  },
+  "source_sha256": {
+    "scripts/prepare_app_release.py": "9ed6a5bbdb2437e4e12b83c2e6c2531d1b1eb7d8f72cb42035694947b4c92a53",
+    "scripts/verify_app_release.py": "aaf6255ec37b2699a7715304fb1bbec60b64796eb8f5ee2fb4632978c551d16c",
+    "scripts/apply_app_release.py": "3826802b38d39bca17bb109736147bb0a01e8c3dae9f5efb97ecd1e8aa96ac63",
+    "python/tests/test_app_release_ops.py": "3e06a89e1c41c5d68d81a599c23c04f3638b581031e25d489ab9ce2d138c2eeb"
+  },
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/owner-template-update/actual-readonly-baseline.json": "a094335e5c9eea1ba32e0a3e0c631efcc4e9f23413e8831f22c638ef4a0dc72c",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/owner-template-update/focused-final.log": "0708de061ae8de18988bf3d22195ed0b3ff07f92a1ab659a48143b55cbcee525",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/owner-template-update/focused-initial.log": "2969fe202e45b5a06e649d57d1ec7aa9cb128560c503b703d7b8a81cea4f0a8e",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/c-sanitized.log": "1eed5194970a123660d1f5982c23928ba9b3a85314eed9cf905b6ddb0d0dafcb",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/c.log": "d7379faaae5710f62f9203fb0cb2814981306e22ddf6edb5a017532707363b9c",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/exit-status.json": "d5ee916cc29d500f827dee0c79cc5571849696c21c107e33f36205376c5579c3",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/full-fixture-root": "ff904fa10301cff82c1d6aa604e7cce3df9ecc33ca59d4123567421edbf10558",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/full.sh": "5dd2b513801b178e97f162ae3e7a4d2efaa8cc6e9214569a6a85b6f578966f67",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/node.log": "2968bb19cac4bfcdfb398c0b27eb36d4c6a3a58eed6fdd45913e01d0cf60cf2d",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/regression-owner-update/python.log": "08fa31b28cc280b97f92c5aad40e442b078c7d2380b8e8de7783cb67e1f2b1ec"
+  },
+  "next": "Commit coherent new source, prepare NEW immutable bundle using exact prior6f9de3f/5e0730f1 manifest pin, independent combined chooser+ops+exact-bundle review before app-only update; genuine human chooser retest and activation/exactread remain separate.",
+  "limits": "No real owner/model/app service changes or source updates to frozen deployment; installed chooser failure persists pending reviewed update. No capture/clipboard/submission/real inference/consent supplied. Video refusal/no workaround/full-media READY blocked; original231/GTK first corruption UNKNOWN."
+}

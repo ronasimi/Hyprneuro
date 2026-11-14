@@ -397,7 +397,8 @@ UNKNOWN. No tests/probes executed for this documentation; no READY with video ex
 - [x] Mock-only actual callback regression old134(NULL-parent assertion), new4tests
   plus17existingC normal/sanitized;38focusedPython/6subtests;full467Python/1skip/
  113subtests,77Node,21+21C. No real portal or Connect/approval automation.
-- [ ] Parent decision on existing inert owner-template update: current helper
+- [x] Parent approved narrow existing inert owner-template update policy; implemented
+  and offline-verified (source only, not yet release-approved). Previous blocker: current helper
   deliberately refuses it and existing baseline does not back it up. Require
   reviewed hash-pinned backup/replacement/rollback with inactive owner instances;
   do NOT remove/bypass existing template or patch frozen installed bundle.
@@ -407,3 +408,34 @@ UNKNOWN. No tests/probes executed for this documentation; no READY with video ex
   paused meanwhile, binding video refusal/no READY remains unchanged.
 
 [Failure/correction receipt](evidence/final-connect-chooser-failure.json).
+
+## 11. Approved existing-inert-template update policy — fresh bundle next
+
+- [x] Explicit parent approved option1; no ambient adoption. Preparation requires
+  `--previous-bundle /home/ron/Workspace/hn-final-6f9de3f` and
+  `--previous-manifest-sha256 5e0730f1b82f28699dd3d8a3fa5631d35ae553a0f73616f02c3b6c6b7d8376dc`
+  for current installed template. Prior private canonical root/manifest/completed
+  marker and exact manifest/template hashes are checked; original private mode
+  captured; exclusive private backup included in generic prevalidated unit list.
+- [x] Bounded global owner unit-files/loaded-instance+prior-instance metadata must
+  prove inactive/dead/PID0/static/no job/dropins/reload/exact fragment. Enabled,
+  active, failed, unknown or unreviewed states refuse, never stopped to pass.
+- [x] Shared staged/apply selection validates backup+baseline+inert gate; apply
+  repeats selection after final DB backup before replacements. Trusted parent
+  aliases permitted, final symlink/hardlink/hash/mode/UID and duplicate guards stay.
+- [x] Focused42/26subtests;full471Python/1skip/133subtests,77Node,21+21C. Missing/
+  corrupt backup, owner drift/link/UID/mode, enabled/active/unknown/job/dropin cases
+  invoke zero service/write actions and create no marker. Synthetic rollback
+  restores old template bytes/original0400 mode, NOT removal. Actual current
+  reviewed6f9de3f inert-template metadata guard passes read-only.
+- [ ] Fresh committed source -> NEW immutable bundle -> independent combined
+  chooser/ops/exact-bundle review -> app-only update with fresh human/lock gates.
+- [ ] Rollback, only if separately directed after a known reviewed outcome: verify
+  every backup/current candidate identity and owners inert FIRST; restore replaced
+  `role=owner-template` unit from its backup using original `mode`, like other
+  replaced overrides; remove only verified new additions with no baseline. Do not
+  delete a replaced template, restore stale data, replay uncertain apply or stop
+  an active owner to force admission. This is not automatic rollback authority.
+
+[Ops evidence](evidence/final-owner-template-update.json). Installed chooser failure,
+human-only scopes and binding video/media READY blockers remain unchanged.

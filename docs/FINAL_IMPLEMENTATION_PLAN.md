@@ -490,3 +490,31 @@ finalization warning retained. ALL-media/video provider-refusal blockers unchang
 Receipt:[evidence/final-chooser-app-update.json](evidence/final-chooser-app-update.json).
 Known initial failures, old49c748d BLOCK,6f9 actual chooser FAIL, Meson/GdkPixbuf
 warnings and precise root-cause limits retained. This is app-update PASS only.
+
+## 14. Genuine human chooser retest — connected to older reviewed root
+
+- [x] Parent supplied private screenshot/path20261114_091837.png; route shows
+  read-only/nohelpers, Disconnect, blank transcript/no Allow. No image published.
+- [x] Fresh leased logind+locker checks and peer UI metadata:5392 UI3104230 stays
+  alive, modepi/connected/read-callable/fresh-consent-required. Actual human folder
+  callback and connection completed; NOT hung validation.
+- [x] Actual root is `/home/ron/Workspace/hn-final-6f9de3f/owner`, active PID3107869;
+  requested5392 root has no socket/keys. Initial UI-only connected checker did NOT
+  validate root; expected-root status attempt refused missing chat.key before auth.
+- [x] Untrusted status-only actual6f9 owner: persistent/normal-only/parent-only,
+  tools[read], ordinary/unavailable lifecycle, exact old fixture scope,
+  `tool_permission=activation_required`; no activation/read/grant or inference.
+- [ ] Parent root decision before native acceptance: explicitly continue genuinely
+  human-selected, previously reviewed6f9 fixture root (UI5392/nativeowner6f9 source
+  distinction) OR separately authorize deliberate human disconnect and safe idle
+  owner switch to exact5392 root. No blind chooser retry/automatic owner stop.
+- [ ] Queue truthful terminal connected status: bottom validating text is stale
+  because connected/status handlers only render route, never replace prior status.
+  This is a visible presentation defect, not an unfinished actual handshake.
+- [ ] Human activation + exact selected fixture read still separately required;
+  validate actual content-bearing tool result/session/journal afterward. Never
+  equate callable advertisement, screenshot, correct quotation or status with grant.
+
+[Root/status receipt](evidence/final-human-connect-root-mismatch.json). Corrected
+chooser accepted a HUMAN folder and app remained alive; exact new5392 root and
+native first-read acceptance remain unproven. All prior/video blockers unchanged.

@@ -1,5 +1,23 @@
 # Offline GTK acceptance follow-up — live production still NOT READY
 
+## Current live gate — connected, but owner root differs from requested root
+
+Human chooser retest completed without losing new5392 UI3104230. Peer metadata
+and status-only inspection prove a real connection to OLD reviewed6f9 owner root,
+PID3107869/native source6f9, not requested5392/owner (no keys/socket). Normal-only,
+persistent,parent-only,tools[read],exact oldfixture scope,activation_required.
+No activation/read grant. Screenshot was parent-observed and stays private.
+
+Bottom “selected/validating” is stale text: connected/status handlers render route
+but do not replace status. Actual validation completed; MoE unavailable is expected
+normal-only lifecycle status. No chooser retry/disconnect/owner stop/source change.
+Parent must explicitly accept currently human-selected old reviewed root for first
+READ-ONLY acceptance with source distinction, or authorize controlled human root
+switch. Do not count new5392 root/native acceptance or request blind repeat.
+Evidence: `docs/evidence/final-human-connect-root-mismatch.json`.
+
+--- Historical checkpoints retained below ---
+
 ## Current installed milestone — reviewed chooser update PASS, human retest next
 
 Reviewed5392ecfd40c2639485a2448d62fa6007a4b153af was applied ONCE from immutable

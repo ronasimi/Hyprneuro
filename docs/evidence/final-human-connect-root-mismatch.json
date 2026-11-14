@@ -1,0 +1,63 @@
+{
+  "recorded_utc": "2026-11-14T14:25:42.604605+00:00",
+  "status": "HUMAN chooser accepted/connection validated BUT actual root6f9 differs from requested5392; activation_required/no native read",
+  "installed_UI_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
+  "installed_UI_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
+  "UI_PID": 3104230,
+  "sidecar_PID": 3104225,
+  "actual_owner": {
+    "expected_root": "/home/ron/Workspace/hn-final-5392ecf/owner",
+    "actual_root": "/home/ron/Workspace/hn-final-6f9de3f/owner",
+    "root_mismatch": true,
+    "status": {
+      "state": "unavailable",
+      "owner_phase": "ordinary",
+      "normal_only": true,
+      "parent_only": true,
+      "persistent": true,
+      "tools": [
+        "read"
+      ],
+      "tool_permission": "activation_required",
+      "workspace": "/home/ron/Workspace/hn-final-6f9de3f/owner/home/workspace",
+      "read_paths": [
+        "/home/ron/Workspace/hn-final-6f9de3f/owner/home/workspace/fixture.txt"
+      ],
+      "task_id": "hn-service-a3b9e2d3395ed66703ac787c",
+      "app_id": "hyprneuro-parent-read",
+      "session_id": "01a1da6c-615a-7280-92bb-4d49bb71e456"
+    },
+    "owner_identity": {
+      "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2d6f9de3f-owner.service",
+      "pid": 3107869,
+      "start": "43241373",
+      "exe": "/usr/bin/node",
+      "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "dropins": []
+    },
+    "native_owner_source": "6f9de3fe2cb7f0c0f36071327fb7ea97765f2512",
+    "operation": "untrusted status only; no chat/on/off/consent/control authentication or owner lifecycle action"
+  },
+  "human_image_reference": {
+    "private_image_path": "/home/ron/Pictures/Screenshots/20261114_091837.png",
+    "sha256": "59f8d95531ff426b6a2782051143d738ce10465ff4e20b1364462a5e86f3dd94",
+    "visual_observer": "Parent read screenshot; route readonly/nohelpers, Disconnect button, blank transcript/no Allow. Full image not copied/published.",
+    "limits": "UI metadata proves connection, not root; direct untrusted owner status establishes actual old6f9 root/profile/activation_required, mismatch with requested5392 root."
+  },
+  "visual_provenance": "Parent supplied private screenshot observation (read-only tools/nohelpers route, Disconnect button, blank transcript/no activation/Allow), not independently visually read here; image path/hash metadata only, no image copy/publication.",
+  "connection_evidence": "Peer-verified UI pi/connected=true/read_callable=true/fresh_consent_required=true plus global active owner instance3107869 and direct UNTRUSTED status-only call to actual6f9 root. Status confirms ordinary persistent normal-only parent/read-only, exact fixture path and tool_permission=activation_required, session01a1da6c-615a-7280-92bb-4d49bb71e456. No control authentication/chat/consent/lifecycle action.",
+  "scope_limit": "Initial helper connected-phase check proves UI state, not requested root. Corrected interpretation after expected5392 root chat.key absent and actual loaded-instance enumeration showed6f9; do not count5392 owner connection or native acceptance. No native operation/replay occurred.",
+  "presentation_defect": "Bottom selected/validating text is stale, not hung validation: pi_owner_selected sets it, pi_packet connected/status renders route but never sets terminal status. Existing source inspected; queue truthful connected status correction with later source work, do not block validated actual connection by blind chooser repeat. MoE unavailable is expected normal-only lifecycle-unavailable, not this connection failing.",
+  "root_decision_needed": "Parent decide whether explicitly accept current genuinely human-selected, previously reviewed6f9 root for first READ-ONLY acceptance (retain UI5392/nativeowner6f9 distinction), or authorize deliberate human disconnect and safe idle-service switch to requested5392 root. No automatic stop/disconnect/reselect/adoption. Newroot first-read consent not inferred from oldroot selection.",
+  "retained_diagnostic_failure": "Attempted untrusted status to expected5392 root refused FileNotFoundError(chat.key absent) before authentication; no mutation. This revealed root mismatch, not a read failure or uncertain native outcome.",
+  "source_actions": "No code/runtime/frozen-payload edits, no model/owner service action, no chooser retry/click, no activation/consent/capture/clipboard/submission/inference. Stored parent screenshot hash only.",
+  "artifacts": {
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/human-connect-5392ecf/human-image-reference.json": "3d2c1c96fd6b3039c291dbc10065ecb3eeafe77315a28f6935918c510a4d23a6",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/human-connect-5392ecf/owner-journal.log": "4debaef8925e8aacb6fd662bd5605a75d34ff063b06b5ff10ddbaf1a3ce97b16",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/human-connect-5392ecf/owner-readonly-status.json": "ce0a9f39b1d66c8d491c63d7061d9271bb9d7d5ef5750fecdb605b23d4914675",
+    "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/human-connect-5392ecf/post-connect-metadata.log": "6032fa21dceb8215d6f415b0ad27a91ad924d945ab8c906fb1551dc8fb1708b3"
+  },
+  "next": "Relay root decision before requesting activation/exactread; after accepted exact actual root, human sends synthetic native fixture read prompt and personally handles activation + exact-file consent; inspect content-bearing native outcome/session/journal.",
+  "limits": "No activation/read grant and no native successful read; all-media sameowner/router parity mandatory, binding VIDEO refusal/no reroute/repro still blocks READY. Original231/GTK first corruption UNKNOWN."
+}

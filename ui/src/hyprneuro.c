@@ -78,7 +78,7 @@ typedef struct {
 
 typedef struct {
     App *app;
-    gboolean success;
+    gboolean success, cancelled;
     char *error;
     char *metrics, *token_counts;
 } ChatDoneData;
@@ -433,7 +433,16 @@ static gboolean on_chat_done(gpointer data) {
     gtk_widget_set_sensitive(a->attach_strip, TRUE);
 
     if (!d->success && a->audio_stream) clear_attachments(a);
-    if (d->success) {
+    if (d->cancelled) {
+        set_status(a, "Pi chat cancelled · known tool-free terminal");
+        gtk_label_set_text(GTK_LABEL(a->metrics), "Cancelled · Full —");
+        gtk_widget_set_tooltip_text(a->metrics, NULL);
+        GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(a->transcript));
+        GtkTextIter end;
+        gtk_text_buffer_get_end_iter(buf, &end);
+        gtk_text_buffer_insert(buf, &end, "\n[cancelled: confirmed tool-free terminal; not a successful reply]\n", -1);
+        transcript_scroll_to_bottom(a);
+    } else if (d->success) {
         set_status(a, a->pi_chat ? "Pi owner · settled (not tool success)" : "Legacy sidecar · tool-free");
         clear_attachments(a);
         /* Append a trailing newline after the assistant response. */

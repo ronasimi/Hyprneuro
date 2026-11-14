@@ -225,3 +225,29 @@ test('attempted late native fetch after fence is rejected before transport and i
   cancel(f.chat,admission);assert.ok((await terminal(f.chat)).every(p=>p.type==='error'));
   assert.equal(f.host.owner.phase,'failed');assert.equal(f.requests(),1);assert.equal(scope.requests.length,1);
 },(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial before late request attempt'}));}));
+
+test('cancel while chat-intent checkpoint awaits admits ZERO native prompts or HTTP requests and releases scope', {timeout:15000},()=>fixture(async f=>{
+  let entered,release,aborts=0,prompts=0;
+  const checkpointEntered=new Promise(resolve=>{entered=resolve;});
+  const barrier=new Promise(resolve=>{release=resolve;});
+  const checkpoint=f.host.owner.checkpoint;
+  f.host.owner.checkpoint=async(...args)=>{await checkpoint(...args);if(args[0]==='chat-intent'){entered();await barrier;}};
+  const prompt=f.host.session.prompt.bind(f.host.session),abort=f.host.session.abort.bind(f.host.session);
+  f.host.session.prompt=(...args)=>{prompts++;return prompt(...args);};
+  f.host.session.abort=async()=>{aborts++;return abort();};
+  const scopes=[],factory=f.host.owner.cancellation;
+  f.host.owner.cancellation=()=>{const scope=factory();scopes.push(scope);return scope;};
+  f.chat.send({op:'chat',id:'first',text:'Synthetic cancelled during checkpoint, never dispatch'});
+  const admission=await f.chat.next();await checkpointEntered;
+  cancel(f.chat,admission);await until(()=>aborts===1);
+  assert.equal(f.host.owner.currentChat,undefined);assert.equal(prompts,0);assert.equal(f.requests(),0);
+  release();assert.ok((await terminal(f.chat)).every(p=>p.type==='error'));
+  assert.equal(prompts,0,'No native prompt admitted after checkpoint cancellation');assert.equal(f.requests(),0);
+  assert.equal(f.host.owner.phase,'failed');assert.equal(f.host.owner.currentChat,undefined);
+  assert.equal(scopes.length,1);assert.equal(scopes[0].closed,true);assert.equal(scopes[0].streams.length,0);
+  assert.equal(f.host.session.isIdle,true);
+  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
+  f.chat.send({op:'chat',id:'again',text:'Do not replay cancelled admission'});await f.chat.next();
+  assert.equal((await terminal(f.chat,1))[0].type,'error');assert.equal(prompts,0);assert.equal(f.requests(),0);
+  await f.host.close();assert.ok(await readFile(join(f.ownerRoot,'owner.guard')));
+},(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.end(finish('MUST NOT BE REQUESTED'));}));

@@ -97,3 +97,15 @@ in-memory failed phase before durable checkpoint I/O completed. It now awaits
 `owner.queue` completion before asserting the unchanged strict checkpoint
 expectation—no sleep or weakened assertion. The corrected full Node run passed
 92/92. Meson setup ResourceWarnings and GdkPixbuf deprecations remain recorded.
+
+## Independent review correction (supersedes e992d58's offline-only confidence)
+
+Review `01M7E5JRBHVETVBF8KTZ3APJGQ/cancel-review` BLOCKED the checkpoint-to-prompt
+admission gap and contradictory known-cancel UI presentation. Both are corrected
+source-only, with actual before-failing regressions and complete revalidation.
+See [the correction receipt](final-cancellation-review-correction.json). The
+final abort check is inside guarded try immediately before SDK admission; known
+cancel uses dedicated non-success/non-error presentation. Required full checks
+pass478 Python/138 subtests/one optional skip,93 Node,24+24 C and fresh GTK builds.
+**Targeted independent rereview is still required.** No bundle/deploy or live
+failed-owner guard modification has occurred.

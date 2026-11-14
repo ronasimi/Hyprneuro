@@ -141,7 +141,11 @@ export class PiOwner {
         } else if(['agent_settled','tool_execution_start','tool_execution_end'].includes(event.type))
           emit({type:event.type,tool:event.toolName,isError:event.isError});
       });
-      try {await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});await this.session.waitForIdle();signal?.throwIfAborted();
+      try {
+        // Checkpoint I/O can yield to cancel before this scope exists. Recheck
+        // inside the unknown/finally guard, with no await before SDK admission.
+        signal?.throwIfAborted();
+        await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});await this.session.waitForIdle();signal?.throwIfAborted();
         // Pi resolves prompt() on native error/abort as well as success. Settled
         // is not successful: retain the unknown guard and never replay it.
         if(nativeFailed)throw new Error('Native Pi request failed; inspect checkpoint, no replay');

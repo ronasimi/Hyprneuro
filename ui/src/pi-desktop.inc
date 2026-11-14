@@ -76,6 +76,13 @@ static void pi_finish_chat(App *a, gboolean success, const char *error) {
     on_chat_done(d);
 }
 
+static void pi_finish_cancelled(App *a) {
+    if (!a->busy || !a->pi_chat) return;
+    ChatDoneData *d = g_new0(ChatDoneData, 1);
+    d->app = a; d->cancelled = TRUE; /* Not inference success or failure. */
+    on_chat_done(d);
+}
+
 static void pi_close_dialog(App *a) {
     if (a->pi_dialog) gtk_window_destroy(a->pi_dialog);
     a->pi_dialog = NULL;
@@ -362,8 +369,7 @@ static void pi_packet(App *a, JsonNode *packet) {
             JsonNode *result = jmember(packet, "result");
             JsonNode *settled = jmember(result, "settled");
             if (ok && pi_cancelled_result(result)) {
-                pi_finish_chat(a, FALSE, "Cancelled: confirmed tool-free terminal, not a successful reply");
-                set_status(a, "Pi chat cancelled · known tool-free terminal");
+                pi_finish_cancelled(a);
             } else pi_finish_chat(a, ok && jboolean(settled) && json_node_get_boolean(settled),
                 ok ? NULL : "Pi request failed/interrupted; review native session. No retry.");
         } else if (!g_strcmp0(op, "on") || !g_strcmp0(op, "off")) {

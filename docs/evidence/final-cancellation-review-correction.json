@@ -1,0 +1,186 @@
+{
+  "schema": "hyprneuro.cancel-review-correction/1",
+  "recorded_at_utc": "2026-11-14T23:28:03.804091+00:00",
+  "review_block": "01M7E5JRBHVETVBF8KTZ3APJGQ/cancel-review",
+  "source_base": "e992d5846df2ba809f8b842fb4914e36d0131774",
+  "source_end": "Commit containing this receipt; exact commit reported after commit.",
+  "verdict": "P1/P2 source corrections tested; TARGETED INDEPENDENT REREVIEW REQUIRED; NOT DEPLOYED/NOT READY",
+  "P1": {
+    "before": "Reviewer actual SDK checkpoint race reproduced1 new HTTP after explicit cancel; our new actualSDK barrier regression reproduced1 native prompt admission on original source. Both retained.",
+    "fix": "signal.throwIfAborted inside guarded try immediately before SDK prompt after checkpoint I/O, with no intervening await. Existing catch writes chat-unknown; finally seals/releases scope and cancel fence.",
+    "regression": "Actual installed SDK, loopbackHTTP, checkpoint barrier: cancel during await, release barrier, ZERO native prompt admissions/ZERO HTTP, both requests error, phase/chat-unknown persisted, scope closed/currentChat cleared/SDKidle, no replay on next request, failed guard retained through fixtureclose.",
+    "adjacent_await_audit": "prepare has abort recheck; async route/transition work has abort recheck; checkpoint now followed by guarded preprompt recheck. Scope factory and subscribe are synchronous; no await between final check and SDK prompt. Existing postdispatch tool/inference seals and producer/drain proofs unchanged."
+  },
+  "P2": {
+    "before": "Actual production pi_packet -> generic unsuccessful on_chat_done branch rendered Inference failed and error:Cancelled despite known-cancel status. New C production-branch regression failed before fix.",
+    "fix": "Separate cancelled flag/completion path, success remains false, strict known-cancel predicate unchanged. Known cancellation renders Cancelled metrics and cancelled transcript annotation; no success/history copy or generic inference error. Common busy/control/draft cleanup retained.",
+    "regression": "Headless C fixture calls actual production packet/completion branch with widget boundaries mocked, real GtkTextBuffer. Tests known cancel vs unknown error, partial text retained, no legacyhistory copy, busy false/send enabled/cancel disabled/currentdraft cleanup. Predicate tests retained."
+  },
+  "validation": {
+    "run": "01M7E62QVQ94AKV1F8A9ANTRVR",
+    "python": {
+      "passed": 478,
+      "subtests": 138,
+      "optional_Pillow_skip": 1
+    },
+    "node": {
+      "passed": 93,
+      "actualSDK_cancel_cases": 14
+    },
+    "focused": {
+      "Node": 27,
+      "bridge_Python": 17
+    },
+    "C": {
+      "normal": {
+        "cases": 24,
+        "path": "/home/ron/Workspace/c-review-4n8iaj7w/C/meson-logs/testlog.txt",
+        "sha256": "e8f3ed8bf30c4d4900135661c8e365525d336c31ee12441b1d3981795536e766"
+      },
+      "asan_ubsan": {
+        "cases": 24,
+        "path": "/home/ron/Workspace/c-review-4n8iaj7w/C-sanitized/meson-logs/testlog.txt",
+        "sha256": "f317019bbccff0b1cf3e75f5f1bbbd4004c3ad373d1fca09dea9d78098dd5522"
+      }
+    },
+    "fresh_GTK_builds": "normal and ASan/UBSan PASS",
+    "warnings": "Meson unclosed setup-log ResourceWarnings and existing GdkPixbuf deprecations retained; not warning-free.",
+    "all_phase_results": {
+      "python": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "8304e66f3173b70b6ecfac14edff146b7523799f2f6fc7f7354142a5a8dc4918"
+      },
+      "node": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "0e37043c1ebfed81358ab1a713c613e22d06dc3e734f9ca12ba3d097215f50ce"
+      },
+      "C-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "0f4a8742e9ac355ebe500cb0e0552cb6477243a814e244c02d5682a6e74227f1"
+      },
+      "C-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "1e9b4258c5ccdb7ead85d1f08d43c569a60528ef56621f62fb7057c9ca7e586d"
+      },
+      "C-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "ca58e9bebc1f5fe011afabdb1fa22d5464b6cddff3e70447a0b1208e3c3bc79e"
+      },
+      "C-sanitized-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "bdfa7cd91d9305797a2984d9ffa6df27cf50fd80739891dbd2dfbf1bdf4c7b4c"
+      },
+      "C-sanitized-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "21dee9700613bd9e4bbed3a760484045c36c18094beff22029e81c1135ee516b"
+      },
+      "C-sanitized-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "4a414860b64132e592f17a74e26cc357c0fb3961969997c822245ee5c056bc4c"
+      }
+    }
+  },
+  "tested_source_sha256": {
+    "extensions/pi-owner/owner.mjs": "513713090d2dfa4941acd145c036e606446076ba1577f44eb5f17c41699a3aa4",
+    "tests/pi-owner-cancellation.mjs": "8ec7ba4c89375756a06eedb418c1cdc5d7b132478e981ad1199b5126b5ecce80",
+    "ui/meson.build": "3fe6b048900e92777227fce80c42252e030b1f2ae02e6de3cdc7ff2226f361d9",
+    "ui/src/hyprneuro.c": "df904c6bcf0e25bba93b1532e827b550376fac1830d8f1c6d1842653d090e1f1",
+    "ui/src/pi-desktop.inc": "1714d1ce91eb44e3bec441189b553142281078bef4d3ce3d18b0dc5bdf0ce491",
+    "ui/tests/pi_cancel.c": "ba4a6cbe44dc6caeb991b1c7d156ede1a72c9421f4dba89166e38f5ae560b917"
+  },
+  "private_artifact_sha256": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/C-build.log",
+      "sha256": "1e9b4258c5ccdb7ead85d1f08d43c569a60528ef56621f62fb7057c9ca7e586d"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/C-sanitized-build.log",
+      "sha256": "21dee9700613bd9e4bbed3a760484045c36c18094beff22029e81c1135ee516b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/C-sanitized-setup.log",
+      "sha256": "bdfa7cd91d9305797a2984d9ffa6df27cf50fd80739891dbd2dfbf1bdf4c7b4c"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/C-sanitized-tests.log",
+      "sha256": "4a414860b64132e592f17a74e26cc357c0fb3961969997c822245ee5c056bc4c"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/C-setup.log",
+      "sha256": "0f4a8742e9ac355ebe500cb0e0552cb6477243a814e244c02d5682a6e74227f1"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/C-tests.log",
+      "sha256": "ca58e9bebc1f5fe011afabdb1fa22d5464b6cddff3e70447a0b1208e3c3bc79e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/after-C-compile.log",
+      "sha256": "fd90eb3b2d0146562d5bfcd70e898583daac5462680433432fd41b7493f38950"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/after-C-tests.log",
+      "sha256": "80ce8c4e15b8b8ab74840936408a9f01e5453e979da480c61779cc375d12967a"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/before-C-compile-corrected.log",
+      "sha256": "5077be2adee45e846de83d7c555c6fd2a06d81a851bdba4a7c1bbc338d5e801e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/before-C-compile.log",
+      "sha256": "45a40265d3e39e327687eb56203793eefdced2c11e5eafc471b70cd45bfcc97b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/before-C-setup.log",
+      "sha256": "ad0cde29ca7c3f8127434552fd3677f94614368d1d97756c4025415bf055d9f2"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/before-P1.log",
+      "sha256": "0f3f8d4292302cc8a3ae2a77d01506165015e5fbf6d77eb4de9c024ec81905db"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/before-P2.log",
+      "sha256": "50cb03463b0de46e53a80bb195e15b983aa789dc42acb0db03358a98e140d3f7"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/focused-bridge.log",
+      "sha256": "83b7d74e5c92c07ceaa3a59925b9c8e438f33776b9aa0e8d4ac6a2058f364ef2"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/focused-node.log",
+      "sha256": "f147949cd4daba8dc28c4179af7ad6320d4c06aa97889dbc3ace8a6773eac6c5"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/node.log",
+      "sha256": "0e37043c1ebfed81358ab1a713c613e22d06dc3e734f9ca12ba3d097215f50ce"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-review-fix/python.log",
+      "sha256": "8304e66f3173b70b6ecfac14edff146b7523799f2f6fc7f7354142a5a8dc4918"
+    },
+    {
+      "path": "/home/ron/Workspace/hn-independent-e992d58-cl6ahmde/checkpoint-race.log",
+      "sha256": "92eb6f6156b46d8e257130d07b62df77818c64e426d35e8ec308ce46afd9078b"
+    }
+  ],
+  "development_failure": "C boundary fixture initially included GTK before _GNU_SOURCE, hiding O_CLOEXEC/O_NOFOLLOW; compile failure retained; fixture feature macro moved before headers, then actual P2 runtime failure reproduced before product fix. No product guards weakened.",
+  "live_preservation": {
+    "owner_pid": 3356764,
+    "owner_start": "45955087",
+    "checkpoint_sha256": "7852643da02e7d9d35f55d86a93381786ac51e2fa3e2ff8ec261aded1f43f9b5",
+    "checkpoint_phase": "chat-unknown",
+    "journal_sha256": "ec23e41c7d508a83d3e738a9b8a04cec6e8fcd28b6cb00df806b3462ed6a0738",
+    "sole_flock_pid": 3356764,
+    "sole_flock_inode": 85184,
+    "settings_sha256": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+    "actions": "Read-only hashes/unit identity/kernel lock metadata only. No reset, signal, revoke, restart, takeover, shutdown, bundle or deployment."
+  },
+  "next_dependency": "Parent targeted rereview of exact correction commit/range. No new bundle freeze/deploy until approval; live failed-owner transition remains separately gated."
+}

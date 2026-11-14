@@ -27,3 +27,6 @@ test('ui-history', history_test)
 
 picker_test = executable('test-ui-pi-picker', 'tests/pi_picker.c', dependencies: deps)
 test('ui-pi-picker', picker_test)
+
+cancel_test = executable('test-ui-pi-cancel', 'tests/pi_cancel.c', dependencies: deps, link_args: ['-lm'])
+test('ui-pi-cancel', cancel_test)

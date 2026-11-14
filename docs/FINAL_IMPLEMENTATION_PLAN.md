@@ -1123,3 +1123,41 @@ Existing unknown guard is not implicitly cleared by GUI delegation or source
 tests. Historical recovery signal/reset authorities remain consumed.
 All same-owner media/provider/Hermes/Durable/skills/soak/live lifecycle gates and
 the externally binding VIDEO-file refusal remain mandatory; **NOT READY**.
+
+## 30. Independent cancellation review BLOCK corrected source-only; rereview next
+
+Review `01M7E5JRBHVETVBF8KTZ3APJGQ/cancel-review` **BLOCKED e992d58**;
+prior offline PASS did not establish safety at every admission boundary. Its
+actual-SDK checkpoint-race reproduction and both before-failing regressions
+remain retained. [Correction and exact validation receipt](evidence/final-cancellation-review-correction.json).
+
+- **P1:** Cancel during awaited `chat-intent` checkpoint preceded scope/fence
+  creation. Original source subsequently admitted a new SDK prompt/HTTP request.
+  A final `signal.throwIfAborted()` now runs inside the guarded try immediately
+  before `session.prompt()`, after checkpoint I/O and with no intervening await.
+  The actual-SDK barrier test now proves ZERO native prompt/HTTP admissions,
+  persisted chat-unknown, finally-sealed/released scope, SDK idle, no replay and
+  retained failed guard. Existing prepare/route/transition await checks audited;
+  postdispatch producer/transport closure mechanisms are unchanged.
+- **P2:** Known cancellation no longer uses generic unsuccessful completion.
+  Dedicated cancelled state renders Cancelled metrics and a cancelled annotation,
+  not success, Inference failed, or an error:Cancelled line. Strict predicate
+  unchanged. Actual production packet/completion branch tested headlessly with
+  mocked widget boundaries and real text buffer; unknown errors remain failures.
+- Focused PASS: **27 Node + 17 Python bridge**, including the new checkpoint
+  barrier; production-branch C regressions fail before and pass after fixes.
+- Full isolated `01M7E62QVQ94AKV1F8A9ANTRVR` PASS: **478 Python / 138 subtests /
+  one optional-Pillow skip, 93 Node, 24 normal C + 24 ASan/UBSan C**, fresh GTK
+  builds. Source hashes verified against tested snapshot. Setup ResourceWarnings
+  and existing deprecations retained. A test-fixture feature-macro compile error
+  is retained separately from the genuine before-fix P2 runtime failure.
+- Fresh read-only checks confirm live owner3356764/start45955087, unchanged
+  chat-unknown SHA785264…f9b5 and native journal SHAec23e4…0738, sole flock85184,
+  exact original settings SHAfa6116…f3a4. No live guard/source change or permission
+  automation; no bundle, installation, retirement, reset, revoke or signal.
+
+**Next:** coherent correction commit with required trailer, then parent targeted
+independent rereview. **No new bundle freeze/deploy until approval.** Separate
+failed-owner recovery gates remain, as do consent-audit/native-metrics/media/
+provider/skills/Hermes/Durable/soak requirements and external VIDEO refusal.
+Overall **NOT READY**.

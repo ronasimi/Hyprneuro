@@ -161,3 +161,74 @@ class ReleaseOpsTests(unittest.TestCase):
             with patch.object(verifier,'run') as run:
                 with self.assertRaises(RuntimeError):verifier.check_owner_unit(unit,sha,instance)
                 run.assert_not_called()
+
+    def test_missing_or_corrupt_override_backup_refuses_before_any_mutation(self):
+        import json
+        import tempfile
+        for corrupt in [False, True]:
+            with self.subTest(corrupt=corrupt), tempfile.TemporaryDirectory() as directory:
+                base=Path(directory);backup=base/'backup';backup.mkdir(mode=0o700)
+                home=base/'home';unit=home/'.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf'
+                unit.parent.mkdir(parents=True);unit.write_text('current installed override')
+                saved=backup/'0-release.conf'
+                if corrupt:saved.write_text('corrupted rollback copy');saved.chmod(0o600)
+                import sqlite3
+                from contextlib import closing
+                (base/'source').mkdir();(base/'staged').mkdir()
+                binary=base/'candidate';binary.write_bytes(b'new UI')
+                installed=base/'installed-ui';installed.write_bytes(b'current UI')
+                (backup/'hyprneuro-ui').write_bytes(installed.read_bytes())
+                db=base/'observations.sqlite3'
+                with closing(sqlite3.connect(db)) as conn:conn.execute('CREATE TABLE fixture (id)');conn.commit()
+                (backup/'observations.sqlite3').write_bytes(db.read_bytes())
+                for name in ['sidecar.conf','ui.conf']:(base/'staged'/name).write_text('new '+name)
+                (base/'sidecar-origin.json').write_text('{}')
+                identities={name:{'unit':name} for name in ['hyprneuro-ui.service','hyprneuro.service']}
+                manifest={'units':[{'path':str(unit),'backup':str(saved),'sha256':ops.digest(unit)}],
+                    'source_files':{},'binary':str(binary),'binary_sha256':ops.digest(binary),
+                    'installed_ui':str(installed),'installed_sha256':ops.digest(installed),'installed_mode':0o700,
+                    'database':{'path':str(db),'backup':str(backup/'observations.sqlite3'),'backup_sha256':ops.digest(db)},
+                    'models':[],'ui':identities['hyprneuro-ui.service'],'sidecar':identities['hyprneuro.service'],
+                    'settings':None,'commit':'synthetic'}
+                (base/'manifest.json').write_text(json.dumps(manifest));(base/'manifest.json').chmod(0o600)
+                argv=['apply',str(base),'--session','synthetic','--parent-authorized','--fresh-user-unlock-confirmed']
+                def manager(*args):
+                    return {'NeedDaemonReload':'no','MainPID':'0','ActiveState':'inactive'}[args[-2]]
+                def staged_verify(bundle, installed=False):
+                    if not installed:verifier.verify(bundle)  # real preflight, not a mock verdict
+                with patch.object(sys,'argv',argv),patch.object(Path,'home',return_value=home),patch.object(apply,'desktop_safe'),patch.object(verifier,'run',side_effect=manager),patch.object(verifier,'unit_identity',side_effect=lambda name:identities[name]),patch.object(apply,'verify',side_effect=staged_verify),patch.object(apply.subprocess,'run') as run,patch.object(apply,'atomic_copy') as replace:
+                    try:
+                        with self.assertRaisesRegex(RuntimeError,'Unit rollback backup'):
+                            apply.main()
+                    finally:
+                        run.assert_not_called();replace.assert_not_called()
+                self.assertFalse((base/'apply.started').exists())
+                self.assertEqual(unit.read_text(),'current installed override')
+
+    def test_unit_backup_private_path_mode_regular_and_hash_boundaries(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);backup=base/'backup';backup.mkdir(mode=0o700)
+            saved=backup/'0-release.conf';saved.write_text('reviewed override');saved.chmod(0o600)
+            entry={'backup':str(saved),'sha256':ops.digest(saved)}
+            verifier.check_unit_backups(base,[entry])
+            saved.chmod(0o400);verifier.check_unit_backups(base,[entry])
+            for mode in [0o644,0o660,0o700,0o000]:
+                with self.subTest(mode=mode):
+                    saved.chmod(mode)
+                    with self.assertRaisesRegex(RuntimeError,'Unit rollback backup'):verifier.check_unit_backups(base,[entry])
+            saved.chmod(0o600)
+            outside=base/'outside';saved.rename(outside)
+            saved.symlink_to(outside)
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])
+            saved.unlink();os.link(outside,saved)
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])
+            saved.unlink();saved.mkdir()
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])
+            saved.rmdir();outside.rename(saved)
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[{**entry,'backup':str(base/'backup/../backup'/saved.name)}])
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[{**entry,'backup':str(base/'external')}])
+            backup.chmod(0o755)
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])
+            backup.chmod(0o700);backup.rename(base/'real-backup');backup.symlink_to(base/'real-backup')
+            with self.assertRaises(RuntimeError):verifier.check_unit_backups(base,[entry])

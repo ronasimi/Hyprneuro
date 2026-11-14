@@ -4,6 +4,18 @@
 selected final legacy mode, owner closed/scope revoked, no current tools. No stale
 restore. Details below; staging checklist retained as historical. **Do not reapply.**
 
+## Rollback preflight P1 correction — not approved for freeze/apply yet
+
+Independent45e588b BLOCK is retained. Source now verifies every unit rollback
+copy's private canonical path/type/mode/link/owner/hash before any mutation.
+Preparation records original unit modes. During separately reviewed recovery,
+restore **replaced** overrides atomically from matching recorded backups and modes;
+do not merely delete them. Remove only verified candidate-added files that had
+no prior unit entry. Preserve latest verified binary and current DB/settings.
+See [PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md) for corrected evidence,
+combined455 Python/52 Node/17 normal+sanitized C checks and review dependency.
+**No new immutable bundle, install, enable/start or cutover has occurred.**
+
 ## Next persistent release is not frozen yet
 
 New source-only release-helper candidates prepare a private persistent

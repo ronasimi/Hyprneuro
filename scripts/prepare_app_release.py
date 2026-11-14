@@ -107,7 +107,7 @@ def main():
             file = private_file(name)
             target = backup/(str(len(units))+'-'+file.name)
             shutil.copyfile(file,target)
-            units.append(dict(path=name, backup=str(target), sha256=digest(file)))
+            units.append(dict(path=name, backup=str(target), sha256=digest(file), mode=stat.S_IMODE(file.stat().st_mode)))
     # Only named path metadata is retained. No ambient credentials or env dump.
     env = dict(x.split(b'=',1) for x in Path('/proc',str(sidecar['pid']),'environ').read_bytes().split(b'\0') if b'=' in x)
     home = env[b'HOME'].decode()

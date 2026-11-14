@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import struct
+import stat
 from pathlib import Path
 from prepare_app_release import digest, private_file, unit_identity, run
 
@@ -45,9 +46,30 @@ def check_owner_unit(unit, sha, instance):
     if effective!={'FragmentPath':str(unit),'DropInPaths':''}:raise RuntimeError('Unreviewed effective owner unit/drop-ins')
 
 
+
+def check_unit_backups(bundle, units):
+    """Every pinned unit must remain restorable before any cutover mutation."""
+    directory=bundle/'backup'
+    try:
+        for path in (bundle,directory):
+            st=path.lstat()
+            if not path.is_absolute() or path!=path.resolve() or not stat.S_ISDIR(st.st_mode) or st.st_uid!=os.getuid() or stat.S_IMODE(st.st_mode)!=0o700:
+                raise ValueError('Private canonical backup directory required')
+        for unit in units:
+            path=Path(unit['backup'])
+            if path.parent!=directory or path!=path.resolve():
+                raise ValueError('Backup must be directly beneath private release backup directory')
+            path=private_file(path)
+            if stat.S_IMODE(path.stat().st_mode) not in (0o400,0o600) or digest(path)!=unit['sha256']:
+                raise ValueError('Private matching unit backup required')
+    except (OSError,ValueError,KeyError) as error:
+        raise RuntimeError('Unit rollback backup missing, unsafe or changed; no cutover') from error
+
+
 def verify(bundle, installed=False, legacy=False):
     if legacy and not installed:raise ValueError('--legacy requires installed phase')
     m=json.loads(private_file(bundle/'manifest.json').read_text())
+    check_unit_backups(bundle,m['units'])
     source=bundle/'source'
     meta=m.get('editable_metadata')
     if meta and digest(private_file(meta['path']))!=meta['sha256']:raise RuntimeError('Editable metadata changed')

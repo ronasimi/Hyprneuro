@@ -5,6 +5,47 @@ new UI/sidecar in user-selected legacy mode. Source tests below are not human
 consent or live production acceptance. No model configs/services, provider,
 residency, capture, package, parent Pi or global Durable change is authorized here.
 
+## Rollback preflight correction after independent45e588b BLOCK
+
+Review `01M7BMPVB2S124KHZJ6EM9X060/release-review` approved the owner/error/
+publication correction but found a **P1 release-helper rollback hole**: replacing
+existing current app overrides did not validate their saved rollback copies.
+The BLOCK is retained, not reclassified PASS. Two synthetic pre-fix cases
+(missing/corrupt copy) reached four mocked service-control calls despite invalid
+rollback; no real services were operated.
+
+Before source/model checks or any apply marker/service stop/file replacement,
+verification now checks **every recorded unit backup**: canonical absolute path
+immediately within this release's private mode0700 backup directory, same-user
+regular file, no symlink/hardlink, mode0400/0600 and exact recorded SHA256. Missing,
+corrupt, external/traversing paths, unsafe mode/directory/link/type refuse.
+Missing/corrupt full-cutover regressions assert **zero service-control and zero
+replacement calls**, no apply.started and unchanged original override. Preparation
+also records each original unit's mode for manual restoration.
+
+**Rollback distinction:** after separate operator approval and verification that
+current installed files still match this candidate, restore each **replaced**
+override atomically from its verified `manifest.units[*].backup`, using its
+recorded original mode. **Do not delete a replaced override**: that removes the
+prior reviewed launch configuration rather than restoring it. Delete only a
+candidate-added file which had no prior manifest unit, and only after verifying
+its current hash still matches the candidate (e.g. the new inert owner template).
+Keep current DB/settings and newest verified binary; never replay apply or restore
+an older bundle over a newer install. Missing original mode/copy requires manual
+review, not an invented default or automatic recovery.
+
+Current uncommitted combined source includes exact catalog87a2f68 and approved
+monitor source2bd0f51 content. Catalog does not activate skills or HTTP/Google
+rights. Monitor source stage adds no lifecycle/poller; replacing the sidecar RPC
+sampler with one cached existing-lifecycle sample remains **separate, not done**.
+MCPf9ea60b is **not integrated** and remains blocked on its cleanup review.
+
+Combined checks: **455 Python/1 skip/104 subtests;52 Node;17 existing normal +
+17 sanitized C helpers**, warnings-as-errors. No C edit/rebuild or runtime/GUI/
+service/model operation. Source-only correction awaits targeted independent
+review; **no publication freeze or apply**. Exact failure/final commands, source
+and artifact hashes: [evidence/persistent-rollback-p1.json](evidence/persistent-rollback-p1.json).
+
 ## Current source checkpoint — native-error correction and inert release staging
 
 Original P1 correction2be64a4 was independently **source-approved** by
@@ -22,13 +63,17 @@ untouched; no service/template installation, startup, enable, tool grant or GUI.
   can precede call admission. `every([])` falsely proved completion, causing early
   owner teardown before the read. Checks now require **one actual sealed call**
   and one successful receipt, with deterministic empty-publication injection.
-  All exact-path, native-content and grant-count assertions remain.
+  All exact-path/native-content assertions and the exact one-UNKNOWN-CHILD-OUTCOME
+  record assertion remain. The latter is not a grant-count assertion.
 - The original review line231 failure's **precise cause remains UNKNOWN**: its
   retained temporary fixture is no longer present. The retained review transcript
   and new failure journals are preserved. Same-signature HTTP reproduction and
   passing repetitions are **not proof of the original transport cause**. Parent's
-  parallel MCP line250 report is consistent with the separate publication race;
-  its raw artifact has not yet been supplied to this worker.
+  parallel MCP line250 artifacts are now verified: failure at23:39:17.532660309Z
+  precedes call admission at23:39:17.541Z. Later child result says owner admission
+  closed. The earlier sealed/content checks passed vacuously, not after a real
+  child completion. Latest MCP full suite remains64/65, not PASS; this is separate
+  from original231. Exact log/journal/checkpoint hashes are in the receipt.
 - Release helpers now prepare the actual private persistent descriptor/template,
   not a bounded-owner launcher; hash-pin descriptor and effective unit/no drop-ins;
   permit replacing only the backed-up hash-matching app overrides; install the

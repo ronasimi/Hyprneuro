@@ -1,0 +1,91 @@
+{
+  "base": "45e588b097a912f8ee3377284b32a6e0e249a083",
+  "source_only": true,
+  "uncommitted": true,
+  "production_ready": false,
+  "release_frozen_applied": false,
+  "service_model_GUI_operations": false,
+  "original_review": "01M7BMPVB2S124KHZJ6EM9X060/release-review: BLOCK one rollback-preflight P1; owner/error/publication fixes approved",
+  "correction": "Before any cutover mutation, verify all recorded unit backups for exact SHA256, direct canonical absolute location in private same-user0700 release/backup, same-user regular single-link file with mode0400/0600. Original unit modes recorded at preparation. Manual restore replaced override from recorded backup+mode; delete only verified newly added files.",
+  "regression_before": {
+    "missing_backup": "Valid synthetic staged preflight passed and mocked service stop/reload/start calls reached4",
+    "corrupt_backup": "Same4 mocked service calls reached",
+    "real_services_or_installation": false
+  },
+  "regression_after": "Missing/corrupt backups reject before any apply.started, service-control or atomic replacement; original override unchanged. Boundary coverage: mode, external/traversal path, symlink, hardlink, nonregular file, unsafe/symlink directory.",
+  "validation": {
+    "focused_release_ops": 12,
+    "focused_subtests": 6,
+    "full_python": 455,
+    "skipped": 1,
+    "subtests": 104,
+    "warnings_as_errors": true,
+    "node": 52,
+    "normal_C_helpers": 17,
+    "sanitized_C_helpers": 17,
+    "C_rebuilt": false
+  },
+  "integrations": {
+    "catalog": "Exact87a2f68 source content in3 files, uncommitted; no ambient loading or egress/Google rights",
+    "monitor": "Exact reviewed2bd0f51 source content in4 files, uncommitted; review01M7BM1HTA1SCK5P3MV5DGN9N4; cache-only sidecar/EventIntake lifecycle adapter NOT done, no added poller/process discovery/model actions",
+    "MCP": "f9ea60b NOT integrated; separate cleanup gate blocked"
+  },
+  "P06_label_correction": "UNKNOWN CHILD OUTCOME RECORD observed0 expected1; NOT grant count. Verified failure23:39:17.532660309Z before native admission23:39:17.541Z. Child later says owner read admission closed. Exact references in persistent-release-corrections.json. Original231 precise cause remainsUNKNOWN.",
+  "source_sha256": {
+    "scripts/verify_app_release.py": "63988a9d837872410e73a4aed0e1472010804b67d79dbb5d9e7f7b8cfb77815f",
+    "scripts/prepare_app_release.py": "8bc424ead4748a70ba009e6f1ede9e9fd1fefba20c8540ca9aa914bc49227b3c",
+    "python/tests/test_app_release_ops.py": "8e90b0117eefc963b51fcfce9de4183a811644fd347fc07458557ed199c5f876",
+    "python/src/hyprneuro/monitor.py": "e732f1ca3f3b364e704458c599022e7623e4283c2903a7e614107fc62c7e486a",
+    "python/tests/test_monitor.py": "6383f958bdaaee32e203957cfacd26bce22eb5371ed3e2cbacb6c9f46ad4aedd",
+    "docs/SKILLS.md": "403b3f3cd350218c16606b0389d290eac51dc9b81de818d8ec4c5a101f545046",
+    "skills/openmeteo/SKILL.md": "36dca52e09ed48bdc803f2d779dd0e4f107acdfe71f648818d353ac9b9a0e63c",
+    "skills/briefing/SKILL.md": "bea5f36e4e7738b12c88dac2aa2062bf2e0cf6ff83f9de4ebc3f06ef0d16f7ab"
+  },
+  "artifacts": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/reproduced-before-fix.log",
+      "sha256": "8570bf888f1d40f7ab394fdb7555d0cbb67fc77af7ae5e1e4ff20c4215b35a34"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/focused.log",
+      "sha256": "88eae60bbdb6e4acced9988925a87958cda08014b3939d0d692aeeb2f8af176b"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/check.sh",
+      "sha256": "42431f81e7e5a1a4ec77504ae773e36f0af424156e9b4cf10503f7bbcd32419e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/python.log",
+      "sha256": "7aaf26888dccfc329a96e13ba8802df746052d9788c4d66c92a1de323383f016"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/node.log",
+      "sha256": "640161b8043a8c8d7e125045de74368d3b3ce258583eac424ed1bb5276b29cfd"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/c.log",
+      "sha256": "826c0f24db4cdbdda2ee70210453087b10942bad4c66b610566d1036f829bb76"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/c-sanitized.log",
+      "sha256": "9d67b404f74dae917072c1fd05b25ad9d22cef4632b807ba4a4bd7005ddeeb73"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/c-detail.log",
+      "sha256": "e12f07ce5631db5f89079d5e9ade847ae4039db72ed163d229079e7711e21dee"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/c-sanitized-detail.log",
+      "sha256": "dcdf78a7493df575af686c482b6af19edd9565fec93c75484c865560f663c35d"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-rollback-p1/monitor-review.json",
+      "sha256": "fc554c6346f3dd2d5c6fd4cd5fe40cb851f452563ce48d6ff14e5aa31d4d5001"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/persistent-release-next/review-45e588b.json",
+      "sha256": "cfbde72d4edd24f6da594c5715f0b51c1552fc44a9b6e3b5a42bbe357aed1fd2"
+    }
+  ],
+  "next": "Parent checkpoint + targeted independent rollback correction review; reconcile source ancestry/remote catalog without force. No publication freeze/apply until approved; genuine user GUI activation/read consents remain separate."
+}

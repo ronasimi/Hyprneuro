@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "updated_at_ms": 1794613339734,
+  "updated_at_ms": 1794629774223,
   "status": "NOT READY",
   "git": {
-    "revision": "2be64a4d9194c85b754ca2f9ddb22f5e5f6f8200",
+    "revision": "45e588b097a912f8ee3377284b32a6e0e249a083",
     "branch": "feat/pi-owner-gtk",
     "dirty": true,
-    "note": "Uncommitted single-writer source milestone; parent publishes. Parent reports remote87a2f68 catalog-only descendant; not integrated here."
+    "note": "Single-writer source changes uncommitted for parent. Exact catalog87a2f68 and approved monitor2bd0f51 source content applied, not graph-merged/committed. Remote fetched; MCP excluded."
   },
   "deployed_revision": "1a6fb74: new installed UI/sidecar, user-selected legacy; persistent owner NOT installed",
   "deployed_source_sha256": "2dabdeeb9610d32b2837025539f16628d6b022b76c7407e81aaf68ac2082c121",
   "deployed_binary_sha256": "f6de29a2ad81f84e71c41ae3708d058280946b8eb2b44ff63b0ea0e31e76b5a5",
-  "phase": "Persistent source correction and inert release staging; no deployment",
-  "current_task": "Parent checkpoint/critical review; reconcile87a2f68 catalog and separately approved siblings; freeze exact immutable app-only release, review descriptor/template install WITHOUT start/enable; user-only GUI activation/read consent",
+  "phase": "Rollback preflight P1 corrected source-only; uncommitted combined catalog/passive-monitor stage; targeted review next",
+  "current_task": "Parent checkpoint/targeted independent rollback correction review and ancestry reconciliation; freeze/apply only after exact-source approval. Cached monitoring adapter remains separate.",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -31,10 +31,11 @@
     "Video remains absent from isolated integration; original candidate lifecycle/play gate/locator are blocked"
   ],
   "blockers": [
-    "New source + release-helper critical review and parent checkpoint before immutable freeze",
-    "Original line231 exact cause UNKNOWN, initial private fixture unavailable",
-    "Persistent installed Connect/activation/exact-read/idle/reconnect/revoke/restart/legacy+media pending",
-    "P01\u201314 remaining production acceptance; video stays blocked; no new capture/provider/child/exec grants"
+    "New rollback preflight correction awaits targeted independent review/checkpoint before freeze/apply",
+    "Original231 precise causeUNKNOWN; original fixture unavailable",
+    "Persistent installed genuine-human Connect/activation/read/idle/reconnect/revoke/restart/legacy+media acceptance pending",
+    "P12 cache-only sidecar/EventIntake integration not done; no model-process autodiscovery",
+    "MCPf9ea60b cleanup gate blocked; no integration; video stays blocked"
   ],
   "last_known_good": null,
   "historical_state_superseded": {
@@ -136,7 +137,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Parent checkpoint/critical review; reconcile87a2f68 catalog and separately approved siblings; freeze exact immutable app-only release, review descriptor/template install WITHOUT start/enable; user-only GUI activation/read consent",
+  "next_action": "Parent checkpoint/targeted independent rollback correction review and ancestry reconciliation; freeze/apply only after exact-source approval. Cached monitoring adapter remains separate.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -211,7 +212,7 @@
     "matching16x16transparentSettings/arrow",
     "runtime-only app protocol compatibility override for dedicated-rule blur (expires at reboot)"
   ],
-  "verified_this_checkpoint": "441 Python/1 skip/92 subtests;52 Node;17 existing normal+sanitized C helpers; rendered unit syntax pass",
+  "verified_this_checkpoint": "455 Python/1skip/104subtests;52Node;17existing normal+sanitized C helpers; focused release12/6subtests",
   "verified_this_audit": [
     "Shared focus through actual disposable Unix chat IPC injects current skill exactly once, preserves complete DEFAULT_SYSTEM, exact native WAV; MP4 and malformed WAV rejected before mocked inference",
     "Approved skill snapshot with ingest/capture off and no execution grants; existing live-focus ingest consent gate preserved",
@@ -249,6 +250,6 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/persistent-release-corrections.json",
+  "evidence_current": "docs/evidence/persistent-rollback-p1.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint."
 }

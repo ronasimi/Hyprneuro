@@ -106,3 +106,18 @@ git -c advice.detachedHead=false checkout $(cat .dev/last_known_good.txt)
   no install/start/enable, grants, GUI or model operation. Frozen release pending
   parent checkpoint/review.441 Python/1 skip/92 subtests,52 Node,17 normal and
   sanitized C helpers; exact evidence in persistent-release-corrections.json.
+
+
+##45e588b rollback P1 correction and reviewed source integration (2026-11-13)
+
+Independent review BLOCK retained. Full synthetic apply with missing/corrupt saved
+unit overrides reached four mocked service-control calls before correction; now
+refuses before any marker/stop/replacement. Every recorded backup is canonical,
+private, regular, unlinked, mode0400/0600 and hash-matching. Prepare records prior
+unit modes. Recovery restores replaced overrides; deletes only verified new files.
+P06 line250 evidence is UNKNOWN CHILD OUTCOME RECORD0/1, not grant count. Verified
+failure/write precedes native call admission; source predicates no longer accept
+empty calls. Original231 stays UNKNOWN. Exact catalog87a2f68 and approved passive
+monitor2bd0f51 source content applied uncommitted; cached sidecar adapter separate,
+no MCP integration. Combined455 Python/1skip/104subtests;52Node;17normal+sanitized
+C helpers. No runtime changes/freeze/apply; parent checkpoint/critical re-review.

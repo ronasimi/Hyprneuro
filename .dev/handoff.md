@@ -1,3 +1,37 @@
+# Current rollback P1 correction checkpoint (2026-11-13)
+
+HEAD45e588b, uncommitted single-writer source changes ready for parent checkpoint
+and targeted review; no commit/push/freeze/apply by this worker. Independent45e588b
+BLOCK retained. Unit backup preflight now checks every saved copy BEFORE any
+mutation: private canonical release path, UID, regular/no links,0400/0600 andSHA.
+Before-fix valid missing/corrupt fixtures reached4 mocked service calls; now zero
+stop/control/replace calls, no apply.started and unchanged override. Prepare
+records original unit modes. Restore REPLACED overrides from verified backups;
+delete only verified candidate-added files. Preserve DB/settings/latest binary.
+
+P06 label corrected: UNKNOWN CHILD OUTCOME RECORD0/1, NOT grant count. Verified
+failure23:39:17.532660309Z precedes native admission23:39:17.541Z; late child says
+owner admission closed. Empty-call predicates passed vacuously. Original231 is
+separateUNKNOWN. Raw log/checkpoint/journal/session hashes now linked.
+
+Exact catalog87a2f68 (3files) and reviewed passive monitor2bd0f51 (4files) source
+content applied uncommitted; parent must reconcile ancestry before publishing.
+No ambient skill loading, network/Google grant or runtime discovery. Monitor
+cached-sidecar/EventIntake adapter is NOT done; no second sampler or model-PID
+discovery added. MCPf9ea60b NOT integrated, cleanup gate blocked.
+
+Combined455Python/1skip/104subtests;52Node;17existing normal+sanitized C helpers;
+focused release12/6subtests. Warnings-as-errors. No C rebuild, realservice/model/
+GUI/permissions operation, release freeze or apply. All test commands completed;
+no pending processes or unknown tool outcomes after interruptions.
+
+Exact evidence: docs/evidence/persistent-rollback-p1.json;
+private logs: ~/Workspace/hyprneuro-production-audit/persistent-rollback-p1/.
+Next: parent source checkpoint + targeted independent review; no freeze/apply
+until approved. User-only activation/exact-read consent remains a separate gate.
+
+--- Prior checkpoint retained below ---
+
 # Current persistent owner source milestone (2026-11-13)
 
 Uncommitted single-writer changes on2be64a4. No commit/push/deploy by this worker.

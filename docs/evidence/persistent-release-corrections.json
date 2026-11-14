@@ -11,7 +11,36 @@
     "terminal_event": "Real authenticated stdio bridge now drains queued native error event before error reply; source regression caught missing event before fix",
     "publication_race": "Observed false seal on empty calls at filename case3 line250 after9 passing four-case runs; deterministic pending-publication injection and exact1call checks prevent early close",
     "original231": "UNKNOWN precise original cause: reviewer retained fixture no longer exists; review transcript retained; same signature deterministically reproduced by HTTP error is not proof of original transport cause",
-    "parallel_mcp250": "Parent reports unchanged case3 grantCount0 at250; consistent with observed publication race; raw MCP log not supplied yet"
+    "parallel_mcp250": {
+      "assertion": "Exactly one UNKNOWN CHILD OUTCOME RECORD; observed0/expected1. NOT a grant-count assertion.",
+      "latest_full_suite": "64 passed/1 failed; earlier65/65 does not supersede latest failure",
+      "failure_write_utc": "2026-11-13T23:39:17.532660309Z",
+      "native_call_admission_utc": "2026-11-13T23:39:17.541Z",
+      "child_tool_result": "Owner read admission closed (session.jsonl:10), followed by native transport error",
+      "interpretation": "Failure precedes native call admission; prior sealed/content predicates passed vacuously on empty call lists. Corrected predicates require one actual sealed call and one content-bearing receipt; unknown-record assertion remains unchanged. This does NOT explain original231.",
+      "artifacts": [
+        {
+          "path": "/home/ron/Workspace/hyprneuro-mcp-tests/full-node-final.log",
+          "sha256": "4903f9f75faafd7a0db8ce4abdfffad18f66a4507d4df211b21ec8ba7c9aa1eb"
+        },
+        {
+          "path": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp/hn-readonly-JdTweW/failure.json",
+          "sha256": "d67b38cb874f8c9c31c4dbddbba02dec2418bcf0fbb2734386ab13f8f9ce525d"
+        },
+        {
+          "path": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp/hn-readonly-JdTweW/owner/checkpoint.json",
+          "sha256": "3248df0183ecc0907bfe0a6c4fd5cfdd461d7d7f06adb863b30a076ffffeef0e"
+        },
+        {
+          "path": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp/hn-readonly-JdTweW/owner/durable/w/01M7BMF7K4KM93P0V2NTMVMS12/journal.jsonl",
+          "sha256": "d935793828b676b72ba92de24b81102819c0c7e6ff55d523ab4610954fba08d1"
+        },
+        {
+          "path": "/home/ron/Workspace/hyprneuro-mcp-tests/tmp/hn-readonly-JdTweW/owner/durable/w/01M7BMF7K4KM93P0V2NTMVMS12/x/tasks%3A0@1/session.jsonl",
+          "sha256": "d41ee77a5c15e3ac03a6ea27e1d3bfe26fcfc2ef9ca4340c1f1f5b54445f9068"
+        }
+      ]
+    }
   },
   "validation": {
     "python": 441,
@@ -135,5 +164,6 @@
       "sha256": "1b6d36768d786278ad09f57da010b6a2f4f6399f30144f79ac7c9fa402c6ff6e"
     }
   ],
-  "next": "Parent review/commit source changes, account for remote87a2f68 catalog and sibling source-only milestones, independent critical review; only then freeze exact descendant release and review private descriptor/template/app-only cutover. No user activation/read consent may be automated."
+  "next": "Parent review/commit source changes, account for remote87a2f68 catalog and sibling source-only milestones, independent critical review; only then freeze exact descendant release and review private descriptor/template/app-only cutover. No user activation/read consent may be automated.",
+  "source_checkpoint": "45e588b097a912f8ee3377284b32a6e0e249a083 (historical source hashes/test totals; superseded by persistent-rollback-p1.json)"
 }

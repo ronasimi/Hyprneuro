@@ -8,6 +8,29 @@ installed but live compositor-hook/capture acceptance remains blocked. Earlier
 5446e9c/e403da3/8bc7312 receipts below remain historical, not current totals.
 Completion order remains in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md).
 
+## Current rollback preflight correction — source only, re-review pending
+
+Independent45e588b review `01M7BMPVB2S124KHZJ6EM9X060/release-review` retained
+**BLOCK: one P1** (unverified saved unit backups before replacing overrides).
+Now every recorded unit backup is checked before any cutover mutation for exact
+SHA256, canonical private release path, owner,0400/0600 mode, regular file and
+no links. Missing/corrupt regression cases failed before correction and now prove
+zero service-control/replacement calls and no apply marker. Manual rollback must
+**restore replaced overrides from verified backups**, not delete them; only
+verified newly added files are deletion candidates.
+
+P06 receipt corrected: line250 expected **one UNKNOWN CHILD OUTCOME RECORD**, not
+a grant count. Verified artifact timing proves failure preceded native child
+admission; old completion predicates passed vacuously on empty calls. Original231
+precise cause remains **UNKNOWN**, separate from that race or the HTTP fixture.
+Exact catalog87a2f68 + independently approved monitor2bd0f51 source content is
+integrated **uncommitted**, not runtime-enabled; cached sidecar integration remains
+separate. MCPf9ea60b is not integrated. Combined **455 Python/1 skip/104 subtests;
+52 Node;17 normal +17 sanitized C helpers**. No C rebuild, service/model operation,
+GUI, permission, publication freeze or apply. Parent source checkpoint and targeted
+review next. [PERSISTENT_PARENT_OWNER.md](PERSISTENT_PARENT_OWNER.md) and
+[evidence/persistent-rollback-p1.json](evidence/persistent-rollback-p1.json).
+
 ## Current source correction and release-preparation gate
 
 The targeted2be64a4 review **01M7BF8Q9JFQ6G8Y38H62AJTFG approved source only**;

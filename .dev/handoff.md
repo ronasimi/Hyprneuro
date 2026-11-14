@@ -1,3 +1,15 @@
+## Actual new d3f3fa2 handshake PASS, HUMAN native request/consent next
+
+Canonicalnewroot/descriptor287364…ca0f, owner3356764/start45955087 actual
+Nodehostd3/envnormal-onlyparent-onlyread/persistent/child0; UI3349626connected.
+Ownerordinary/activation_required, tools[read], newtask3c222e…0281e/exactfixture,
+session01a1dc0a-7599-7258-ac72-d2e9b97ad7df, no nativefiles/authrow.
+No chooserloop/Send/grants. HUMANSend syntheticfixture prompt, personallyreview
+Enable READ-ONLY Hyprneuro tools? detailsread/fixtureonly andchooseAllowexact
+actiononce IFagrees (orDeny), then separateAllowread? sameexactfile/choice.
+Evidence docs/evidence/final-human-coherent-owner-handshake.json. Need actual
+nativecontent-bearingresult/continuation/journal, notquote/statusalone.
+
 ## Coherent d3f3fa2 installed ONCE, HUMAN newrootConnect next
 
 Appapplycompleted0/installedlegacyverified; UI3349626/sidecar3349621;

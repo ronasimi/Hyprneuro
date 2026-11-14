@@ -10,8 +10,8 @@
   },
   "deployed_revision": "5392ecfd40c2639485a2448d62fa6007a4b153af",
   "deployed_binary_sha256": "1ce5473c4e2578916950d9931b9ef880b13ade2b4c980db35410a798715bfad4",
-  "phase": "Reviewed coherent d3f3fa2 APP INSTALLED ONCE verified Legacy; UI3349626/sidecar3349621; privatefixture harnessFAIL retained corrected6PASS; HUMANnewrootConnect next",
-  "current_task": "Parent relay actual HUMAN Connect exactnewRowner then verifycanonicalroot/descriptor/runtime/profile, no activation/read yet",
+  "phase": "ActualHUMANnewd3root/descriptor/runtime/profile/handshakePASS; owner3356764 ordinary activation_required/noauthrow/nativemessages0",
+  "current_task": "HUMAN firstsyntheticnativefixture prompt\u2192separate READONLYactivation/exactread choices; then inspectactualnativecontent/continuation/journal",
   "active_hypothesis": "Original231 exact cause remains UNKNOWN. Native error falsely settled reproduced independently; empty-call false seal reproduced at250 and deterministically guarded.",
   "known_failures": [
     "GTK baseline/presentation warnings; fatal-warning diagnostic not PASS",
@@ -139,7 +139,7 @@
     "handoff": ".dev/handoff.md",
     "safe_integration_evidence": "/home/ron/Workspace/hyprneuro-safe-integration-evidence/"
   },
-  "next_action": "Human Connect Pi owner\u2026 \u2192 /home/ron/Workspace/hn-final-d3f3fa2/owner \u2192 Open. No Send/Allowyet. Never replay appliedmarker cutover.",
+  "next_action": "Read fixture.txt once using the native read tool and quote its exact contents. Do not read other paths or run commands. HUMANSend/consent ONLY; nooperatorautomation. Labels/scope pinned in evidence.",
   "historical_pre_repair_state": {
     "git": {
       "revision": "8d2924262b9c8910ca583d444406e3d6452bd63d",
@@ -251,7 +251,7 @@
   },
   "last_source_headless_verified_revision": "05b7f58bdaba9b8681e6bf23f2518dfccfa5200b",
   "last_verified_code_revision_note": "Existing4f1711e pointer is historical bounded deployed repair, not the source/headless integration tip",
-  "evidence_current": "docs/evidence/final-coherent-recovery-app-cutover.json",
+  "evidence_current": "docs/evidence/final-human-coherent-owner-handshake.json",
   "verified_this_audit_note": "Older unprefixed/historical arrays below are retained historical integration/AV records, not claims about this persistent checkpoint.",
   "historical_models_before_source_integration": {
     "text": "active PID2689094",
@@ -266,9 +266,9 @@
   "deployed_manifest_sha256": "ac67de1970f46b10e4834dc65212bad3d253ace5f6d4de5dc4df720a4dfe64a8",
   "candidate_source": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
   "candidate_manifest_sha256": "14c561a5c4438cd5ff36c733730d971d97f4ee1056bf97b228d21c3f2ce203df",
-  "active_owner_source": "5392ecfd40c2639485a2448d62fa6007a4b153af",
-  "active_owner_root": null,
-  "active_owner_pid": null,
+  "active_owner_source": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
+  "active_owner_root": "/home/ron/Workspace/hn-final-d3f3fa2/owner",
+  "active_owner_pid": 3356764,
   "active_run": null,
   "frame_scope": "Separate bounded latest-frame camera/official ScreenCast to local Omni approved for implementation, no current capture consent/activation. VIDEO file refusal binding external constraint.",
   "last_completed_run": "01M7DZFHYFA4X5WQWA9RM32WJT overall1 dueprivateharness AFTERsuccessfulapply; correctedfixture6PASS",
@@ -300,5 +300,6 @@
   "model_baseline_provenance": "Userinitiated restart17:40:54UTC, current3221439/3221441/3221445 confirmed distinct original3039",
   "installed_source": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
   "installed_ui_pid": 3349626,
-  "installed_sidecar_pid": 3349621
+  "installed_sidecar_pid": 3349621,
+  "active_owner_start": "45955087"
 }

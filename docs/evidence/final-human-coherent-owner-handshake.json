@@ -1,0 +1,93 @@
+{
+  "recorded_utc": "2026-11-14T21:53:48.339804+00:00",
+  "verdict": "ACTUAL HUMAN NEW d3f3fa2 ROOT/PROFILE/HANDSHAKE PASS; activation_required, no grant/native work",
+  "handshake": {
+    "at_utc": "2026-11-14T21:51:18.400226+00:00",
+    "canonical_root": "/home/ron/Workspace/hn-final-d3f3fa2/owner",
+    "descriptor_sha256": "287364ccce561b8be75956201231b6c0be44907c19e8244ab68bc7983c91ca0f",
+    "source": "d3f3fa2eff33b7b68e86d70c8ca1066296e837c6",
+    "UI": {
+      "unit": "hyprneuro-ui.service",
+      "pid": 3349626,
+      "start": "45832898",
+      "exe": "/home/ron/.local/bin/hyprneuro-ui",
+      "exe_sha256": "7a634a9c0970d13ef7ec5732f71498d387d4c32e2a2c052d8676cc400c1e2560",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-ui.service",
+      "dropins": [
+        "/run/user/1000/systemd/user/hyprneuro-ui.service.d/80-blur-compat.conf",
+        "/home/ron/.dotfiles/home/.config/systemd/user/hyprneuro-ui.service.d/95-reviewed-readonly-release.conf"
+      ]
+    },
+    "UI_status": {
+      "mode": "pi",
+      "connected": true,
+      "read_callable": true,
+      "fresh_consent_required": true
+    },
+    "owner": {
+      "unit": "hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2dd3f3fa2-owner.service",
+      "pid": 3356764,
+      "start": "45955087",
+      "exe": "/usr/bin/node",
+      "exe_sha256": "c81f852be62443a3e4003b2b1924177c780ca44f27acb2e1b771b3aff4b2edd2",
+      "fragment": "/home/ron/.config/systemd/user/hyprneuro-pi-owner@.service",
+      "dropins": []
+    },
+    "owner_cmdline": [
+      "/usr/bin/node",
+      "/home/ron/Workspace/hn-final-d3f3fa2/source/extensions/pi-owner/host.mjs"
+    ],
+    "cgroup": "0::/user.slice/user-1000.slice/user@1000.service/app.slice/app-hyprneuro\\x2dpi\\x2downer.slice/hyprneuro-pi-owner@home-ron-Workspace-hn\\x2dfinal\\x2dd3f3fa2-owner.service",
+    "profile": {
+      "persistent": true,
+      "parent_only": true,
+      "normal_only": true,
+      "state": "unavailable",
+      "owner_phase": "ordinary",
+      "tools": [
+        "read"
+      ],
+      "tool_permission": "activation_required",
+      "workspace": "/home/ron/Workspace/hn-final-d3f3fa2/owner/home/workspace",
+      "read_paths": [
+        "/home/ron/Workspace/hn-final-d3f3fa2/owner/home/workspace/fixture.txt"
+      ],
+      "task_id": "hn-service-3c222e33bfefe74ad9b0281e",
+      "app_id": "hyprneuro-parent-read",
+      "session_id": "01a1dc0a-7599-7258-ac72-d2e9b97ad7df"
+    },
+    "checkpoint_phase": "ordinary",
+    "native_files": 0,
+    "global_lock_holder": [
+      "10: FLOCK  ADVISORY  WRITE 3356764 00:4b:85184 0 EOF"
+    ],
+    "operation": "Actual HUMAN newrootConnect verified, untrusted status-only inspection; no Send/activation/read/consent/controlauth by operator",
+    "authorization_row_readonly_check": "SELECT exactnewtask status: no row; no production policy write/query of other scopes"
+  },
+  "private_receipt_path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/human-connect-d3f3fa2/verified-handshake.json",
+  "private_receipt_sha256": "aab58bf8ae761dd4aa4a7a3cc6093609aa3574b8bca42a3b13774acad45eb187",
+  "human_next": {
+    "prompt": "Read fixture.txt once using the native read tool and quote its exact contents. Do not read other paths or run commands.",
+    "submit": "Human sends in the GTK message box using Send. No expected contents supplied. Operator does not submit or approve.",
+    "activation_window": "Pi host consent \u00b7 fresh human decision",
+    "activation_heading": "Enable READ-ONLY Hyprneuro tools?",
+    "activation_details": {
+      "task": "hn-service-3c222e33bfefe74ad9b0281e",
+      "app": "hyprneuro-parent-read",
+      "workspace": "/home/ron/Workspace/hn-final-d3f3fa2/owner/home/workspace",
+      "operations": [
+        "read"
+      ],
+      "paths": [
+        "/home/ron/Workspace/hn-final-d3f3fa2/owner/home/workspace/fixture.txt"
+      ],
+      "note": "No write, execute, network or lifecycle permission. Every read requires fresh approval."
+    },
+    "activation_button": "Allow exact action once, ONLY if human personally agrees and scope matches; Deny is safe.",
+    "read_heading": "Allow read?",
+    "read_details": "Same exacttask/workspace; args.path fixture.txt (resolved inside exactnewworkspace) and no other file/operation. Any optionaloffset/limit must be positive/bounded read parameters, no scope expansion.",
+    "read_button": "Separate personal choice Allow exact action once or Deny; activation is NOT this read decision.",
+    "if_mismatch_error_or_no_dialog": "Report actual state; no automatic retry/fallback/scope broadening/expected-answer prompt."
+  },
+  "limits": "Not native successfulread/continuation/journal/visualcounter/livecleanclose acceptance. No Send/activation/read/consent/operator control authorization, private capture or productionauth writes. Installed/UI/owner sourcecoherentd3, historicaloldunknown guards remain unchanged. Mandatoryallmedia/VIDEO externalconstraint retained."
+}

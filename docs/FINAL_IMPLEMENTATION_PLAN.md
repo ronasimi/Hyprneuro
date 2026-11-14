@@ -933,3 +933,30 @@ Humannewrootstep only AFTER successful installedattestation, not before.
   independentflockrelease. No source-only/oldfailedshutdown READY substitution.
 
 [Once coherent app cutover receipt](evidence/final-coherent-recovery-app-cutover.json).
+
+## 28. Actual HUMAN coherent newroot pairing PASS; activation/exactread next
+
+Fresh maintained leasedchecks afterhumanDONE verifiedactualcanonicald3f3fa2root,
+descriptor287364…ca0f, UI3349626/source7a634…2560, owner3356764/start45955087
+Nodehostexactd3source/env/read-onlynormal-onlyparent-onlypersistent/child0.
+Exacttaskhn-service-3c222e33bfefe74ad9b0281e/apphyprneuro-parent-read, tools[read],
+workspaceexactnewroot/home/workspace/fixture.txt only, ownerordinary/stateunavailable
+(normal-onlylifecycle), tool_permissionactivation_required. Newsession
+01a1dc0a-7599-7258-ac72-d2e9b97ad7df; checkpointordinary/no persistednativefiles,
+solekernelFLOCK3356764 inode85184. ReadonlySELECT exacttaskhasNOauthrow.
+No chooserloop/oldroot/adoption/controlauth/Send/activation/read grant occurred.
+
+HUMANnext in GTK messagebox→Send (noexpectedcontents):
+`Read fixture.txt once using the native read tool and quote its exact contents. Do not read other paths or run commands.`
+Window `Pi host consent · fresh human decision`, heading
+`Enable READ-ONLY Hyprneuro tools?`; inspect exactnewworkspace/task/app, operations
+[read], fixture.txtonly, no exec/write/network/lifecycle/children. Human alone
+chooses `Allow exact action once` IFagrees orDeny. A separate `Allow read?`
+heading asks exactsameworkspace/task andargs.pathfixture.txt; humanindependently
+chooses `Allow exact action once` IFagrees orDeny. No operator approval or
+permission carryover; activationalone NOTreadgrant. Ifscope differs/error/no
+dialog, reportactualstate; do notretry or changeprofile.
+
+Then operator must inspectactualnativecontent-bearingtoolresult/continuation/
+journal, not correctquote/status alone. Otherlive/lifecycle/media/VIDEOgates
+remain notREADY. [Handshake/preciseHUMANstep](evidence/final-human-coherent-owner-handshake.json).

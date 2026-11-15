@@ -5,7 +5,7 @@ import { boundedProof } from './cancellation.mjs';
 export class PiOwner {
   constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,cancellation,cancellationIdle,callTimeoutMs=300000}) {
     Object.assign(this,{session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,cancellation,cancellationIdle,callTimeoutMs});
-    this.phase='ordinary';this.queue=Promise.resolve();this.listeners=new Set();this.consents=new Map();this.closed=false;
+    this.phase='ordinary';this.queue=Promise.resolve();this.listeners=new Set();this.consents=new Map();this.grants=new Map();this.releases=new Map();this.closed=false;
   }
   emit(event){for(const listener of this.listeners)listener(event);}
   serial(work){
@@ -14,22 +14,56 @@ export class PiOwner {
   }
   async approve(request) {
     if(this.currentChat)this.currentChat.toolAdmission();
+    if(request.audit) {
+      if(!this.admission)throw new Error('Typed consent requires admitted request generation');
+      request={...request,signal:request.signal?AbortSignal.any([request.signal,this.admission.signal]):this.admission.signal,
+        audit:{...request.audit,generation:this.admission.generation}};
+    }
     request.signal?.throwIfAborted();
     if(!this.listeners.size)throw Object.assign(new Error('No authenticated trusted control UI; denied'),{code:'HUMAN_DENIED'});
     const id=randomUUID();let timer,abort;
     try {
       return await new Promise((resolve,reject)=>{
-        timer=setTimeout(()=>{this.consents.delete(id);reject(Object.assign(new Error('Trusted consent timed out'),{code:'HUMAN_DENIED'}));},120000);
+        timer=setTimeout(()=>{this.consents.delete(id);reject(Object.assign(new Error('Trusted consent timed out'),request.audit?{}:{code:'HUMAN_DENIED'}));},120000);
         abort=()=>resolve(false);request.signal?.addEventListener('abort',abort,{once:true});
-        this.consents.set(id,resolve);this.emit({type:'consent',id,title:request.title,detail:request.detail});
+        this.consents.set(id,value=>{
+          if(!request.audit)return resolve(typeof value==='boolean'?value:value.allowed);
+          if(request.signal.aborted)return reject(request.signal.reason);
+          const receipt=value?.receipt;
+          if(!receipt||receipt.consent_id!==id||receipt.arguments_sha256!==request.audit.arguments_sha256||
+            !/^[a-f0-9-]{36}$/.test(receipt.request)||!/^[a-f0-9]{64}$/.test(receipt.body_hash))
+            return reject(new Error('Unproven typed consent outcome; no replay'));
+          if(value.allowed!==true)return resolve(false);
+          if(request.audit.kind!=='read_decision')this.grants.set(request.audit.scope.task_id,receipt.request);
+          resolve(true);
+        });
+        this.emit({type:'consent',id,title:request.title,detail:request.detail,...(request.audit?{audit:request.audit}:{})});
       });
     } finally {clearTimeout(timer);request.signal?.removeEventListener('abort',abort);this.consents.delete(id);}
   }
-  consent(id,allowed){
+  consent(id,allowed,receipt){
     if(typeof allowed!=='boolean'||!this.consents.has(id))throw new Error('No matching pending host consent');
-    this.consents.get(id)(allowed);this.consents.delete(id);
+    this.consents.get(id)({allowed,receipt});this.consents.delete(id);
   }
-  disconnectControl(){for(const resolve of this.consents.values())resolve(false);this.consents.clear();}
+  async releaseGrants(){
+    for(const [task,request] of this.grants){
+      if(!this.listeners.size)throw new Error('Owned cleanup unproven without trusted control');
+      const id=randomUUID();let timer;
+      try{await new Promise((resolve,reject)=>{
+        timer=setTimeout(()=>reject(new Error('Owned cleanup deadline; no replay')),5000);
+        this.releases.set(id,{resolve,reject});this.emit({type:'grant_release',id,request});
+      });this.grants.delete(task);}
+      finally{clearTimeout(timer);this.releases.delete(id);}
+    }
+  }
+  releaseDone(id,success){
+    const pending=this.releases.get(id);
+    if(!pending||typeof success!=='boolean')throw new Error('No exact owned cleanup request');
+    this.releases.delete(id);
+    if(success)pending.resolve();else pending.reject(new Error('Owned cleanup unknown'));
+  }
+  grantsInvalidated(){this.grants.clear();}
+  disconnectControl(){for(const pending of this.releases.values())pending.reject(new Error('Control disconnected during cleanup'));this.releases.clear();for(const resolve of this.consents.values())resolve(false);this.consents.clear();}
   detachControl(){
     if(this.closing||this.closed)return this.shutdown??Promise.resolve();
     if(this.detaching)return this.detaching;
@@ -112,6 +146,7 @@ export class PiOwner {
         record.proof=boundedProof(record.completion,Math.min(2000,this.callTimeoutMs)).then(proven=>{record.proven=proven;return proven;});
       };
       signal.addEventListener('abort',interrupt,{once:true});
+      this.admission={signal,generation:cancelRequest?.generation??randomUUID()};
       try {
       signal?.throwIfAborted();
       if(['failed','transition'].includes(this.phase))throw new Error('Pi conversation admission closed');
@@ -197,7 +232,7 @@ export class PiOwner {
         if(!cleanup||!cleanup.scope||cleanup.proven===true)this.currentChat=undefined;
         if(cancelRequest)cancelRequest.fence=undefined;
       }
-      } finally {clearTimeout(timer);signal.removeEventListener('abort',interrupt);originalSignal?.removeEventListener('abort',external);}
+      } finally {this.admission=undefined;clearTimeout(timer);signal.removeEventListener('abort',interrupt);originalSignal?.removeEventListener('abort',external);}
     });
   }
   close(){

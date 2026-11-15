@@ -1,3 +1,4 @@
+import {mockConsent} from './support/mock-consent.mjs';
 // Actual installed SDK, dedicated parent-only roots and loopback mock HTTP only.
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -53,7 +54,7 @@ async function fixture(run,respond,rpc) {
       rpc:async packet=>rpc?rpc(packet):packet.action==='auth_check'?{allowed:true}:{authorized:true}});
     control=await client(ownerRoot,'control');chat=await client(ownerRoot);
     // Fixture-only genuine harness confirmation callback, never a production UI.
-    host.owner.listeners.add(event=>{if(event.type==='consent'){approvals.push(event.title);host.owner.consent(event.id,true);}});
+    host.owner.listeners.add(event=>{if(event.type==='consent')approvals.push(event.title);void mockConsent(host.owner,event);});
     await run({host,chat,control,ownerRoot,requests:()=>requests,approvals});passed=true;
   } catch(error) {
     await writeFile(join(root,'failure.json'),JSON.stringify({error:error.stack,requests,approvals,entries:host?.session.sessionManager.getEntries()},null,2));throw error;

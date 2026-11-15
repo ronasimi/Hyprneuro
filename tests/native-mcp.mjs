@@ -89,6 +89,11 @@ async function fixture(options,run) {
     const confirm=async request=>{confirmations.push(request);return options.approve?options.approve(request,confirmations):true;};
     await writeFile(join(workspace,'fixture.txt'),'synthetic read');
     const harness=harnessExtension(sdk,{rpc,providers:adapter.providers,confirm,
+      // Isolated SDK adapter fixture, not managed product grant eligibility.
+      requestGrant:async({scope,title,detail})=>{
+        if(await confirm({title,detail})!==true)throw Object.assign(new Error('Trusted human approval required'),{code:'HUMAN_DENIED'});
+        await rpc({action:'mock_grant',...scope});
+      },releaseGrant:async()=>{},
       initial:options.noHarness?undefined:{workspace,taskId:'mcp-fixture',appId:'fixture-app'},
       readOnly:options.readOnly??false,normalOnly:options.readOnly??false,parentOnly:options.parentOnly??false,readPaths:['fixture.txt'],binding:{workspace,taskId:'mcp-fixture',appId:'fixture-app'}});
     const probe=pi=>pi.registerTool({name:'probe',label:'probe',description:'fixture raw nested call',parameters:{type:'object',properties:{}},
@@ -319,59 +324,18 @@ for(const mode of ['orphan-early','orphan-eof'])test(`actual Pi SDK descendant c
 }));
 
 
-test('owner same-session native MCP continuation and cancellation use the guarded loader',{timeout:15000},async()=>{
-  await fixture({owner:true,responses:[tool('exa_search',{query:'public docs'}),stop]},async f=>{
-    const id=f.session.sessionManager.getSessionId();
-    await f.host.owner.chat({text:'Offline owner fixture'},()=>{});
-    assert.equal(f.session.sessionManager.getSessionId(),id);
-    assert.ok(!f.session.getActiveToolNames().some(n=>n.startsWith('mcp__')));
-    assert.equal(f.session.getAllTools().filter(t=>t.name.startsWith('mcp__')).length,5);
-    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,1);
-    assert.equal(f.confirmations.length,3); // fixture activation, network scope, exact query
-    assert.match(f.confirmations.at(-1).detail,/native MCP: fixture/);
-    assert.match(JSON.stringify(f.requests.at(-1).messages),/untrusted/);
-    const reopened=sdk.SessionManager.open(f.manager.getSessionFile());
-    const result=reopened.getEntries().find(e=>e.type==='message'&&e.message.role==='toolResult');
-    assert.equal(result.message.nestedCalls.calls.length,1);
-    assert.equal(reopened.getEntries().filter(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.status==='completed').length,1);
+// The three former managed-MCP positives remain pending in the scope plan and
+// archived source. Product startup now rejects these profiles BEFORE discovery.
+for(const scenario of ['same-session continuation/cancellation','discovery authorization/injection','fresh denial/revocation'])
+  test('UNSUPPORTED managed native MCP profile: '+scenario,async()=>{
+    const saved=process.env.HYPRNEURO_PI_OWNER_ENABLE;process.env.HYPRNEURO_PI_OWNER_ENABLE='1';
+    let discovery=0,broker=0;
+    const adapter={get discovery(){discovery++;throw new Error('Must not discover');}};
+    try{
+      for(const flags of [{},{profile:'read-only',normalOnly:true,parentOnly:true,persistent:true}])
+        await assert.rejects(createHost({root:'/never-created',workspace:'/never-opened',mcpAdapter:adapter,
+          authorizeMcpDiscovery:()=>{discovery++;},rpc:async()=>{broker++;},...flags}),
+          /Unsupported authorization profile|READ-ONLY owner forbids/);
+      assert.equal(discovery,0);assert.equal(broker,0);
+    }finally{if(saved===undefined)delete process.env.HYPRNEURO_PI_OWNER_ENABLE;else process.env.HYPRNEURO_PI_OWNER_ENABLE=saved;}
   });
-  await fixture({owner:true,timeoutMs:2000,responses:[tool('exa_search',{query:'stall'}),stop]},async f=>{
-    const run=f.host.owner.chat({text:'Offline cancellation fixture'},()=>{});
-    for(let i=0;i<100&&!(await f.calls()).some(c=>c.method==='tools/call');i++)await wait(10);
-    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,1);
-    await f.session.abort();await assert.rejects(run,/Native Pi request failed/);
-    assert.equal(f.host.owner.phase,'failed');
-    assert.ok(f.manager.getEntries().some(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.status==='unknown'));
-    await assert.rejects(f.host.owner.chat({text:'No replay'},()=>{}));
-    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,1);
-  });
-});
-
-test('owner refuses missing/denied discovery authorization and all read-only adapter injection before connection',async()=>{
-  const adapter=createNativeMcpProviders({sdk,mcp,credentials:{},privateHome:base,logPath:join(base,'unused-mcp.log'),
-    servers:{fixture:{url:'https://offline-fixture.invalid/mcp',auth:{provider:'fixture-auth'}}},
-    bindings:{exa_search:bindings.exa_search},enabled:{exa:true}});
-  const saved=process.env.HYPRNEURO_PI_OWNER_ENABLE;process.env.HYPRNEURO_PI_OWNER_ENABLE='1';
-  const prior=globalThis.fetch;let connections=0;
-  globalThis.fetch=()=>{connections++;throw new Error('No discovery authorized');};
-  try{
-    assert.deepEqual(adapter.discovery,[{server:'fixture',destination:'https://offline-fixture.invalid/mcp',credential:'Pi provider: fixture-auth'}]);
-    for(const extra of [{},{authorizeMcpDiscovery:async()=>false},{authorizeMcpDiscovery:async()=>{throw new Error('Fixture consent failed');}}])
-      await assert.rejects(createHost({mcpAdapter:adapter,...extra}),/authorization required|Fixture consent failed/);
-    await assert.rejects(createHost({mcpAdapter:adapter,profile:'read-only',normalOnly:true,parentOnly:true,authorizeMcpDiscovery:()=>assert.fail('Must not ask')}),/READ-ONLY owner forbids/);
-    assert.equal(connections,0);
-  }finally{globalThis.fetch=prior;if(saved===undefined)delete process.env.HYPRNEURO_PI_OWNER_ENABLE;else process.env.HYPRNEURO_PI_OWNER_ENABLE=saved;}
-});
-
-
-test('owner same-session fresh human denial and broker revocation never dispatch native MCP',{timeout:15000},async()=>{
-  for(const deny of ['human','network','submit_external','post-consent'])await fixture({owner:true,
-    responses:[tool('exa_search',{query:'denied'}),stop],
-    approve:r=>deny!=='human'||!r.title.startsWith('Allow '),
-    broker:(m,confirmations)=>!(m.op===deny||deny==='post-consent'&&confirmations.some(c=>c.title==='Allow exa_search?')),
-  },async f=>{
-    await f.host.owner.chat({text:'Synthetic denial only'},()=>{});
-    assert.equal((await f.calls()).filter(c=>c.method==='tools/call').length,0);
-    assert.ok(f.events.some(e=>e.type==='tool_execution_end'&&e.isError));
-  });
-});

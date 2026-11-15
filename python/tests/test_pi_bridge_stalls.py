@@ -22,6 +22,12 @@ class Guard:
         return self.unlocked
 
 
+class NoGrantBrokerFixture:
+    """Control/EOF unit double; no grant or provenance proof is claimed."""
+    async def register(self, root, control): pass
+    async def invalidate(self): pass
+
+
 class AuthenticatedStallTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -130,7 +136,7 @@ class AuthenticatedStallTests(unittest.IsolatedAsyncioTestCase):
 
     async def attach_pending(self):
         self.questions = 3
-        self.bridge = ManagedDesktopBridge(self.send, guard=self.guard)
+        self.bridge = ManagedDesktopBridge(self.send, guard=self.guard, broker=NoGrantBrokerFixture())
         await self.bridge.attach(str(self.root))
         await self.until(lambda: len(self.bridge.consents) == 3)
         return list(self.bridge.consents.values())
@@ -271,3 +277,17 @@ class AuthenticatedStallTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.bridge.consents, {})
         self.assertFalse(any(c.get('allowed') is True for c in self.calls))
         self.assertEqual(sum(c['op'] == 'consent' for c in self.calls), 1)
+
+    async def test_real_registration_cleanup_ack_stall_is_bounded_failed_and_drops_control(self):
+        await self.attach_pending()
+        async def revoked(): return True  # fixture confirms invalidation, peer withholds ACK
+        self.bridge.broker.invalidate=revoked
+        started=time.monotonic()
+        with patch('hyprneuro.pi_managed_bridge.CLEANUP_TIMEOUT',.05):
+            with self.assertRaises(TimeoutError):
+                await self.bridge.detach()
+        self.assertLess(time.monotonic()-started,.3)
+        self.assertTrue(self.bridge.failed)
+        await self.until(lambda: all(c['eof'].is_set() for c in self.connections))
+        self.assertEqual(sum(c['op']=='grants_invalidated' for c in self.calls),1)
+        self.assertFalse(any(c['op'] in ['chat','consent','on','off'] for c in self.calls))

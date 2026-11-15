@@ -1,3 +1,4 @@
+import { createHash,randomUUID } from 'node:crypto';
 import { open,mkdir,readFile,writeFile,unlink,realpath,lstat } from 'node:fs/promises';
 import { dirname,join,relative,isAbsolute } from 'node:path';
 import { fileURLToPath,pathToFileURL } from 'node:url';
@@ -40,6 +41,8 @@ async function readWorkspace(workspace,root) {
 export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId,appId,
     rpc=sidecar,model,native,providers,mcpAdapter,authorizeMcpDiscovery,route,serve=true,profile='standard',normalOnly=false,readPaths=[],childRead=false,parentOnly=false,persistent=false,textBaseUrl='http://127.0.0.1:8081/v1'}) {
   if(process.env.HYPRNEURO_PI_OWNER_ENABLE!=='1')throw new Error('Pi owner is opt-in and source/mock-only, not activated');
+  if(profile!=='read-only'||!normalOnly||!parentOnly||!persistent||childRead)
+    throw new Error('Unsupported authorization profile: only persistent normal-only parent READONLY; no legacy, children, network, shell, desktop or lifecycle grants');
   if(!['standard','read-only'].includes(profile)||typeof normalOnly!=='boolean'||typeof childRead!=='boolean'||typeof parentOnly!=='boolean')throw new Error('Explicit supported owner profile/mode required');
   const readOnly=profile==='read-only';
   if(mcpAdapter){
@@ -132,7 +135,14 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
     const policy=durablePolicy({workspace,preflight:()=>readWorkspace(workspace,root),readOnly,childRead,onReadApproved:request=>approvedChildReads.add(request),phase:()=>owner?.closing||owner?.currentChat?.closed?'closed':owner?.phase??'closed',
       broker:op=>checkBroker(rpc,taskId,appId,op,workspace),approve:request=>owner.approve(request)});
     providers=readOnly?undefined:providers??await Providers.load();
-    const extension=harnessExtension(sdk,{rpc,providers,native,readOnly,normalOnly,parentOnly,readPaths,textBaseUrl,binding:Object.freeze({workspace,taskId,appId}),confirm:request=>owner.approve(request),durableGuard:policy,
+    const extension=harnessExtension(sdk,{rpc,providers,native,readOnly,normalOnly,parentOnly,readPaths,textBaseUrl,binding:Object.freeze({workspace,taskId,appId}),confirm:request=>owner.approve(request),
+      requestGrant:async({kind='grant_create',scope,title,detail})=>{
+        scope={...scope,ops:[...scope.ops].sort()};
+        const ok=await owner.approve({title,detail,audit:{kind,scope,native_call_id:'activation:'+randomUUID(),
+          arguments_sha256:createHash('sha256').update(JSON.stringify(scope)).digest('hex')}});
+        owner.admission?.signal.throwIfAborted();
+        if(ok!==true)throw Object.assign(new Error('Human grant denied'),{code:'HUMAN_DENIED'});
+      },releaseGrant:()=>owner.releaseGrants(),durableGuard:policy,
       nativeScope:native=>owner?.currentChat?.native(native)??native,
       toolAdmission:()=>{owner?.currentChat?.toolAdmission();if(owner?.closing||!['ordinary','hermes'].includes(owner?.phase))throw new Error('Owner transition blocks new tool side effects');},
       inferenceGate:(role,token)=>{
@@ -171,7 +181,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       await session.extensionRunner.getCommand('hn-tools').handler(`${workspace} ${taskId} ${appId}`,context());activated=true;
     }
     const command=async value=>{
-      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true,parent_only:parentOnly,persistent,tools:session.getCallableToolNames(),task_id:taskId,app_id:appId,tool_permission:activated?'fresh_read_consent':'activation_required',workspace,read_paths:readPaths,session_id:session.sessionManager.getSessionId()}:status;}
+      if(value==='status'){const status=await commands.status();return normalOnly?{...status,normal_only:true,parent_only:parentOnly,persistent,authorization_profile:'persistent-parent-read/1',unsupported_permissions:['children','network','shell','desktop','lifecycle','native-mcp'],tools:session.getCallableToolNames(),task_id:taskId,app_id:appId,tool_permission:activated?'fresh_read_consent':'activation_required',workspace,read_paths:readPaths,session_id:session.sessionManager.getSessionId()}:status;}
       if(normalOnly)throw new Error('Lifecycle unavailable: normal-only owner; all-client cooperation unverified');
       await activate();
       if(value==='on'&&owner.cancelOn)throw new Error('Pending on cancelled by trusted off');
@@ -185,6 +195,7 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
       if(!session.isIdle||owner.consents.size||durable.status().workflows.length)throw new Error('Cancellation admission requires idle parent-only session');
       return new CancellationScope();
     }:undefined,cancellationIdle:()=>session.isIdle&&owner.consents.size===0&&owner.listeners.size>0&&!owner.detaching&&!owner.closing&&durable.status().workflows.length===0,durable:parentOnly?{...durable,quiesce:async()=>{if(durable.status().workflows.length)throw new Error('Unexpected parent-only Durable work; no automatic drain/adoption');}}:durable,command,lifecycleUnavailable:normalOnly?'Lifecycle unavailable: normal-only owner; all-client cooperation unverified':undefined,checkpoint,route:recommend,settleParent:()=>session.waitForIdle(),cancelTransition:()=>commands.cancel(),prepare:async()=>{
+        await readWorkspace(workspace,root); // discovery fence also applies after startup
         if(persistent&&(!owner.listeners.size||owner.detaching))throw new Error('Trusted UI required; owner idle/disconnected');
         if(persistent&&!activated){
           await checkpoint('activation-intent');
@@ -204,7 +215,17 @@ export async function createHost({sdkPath,durableDir,piBin,root,workspace,taskId
         if(safe){await unlink(join(root,'owner.guard'));await syncDirectory(root);}
       }
     })();
-    if(serve||childRead)socket=await serveOwner(root,owner,{singleControl:persistent,read:childRead?async(packet,signal)=>{
+    if(serve||childRead)socket=await serveOwner(root,owner,{singleControl:persistent,registration:persistent?async()=>{
+      if(owner.phase!=='ordinary'||owner.closing||owner.detaching||owner.consents.size||!session.isIdle)
+        throw new Error('Owner registration admission closed');
+      const stat=await readFile('/proc/self/stat','utf8');
+      const descriptor=await readFile(join(root,'owner.json'));
+      if(owner.phase!=='ordinary'||owner.closing||owner.detaching||owner.consents.size||!session.isIdle)
+        throw new Error('Owner changed during registration');
+      return {owner_root:root,owner_pid:process.pid,owner_start:stat.slice(stat.lastIndexOf(')')+1).trim().split(/\s+/)[19],
+        owner_session:session.sessionManager.getSessionId(),descriptor_sha256:createHash('sha256').update(descriptor).digest('hex'),
+        task_id:taskId,app_id:appId,workspace,ops:['read'],read_policy_sha256:createHash('sha256').update(readPaths.join('\0')).digest('hex')};
+    }:undefined,read:childRead?async(packet,signal)=>{
       if(owner.closing||owner.phase!=='ordinary')throw new Error('Owner read admission closed');
       if(typeof packet.call!=='string'||packet.call.length>256||typeof packet.exec!=='string'||!packet.exec.startsWith(packet.call+'#')||!/^\d+\.\d+$/.test(packet.exec.slice(packet.call.length+1))||typeof packet.tool_id!=='string'||!/^[\w-]{1,128}$/.test(packet.tool_id))throw new Error('Bounded native child identity required');
       await durable.readChild(packet.call,packet.exec,approvedChildReads,workspace);
@@ -225,6 +246,7 @@ if(process.argv[1]===fileURLToPath(import.meta.url)) {
   if(!['coordinated','normal-only'].includes(mode))throw new Error('Explicit supported owner mode required');
   const host=await createHost({sdkPath:required('HYPRNEURO_PI_SDK'),durableDir:required('HYPRNEURO_DURABLE_PACKAGE'),piBin:required('HYPRNEURO_PI_BIN'),
     root:required('HYPRNEURO_PI_OWNER_DIR'),workspace:required('HYPRNEURO_WORKSPACE'),taskId:required('HYPRNEURO_TASK_ID'),appId:required('HYPRNEURO_APP_ID'),
+    textBaseUrl:process.env.HYPRNEURO_PI_TEXT_BASE_URL??'http://127.0.0.1:8081/v1',
     profile:process.env.HYPRNEURO_PI_OWNER_PROFILE??'standard',normalOnly:mode==='normal-only',
     childRead:process.env.HYPRNEURO_PI_CHILD_READ==='1',parentOnly:process.env.HYPRNEURO_PI_PARENT_ONLY==='1',persistent:process.env.HYPRNEURO_PI_PERSISTENT==='1',readPaths:JSON.parse(process.env.HYPRNEURO_PI_READ_PATHS??'[]')});
   let closing=false;

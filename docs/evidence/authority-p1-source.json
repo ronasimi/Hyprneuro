@@ -1,0 +1,141 @@
+{
+  "schema": "hyprneuro.authority-p1-source/1",
+  "base_commit": "fc43267173d6c1386891c708c9ddcc77724ed3f7",
+  "worktree": "/home/ron/Workspace/hyprneuro-audit-authority",
+  "verdict": "SOURCE FIX + FOCUSED PASS; INTEGRATION BLOCKED. NOT ENABLED OR DEPLOYED.",
+  "ownership": {
+    "changed": [
+      "extensions/app-aware.ts",
+      "python/src/hyprneuro/authorization.py",
+      "python/src/hyprneuro/desktop_control.py",
+      "python/src/hyprneuro/desktop.py",
+      "python/tests/test_authorization.py",
+      "python/tests/test_desktop_control.py",
+      "python/tests/test_assistant_ipc.py",
+      "python/tests/test_authority_boundaries.py",
+      "tests/app-aware-authority.mjs"
+    ],
+    "not_changed": [
+      "python/src/hyprneuro/sidecar.py",
+      "python/src/hyprneuro/sidecar_store.py",
+      "python/src/hyprneuro/application.py",
+      "extensions/pi-owner/",
+      "extensions/tool-harness/",
+      "ui/",
+      "scripts/",
+      "deploy/"
+    ]
+  },
+  "contract": {
+    "broker": "PermissionBroker(store=None, *, grant_capability=None). Capability must be an opaque object() injected by trusted host. authorize(..., approved=False, grant_capability=None) and expand(..., approved, grant_capability=None) require identity equality with a non-null injected capability for ALL grants, including normal read/write/execute. approved is privileged-policy metadata, not grant authority or human provenance.",
+    "public_denial": {
+      "broker_exception": "PermissionError: Trusted grant capability required",
+      "current_sidecar_wire": {
+        "ok": false,
+        "error": "Trusted grant capability required"
+      }
+    },
+    "model_interface": "hyprneuro_auth exposes check/list only; runtime rejects create/expand/revoke, approved/ops, or other unknown fields even if schema validation is bypassed. No public capability mint/get.",
+    "app_binding": "Broker denies missing as well as mismatched app identity when scope is app-bound. Desktop expected_window requires address + class; class is checked against broker app_id and actual focused window.",
+    "desktop": "Controller rechecks authority/lease/cancellation after awaited focus. Typed adapter awaits version and dispatch connection, then fresh focus + authority/lease/cancellation gate, then synchronous writer.write with no intervening await/to_thread mutation queue. All current mutations require target/app. Typed operation/value whitelist retained; no model Lua/shell/dispatch strings.",
+    "trusted_channel_dependency": "Main writer 01M7BK8QV8GXMK88K5K5XC4GH8/production-resume owns sidecar + owner/harness authenticated CONTROL consent wiring. Requires exact request/action/scope/owner binding, nonce single-use, denial/timeout/replay fences; never model JSON/UID/boolean/inherited environment. Capability by itself does not prove external human consent. User blanket development authorization is not grant provenance.",
+    "notification_requests": [
+      "authority-contract-main",
+      "authority-contract-main-update",
+      "authority-regression-integration-block"
+    ],
+    "parent_cc_limit": "Attempt to CLI-notify main: origin was rejected unknown-call; parent approved contract via ask and receives final handoff. Main writer direct notifications were applied."
+  },
+  "verification": [
+    {
+      "name": "baseline regression reproduction",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-prefail.sh /home/ron/Workspace/authority-p1-evidence/prefail-tests.py",
+      "result": "6 failed, 1 passed (pytest counts subtest failures); demonstrates public approved:true grants, missing target dispatch, revoke across focus/version awaits. Baseline extracted from exact Git object, no branch switch.",
+      "log": "/home/ron/Workspace/authority-p1-evidence/prefail-reproduced.log"
+    },
+    {
+      "name": "focused Python",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-python.sh python/tests/test_authority_boundaries.py python/tests/test_authorization.py python/tests/test_desktop_control.py python/tests/test_assistant_ipc.py",
+      "result": "75 passed, 84 subtests passed",
+      "log": "/home/ron/Workspace/authority-p1-evidence/focused-final.log"
+    },
+    {
+      "name": "focused extension",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-node.sh --test tests/app-aware-authority.mjs",
+      "result": "2 passed",
+      "log": "/home/ron/Workspace/authority-p1-evidence/focused-node-final.log"
+    },
+    {
+      "name": "full Python",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-python.sh python/tests",
+      "result": "492 passed, 2 skipped, 208 subtests passed",
+      "log": "/home/ron/Workspace/authority-p1-evidence/full-python-final.log"
+    },
+    {
+      "name": "full Node regression (actual installed SDK, private fixtures)",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-node.sh --test tests/*.mjs",
+      "result": "94 passed, 1 failed, 95 total; NOT full regression PASS",
+      "failure": "REAL BROKER persistent actual native read revokes existing scope and requires fresh activation/read after detach. Existing harness calls public auth_create; correctly denied by new broker boundary. Parent-owned trusted channel and real-broker fixture integration required, not bypassed/mocked to turn green.",
+      "log": "/home/ron/Workspace/authority-p1-evidence/full-node-first.log"
+    },
+    {
+      "name": "diff whitespace",
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "failure_history": [
+    "Original before-fix regression log retained.",
+    "focused-first.log: fixture edit introduced SyntaxError in an assertion; corrected before focused-second.log pass.",
+    "full-python-first.log: 1 expected old public-grant IPC fixture failure, 489 passed/193 subtests/2 skips; revised fixture explicitly asserts public denial and uses host-injected capability only in synthetic fixture.",
+    "full-node-first.log: real owner integration failure retained as BLOCK, not waived."
+  ],
+  "fixture_scope": "Clean env -i, private Workspace HOME/TMPDIR/XDG, Python warnings errors and no bytecode/cache, Node warning throws, installed existing dependencies only, offline flags. Synthetic disposable SQLite and Unix sockets; existing Node suite uses loopback mock inference/provider fixtures, no production endpoints. Added typed-adapter tests retain production dispatch code, with fake barrier transport and an actual disposable Unix compositor-protocol fixture.",
+  "remaining_risks": [
+    "Do not merge/enable as an isolated release: default broker denies existing public owner/harness activation until main integrates authenticated trusted consent channel and reruns real-broker owner workflow.",
+    "Capability does not authenticate a human; provenance and durable correlation are parent-owned integration dependencies, not solved by this patch.",
+    "Final dispatch fence is the local wire-write boundary, not compositor-atomic compare-and-mutate. External compositor focus may change after its last query; no live desktop acceptance performed.",
+    "Pending controller task cancellation plus release/emergency stop at all pre-dispatch awaited barriers prevents mutation. Public RPC socket disconnect alone is not handler cancellation; parent owns external cancellation wiring/acceptance.",
+    "Cancellation/error after wire-write cannot prove no mutation; no retry/replay added."
+  ],
+  "next_dependency": "Parent/main independent source review, authenticated consent-channel integration with existing hn-tools exact-read/network flows, real-broker/native-owner regression PASS, then separately reviewed profile acceptance before enablement. No live desktop input, model inference, GUI/service actions, network providers, production DB, push or deployment performed.",
+  "source_sha256": {
+    "extensions/app-aware.ts": "9d9b407a3ad92baae3c07f78667aa91d308c2608ed05762a6dd646c0a787e163",
+    "python/src/hyprneuro/authorization.py": "df16d0163e47d56edd2f148510e90a6f95da98dee17472b25c055dc7b7cb43bc",
+    "python/src/hyprneuro/desktop_control.py": "90cff533e58d3d5735732178c197fbee90761b42dce95e57364bb871a973fe45",
+    "python/src/hyprneuro/desktop.py": "5c725f765a7527173e90ad0cf910d49275557f45b5cd4648839292901a229f8a",
+    "python/tests/test_authorization.py": "58b7af91eb2bb02f59b5aad8d1bd5dc8241628af900a9e5218cbdecef5fbecf1",
+    "python/tests/test_desktop_control.py": "d93efb49fb93fbf7a53bdfaba424eec04d450829b8dacfdc0e3a1c7ec4596dfb",
+    "python/tests/test_assistant_ipc.py": "78b9aaf7213aae050d2d8ef825ed865f1473ee08211744b46f1fc1eda70e26e9",
+    "python/tests/test_authority_boundaries.py": "caa8bf42552ae6f30b69d6a24727b241772c449a404b563cb67cc08ecb1385bb",
+    "tests/app-aware-authority.mjs": "7c5922d0e4727959b4afaa50567a5c6075f12abefd7575aed2f9a66f46f140b0"
+  },
+  "baseline_source_sha256": {
+    "extensions/app-aware.ts": "b6400c59dddde97ea10b5e5f87a84894484be36607b9f9f43d06f52458ec2b65",
+    "python/src/hyprneuro/authorization.py": "e23a5783ae8bccf2e1d6748768de1c5b51e315a5bc195f21781da8668413ffb8",
+    "python/src/hyprneuro/desktop_control.py": "42e5d82723f9d51109d52e9f7e730b7d482fb488489145f2bb44f4d06e12b677",
+    "python/src/hyprneuro/desktop.py": "63dc7c53b8f23c038cef1a835e2e2d2ed5ec60d82c1781e9b3f96a623a09cd64",
+    "python/tests/test_authorization.py": "242577862ee672875e371c8296558c550105bd97f2bc0fc7a1cfe32d1c5973d0",
+    "python/tests/test_desktop_control.py": "4d9417c2ceeb9c76922e3118bf3e65940cc6f4c59f5f9c214117e5c5196e50ae",
+    "python/tests/test_assistant_ipc.py": "f05112af83f9e2f15b678ba7db5589402635719be2711e5afd858cd0ce839140"
+  },
+  "artifacts_sha256": {
+    "/home/ron/Workspace/authority-p1-evidence/run-python.sh": "e424c823926d937eff96f8b129c77a6d94376940aea91c12dee96fe5c8de5697",
+    "/home/ron/Workspace/authority-p1-evidence/run-node.sh": "50c1172f2286d94ca997f10812f4a6522c93d3aba6c09b4b11e4bdc2b006b711",
+    "/home/ron/Workspace/authority-p1-evidence/run-prefail.sh": "affa378e6b9775e485c159ab6f10931f15cf69a597bef0c3ddf04d9895d46402",
+    "/home/ron/Workspace/authority-p1-evidence/warnings.mjs": "21866dea14d9624c3e9699a78e28700505f5232d2d3286bea35a9565972ac812",
+    "/home/ron/Workspace/authority-p1-evidence/prefail-tests.py": "4fc2fd85e9d375d1815716ab64ab6c99c163e6d45e4658ff170d4e7c505a9f7d",
+    "/home/ron/Workspace/authority-p1-evidence/prefail.log": "c8deeec3cb2db874eefea472e025c77d0949b6c9707bfb76e3072f6676ff96e2",
+    "/home/ron/Workspace/authority-p1-evidence/prefail-reproduced.log": "0e9ba1ee486234635fe73e94850c25879bd57937577d3b6fec65cae32ca49600",
+    "/home/ron/Workspace/authority-p1-evidence/focused-first.log": "e6018d5c5db617eef2cf41a50e4f55353e8137c7851b31cffd069e517ba7320a",
+    "/home/ron/Workspace/authority-p1-evidence/focused-second.log": "d344b8f58e34ead46b416093b400d6b4e8ac27441476ee9977ea076ac063f0fa",
+    "/home/ron/Workspace/authority-p1-evidence/focused-third.log": "f4361bdc6a83a52e2357f4015e5c820b03407042635f017cca14bdc8bc43a419",
+    "/home/ron/Workspace/authority-p1-evidence/focused-final.log": "dd76aa5bcf4186396ad841f73a7d9574d02cf509a3cd5dcae6ab7430c5e140d9",
+    "/home/ron/Workspace/authority-p1-evidence/focused-node-final.log": "b92ad2b49843ba890d8afe5a4fd49b157f6479040651bff1791f3498ed2d771a",
+    "/home/ron/Workspace/authority-p1-evidence/focused-node-explicit.log": "55b843a20e0c14f20bcc901c62595bd08abe501c04a520beaf28e5844188a398",
+    "/home/ron/Workspace/authority-p1-evidence/full-python-first.log": "7f1ba64abe7127681abb5bad6bc11cbd778456b90fa7af5ad4ef0e4cbcc82027",
+    "/home/ron/Workspace/authority-p1-evidence/full-python-second.log": "45e8f36c42db557fc86bbd45c0efd7d7450f93b3cfec23984d84c018c57d12b3",
+    "/home/ron/Workspace/authority-p1-evidence/full-python-final.log": "0c1774137512168d756d3a4d89fb2fa605ba9424eaf2ef260adec1f34b3c6f74",
+    "/home/ron/Workspace/authority-p1-evidence/full-node-first.log": "883eef67cc69fe9c0eb6ffe81973f7baa303e39d6a473bad6ea9183761b8e3cb"
+  }
+}

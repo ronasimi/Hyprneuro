@@ -152,8 +152,7 @@ os.execv('/usr/bin/node',['/usr/bin/node','--input-type=module','-e',sys.argv[2]
             await control.close(); control = None
             def detached():
                 try:
-                    return ('auth_revoke' in actions
-                            and (owner/'checkpoint.json').stat().st_mtime_ns != checkpoint_time
+                    return ((owner/'checkpoint.json').stat().st_mtime_ns != checkpoint_time
                             and json.loads((owner/'checkpoint.json').read_text())['phase'] == 'ordinary')
                 except (FileNotFoundError, json.JSONDecodeError):
                     return False
@@ -166,7 +165,7 @@ os.execv('/usr/bin/node',['/usr/bin/node','--input-type=module','-e',sys.argv[2]
             self.assertEqual(proc.returncode, 0, (out+err).decode(errors='replace'))
             self.assertEqual(json.loads((owner/'checkpoint.json').read_text())['phase'], 'closed')
             self.assertFalse((owner/'owner.guard').exists())
-            self.assertEqual(actions.count('auth_revoke'), 2)
+            self.assertEqual(actions.count('auth_revoke'), 0, 'Idle owner has no owned grant; never fixed-task revoke')
             self.assertEqual(worker.broker.list(), [])
             self.assertEqual(inference, [])
             self.assertEqual(list((owner/'sessions').glob('**/*.jsonl')), [])

@@ -5,6 +5,16 @@ import os
 from pathlib import Path
 import re
 import socket
+import time
+
+IPC_TIMEOUT_SECONDS = 3
+
+
+def _remaining(deadline):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise TimeoutError("Desktop operation deadline exceeded")
+    return remaining
 
 QUERIES = {"clients","activewindow","activeworkspace","workspaces","monitors","layers","devices","version","binds","configerrors"}
 
@@ -18,30 +28,74 @@ class Hyprland:
             raise RuntimeError("Unsafe Hyprland socket directory")
         return root.resolve()
 
-    def _request(self, command):
+    def _request(self, command, *, deadline=None):
+        deadline = time.monotonic() + IPC_TIMEOUT_SECONDS if deadline is None else deadline
+        # The executor may start this read after its caller has timed out. Never
+        # open a socket then; a running worker also shares the TOTAL deadline.
+        _remaining(deadline)
         with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as sock:
-            sock.settimeout(3)
-            sock.connect(str(self.directory()/".socket.sock"))
+            path=str(self.directory()/".socket.sock")
+            sock.settimeout(_remaining(deadline))
+            sock.connect(path)
+            sock.settimeout(_remaining(deadline))
             sock.sendall(command.encode());out=bytearray()
             while True:
+                sock.settimeout(_remaining(deadline))
                 data=sock.recv(65536)
                 if not data:break
                 out.extend(data)
                 if len(out)>4*1024*1024:raise RuntimeError("Compositor response too large")
+            _remaining(deadline)
             return out.decode()
 
-    async def query(self, name):
+    async def query(self, name, *, deadline=None):
         if name not in QUERIES:raise ValueError("Unknown compositor query")
-        value=await asyncio.to_thread(self._request,"j/"+name)
-        return json.loads(value)
+        deadline = time.monotonic() + IPC_TIMEOUT_SECONDS if deadline is None else deadline
+        _remaining(deadline)
+        async with asyncio.timeout_at(deadline):
+            value=await asyncio.to_thread(self._request,"j/"+name,deadline=deadline)
+            result=json.loads(value)
+            _remaining(deadline)
+            return result
 
-    async def action(self, operation, value=None):
-        # Hyprland 0.57 native Lua dispatch syntax verified against installed examples.
-        version=await self.query("version")
-        if not str(version.get("tag","")).startswith("v0.57."):
-            raise RuntimeError("Desktop mutations require tested Hyprland 0.57.x; read-only IPC remains available")
+    async def action(self, operation, value=None, *, before_dispatch=None, deadline=None):
+        # A direct adapter call cannot bypass the controller's authority gate.
+        if before_dispatch is None:
+            raise PermissionError("Desktop dispatch requires an authority gate")
+        deadline = time.monotonic() + IPC_TIMEOUT_SECONDS if deadline is None else deadline
+        _remaining(deadline)
         expression=dispatch_expression(operation,value)
-        result=await asyncio.to_thread(self._request,"dispatch "+expression)
+        writer=None
+        try:
+            async with asyncio.timeout_at(deadline):
+                version=await self.query("version",deadline=deadline)
+                if not str(version.get("tag","")).startswith("v0.57."):
+                    raise RuntimeError("Desktop mutations require tested Hyprland 0.57.x; read-only IPC remains available")
+                reader,writer=await asyncio.open_unix_connection(str(self.directory()/".socket.sock"))
+                # Connection establishment and version lookup may suspend. The
+                # final focus + authority check runs AFTER both. No await or
+                # to_thread queue lies between that check and the wire write.
+                await before_dispatch()
+                _remaining(deadline)
+                writer.write(("dispatch "+expression).encode())
+                await writer.drain()
+                chunks=bytearray()
+                while data:=await reader.read(65536):
+                    chunks.extend(data)
+                    if len(chunks)>4*1024*1024:raise RuntimeError("Compositor response too large")
+                result=chunks.decode()
+                _remaining(deadline)
+        finally:
+            if writer is not None:
+                writer.close()
+                # Cleanup must not extend the operation after a cancellation or
+                # deadline. A separate scope also bounds wait_closed in finally.
+                try:
+                    async with asyncio.timeout_at(deadline):
+                        await writer.wait_closed()
+                except TimeoutError:raise
+                except OSError:pass
+        _remaining(deadline)
         if result.strip()!="ok":raise RuntimeError("Hyprland rejected action: "+result[:1000])
         return {"ok":True,"operation":operation,"value":value}
 

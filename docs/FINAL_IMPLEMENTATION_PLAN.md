@@ -1231,3 +1231,141 @@ model/config change, production request/capture/grant, signal/reset or lock
 probe. Historical PID3356764/start45955087 is NOT a current attestation: after
 user quit/reboot/owner replacement, freshly verify exact identity and authority
 before proposing any once-signal; never signal the stale PID. Overall NOT READY.
+
+## 33. Trusted-consent source integration — incomplete, not enabled
+
+Cancellation correction is committed separately at
+`69fe9d876a8e32bcf4bea86b5652922d3f5e30a5` (parent `4d208239`),
+with required trailer and the exact §32 receipt. It is available NOW for targeted
+independent rereview; no grant changes are part of that pin. No approval of this
+correction has yet been reported here.
+
+Grant revision2 design was approved under
+`01M7EMYKGSV2FYW58E07M8GJRT/grant-design@2`. The authority pair is copied as
+uncommitted integration dependencies, not enabled or partially deployed.
+Private consent-core validation `01M7EP79QE5C4B9JRY1NZ9KXC5` passed44 Python
+and73subtests. Subsequent `01M7EPSAG99SB4KNRZNHAKGP9E` passed48 Python and
+73subtests, including real Unix/kernel fixed-child handoff and explicit
+SO_PEERCRED-transfer-limit tests. These are NOT end-to-end SDK activation,
+actual GTK interaction, human consent or production acceptance.
+
+Current uncommitted integration adds the bounded private control service/client,
+fresh CONTROL registration-proof operation, shared provenance-filtered sidecar
+broker and fixed GTK absolute Python `-I`/entry/clean-env/fd3 launch path.
+Unregistered/legacy authorization rows remain ineligible and cannot be adopted
+or revoked just by task ID. The managed adapter requires the private handoff and
+fresh owner registration, invalidating before disconnect cleanup. The startup
+policy and entry still need coherent release staging.
+
+Typed grant/read/owned-release callbacks are now connected through managed
+adapter → owner → harness. The actual installed-SDK/private inherited-channel/
+real SQLite-broker activation→exact native read→continuation→owned disconnect
+fixture PASSED under `01M7F72ZP53WDZ3BRQDT7Z6XPS` (1 test). It verifies public
+self-grant denial against the same broker, two native HTTP requests, actual
+canary tool-result continuation, persisted native consent IDs and exact revoked
+row after disconnect. Model HTTP uses a fresh synthetic loopback port, never
+production8081. GTK parent, unit metadata and Allow packets are explicitly
+SYNTHETIC fixtures: this is NOT actual GTK/systemd/human acceptance.
+
+Prior bounded wiring `01M7F6TTNCTYZ9EQN7W755WAXV`:74 Python+86subtests,
+15 Node. R3 Python nonexistent-test-path failure is retained; R3 GTK build and
+all3 C suites passed. No whole-suite green claim: existing direct-boolean SDK
+fixtures still require migration to the authenticated channel; release entry/
+policy staging and broader failure/lifecycle tests are incomplete.
+
+Actual-SDK negative also PASSED: `01M7F75EZ2WAXEVY8ZF4M1ASKJ`,2 tests
+(positive and denied read). Denied read continues with the SDK tool error and
+never exposes the canary to the model. Both cases retain private fixture logs.
+The release preparer now stages the fixed entry/hash-pinned policy exclusively,
+with shared UI/sidecar startup pins; it has NOT been run on production state.
+
+**Next:** validate offline staging helper, migrate affected SDK fixtures,
+full source validation and independent review before an integrated source commit/enablement. Public auth_create/expand
+remain denied. The old preintegration real-broker test failure is not waived or
+replaced with mock grants. No production process operation, production DB
+access/migration or memory-schema integration has occurred. Overall **NOT READY**.
+
+### Explicit scoped-profile decision after preserved regressions
+
+Parent chose RELEASE STRICT persistent normal-only parent READONLY. This is a
+scope decision, NOT a bug fix or full-feature acceptance. Legacy/nonpersistent
+TOOL adapters, Durable child reads, managed native MCP, shell, network, desktop
+and lifecycle grants are UNSUPPORTED and fail closed. Ordinary own-app Legacy
+chat/media remains tool-free and available; no automatic tool-grant fallback.
+Startup rejects unsupported host profiles before SDK imports, inference,
+provider discovery, child launch or broker mutation. Status/UI name the restricted
+profile. A managed adapter without inherited private control is refused before
+service start. Legacy Pi transport cannot attach to this managed authority profile.
+
+`01M7F7N98AMH0GHFWSEKW79Z9E`: genuine SDK/channel/broker3 tests PASS
+(read positive, denied read, same-session reconnect/fresh approvals, lost committed
+cleanup reply→detach-unknown/guard/no retry). Existing SDK fixtures47/53 PASS,
+**six ORIGINAL FAILURES remain unmet broader capabilities**, not waived:
+- native Durable read child bridge/default-zero-tools positive;
+- native child exact-filename fallback denial variants0–3;
+- broader single-session Durable command/drain + legacy desktop transport.
+Original log SHA `9df01428546073e626009b0b2a34416baf9e8a5f05b7ff7567fa0599266c8b23`.
+Private original source snapshots/failure roots are retained in the audit tree;
+immutable69fe9d8 also preserves the preintegration positive scenarios. Tests now
+explicitly assert unsupported-before-work instead of pretending those positives
+passed. Parent exact-filename safety tests remain positive. Managed native-MCP
+owner positives likewise become explicit unsupported negatives; isolated offline
+SDK/MCP adapter tests remain, and imply NO managed grant eligibility.
+
+Future broader-profile checklist (separate approval/review gates, not removed):
+- [ ] Exact profile registration, owner/session/CONTROL identity and immutable
+  operation/native-call/argument-hash binding BEFORE preparation/admission.
+- [ ] Child-specific generation and lifetime, including asynchronous work after
+  parent chat; no invented generation or mutable global-admission fallback.
+- [ ] Bounded concurrent pending/registration/mutation slots; explicit ownership,
+  cancellation seals, exact live-slot/row CAS cleanup, no fixed-task adoption.
+- [ ] Same opaque in-process capability and all-check provenance, required app
+  identity, one-use fresh human decisions, durable request/decision/result.
+- [ ] Deadline/abort/native-idle/transport-drain proof; unknown stays sealed with
+  forensic guard, no retry/replay or authority restoration on restart.
+- [ ] MCP discovery/credential/destination gates and explicit per-action network,
+  shell/desktop authority; no same-UID sandbox or loaded-code attestation claim.
+- [ ] Genuine same-channel SDK/broker/lifecycle positives plus denial/revoke/
+  stale-generation/lost-ACK negatives; independent source and exact-bundle review
+  before enabling each profile. VIDEO refusal and all broader READY gates remain.
+
+### Combined-validation corrections retained
+
+R1 `01M7F89YBRZXVE9MESSYDE63T9` and R2
+`01M7F8DMH3TX1FNXZAGTRT7MJ3` are retained failures, not rewritten. R2:
+520 Python+224subtests PASS/4 bridge-stall FAIL/1 optionalPillow skip;
+105/106 Node; normal24 and sanitized24 C PASS. Bridge stalls exposed an
+unbounded new grants-invalidated ACK wait. Cleanup now has one five-second
+budget covering invalidation+ACK, skips ACK when no registration was invalidated,
+drops transports on uncertainty and never retries. A dedicated stalled-ACK
+negative verifies this. Monitor cleanup failure remains unavailable/unknown.
+
+Focused `01M7F8KKHD0ZVXX85EKK4DJHT7`:27 bridge/service/genuine SDK tests
+PASS; one parent metadata test incorrectly expected failed phase despite rejection
+BEFORE SDK preparation/admission. The post-startup discovery fence now rejects
+before any activation/model call; no uncertain native outcome was created, so
+ordinary phase is truthful. Assertion corrected; no admission/failure predicate
+weakened. Final combined validation is still required before a source checkpoint.
+Cancellation69fe9d8 independently SOURCE APPROVED at
+`01M7EMECJRX9ZCYATCWKXD3RWA/liveness-review@2`. Isolated parent memory
+aggregate is not merged, and no production migration/deployment is authorized.
+
+### Coherent scoped source checkpoint — full validation PASS, review required
+
+Final `01M7F8NADMQ68GSGC73FRH5H38`: **525 Python+224subtests/one optional
+Pillow skip;106 Node;38 focused Node;25 focused bridge Python;24 normal C+
+24 ASan/UBSan C**, fresh GTK builds, all phases exit0 and no locker mismatch.
+Logs/hashes and exact code hashes are in
+[evidence/final-trusted-consent-source.json](evidence/final-trusted-consent-source.json).
+Existing Meson ResourceWarnings/GTK deprecations remain evidence, not hidden.
+The old operator-test “cutover complete” output is a disposable mocked fixture,
+NOT a production cutover. Original six unsupported positives remain NOT MET.
+
+Integrated source is based exactly on separately approved cancellation69fe9d8,
+with authority6c9e25e+38b2edd dependencies and approved consent revision2.
+This checkpoint is for independent source review, NOT source self-approval,
+freeze/apply authorization or actual GTK/human acceptance. No memory/schema4
+aggregate merge, production DB operation/migration, production reset/signal,
+preparation or deployment occurred. Next dependency: independent exact scoped
+source review, then exact immutable bundle review and fresh recovery gates.
+Overall **NOT READY**; broader features and external VIDEO refusal still block.

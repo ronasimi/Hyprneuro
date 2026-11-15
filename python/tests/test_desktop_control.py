@@ -20,13 +20,14 @@ class FakeDesktop:
         self.actions = []
         self.queries = 0
 
-    async def query(self, name):
+    async def query(self, name, *, deadline=None):
         self.queries += 1
         if name != "activewindow":
             raise ValueError("unknown")
         return self._window
 
-    async def action(self, op, value=None):
+    async def action(self, op, value=None, *, before_dispatch, deadline=None):
+        await before_dispatch()
         if self._action_error:
             raise self._action_error
         self.actions.append((op, value))
@@ -133,7 +134,7 @@ class FocusValidatorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_compositor_unavailable(self):
         class Err:
-            async def query(self, name):
+            async def query(self, name, *, deadline=None):
                 raise OSError("no compositor")
         r = await fv_validate(Err(), {"address": "0xabc"})
         self.assertEqual(r["reason"], "compositor_unavailable")
@@ -146,8 +147,9 @@ async def fv_validate(desktop, expected):
 class DesktopControllerTests(unittest.IsolatedAsyncioTestCase):
     def _controller(self, window=WIN, action_error=None):
         desktop = FakeDesktop(window, action_error)
-        broker = PermissionBroker()
-        broker.authorize("t1", ops=("read", "desktop_control"), approved=True)
+        cap = object()
+        broker = PermissionBroker(grant_capability=cap)
+        broker.authorize("t1", grant_capability=cap, ops=("read", "desktop_control"), approved=True)
         lm = LeaseManager()
         return DesktopController(desktop, broker, lm), desktop, lm
 
@@ -164,14 +166,14 @@ class DesktopControllerTests(unittest.IsolatedAsyncioTestCase):
         controller, desktop, lm = self._controller()
         # A task with no desktop_control authorization.
         lease = lm.acquire("t-noauth")
-        r = await controller.perform("t-noauth", lease.token, "focus_direction", "left")
+        r = await controller.perform("t-noauth", lease.token, "focus_direction", "left", expected_window=WIN)
         self.assertFalse(r["ok"])
         self.assertEqual(r["stage"], "authorization")
         self.assertEqual(desktop.actions, [])  # no action performed
 
     async def test_denied_without_lease(self):
         controller, desktop, lm = self._controller()
-        r = await controller.perform("t1", "no-lease-token", "focus_direction", "left")
+        r = await controller.perform("t1", "no-lease-token", "focus_direction", "left", expected_window=WIN)
         self.assertFalse(r["ok"])
         self.assertEqual(r["stage"], "lease")
         self.assertEqual(desktop.actions, [])
@@ -180,7 +182,7 @@ class DesktopControllerTests(unittest.IsolatedAsyncioTestCase):
         controller, desktop, lm = self._controller()
         lease = lm.acquire("t1")
         lm.pause("t1", lease.token)
-        r = await controller.perform("t1", lease.token, "focus_direction", "left")
+        r = await controller.perform("t1", lease.token, "focus_direction", "left", expected_window=WIN)
         self.assertFalse(r["ok"])
         self.assertEqual(r["reason"], "lease_paused")
         self.assertEqual(desktop.actions, [])
@@ -190,7 +192,7 @@ class DesktopControllerTests(unittest.IsolatedAsyncioTestCase):
         controller, desktop, lm = self._controller(window=other)
         lease = lm.acquire("t1")
         r = await controller.perform("t1", lease.token, "focus_direction", "left",
-                                     expected_window={"address": "0xabc"})
+                                     expected_window={"address": "0xabc", "class": "kitty"})
         self.assertFalse(r["ok"])
         self.assertEqual(r["stage"], "focus")
         self.assertEqual(r["reason"], "window_changed")
@@ -199,7 +201,7 @@ class DesktopControllerTests(unittest.IsolatedAsyncioTestCase):
     async def test_action_error_caught(self):
         controller, desktop, lm = self._controller(action_error=RuntimeError("hyprland rejected"))
         lease = lm.acquire("t1")
-        r = await controller.perform("t1", lease.token, "focus_direction", "left")
+        r = await controller.perform("t1", lease.token, "focus_direction", "left", expected_window=WIN)
         self.assertFalse(r["ok"])
         self.assertEqual(r["stage"], "action")
         self.assertIn("rejected", r["reason"])
@@ -207,14 +209,15 @@ class DesktopControllerTests(unittest.IsolatedAsyncioTestCase):
     async def test_unapproved_desktop_control_blocked(self):
         # desktop_control in ops but NOT approved -> broker denies it.
         desktop = FakeDesktop(WIN)
-        broker = PermissionBroker()
+        cap = object()
+        broker = PermissionBroker(grant_capability=cap)
         with self.assertRaises(PermissionError):
-            broker.authorize("t1", ops=("desktop_control",))  # no approval
+            broker.authorize("t1", grant_capability=cap, ops=("desktop_control",))  # no approval
         # So there's no valid scope; perform must be denied at authorization.
         lm = LeaseManager()
         controller = DesktopController(desktop, broker, lm)
         lease = lm.acquire("t1")
-        r = await controller.perform("t1", lease.token, "focus_direction", "left")
+        r = await controller.perform("t1", lease.token, "focus_direction", "left", expected_window=WIN)
         self.assertFalse(r["ok"])
         self.assertEqual(desktop.actions, [])
 

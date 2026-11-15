@@ -1,0 +1,132 @@
+{
+  "schema": "hyprneuro.authority-deadline-source/1",
+  "base_commit": "6c9e25eecccec5291a0134026c9eace553256cac",
+  "original_audit_base": "fc43267173d6c1386891c708c9ddcc77724ed3f7",
+  "prior_receipt": "docs/evidence/authority-p1-source.json (historical at 6c9e25e; retained unchanged)",
+  "prior_independent_review": "User reports 01M7EMCEPCHJ4ZZV3QFWP7QSF4/authority-review approved source 6c9e25e authority boundaries. This follow-up still needs independent review.",
+  "verdict": "P2 total-deadline SOURCE FIX + FOCUSED PASS. INTEGRATION REMAINS BLOCKED; no enablement/deployment.",
+  "changed_files": [
+    "python/src/hyprneuro/desktop.py",
+    "python/src/hyprneuro/desktop_control.py",
+    "python/tests/test_authority_boundaries.py",
+    "python/tests/test_desktop_control.py",
+    "python/tests/test_desktop_deadline.py"
+  ],
+  "contract": {
+    "operation": "DesktopController.perform public signature unchanged. One absolute time.monotonic deadline (existing 3-second IPC budget) is created at admission. It covers initial focus, adapter version, mutation socket connect, final focus, drain, response, and bounded wait_closed cleanup. No per-stage budget resets.",
+    "optional_deadline_api": [
+      "Hyprland.query(name, *, deadline=None)",
+      "Hyprland._request(command, *, deadline=None)",
+      "Hyprland.action(operation, value=None, *, before_dispatch=None, deadline=None)",
+      "FocusValidator.validate(desktop, expected, *, deadline=None)"
+    ],
+    "deadline_meaning": "When supplied, deadline is an absolute time.monotonic timestamp, not a duration. Existing query/action calls with no keyword get a bounded default total 3-second lifetime. FocusValidator forwards the optional deadline without changing standalone caller syntax.",
+    "read_worker": "Async query timeout covers executor queue admission. _request checks expiry before opening any socket and uses remaining budget for connect/sendall/EACH recv, so trickle bytes cannot reset the total lifetime. A cancelled caller does not claim thread cancellation; an already-started read-only worker ends by its original socket deadline, or a late-start worker refuses before I/O. Queries cannot issue mutation commands.",
+    "final_dispatch": "Fresh target/app/authorization/lease/cancellation fence is retained. Deadline is synchronously checked after focus and immediately before typed writer.write; no intervening await or mutation worker queue. Deadline expiry denies pre-dispatch even if the event loop timeout callback has not yet run.",
+    "timeout_result": {
+      "ok": false,
+      "stage": "timeout",
+      "reason": "desktop_deadline_exceeded"
+    },
+    "notifications": [
+      "authority-deadline-contract",
+      "authority-deadline-validated-contract"
+    ],
+    "integration": "Main writer 01M7BK8QV8GXMK88K5K5XC4GH8/production-resume still owns atomic authenticated exact-consent CONTROL wiring, sidecar/owner/harness compatibility, and real-broker activation proof. No sidecar, harness, owner, store, application, UI or release edits in this follow-up."
+  },
+  "verification": [
+    {
+      "name": "before-fix regression",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-deadline-prefail.sh /home/ron/Workspace/authority-p1-evidence/deadline-prefail-tests.py",
+      "result": "2 subtest failures (initial focus and version remain pending beyond 200 ms under a synthetic 40 ms operation budget); pytest summary 2 failed, 1 passed. Exact base source extracted from 6c9e25e, no branch switch.",
+      "log": "/home/ron/Workspace/authority-p1-evidence/deadline-prefail-reproduced.log"
+    },
+    {
+      "name": "focused Python",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-python.sh python/tests/test_desktop_deadline.py python/tests/test_authority_boundaries.py python/tests/test_authorization.py python/tests/test_desktop_control.py python/tests/test_assistant_ipc.py",
+      "result": "86 passed, 93 subtests passed",
+      "log": "/home/ron/Workspace/authority-p1-evidence/deadline-focused-final.log"
+    },
+    {
+      "name": "focused model extension",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-node.sh --test tests/app-aware-authority.mjs",
+      "result": "2 passed",
+      "log": "/home/ron/Workspace/authority-p1-evidence/deadline-focused-node.log"
+    },
+    {
+      "name": "full Python regression",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-python.sh python/tests -rs",
+      "result": "503 passed, 2 skipped, 217 subtests passed",
+      "skips": [
+        "Pillow optional for d1 visual gate",
+        "Explicit reviewed installed SDK/Durable paths required for Python owner-service fixture"
+      ],
+      "log": "/home/ron/Workspace/authority-p1-evidence/deadline-full-python.log"
+    },
+    {
+      "name": "full Node regression",
+      "command": "/home/ron/Workspace/authority-p1-evidence/run-node.sh --test tests/*.mjs",
+      "result": "94 passed, 1 failed, 95 total. NOT full regression PASS.",
+      "failure": "Known integration blocker retained: REAL BROKER persistent actual native read revokes existing scope and requires fresh activation/read after detach. Existing public auth_create is correctly rejected by broker capability boundary. No public grant bypass or fake trusted-channel claim added.",
+      "log": "/home/ron/Workspace/authority-p1-evidence/deadline-full-node.log"
+    },
+    {
+      "name": "whitespace",
+      "command": "git diff --check",
+      "result": "PASS"
+    }
+  ],
+  "new_regressions": [
+    "Timeout at every async barrier: initial focus, version, connect, final focus, drain, response and wait_closed. Before-dispatch timeout produces no wire mutation. After-dispatch timeout records no successful action or replay, NOT no-mutation proof.",
+    "Focus and version share exactly the same absolute deadline; their elapsed times add rather than reset budgets.",
+    "Synchronous final validation crossing the deadline still denies before wire write even before timeout cancellation delivery.",
+    "Actual disposable Unix socket trickle reads during initial focus and version end their read-only workers by the total deadline, with zero mutation commands.",
+    "Actual pending initial-focus/version cancellation + lease release leaves no mutation and observes worker completion; no unhandled async exception contexts.",
+    "Actual mutation-response trickle expires within the total deadline and sends at most the original command, never retries.",
+    "Standalone query default budget is total, not per receive.",
+    "Saturated executor queue uses query admission deadline; a worker with already-expired deadline refuses before opening any socket.",
+    "Actual stalled (no bytes) Unix read closes by total socket deadline."
+  ],
+  "remaining_limits": [
+    "No realtime/preemptive guarantee for synchronous OS/filesystem/SQLite work; final synchronous expiry fence prevents late dispatch once control returns.",
+    "Read-only worker cancellation is not forced termination; its original absolute socket deadline bounds its I/O lifetime.",
+    "After a mutation command is written, timeout/cancellation cannot prove compositor non-mutation; no automatic retry/replay was introduced.",
+    "The final fence is local wire-write, not compositor-atomic compare-and-mutate. External focus can change after the final query.",
+    "Existing socket disconnect alone is not handler cancellation. External cancellation and human consent transport remain parent-owned integration/acceptance work.",
+    "Existing owner/harness public activation now fails closed until main integrates the authenticated trusted channel. Do not deploy this partial stack."
+  ],
+  "scope": "Clean env -i with private Workspace HOME/TMPDIR/XDG; no bytecode/cache, Python warnings as errors, Node warnings throw, existing installed dependencies only, offline flags. Synthetic SQLite, disposable Unix sockets and existing loopback mock inference/provider fixtures only. No real compositor input, GUI/services, model inference, live network providers or production state.",
+  "source_sha256": {
+    "extensions/app-aware.ts": "9d9b407a3ad92baae3c07f78667aa91d308c2608ed05762a6dd646c0a787e163",
+    "python/src/hyprneuro/authorization.py": "df16d0163e47d56edd2f148510e90a6f95da98dee17472b25c055dc7b7cb43bc",
+    "python/src/hyprneuro/desktop_control.py": "f92af7c2f5eafb4261cf608cffc722b56ba3a6aeeca04dd0126e3beca99bbe2f",
+    "python/src/hyprneuro/desktop.py": "5cfdc23cc999f6c6daa6379d05b9ae45605a52e3ef65215ea30dafcd27bee86e",
+    "python/tests/test_authorization.py": "58b7af91eb2bb02f59b5aad8d1bd5dc8241628af900a9e5218cbdecef5fbecf1",
+    "python/tests/test_desktop_control.py": "416ff227c185fd1797f23da497d77ebd0a033bb56081184d61457a42705a0e54",
+    "python/tests/test_assistant_ipc.py": "78b9aaf7213aae050d2d8ef825ed865f1473ee08211744b46f1fc1eda70e26e9",
+    "python/tests/test_authority_boundaries.py": "5c179c470baea5b70c00bf572cddeba2fd381097fcc9e8eb05a36829d37b8c31",
+    "tests/app-aware-authority.mjs": "7c5922d0e4727959b4afaa50567a5c6075f12abefd7575aed2f9a66f46f140b0",
+    "python/tests/test_desktop_deadline.py": "c3b485f83c7c9acf0c7c96e40ef02ab37b6900a0f2b782bee6c5d259c03db313"
+  },
+  "baseline_source_sha256": {
+    "python/src/hyprneuro/desktop.py": "5c725f765a7527173e90ad0cf910d49275557f45b5cd4648839292901a229f8a",
+    "python/src/hyprneuro/desktop_control.py": "90cff533e58d3d5735732178c197fbee90761b42dce95e57364bb871a973fe45",
+    "python/tests/test_authority_boundaries.py": "caa8bf42552ae6f30b69d6a24727b241772c449a404b563cb67cc08ecb1385bb",
+    "python/tests/test_desktop_control.py": "d93efb49fb93fbf7a53bdfaba424eec04d450829b8dacfdc0e3a1c7ec4596dfb"
+  },
+  "artifacts_sha256": {
+    "/home/ron/Workspace/authority-p1-evidence/run-python.sh": "e424c823926d937eff96f8b129c77a6d94376940aea91c12dee96fe5c8de5697",
+    "/home/ron/Workspace/authority-p1-evidence/run-node.sh": "50c1172f2286d94ca997f10812f4a6522c93d3aba6c09b4b11e4bdc2b006b711",
+    "/home/ron/Workspace/authority-p1-evidence/warnings.mjs": "21866dea14d9624c3e9699a78e28700505f5232d2d3286bea35a9565972ac812",
+    "/home/ron/Workspace/authority-p1-evidence/run-deadline-prefail.sh": "e4ec0857d3e2b7b62d510d84bffd0d6594d93c8b1649ec25cd6e2e39ddaa3334",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-prefail-tests.py": "9702beeb90f94fe58e3d9b7851ce3150b433318ad31c68f7621353afc982df99",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-prefail.log": "028406e26817207a85ddbfa77516e63707cfc9084dad05f639d95a2880d74084",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-prefail-reproduced.log": "2a9788e586d98acc9212f2b606c89a4ccf9294204fb9b5e15c2ddaefed2384db",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-focused-first.log": "744bb09cb3ab1bf13a64ba62dc47cd3fdcc5c55b0a6f6186263529d548193f7a",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-focused-second.log": "b018400dcc7d316185f03d45ed2f6990d09774868f783967662cf9664342a714",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-focused-final.log": "25971160605e5a86530ad3fac618c2a45fa9046450c6eb89e9d680dfbab774cf",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-focused-node.log": "d011df4c98be22acb66b639f62502c79fad091270e07237821d1a71047ed36ef",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-full-python.log": "dc15d29b228e4badbe2bda6593846a07e3c637532c002cdbac46c44d6a65c802",
+    "/home/ron/Workspace/authority-p1-evidence/deadline-full-node.log": "16bc9f366443b293b170f3f2d09b96034e284a9ac05cadd1bc064ab7a7fc440c"
+  }
+}

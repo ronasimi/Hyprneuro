@@ -416,3 +416,27 @@ class ReleaseOpsTests(unittest.TestCase):
                 return manager(*args)
             with patch.object(ops,'run',side_effect=enabled):
                 with self.assertRaises(RuntimeError):ops.check_owner_baseline(template,entry)
+
+class TrustedLaunchStagingTests(unittest.TestCase):
+    def test_exclusive_pinned_material_no_runtime_authority(self):
+        import hashlib
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as directory:
+            base=Path(directory);staged=base/'staged';staged.mkdir(mode=0o700)
+            binary=base/'ui';binary.write_bytes(b'SYNTHETIC binary hash fixture only')
+            source=base/'source';source.mkdir()
+            env=ops.prepare_trusted_launch(source,Path(sys.executable),binary,staged,base/'runtime')
+            policy=staged/'trusted-launch.json';entry=staged/'pi-desktop-entry.py'
+            data=json.loads(policy.read_text())
+            self.assertEqual(data['ui_sha256'],hashlib.sha256(binary.read_bytes()).hexdigest())
+            self.assertEqual(data['entry_sha256'],hashlib.sha256(entry.read_bytes()).hexdigest())
+            self.assertEqual(data['source'],str(source))
+            self.assertIn(hashlib.sha256(policy.read_bytes()).hexdigest(),env)
+            self.assertIn('HYPRNEURO_PI_BROKER_SOCKET=',env)
+            self.assertEqual(policy.stat().st_mode&0o777,0o400)
+            self.assertEqual(entry.stat().st_mode&0o777,0o500)
+            self.assertIn('sys.path.insert(0,str(source))',entry.read_text())
+            self.assertNotIn('auth_create',entry.read_text())
+            with self.assertRaises(FileExistsError):
+                ops.prepare_trusted_launch(source,Path(sys.executable),binary,staged,base/'runtime')

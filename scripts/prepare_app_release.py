@@ -139,6 +139,31 @@ def prepare_parent_owner(source, owner, python, staged):
 
 
 
+def prepare_trusted_launch(source, python, binary, staged, runtime):
+    """Stage only fixed launch material; no server, consent, database or unit calls."""
+    entry = staged/'pi-desktop-entry.py'
+    body = ("import pathlib,sys\n"
+            "source=pathlib.Path(__file__).resolve().parents[1]/'source/python/src'\n"
+            "sys.path.insert(0,str(source))\n"
+            "from hyprneuro.pi_desktop_bridge import main\n"
+            "raise SystemExit(main())\n")
+    # Exclusive creation: never patch an existing release entry or policy.
+    with entry.open('x') as file:
+        file.write(body)
+    entry.chmod(0o500)
+    policy = staged/'trusted-launch.json'
+    data = dict(schema='hyprneuro.trusted-launch/1', python=str(python),entry=str(entry),
+                source=str(source),ui_sha256=digest(binary),entry_sha256=digest(entry))
+    with policy.open('x') as file:
+        json.dump(data,file,sort_keys=True,separators=(',', ':'));file.write('\n')
+    policy.chmod(0o400)
+    def quoted(value):
+        return str(value).replace('\\','\\\\').replace('"','\\"').replace('%','%%')
+    return ('Environment="HYPRNEURO_PI_TRUSTED_POLICY='+quoted(policy)+'" '
+            '"HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+digest(policy)+'" '
+            '"HYPRNEURO_PI_BROKER_SOCKET='+quoted(Path(runtime)/'hyprharness/grant-control.sock')+'"\n')
+
+
 def ui_dropin(common, mode):
     # Explicit ordering prevents graphical-session.target's implicit After=UI
     # from closing a cycle through UI -> sidecar -> graphical-session.target.
@@ -251,6 +276,8 @@ print(json.dumps({'executable':sys.executable,'modules':files}))"""
         if result!={'ok':True,'result':{'allowed':False,'reason':'no_authorization'}}:
             raise RuntimeError('Task collision or incompatible broker; do not launch')
     common=f'Environment="PYTHONPATH={source}/python/src" "PYTHONDONTWRITEBYTECODE=1" "HOME={home}" "XDG_STATE_HOME={state}" "XDG_CONFIG_HOME={config}" "XDG_RUNTIME_DIR={runtime}"\nUnsetEnvironment=HYPRNEURO_RESIDENCY_DIR\n'
+    if (source/'python/src/hyprneuro/trusted_control.py').is_file():
+        common += prepare_trusted_launch(source,python,bin_dir/'hyprneuro-ui',staged,runtime)
     entry = '''import importlib,json,os,pathlib,sys
 source=pathlib.Path(__file__).resolve().parents[1]/'source/python/src'
 names=['hyprneuro','hyprneuro.agent','hyprneuro.models','hyprneuro.sidecar','hyprneuro.pi_desktop_bridge']

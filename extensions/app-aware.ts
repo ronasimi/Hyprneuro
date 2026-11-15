@@ -153,32 +153,27 @@ export default function (pi: ExtensionAPI) {
 
   pi.registerTool({
     name: "hyprneuro_auth",
-    label: "Task-scoped authorization",
-    description: "Manage task-scoped autonomy. `create` authorizes a task/app/file scope with a bounded set of operations (privileged ops require explicit approved=true). `check` decides if one operation is permitted (returns {allowed, reason}). `expand` widens a scope (always requires approved=true). `revoke`/`list` manage scopes. This is policy only; it grants no desktop lease by itself.",
-    promptSnippet: "Authorize, check, expand, or revoke a task-scoped permission",
+    label: "Inspect task authorization",
+    description: "Inspect task-scoped authorization with check/list only. This tool cannot create, expand, or approve permissions. Request changes from the human through the separately authenticated trusted consent channel; model arguments are never consent.",
+    promptSnippet: "Check or list task-scoped permissions (no grant authority)",
     parameters: Type.Object({
-      action: Type.Union([Type.Literal("create"), Type.Literal("check"), Type.Literal("expand"), Type.Literal("revoke"), Type.Literal("list")]),
+      action: Type.Union([Type.Literal("check"), Type.Literal("list")]),
       task_id: Type.Optional(Type.String({ maxLength: 128 })),
       op: Type.Optional(Type.String({ maxLength: 40 })),
       app_id: Type.Optional(Type.String({ maxLength: 128 })),
       path: Type.Optional(Type.String({ maxLength: 512 })),
-      file_prefix: Type.Optional(Type.String({ maxLength: 512 })),
-      ops: Type.Optional(Type.Array(Type.String({ maxLength: 40 }))),
-      approved: Type.Optional(Type.Boolean()),
     }),
     async execute(_id, params, signal) {
-      const action = params.action === "create" ? "auth_create"
-        : params.action === "check" ? "auth_check"
-        : params.action === "expand" ? "auth_expand"
-        : params.action === "revoke" ? "auth_revoke" : "auth_list";
-      const payload: Record<string, unknown> = { action };
+      // Fail closed even if the model bypasses schema validation.
+      if (!["check", "list"].includes(params.action) ||
+          Object.keys(params).some(key => !["action", "task_id", "op", "app_id", "path"].includes(key))) {
+        throw new Error("Authorization tool permits inspection only");
+      }
+      const payload: Record<string, unknown> = { action: params.action === "check" ? "auth_check" : "auth_list" };
       if (params.task_id) payload.task_id = params.task_id;
       if (params.op) payload.op = params.op;
       if (params.app_id) payload.app_id = params.app_id;
       if (params.path) payload.path = params.path;
-      if (params.file_prefix) payload.file_prefix = params.file_prefix;
-      if (params.ops) payload.ops = params.ops;
-      if (params.approved !== undefined) payload.approved = params.approved;
       return result(await sidecar(payload, signal));
     },
   });
@@ -212,7 +207,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "hyprneuro_desktop",
     label: "Leased, gated desktop control",
-    description: "Manage the exclusive desktop-control lease and perform gated desktop actions. `acquire`/`release`/`renew`/`pause`/`resume`/`status`/`emergency_stop` control the lease. `action` performs ONE bounded desktop operation, allowed only if the task is authorized for desktop_control (approval required), holds an active non-paused lease, and (when expected_window is given) the target window is still focused. Use disposable test windows for unattended testing; never target the user's normal desktop without explicit approval.",
+    description: "Manage the exclusive desktop-control lease and perform gated desktop actions. `acquire`/`release`/`renew`/`pause`/`resume`/`status`/`emergency_stop` control the lease. `action` performs ONE bounded desktop operation, allowed only if the task is authorized for desktop_control (approval required), holds an active non-paused lease, and expected_window binds the target address and app class, revalidated at final dispatch. Use disposable test windows for unattended testing; never target the user's normal desktop without explicit approval.",
     promptSnippet: "Acquire/release the desktop lease or perform a gated desktop action",
     parameters: Type.Object({
       action: Type.Union([Type.Literal("acquire"), Type.Literal("release"), Type.Literal("renew"), Type.Literal("pause"), Type.Literal("resume"), Type.Literal("status"), Type.Literal("emergency_stop"), Type.Literal("perform")]),
@@ -221,7 +216,10 @@ export default function (pi: ExtensionAPI) {
       ttl_ms: Type.Optional(Type.Integer({ minimum: 1, maximum: 120000 })),
       op: Type.Optional(Type.String({ maxLength: 40 })),
       value: Type.Optional(Type.Unknown()),
-      expected_window: Type.Optional(Type.Object({}, { additionalProperties: true })),
+      expected_window: Type.Optional(Type.Object({
+        address: Type.String({ minLength: 1, maxLength: 128 }),
+        class: Type.String({ minLength: 1, maxLength: 128 }),
+      })),
     }),
     async execute(_id, params, signal) {
       if (params.action === "perform") {

@@ -222,3 +222,37 @@ test('individual native request deadline aborts and retains unknown outcome, not
   await assert.rejects(owner.chat({text:'not replay'},()=>{}),/admission closed/);assert.equal(calls,1);
   assert.equal(await owner.close(),false);
 });
+
+test('broker registration proof is CONTROL-only, challenge-bound and connection-generated',async()=>{
+  const root=await mkdtemp(join(tmpdir(),'hn-proof-'));let server,control,chat;
+  try {
+    server=await serveOwner(root,fake(),{registration:async()=>({owner_root:root,owner_pid:process.pid})});
+    chat=await client(root);control=await client(root,'control');
+    const nonce='a'.repeat(64);
+    chat.send({op:'broker_proof',id:'forged',nonce});assert.match((await chat.next()).error,/Trusted UI/);
+    control.send({op:'broker_proof',id:'bad',nonce:'bad'});assert.match((await control.next()).error,/CONTROL challenge/);
+    control.send({op:'broker_proof',id:'extra',nonce,approved:true});assert.match((await control.next()).error,/Unknown operation/);
+    control.send({op:'broker_proof',id:'proof',nonce});const {result}=await control.next();
+    assert.equal(result.nonce,nonce);assert.equal(result.owner_root,root);assert.match(result.control_generation,/^[a-f0-9-]{36}$/);
+    const {createHmac}=await import('node:crypto');const {mac,...body}=result;
+    const wire=JSON.stringify(Object.fromEntries(Object.entries(body).sort(([a],[b])=>a.localeCompare(b,'en'))));
+    assert.equal(mac,createHmac('sha256',await readFile(join(root,'control.key'))).update('hyprneuro.grant-registration/1\0').update(wire).digest('hex'));
+  }finally{chat?.close();control?.close();await server?.close();await rm(root,{recursive:true,force:true});}
+});
+
+test('typed approval requires correlated receipt; release is exact owned request, not task-ID revoke',async()=>{
+  const owner=new PiOwner({});let event;
+  owner.admission={signal:new AbortController().signal,generation:'fixture-generation'};
+  owner.listeners.add(value=>{event=value;});
+  const audit={kind:'grant_create',scope:{task_id:'fixture'},native_call_id:'activation-fixture',arguments_sha256:'a'.repeat(64)};
+  let approval=owner.approve({title:'Synthetic fixture only',detail:'No actual human/SDK/broker claim',audit});
+  owner.consent(event.id,true);
+  await assert.rejects(approval,/Unproven typed consent/);assert.equal(owner.grants.size,0);
+  approval=owner.approve({title:'Synthetic fixture only',detail:'No actual human/SDK/broker claim',audit});
+  const request='12345678-1234-1234-1234-123456789abc';
+  owner.consent(event.id,true,{consent_id:event.id,request,body_hash:'b'.repeat(64),arguments_sha256:audit.arguments_sha256});
+  assert.equal(await approval,true);assert.equal(owner.grants.get('fixture'),request);
+  const release=owner.releaseGrants();assert.equal(event.type,'grant_release');assert.equal(event.request,request);
+  assert.throws(()=>owner.releaseDone('different',true),/No exact owned/);
+  owner.releaseDone(event.id,true);await release;assert.equal(owner.grants.size,0);
+});

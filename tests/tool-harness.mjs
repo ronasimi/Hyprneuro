@@ -60,7 +60,15 @@ async function sessionFixture(root, {approve=true, responses, rpc: customRpc} = 
   });
   await new Promise(r => http.listen(0,'127.0.0.1',r));
   const rpc = customRpc ?? (async message => {policy.push(message); return message.action === 'auth_check' ? {allowed:true,reason:'ok'} : {authorized:true};});
-  const extension = harnessExtension(sdk, {rpc,native:{lazyStream,streamSimple}, initial:{workspace,taskId:'test',appId:'test-app'},
+  const extension = harnessExtension(sdk, {rpc,
+    // Explicit synthetic HOST callback for this mock-RPC SDK unit fixture;
+    // real broker/private-channel coverage is separate and mandatory.
+    requestGrant:async({scope,title,detail})=>{
+      const request={title,detail};confirmations.push(request);
+      if((typeof approve==='function'?approve(request):approve)!==true)throw Object.assign(new Error('Trusted human approval required'),{code:'HUMAN_DENIED'});
+      await rpc({action:'mock_grant',...scope});
+    },
+    releaseGrant:async()=>{},native:{lazyStream,streamSimple}, initial:{workspace,taskId:'test',appId:'test-app'},
     confirm:async request => {confirmations.push(request); return typeof approve==='function'?approve(request):approve;}});
   const settings = sdk.SettingsManager.inMemory({retry:{enabled:false,provider:{maxRetries:0}},compaction:{enabled:false},cacheWarming:'off'});
   const loader = new sdk.DefaultResourceLoader({cwd:workspace,agentDir,settingsManager:settings,

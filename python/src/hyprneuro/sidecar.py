@@ -66,8 +66,9 @@ class SidecarServer:
     def __init__(self, store, *, allow_ingest=False, capture_enabled=False,
                  on_demand=False, browser_ingress=None, alert_enabled=False, resources_enabled=False,
                  assistant_enabled=False, assistant_recent_apps=5, assistant_focus_debounce_ms=250,
-                 skills_dir=None):
+                 skills_dir=None, trusted_consent=None):
         self.store = store
+        self.trusted_consent = trusted_consent
         self.allow_ingest = allow_ingest
         self.capture_enabled = capture_enabled
         self.on_demand = on_demand
@@ -110,7 +111,9 @@ class SidecarServer:
             self.skills = SkillIndex.from_directory(skills_dir) if skills_dir else SkillIndex()
             from .app_events import AppSkillContext
             self.app_skill_context = AppSkillContext(self.skills)
-            self.broker = PermissionBroker(store)
+            from .trusted_consent import UnverifiedAuthorizationView
+            self.broker = (trusted_consent.broker if trusted_consent is not None else
+                           PermissionBroker(UnverifiedAuthorizationView(store)))
             self.router = ModelRouter()
             self.leases = LeaseManager()  # in-memory only: fail-closed on restart
             self.compactor = IdleCompactor(self.registry, store)
@@ -622,7 +625,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 session_lock_producer=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None,
                 assistant_enabled=False, assistant_recent_apps=5, assistant_focus_debounce_ms=250,
-                skills_dir=None):
+                skills_dir=None, trusted_launch_policy=None, consent_journal_path=None):
     if session_lock_producer is not None and (not callable(session_lock_producer)
             or not (allow_capture or allow_on_demand) or unlock_guard is not None):
         raise ValueError("Trusted lock producer requires an enabled observation guard")
@@ -665,11 +668,36 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
         finally:
             probe.close()
     store = SidecarStore(db_path)
+    trusted_core = trusted_server = trusted_socket = trusted_socket_inode = None
+    consent_journal = None
+    if trusted_launch_policy is not None:
+        if not assistant_enabled:
+            store.close()
+            raise ValueError('Trusted consent requires enabled assistant broker')
+        from .trusted_consent import ConsentJournal, TrustedConsent
+        from .trusted_control import GrantControlServer, LaunchVerifier
+        audit = Path(consent_journal_path) if consent_journal_path else Path(
+            os.environ.get('XDG_STATE_HOME', Path.home() / '.local/state')) / 'hyprneuro/consent-audit/v1.jsonl'
+        # Create only the dedicated new directories; never chmod/adopt existing state.
+        audit.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        try:
+            consent_journal = ConsentJournal(audit)
+            trusted_core = TrustedConsent(store, consent_journal)
+            trusted_socket = socket_path.parent / 'grant-control.sock'
+            if trusted_socket.exists() or trusted_socket.is_symlink():
+                raise RuntimeError('Existing private control socket; no takeover')
+            trusted_handler = GrantControlServer(trusted_core, LaunchVerifier(trusted_launch_policy))
+        except BaseException:
+            if consent_journal:
+                consent_journal.close()
+            store.close()
+            raise
     worker = SidecarServer(store, allow_ingest=allow_ingest,
                            capture_enabled=allow_capture, on_demand=allow_on_demand,
                            alert_enabled=bool(alert_journal or alert_network), resources_enabled=alert_resources,
                            assistant_enabled=assistant_enabled, assistant_recent_apps=assistant_recent_apps,
-                           assistant_focus_debounce_ms=assistant_focus_debounce_ms, skills_dir=skills_dir)
+                           assistant_focus_debounce_ms=assistant_focus_debounce_ms, skills_dir=skills_dir,
+                           trusted_consent=trusted_core)
     from .settings import Settings
     worker.active_settings = active_settings or asdict(Settings(
         allow_ingest=allow_ingest, watch_hyprland=watch_hyprland, allow_capture=allow_capture,
@@ -693,6 +721,10 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             await worker.embeddings.embed(["Hyprneuro endpoint verification"])
         server = await asyncio.start_unix_server(worker.handle, path=str(socket_path), limit=MAX_REQUEST+1)
         socket_path.chmod(0o600)
+        if trusted_core is not None:
+            trusted_server = await asyncio.start_unix_server(trusted_handler.handle, path=str(trusted_socket), limit=4097)
+            trusted_socket.chmod(0o600)
+            trusted_socket_inode = trusted_socket.stat().st_ino
         if allow_browser:
             from .browser_ingest import BrowserIngress, create_token, token_path
             if browser_token_file is None:
@@ -827,6 +859,22 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                     pass
         await stop.wait()
     finally:
+        if trusted_server:
+            trusted_server.close()
+            await trusted_server.wait_closed()
+            trusted_tasks = list(trusted_handler.handlers)
+            for task in trusted_tasks:
+                task.cancel()
+            await asyncio.gather(*trusted_tasks, return_exceptions=True)
+        if consent_journal:
+            consent_journal.close()
+        if trusted_socket_inode is not None:
+            try:
+                info = trusted_socket.lstat()
+                if stat.S_ISSOCK(info.st_mode) and info.st_uid == os.getuid() and info.st_ino == trusted_socket_inode:
+                    trusted_socket.unlink()
+            except FileNotFoundError:
+                pass
         if server:
             server.close()
         for worker_task in producers:
@@ -936,7 +984,12 @@ def main():
         if not settings.retention_enabled:
             values["retention_days"] = 0
         from .settings import settings_path
-        asyncio.run(serve(**values, active_settings=active,
+        policy = None
+        if os.environ.get('HYPRNEURO_PI_TRUSTED_POLICY'):
+            from .trusted_control import load_launch_policy
+            policy = load_launch_policy(os.environ['HYPRNEURO_PI_TRUSTED_POLICY'],
+                                        os.environ.get('HYPRNEURO_PI_TRUSTED_POLICY_SHA256', ''))
+        asyncio.run(serve(**values, active_settings=active, trusted_launch_policy=policy,
                           skills_dir=args.skills_dir,
                           settings_file=None if args.no_settings else args.config or settings_path()))
         return

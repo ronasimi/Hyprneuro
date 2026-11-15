@@ -204,35 +204,41 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
             await request({"action": "task_create", "goal": ""}, socket_path=self.socket)
 
     async def test_auth_lifecycle_over_ipc(self):
-        # Normal ops within scope are allowed; privileged need approval.
-        await request({"action": "auth_create", "task_id": "t1", "app_id": "kitty",
-                       "file_prefix": "/tmp/work", "ops": ["read", "write"]},
-                      socket_path=self.socket)
-        ok = await request({"action": "auth_check", "task_id": "t1", "op": "read",
-                            "app_id": "kitty", "path": "/tmp/work/a.txt"}, socket_path=self.socket)
-        self.assertTrue(ok["allowed"])
-        out = await request({"action": "auth_check", "task_id": "t1", "op": "read",
-                             "path": "/etc/passwd"}, socket_path=self.socket)
-        self.assertFalse(out["allowed"])
-        self.assertEqual(out["reason"], "path_out_of_scope")
-        # Privileged op not in the scope -> denied.
-        priv = await request({"action": "auth_check", "task_id": "t1", "op": "delete"},
-                             socket_path=self.socket)
-        self.assertFalse(priv["allowed"])
-        # Expand with approval grants the privileged op.
-        await request({"action": "auth_expand", "task_id": "t1", "ops": ["read", "write", "delete"],
-                       "approved": True}, socket_path=self.socket)
-        allowed = await request({"action": "auth_check", "task_id": "t1", "op": "delete"},
-                                socket_path=self.socket)
-        self.assertTrue(allowed["allowed"])
-        listed = await request({"action": "auth_list"}, socket_path=self.socket)
-        self.assertEqual(listed["schema"], "hyprneuro.auth/1")
-        self.assertEqual(len(listed["scopes"]), 1)
-        # Revoke denies everything.
-        await request({"action": "auth_revoke", "task_id": "t1"}, socket_path=self.socket)
-        revoked = await request({"action": "auth_check", "task_id": "t1", "op": "read"},
-                                socket_path=self.socket)
-        self.assertEqual(revoked["reason"], "scope_revoked")
+        # The actual public socket can inspect/revoke, but NEVER grant. Human
+        # provenance belongs to the separate trusted control channel, not UID
+        # or a model-supplied approval boolean.
+        for ops in (["read"], ["write", "execute"], ["desktop_control"]):
+            for approval in ({}, {"approved": False}, {"approved": True}):
+                with self.subTest(ops=ops, approval=approval):
+                    with self.assertRaisesRegex(RuntimeError, "Trusted grant capability required"):
+                        await request({"action": "auth_create", "task_id": "t1", "app_id": "kitty",
+                                       "file_prefix": "/tmp/work", "ops": ops, **approval},
+                                      socket_path=self.socket)
+        self.assertEqual((await request({"action": "auth_list"}, socket_path=self.socket))["scopes"], [])
+        from hyprneuro.authorization import PermissionBroker
+        cap = object()  # explicit synthetic trusted HOST; never sent over IPC
+        host_store = SidecarStore(self.db)
+        try:
+            host_broker = PermissionBroker(host_store, grant_capability=cap)
+            host_broker.authorize("t1", app_id="kitty", file_prefix="/tmp/work",
+                                  ops=("read", "write"), grant_capability=cap)
+            # An unrelated HOST object capability is not this sidecar's live
+            # registration provenance. Neither persisted approved nor UID adopts it.
+            before = host_store.auth_get("t1")
+            for op in ("read", "write", "delete"):
+                checked = await request({"action": "auth_check", "task_id": "t1", "op": op,
+                                         "app_id": "kitty", "path": "/tmp/work/a.txt"}, socket_path=self.socket)
+                self.assertFalse(checked["allowed"])
+            listed = await request({"action": "auth_list"}, socket_path=self.socket)
+            self.assertFalse(listed["scopes"][0]["trusted_eligible"])
+            with self.assertRaisesRegex(RuntimeError, "Trusted grant capability required"):
+                await request({"action": "auth_expand", "task_id": "t1", "ops": ["read", "write", "delete"],
+                               "approved": True}, socket_path=self.socket)
+            with self.assertRaisesRegex(RuntimeError, "No verified ownership"):
+                await request({"action": "auth_revoke", "task_id": "t1"}, socket_path=self.socket)
+            self.assertEqual(host_store.auth_get("t1"), before)
+        finally:
+            host_store.close()
 
     async def test_route_and_handoff_over_ipc(self):
         text = await request({"action": "route", "task_kind": "code"}, socket_path=self.socket)

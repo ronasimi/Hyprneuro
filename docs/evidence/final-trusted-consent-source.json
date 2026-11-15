@@ -1,0 +1,139 @@
+{
+  "base_commit": "69fe9d876a8e32bcf4bea86b5652922d3f5e30a5",
+  "status": "Combined scoped-source PASS; independent source/exact-bundle reviews required; NOT READY; not enabled/deployed",
+  "approved_design_sha256": "b1688cebe31e6e2b60aae8ca07b8c7fc9f080e1acd7cb36841da905ed64e7b5b",
+  "authority_dependency_commits": [
+    "6c9e25eecccec5291a0134026c9eace553256cac",
+    "38b2edd4f236549856f1bf9839d849edbd4dc187"
+  ],
+  "profile": "persistent normal-only parent READONLY; unsupported broader profiles fail before work",
+  "full_run": "01M7F8NADMQ68GSGC73FRH5H38",
+  "validation": {
+    "focused_Node": 38,
+    "focused_bridge_Python": 25,
+    "full_Python": 525,
+    "Python_subtests": 224,
+    "optional_Pillow_skip": 1,
+    "full_Node": 106,
+    "normal_C_cases": 24,
+    "sanitized_C_cases": 24,
+    "fresh_GTK_builds": "normal and ASan/UBSan"
+  },
+  "phases": {
+    "focused-node": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "4dc9a54c02dc152e3dde459ddb045b2612713f27b80bf1e351dbdf3e92b7d346"
+    },
+    "focused-bridge": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "ee8ee864f500d2af98876abb830546dc02a969197b1adc3438558782105c115d"
+    },
+    "python": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "1116cfc802b232e784707823744cc1e94b6e537998ac832773adc082e1ffbb98"
+    },
+    "node": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "4fc89c3598df0532bbf025e89652756016f60e38a9cd07f7aacafda7eecc2c4e"
+    },
+    "C-setup": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "13022230d5763124843ebf23fae419dc7323b72254258129381d6e245d7188b5"
+    },
+    "C-build": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "8b8a9a512e361035763caf54d36c78e8c0289c3abaa614a3e248528381dc0036"
+    },
+    "C-tests": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "c6712582b3eed327df33e87b9f5dbb7a83657a9bee01584ba2c7e5d5eb319488"
+    },
+    "C-sanitized-setup": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "ae8d6b9831d3953388a849e8c963f41e1a36e45cd07c13e13e2c161e6ea5d53a"
+    },
+    "C-sanitized-build": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "76aeb23ddddefabce55d5d3443c3bfaf60841bbaaf0089e6f623d6b5546a3363"
+    },
+    "C-sanitized-tests": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "da83239f19d78799b1c9aacde7178a5ddb6d128353260bf2d0fdd829b692825a"
+    }
+  },
+  "source_sha256": {
+    "python/src/hyprneuro/trusted_consent.py": "7d1e530a815827a18577684d52b46b545b2e2faa891e48f5ec0efc87a8ec8015",
+    "python/src/hyprneuro/trusted_control.py": "429b02cb53f750f894e494f2c6d4cc489e2a9b649c9c29d1710bde6c9c9b976e",
+    "python/tests/test_authority_boundaries.py": "5c179c470baea5b70c00bf572cddeba2fd381097fcc9e8eb05a36829d37b8c31",
+    "python/tests/test_desktop_deadline.py": "c3b485f83c7c9acf0c7c96e40ef02ab37b6900a0f2b782bee6c5d259c03db313",
+    "python/tests/test_trusted_consent.py": "c92fed3136bc76f6abcc1b9e513fe9ffcf6b194c5eb6de6698a0d0b433318c9b",
+    "python/tests/test_trusted_consent_sdk.py": "8bd0bea98faf882b9aedd19dbd7e091e7b01116fd369666acca815b260fd5361",
+    "python/tests/test_trusted_control.py": "888fb9c641ede9ebb63d7593fedec98baf6f9b2b563d8d65bb68a15322b551da",
+    "tests/app-aware-authority.mjs": "7c5922d0e4727959b4afaa50567a5c6075f12abefd7575aed2f9a66f46f140b0",
+    "tests/support/mock-consent.mjs": "ec3831f5d022db8435d6a26de00b67931a8c4e8495bf652c8bcc69cc8763a707",
+    "extensions/app-aware.ts": "9d9b407a3ad92baae3c07f78667aa91d308c2608ed05762a6dd646c0a787e163",
+    "extensions/pi-owner/host.mjs": "187842d11e92841aadee7cce981ad044590c6388650bf52703a24fd24894d5db",
+    "extensions/pi-owner/owner.mjs": "9f7bfb77f03cc6d42a7f40300c18ed48b9e92d7746437c650d9281bcbbdd7404",
+    "extensions/pi-owner/socket.mjs": "02de4955e018ab2f7ef688f26370cf0133f85e89194a261e419b4066c1a266f3",
+    "extensions/tool-harness/index.mjs": "05e0a4e1681fa538420ea327f976bfe2e944f99dceacf4649fc1f9afd0c46dd4",
+    "python/src/hyprneuro/authorization.py": "df16d0163e47d56edd2f148510e90a6f95da98dee17472b25c055dc7b7cb43bc",
+    "python/src/hyprneuro/desktop.py": "5cfdc23cc999f6c6daa6379d05b9ae45605a52e3ef65215ea30dafcd27bee86e",
+    "python/src/hyprneuro/desktop_control.py": "f92af7c2f5eafb4261cf608cffc722b56ba3a6aeeca04dd0126e3beca99bbe2f",
+    "python/src/hyprneuro/pi_desktop_bridge.py": "ef52189914d18a51697b4baeedfdff4c22ee53e06b34568dbf0a7352725f4056",
+    "python/src/hyprneuro/pi_managed_bridge.py": "758e740ce9273081bb3d2464bba7049357cb28a1567c06664a24cd91d789f05d",
+    "python/src/hyprneuro/pi_owner_client.py": "c3a5fa3569657d5841fb8fcf3f271dc25a0dbbc224943375b064d65eaf338160",
+    "python/src/hyprneuro/sidecar.py": "5c6b790662136bc9fda80153b31d674644eabe3a1e106479d5d2ef7533912c94",
+    "python/tests/test_app_release_ops.py": "61950784b3d9be7bcc0d0be767bf49f45b0df4d38d868fb5781fc837cbbb1636",
+    "python/tests/test_assistant_ipc.py": "545cb6cbdab650279f1642dc1c2d07c2c174ead88cb67d0a6b92480a43b1de54",
+    "python/tests/test_authorization.py": "58b7af91eb2bb02f59b5aad8d1bd5dc8241628af900a9e5218cbdecef5fbecf1",
+    "python/tests/test_desktop_control.py": "416ff227c185fd1797f23da497d77ebd0a033bb56081184d61457a42705a0e54",
+    "python/tests/test_pi_bridge_stalls.py": "eb30dc45c324a1508abe9b798756a1b9f4e71b91c1cdf05cb14604bc6a47b5f1",
+    "python/tests/test_pi_managed_bridge.py": "ae45c9a0d8759361be89bf048f7f59cf1924099a34fc0f7794cf1da625ab1844",
+    "python/tests/test_pi_owner_service.py": "79495572e7f9b12aec67fca5d4eb56a2eff7d8f540a4238e6cae93949ea7877b",
+    "scripts/prepare_app_release.py": "03cfcde4729622a93cd035a1e24e28dbadacc34ab5c8f8ce758997430ca78229",
+    "tests/native-mcp.mjs": "0166691b498ace4c4c57d3731db508d7175e0dff19955e45f72698ef71213de1",
+    "tests/pi-owner-cancellation.mjs": "a769fa37969275dc47490fa30e5291d5919a7d7550f7616ce4b7b05c65f1aa70",
+    "tests/pi-owner-readonly.mjs": "582e1b48a9bb9b6e842f4461c511ffa70d5257da8eb413f09aaf499faf5dfbc1",
+    "tests/pi-owner-socket.mjs": "c891a47bc37221ed4057f6d4caae7b0e63fec2736cf78dc99c4ddbaeaf9a619d",
+    "tests/pi-owner.mjs": "46859e9d5db734407ec503e6effff74ac813415ccd41ae98d1bc40c8e4fba0ad",
+    "tests/tool-harness.mjs": "07c66dc1734fa85f1a11fd67da258b4332552e5814b7a76455cff717cd5ada95",
+    "ui/src/pi-desktop.inc": "ef939f62bb6531e234f209fc3636ac641da22f82b4ce0426b477073307b1d1f7"
+  },
+  "genuine_private_channel_tests": {
+    "count": 3,
+    "scope": "actual installed SDK/real broker/SQLite/kernel FD/managed adapter; synthetic GTK parent, unit metadata and human packets; no live GTK/human acceptance",
+    "cases": [
+      "activation and native exact read/continuation; same-session reconnect needs fresh activation and read",
+      "denied native read does not expose canary",
+      "lost reply after committed owned cleanup retains detach-unknown and guard; no retry/model replay"
+    ]
+  },
+  "retained_failures": [
+    "01M7F6EW7YFF43JS29CA581REJ",
+    "01M7F7N98AMH0GHFWSEKW79Z9E",
+    "01M7F89YBRZXVE9MESSYDE63T9",
+    "01M7F8DMH3TX1FNXZAGTRT7MJ3",
+    "01M7F8KKHD0ZVXX85EKK4DJHT7"
+  ],
+  "coverage_scope_receipt": "docs/evidence/trusted-consent-profile-scope.json",
+  "warnings": "Existing Meson ResourceWarnings and GTK deprecations retained; optional Pillow skip unchanged",
+  "production_mutated": false,
+  "memory_integrated": false,
+  "remaining": [
+    "independent scoped-source review",
+    "exact immutable bundle review before any apply",
+    "fresh production recovery identity/locker/no-work/flock gates",
+    "actual GTK/human authenticated launch and lifecycle acceptance",
+    "broader profiles and mandatory VIDEO blocker remain NOT READY"
+  ]
+}

@@ -57,7 +57,7 @@ static void pi_route_update(App *a) {
     }
     gtk_label_set_text(GTK_LABEL(a->pi_route), a->attachment_b64 ?
         "Attachment → legacy sidecar · NO Pi tools/history · requires ordinary owner" :
-        a->pi_parent_only ? "Text → Pi owner · tools: read only · no helpers · fresh consent per read" :
+        a->pi_parent_only ? "Pi parent READONLY · no children/network/shell/desktop · fresh consent per read" :
         "Text → Pi owner · native tools require fresh host consent");
 }
 
@@ -417,11 +417,159 @@ static void pi_read_next(App *a) {
     g_input_stream_read_async(a->pi_in, a->pi_buffer, sizeof a->pi_buffer,
         G_PRIORITY_DEFAULT, a->pi_io, pi_read, a);
 }
+/* Fixed launch/handoff only. Peer credentials describe establishment;
+ * fd3 is intentionally inherited. This is NOT FD-transfer/code attestation. */
+static char *pi_start_ticks(guint pid) {
+    char *path = g_strdup_printf("/proc/%u/stat", pid), *text = NULL, *result = NULL;
+    if (g_file_get_contents(path, &text, NULL, NULL)) {
+        char *end = strrchr(text, ')');
+        if (end && end[1] == ' ') {
+            char **fields = g_strsplit(end + 2, " ", -1);
+            if (g_strv_length(fields) > 19) result = g_strdup(fields[19]);
+            g_strfreev(fields);
+        }
+    }
+    g_free(path); g_free(text); return result;
+}
+static guint pi_sidecar_main_pid(void) {
+    guint pid = 0;
+    GDBusConnection *bus = g_bus_get_sync(G_BUS_TYPE_SESSION, NULL, NULL);
+    if (!bus) return 0;
+    GVariant *unit = g_dbus_connection_call_sync(bus, "org.freedesktop.systemd1", "/org/freedesktop/systemd1",
+        "org.freedesktop.systemd1.Manager", "GetUnit", g_variant_new("(s)", "hyprneuro.service"),
+        G_VARIANT_TYPE("(o)"), G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL);
+    if (unit) {
+        const char *path; g_variant_get(unit, "(&o)", &path);
+        GVariant *state = g_dbus_connection_call_sync(bus, "org.freedesktop.systemd1", path,
+            "org.freedesktop.DBus.Properties", "GetAll", g_variant_new("(s)", "org.freedesktop.systemd1.Unit"),
+            G_VARIANT_TYPE("(a{sv})"), G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL);
+        gboolean live = FALSE;
+        if (state) {
+            GVariant *properties; const char *active = NULL, *substate = NULL, *job_path = NULL; guint job = 1;
+            g_variant_get(state, "(@a{sv})", &properties);
+            live = g_variant_lookup(properties, "ActiveState", "&s", &active) && !g_strcmp0(active, "active") &&
+                g_variant_lookup(properties, "SubState", "&s", &substate) && !g_strcmp0(substate, "running") &&
+                g_variant_lookup(properties, "Job", "(u&o)", &job, &job_path) && job == 0;
+            g_variant_unref(properties); g_variant_unref(state);
+        }
+        if (!live) { g_variant_unref(unit); g_object_unref(bus); return 0; }
+        GVariant *reply = g_dbus_connection_call_sync(bus, "org.freedesktop.systemd1", path,
+            "org.freedesktop.DBus.Properties", "Get", g_variant_new("(ss)", "org.freedesktop.systemd1.Service", "MainPID"),
+            G_VARIANT_TYPE("(v)"), G_DBUS_CALL_FLAGS_NONE, 1000, NULL, NULL);
+        if (reply) {
+            GVariant *value; g_variant_get(reply, "(v)", &value);
+            if (g_variant_is_of_type(value, G_VARIANT_TYPE_UINT32)) pid = g_variant_get_uint32(value);
+            g_variant_unref(value); g_variant_unref(reply);
+        }
+        g_variant_unref(unit);
+    }
+    g_object_unref(bus); return pid;
+}
+static JsonNode *pi_broker_challenge(GSocket *socket) {
+    char frame[4097]; gsize length = 0;
+    gint64 deadline = g_get_monotonic_time() + 3000000;
+    while (length < sizeof frame - 1) {
+        gint64 left = deadline - g_get_monotonic_time();
+        if (left <= 0 || !g_socket_condition_timed_wait(socket, G_IO_IN, left, NULL, NULL)) return NULL;
+        gssize n = g_socket_receive(socket, frame + length, 1, NULL, NULL);
+        if (n != 1) return NULL;
+        if (frame[length++] == '\n') {
+            JsonParser *parser = json_parser_new(); JsonNode *result = NULL;
+            if (json_parser_load_from_data(parser, frame, length, NULL) && JSON_NODE_HOLDS_OBJECT(json_parser_get_root(parser)))
+                result = json_node_copy(json_parser_get_root(parser));
+            g_object_unref(parser); return result;
+        }
+    }
+    return NULL;
+}
+static gboolean pi_broker_attest(GSocket *socket, const char *packet) {
+    gsize length = strlen(packet), sent = 0;
+    gint64 deadline = g_get_monotonic_time() + 3000000;
+    if (length > 4096) return FALSE;
+    while (sent < length) {
+        gint64 left = deadline - g_get_monotonic_time();
+        if (left <= 0 || !g_socket_condition_timed_wait(socket, G_IO_OUT, left, NULL, NULL)) return FALSE;
+        gssize n = g_socket_send(socket, packet + sent, length - sent, NULL, NULL);
+        if (n <= 0) return FALSE;
+        sent += n;
+    }
+    return TRUE;
+}
+static GSubprocess *pi_fixed_bridge(void) {
+    const char *policy_path = g_getenv("HYPRNEURO_PI_TRUSTED_POLICY");
+    const char *policy_sha = g_getenv("HYPRNEURO_PI_TRUSTED_POLICY_SHA256");
+    const char *broker_path = g_getenv("HYPRNEURO_PI_BROKER_SOCKET");
+    char *raw = NULL, *digest = NULL, *entry_raw = NULL;
+    gsize length = 0, entry_length = 0;
+    JsonParser *parser = NULL; JsonNode *challenge = NULL;
+    GSocketClient *client = NULL; GSocketAddress *address = NULL;
+    GSocketConnection *connection = NULL; GSubprocessLauncher *launcher = NULL;
+    GSubprocess *process = NULL; GCredentials *peer = NULL;
+    char *before = NULL, *after = NULL, *child_start = NULL, *packet = NULL;
+    struct stat info;
+    if (!policy_path || !policy_sha || !broker_path || !g_path_is_absolute(policy_path) ||
+        !g_path_is_absolute(broker_path) || lstat(policy_path, &info) || !S_ISREG(info.st_mode) ||
+        info.st_uid != geteuid() || info.st_nlink != 1 || (info.st_mode & 077) || info.st_size > 4096) goto done;
+    if (!g_file_get_contents(policy_path, &raw, &length, NULL) || length > 4096) goto done;
+    digest = g_compute_checksum_for_data(G_CHECKSUM_SHA256, (guchar *)raw, length);
+    if (g_strcmp0(digest, policy_sha)) goto done;
+    parser = json_parser_new();
+    if (!json_parser_load_from_data(parser, raw, length, NULL)) goto done;
+    JsonNode *root = json_parser_get_root(parser);
+    const char *python = jstr(jmember(root, "python")), *entry = jstr(jmember(root, "entry"));
+    if (g_strcmp0(jstr(jmember(root, "schema")), "hyprneuro.trusted-launch/1") ||
+        !python || !entry || !g_path_is_absolute(python) || !g_path_is_absolute(entry) ||
+        !g_file_get_contents(entry, &entry_raw, &entry_length, NULL) || entry_length > 16384) goto done;
+    g_clear_pointer(&digest, g_free);
+    digest = g_compute_checksum_for_data(G_CHECKSUM_SHA256, (guchar *)entry_raw, entry_length);
+    if (g_strcmp0(digest, jstr(jmember(root, "entry_sha256")))) goto done;
+    client = g_socket_client_new(); g_socket_client_set_timeout(client, 3);
+    address = g_unix_socket_address_new(broker_path);
+    connection = g_socket_client_connect(client, G_SOCKET_CONNECTABLE(address), NULL, NULL);
+    if (!connection) goto done;
+    GSocket *socket = g_socket_connection_get_socket(connection);
+    peer = g_socket_get_credentials(socket, NULL);
+    if (!peer || g_credentials_get_unix_user(peer, NULL) != geteuid()) goto done;
+    gint peer_pid = g_credentials_get_unix_pid(peer, NULL);
+    if (peer_pid <= 0 || !(before = pi_start_ticks(peer_pid)) || pi_sidecar_main_pid() != (guint)peer_pid ||
+        !(after = pi_start_ticks(peer_pid)) || g_strcmp0(before, after)) goto done;
+    g_socket_set_blocking(socket, FALSE);
+    challenge = pi_broker_challenge(socket);
+    const char *nonce = jstr(jmember(challenge, "nonce"));
+    if (g_strcmp0(jstr(jmember(challenge, "type")), "launch_challenge") || !nonce || strlen(nonce) != 64) goto done;
+    for (const char *p = nonce; *p; p++) if (!g_ascii_isxdigit(*p) || g_ascii_isupper(*p)) goto done;
+    launcher = g_subprocess_launcher_new(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
+                                         G_SUBPROCESS_FLAGS_STDERR_SILENCE);
+    char *clean[] = { "PATH=/usr/bin:/bin", NULL };
+    g_subprocess_launcher_set_environ(launcher, clean);
+    const char *names[] = {"LANG", "LC_ALL", "HOME", "XDG_RUNTIME_DIR", "XDG_SESSION_ID", "DBUS_SESSION_BUS_ADDRESS",
+                            "WAYLAND_DISPLAY", "HYPRLAND_INSTANCE_SIGNATURE", NULL};
+    for (guint i = 0; names[i]; i++) if (g_getenv(names[i]))
+        g_subprocess_launcher_setenv(launcher, names[i], g_getenv(names[i]), TRUE);
+    int fd = dup(g_socket_get_fd(socket)); if (fd < 0) goto done;
+    g_subprocess_launcher_take_fd(launcher, fd, 3); /* intended handoff, no other descriptor */
+    process = g_subprocess_launcher_spawn(launcher, NULL, python, "-I", entry,
+                                          "--explicit-connect", "--broker-fd=3", NULL);
+    if (!process) goto done;
+    const char *identifier = g_subprocess_get_identifier(process);
+    char *end = NULL; guint64 child = identifier ? g_ascii_strtoull(identifier, &end, 10) : 0;
+    if (!child || child > G_MAXINT || !end || *end || !(child_start = pi_start_ticks(child))) {
+        g_clear_object(&process); goto done;
+    }
+    packet = g_strdup_printf("{\"op\":\"launch\",\"nonce\":\"%s\",\"child_pid\":%u,\"child_start\":\"%s\"}\n",
+                              nonce, (guint)child, child_start);
+    if (!pi_broker_attest(socket, packet)) g_clear_object(&process);
+done:
+    /* Closing this duplicate leaves only the fixed child's fd3. Failure is EOF,
+     * never a fallback launch or an automatic security decision. */
+    g_clear_object(&connection); g_clear_object(&client); g_clear_object(&address);
+    g_clear_object(&launcher); g_clear_object(&peer); g_clear_object(&parser);
+    g_clear_pointer(&challenge, json_node_unref);
+    g_free(raw); g_free(entry_raw); g_free(digest); g_free(before); g_free(after);
+    g_free(child_start); g_free(packet); return process;
+}
 static void pi_start(App *a) {
-    const char *python = g_getenv("HYPRNEURO_PI_BRIDGE_PYTHON");
-    if (!python) python = "python3";
-    a->pi_process = g_subprocess_new(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
-        G_SUBPROCESS_FLAGS_STDERR_SILENCE, NULL, python, "-m", "hyprneuro.pi_desktop_bridge", "--explicit-connect", NULL);
+    a->pi_process = pi_fixed_bridge();
     if (!a->pi_process) { pi_unavailable(a); return; }
     a->pi_in = g_subprocess_get_stdout_pipe(a->pi_process);
     a->pi_out = g_subprocess_get_stdin_pipe(a->pi_process);

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Workspace, exactEdits, MAX_WRITE } from './workspace.mjs';
 import { Outcomes, sidecar, checkBroker } from './policy.mjs';
 import { control, admit, guardedStream, releaseOwnedLease, watchHandoff } from './residency.mjs';
@@ -8,7 +9,7 @@ const FILE_TOOLS = ['read', 'write', 'edit', 'bash'];
 const props = {read:['path','offset','limit'], write:['path','content'], edit:['path','edits'], bash:['command','timeout']};
 
 // Factory injected with Pi's public exports: no separate model client or loop.
-export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, nativeScope, readOnly = false, normalOnly = false, parentOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
+export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confirm, requestGrant, releaseGrant, native, getLeaseCapability = () => undefined, durableGuard, ownerControl, exposeCommands, inferenceGate = admit, toolAdmission, nativeScope, readOnly = false, normalOnly = false, parentOnly = false, readPaths = [], textBaseUrl = 'http://127.0.0.1:8081/v1', binding } = {}) {
   if(parentOnly&&(!readOnly||!normalOnly))throw new Error('Parent-only requires normal-only READ-ONLY');
   if(normalOnly&&!readOnly)throw new Error('Normal-only mode requires READ-ONLY profile');
   if(readOnly)providers=undefined;
@@ -17,9 +18,9 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
     const validated=nativeCalls(pi);
     let readDefinition;
     const fileTools=readOnly?['read']:FILE_TOOLS;
-    const approve = async (ctx, title, detail, signal) => {
+    const approve = async (ctx, title, detail, signal, audit) => {
       signal?.throwIfAborted();
-      const ok = confirm ? await confirm({title, detail, signal}) : ctx.hasUI && await ctx.ui.confirm(title, detail, {signal, timeout:120000});
+      const ok = confirm ? await confirm({title, detail, signal,...(audit?{audit}:{})}) : ctx.hasUI && await ctx.ui.confirm(title, detail, {signal, timeout:120000});
       signal?.throwIfAborted();
       if (ok !== true) throw Object.assign(new Error('Trusted human approval required'),{code:'HUMAN_DENIED'});
     };
@@ -32,8 +33,10 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       try {
         if(readOnly && (!Array.isArray(readPaths)||!readPaths.length||readPaths.length>32))throw new Error('Explicit bounded read allowlist required');
         const allowed=readOnly?new Set(readPaths.map(p=>root.target(p))):undefined;
-        await approve(ctx, readOnly?'Enable READ-ONLY Hyprneuro tools?':'Enable Hyprneuro tools?', readOnly?JSON.stringify({task:taskId,app:appId,workspace,operations:['read'],paths:[...allowed],note:'No write, execute, network or lifecycle permission. Every read requires fresh approval.'}): `Task ${taskId}; app ${appId}; workspace ${workspace}. Each call still requires approval. Bash is UNSANDBOXED host execution.`);
-        await rpc({action:'auth_create', task_id:taskId, app_id:appId, file_prefix:workspace, ops:readOnly?['read']:['read','write','execute']});
+        if(!requestGrant)throw new Error('Private trusted grant channel required');
+        await requestGrant({scope:{task_id:taskId,app_id:appId,file_prefix:workspace,ops:readOnly?['read']:['read','write','execute']},
+          title:readOnly?'Enable READ-ONLY Hyprneuro tools?':'Enable Hyprneuro tools?',
+          detail:JSON.stringify({task:taskId,app:appId,workspace,operations:readOnly?['read']:['read','write','execute'],paths:allowed?[...allowed]:[],note:'Every tool call requires fresh approval.'})});
         await active?.workspace.close();
         previous ??= pi.getActiveTools();
         active = {workspace:root, taskId, appId, allowed};
@@ -143,10 +146,8 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       } finally {if(pendingHandoff===owner)pendingHandoff=undefined;}
     }};
     async function disable() {
-      // Fixed read binding is known even if auth_create's acknowledgement was
-      // lost before active was assigned. Revocation never broadens authority.
-      const task=active?.taskId??(readOnly?binding?.taskId:undefined);
-      if(task)await rpc({action:'auth_revoke',task_id:task});
+      if(!releaseGrant)throw new Error('Owned grant cleanup channel required');
+      await releaseGrant();
       await active?.workspace.close();active=undefined;outcomes=undefined;
       pi.setActiveTools(previous??[]);previous=undefined;
     }
@@ -172,8 +173,8 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
         } else if (args === 'network') {
           if(readOnly)throw new Error('READ-ONLY profile cannot expand network or IO permissions');
           if (!active) throw new Error('Enable a workspace first');
-          await approve(ctx, 'Enable provider network scope?', 'Allow network + submit_external scope; every exact provider query will still require separate approval. No ambient credentials are discovered.');
-          await rpc({action:'auth_expand', task_id:active.taskId, ops:['read','write','execute','network','submit_external'], approved:true});
+          if(!requestGrant)throw new Error('Private expansion channel required');
+          await requestGrant({kind:'grant_expand',scope:{task_id:active.taskId,app_id:active.appId,file_prefix:active.workspace.root,ops:['execute','network','read','submit_external','write']},title:'Enable provider network scope?',detail:'External submission; fresh per-query consent still required.'});
         } else {
           const parts = args.trim().split(/\s+/);
           if (parts.length !== 3) throw new Error('Expected workspace task-id app-id (workspace cannot contain spaces)');
@@ -228,7 +229,8 @@ export function harnessExtension(sdk, { rpc = sidecar, providers, initial, confi
       if (old) return old;
       await approve(ctx, `Allow ${name}?`, JSON.stringify({task:active.taskId, workspace:active.workspace.root,
         ...(name === 'bash' ? {warning:'UNSANDBOXED: can access host files, secrets, network and services'} : {}),
-        ...(op === 'network' ? {destination:providers.destination(name), warning:'Query submitted externally; result is untrusted'} : {}), args}), signal);
+        ...(op === 'network' ? {destination:providers.destination(name), warning:'Query submitted externally; result is untrusted'} : {}), args}), signal, {kind:'read_decision',scope:{task_id:active.taskId,app_id:active.appId,file_prefix:active.workspace.root,ops:[op]},
+          native_call_id:id,arguments_sha256:createHash('sha256').update(JSON.stringify(args)).digest('hex')});
       await check();
       toolAdmission?.();
       await outcomes.record({id,key,status:'executing'});

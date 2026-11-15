@@ -1,3 +1,4 @@
+import {mockConsent} from './support/mock-consent.mjs';
 // Actual installed SDK + actual dedicated Durable child, temporary files and
 // loopback MOCK inference only. No production endpoints, initialization or UI.
 import test from 'node:test';
@@ -39,7 +40,7 @@ async function fixture(run,overrides={}, {realBroker=false}={}) {
       const body=JSON.parse(raw);requests.push(body);
       if(dropNext){dropNext=false;res.destroy();return;}
       const names=(body.tools??[]).map(t=>t.function.name);
-      const child=!overrides.parentOnly&&!names.includes('subagents');
+      const child=!options.parentOnly&&!names.includes('subagents');
       let delta;
       if(child&&JSON.stringify(body.messages).includes('CHILD_LOSS_TASK')){lossRequests++;res.destroy();return;}
       const rewrite=child&&JSON.stringify(body.messages).match(/CHILD_REWRITE_([0-3])/);
@@ -83,7 +84,7 @@ async function fixture(run,overrides={}, {realBroker=false}={}) {
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   delete process.env.HYPRNEURO_RESIDENCY_DIR;process.env.HYPRNEURO_PI_OWNER_ENABLE='1';
   const options={sdkPath,durableDir,piBin:'/home/ron/.pi/agent/bin/pi',root:ownerRoot,workspace,taskId:'readonly',appId:'fixture',
-    profile:'read-only',normalOnly:true,readPaths:['fixture.txt','symlink','dirlink/outside','hardlink',...rewrites.map(([p])=>p)],childRead:true,
+    profile:'read-only',normalOnly:true,parentOnly:true,persistent:true,readPaths:['fixture.txt','symlink','dirlink/outside','hardlink',...rewrites.map(([p])=>p)],childRead:false,
     textBaseUrl:`http://127.0.0.1:${server.address().port}/v1`,serve:false,
     rpc:async p=>{
       broker.push(p);if(rpcFault(p))throw new Error('Synthetic broker acknowledgement lost');
@@ -104,7 +105,13 @@ finally:
       if(result.status!==0)throw new Error(result.stderr||String(result.error||'Real broker dispatch failed'));
       return JSON.parse(result.stdout);
     },...overrides};
-  function listen(){host.owner.listeners.add(e=>{if(e.type==='consent'){approvals.push(e);host.owner.consent(e.id,approve(e));}});}
+  function listen(){host.owner.listeners.add(e=>{
+    if(e.type==='consent')approvals.push(e);
+    void mockConsent(host.owner,e,e.type==='consent'?approve(e):true,{
+      grant:async audit=>{assert.equal(realBroker,false,'Real grants require actual private channel');await options.rpc({action:'mock_grant',...audit.scope});},
+      release:async event=>{const task=[...host.owner.grants].find(([,id])=>id===event.request)?.[0];await options.rpc({action:'mock_release',task_id:task});}
+    });
+  });}
   async function open(){host=await createHost(options);listen();return host;}
   await open();let passed=false;
   const f={root,workspace,ownerRoot,options,requests,approvals,broker,errors,get host(){return host;},get childRequests(){return childRequests;},get lossRequests(){return lossRequests;},
@@ -136,11 +143,11 @@ test('READ-ONLY actual owner read -> continuation -> native journal/reopen; life
   assert.equal(host.owner.phase,'ordinary');
   for(const cmd of ['hn-residency','hn-hermes'])assert.equal(host.session.extensionRunner.getCommand(cmd),undefined);
   assert.equal(host.runtime.getAllModels().find(m=>m.provider==='hyprneuro-local'&&m.id==='lfm-moe'),undefined);
-  assert.deepEqual(host.session.getCallableToolNames().sort(),['read','subagents']);
+  assert.deepEqual(host.session.getCallableToolNames().sort(),['read']);
   await f.chat(tool('read',{path:'fixture.txt'},'owner_read_1'),body=>{
     assert.equal(body.messages.at(-1).role,'tool');assert.match(body.messages.at(-1).content,/CANARY_MAPLE/);return done;
   });
-  assert.deepEqual(f.broker.filter(p=>p.action==='auth_create').map(p=>p.ops),[['read']]);
+  assert.deepEqual(f.broker.filter(p=>p.action==='mock_grant').map(p=>p.ops),[['read']]);
   assert.ok(f.broker.filter(p=>p.action==='auth_check').every(p=>p.op==='read'));
   const ctx=host.session.extensionRunner.createCommandContext();
   await assert.rejects(host.session.extensionRunner.getCommand('hn-tools').handler('network',ctx),/READ-ONLY/);
@@ -178,41 +185,12 @@ test('READ-ONLY denial, escapes/symlinks/hardlinks; unknown native outcome is ne
   assert.ok(!JSON.stringify(f.requests).includes('NOW_REGULAR_BUT_UNKNOWN_ID'));
 }));
 
-test('actual native Durable read child uses authenticated allowlisted owner bridge; tools:[] remains default',()=>fixture(async f=>{
-  const launch=(request,task,tools)=>({action:'run',request,agent:'delegate',task,tools,model:'hyprneuro-local/lfm-text',once:true,writer:false,context:'fresh',cwd:f.workspace,timeoutMs:10000});
-  await f.chat(tool('subagents',launch('read-child','CHILD_READ_TASK',['read']),'delegate_read'),done);
-  const deadline=Date.now()+15000;
-  let receipt;
-  while(true){const wf=f.host.durable.status().workflows.find(w=>w.calls.some(c=>c.phase==='sealed'));if(wf){receipt=await f.host.durable.describe(wf.wid);break;}if(Date.now()>deadline)assert.fail('Actual native read child did not finish');await pause();}
-  assert.equal(receipt.calls[0].status,'ok',JSON.stringify(receipt));assert.match(receipt.calls[0].output,/CHILD_READ_DONE CANARY_MAPLE/);
-  assert.equal(f.childRequests,2);
-  const {callSession}=await import(pathToFileURL(join(durableDir,'dist/paths.js')));
-  const nativeChild=f.host.session.sessionManager.constructor.open(callSession(join(f.ownerRoot,'durable'),receipt.wid,receipt.calls[0].key,receipt.calls[0].gen));
-  assert.ok(nativeChild.getEntries().some(e=>e.type==='message'&&e.message.role==='toolResult'&&JSON.stringify(e.message.content).includes('CANARY_MAPLE')));
-  assert.ok(f.approvals.some(e=>e.title==='Allow READ-ONLY Durable child?'));
-  assert.ok(f.approvals.some(e=>e.title==='Allow read?'));
-  assert.ok(f.host.session.sessionManager.getEntries().some(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.id.startsWith('child:')&&e.data.status==='completed'));
-  await assert.rejects(childRead(f.ownerRoot,{call:'fake',exec:'fake#1.1',tool_id:'fake',args:{path:'fixture.txt'}}),/No running/);
-  await f.chat(tool('subagents',launch('zero-child','CHILD_ZERO_TASK',[]),'delegate_zero'),done);
-  while(true){const ws=f.host.durable.status().workflows;if(ws.length===2&&ws.every(w=>w.calls.every(c=>c.phase==='sealed')))break;if(Date.now()>deadline)assert.fail('Native zero-tool child did not finish');await pause();}
-  assert.equal(f.childRequests,3);
-  f.approve(e=>e.title!=='Allow read?');
-  await f.chat(tool('subagents',launch('deny-read-child','CHILD_READ_TASK',['read']),'delegate_deny'),done);
-  while(true){const ws=f.host.durable.status().workflows;if(ws.length===3&&ws.every(w=>w.calls.every(c=>c.phase==='sealed')))break;if(Date.now()>deadline)assert.fail('Native denied-read child did not finish');await pause();}
-  const denied=f.host.durable.status().workflows.find(w=>w.calls.some(c=>c.lastLine==='CHILD_READ_DENIED'));assert.ok(denied);
-  f.approve(()=>true);
-  await f.chat(tool('subagents',launch('loss-child','CHILD_LOSS_TASK',[]),'delegate_loss'),done);
-  while(true){const ws=f.host.durable.status().workflows;if(ws.length===4&&ws.every(w=>w.calls.every(c=>c.phase==='sealed')))break;if(Date.now()>deadline)assert.fail('Native failed child did not settle');await pause();}
-  const lost=f.host.durable.status().workflows.find(w=>w.calls.some(c=>c.status==='failed'));assert.ok(lost);
-  assert.equal(f.lossRequests,1,'Native Durable lossBound=1: no child relaunch or provider retry');
-  for(const [request,task,count] of [['escape-child','CHILD_ESCAPE_TASK',5],['injection-child','CHILD_INJECTION_TASK',6]]){
-    await f.chat(tool('subagents',launch(request,task,['read']),'delegate_'+request),done);
-    while(true){const ws=f.host.durable.status().workflows;if(ws.length===count&&ws.every(w=>w.calls.every(c=>c.phase==='sealed')))break;if(Date.now()>deadline)assert.fail('Native hostile child did not settle');await pause();}
-  }
-  await assert.rejects(readFile(join(f.workspace,'forbidden')),{code:'ENOENT'});
-  assert.ok(!JSON.stringify(f.requests).includes('OUTSIDE_MUST_NOT_REACH_MODEL'));
-  assert.deepEqual(f.broker.filter(p=>p.action==='auth_create').map(p=>p.ops),[['read']]);
-  assert.ok(f.broker.filter(p=>p.action==='auth_check').every(p=>p.op==='read'));
+test('UNSUPPORTED native Durable child profile rejects before SDK, child or broker work',()=>fixture(async f=>{
+  const requests=f.requests.length,approvals=f.approvals.length,broker=f.broker.length;
+  await assert.rejects(createHost({...f.options,root:join(f.root,'unsupported-child'),parentOnly:false,childRead:true}),/Unsupported authorization profile/);
+  assert.equal(f.requests.length,requests);assert.equal(f.approvals.length,approvals);assert.equal(f.broker.length,broker);
+  assert.equal(f.host.durable.status().workflows.length,0);
+  await assert.rejects(readFile(join(f.root,'unsupported-child','owner.guard')),{code:'ENOENT'});
 }));
 
 test('read-only Durable policy requires exact approved child shape, no commands or permission injection',async()=>{
@@ -237,13 +215,13 @@ test('read-only bootstrap refuses ambient project discovery metadata before owne
     process.env.HYPRNEURO_PI_OWNER_ENABLE='1';delete process.env.HYPRNEURO_RESIDENCY_DIR;
     const workspace=join(root,'home','workspace');await mkdir(workspace,{recursive:true,mode:0o700});
     await writeFile(join(workspace,'package.json'),'{}');
-    await assert.rejects(createHost({root,workspace,profile:'read-only',normalOnly:true,readPaths:['fixture']}),/discovery metadata/);
+    await assert.rejects(createHost({root,workspace,profile:'read-only',normalOnly:true,parentOnly:true,persistent:true,readPaths:['fixture']}),/discovery metadata/);
     await assert.rejects(readFile(join(root,'owner.guard')),{code:'ENOENT'});
   }finally{for(const k of Object.keys(process.env))if(!(k in env))delete process.env[k];Object.assign(process.env,env);await rm(root,{recursive:true,force:true});}
 });
 
 
-for(const [i,[path]] of rewrites.entries())test('exact approved SDK filename fallback denied in owner and native child: '+i,()=>fixture(async f=>{
+for(const [i,[path]] of rewrites.entries())test('exact owner filename fallback denied; child profile UNSUPPORTED: '+i,()=>fixture(async f=>{
   const touched=[],original={access:Workspace.prototype.access,read:Workspace.prototype.read};
   for(const name of Object.keys(original))Workspace.prototype[name]=async function(p,...args){touched.push(this.target(p));return original[name].call(this,p,...args);};
   try {
@@ -252,27 +230,14 @@ for(const [i,[path]] of rewrites.entries())test('exact approved SDK filename fal
         assert.match(body.messages.at(-1).content,/Resolved read path differs from exact approved target/);
         assert.ok(!body.messages.at(-1).content.includes('UNAPPROVED_REWRITE_CONTENT'));return done;
       });
-      const request='rewrite-child-'+i;
-      const spec={action:'run',request,agent:'delegate',task:'CHILD_REWRITE_'+i,tools:['read'],model:'hyprneuro-local/lfm-text',once:true,writer:false,context:'fresh',cwd:f.workspace,timeoutMs:10000};
-      await f.chat(tool('subagents',spec,'delegate_rewrite_'+i),done);
-      const deadline=Date.now()+15000;
-      const status=f.host.durable.status;let observations=0;
-      // Deterministically expose native publication before call admission. An
-      // empty calls list is pending, not proof that the child sealed successfully.
-      f.host.durable.status=()=>++observations===1?{workflows:[{wid:'pending-publication',calls:[]}]}:status();
-      while(true){
-        const workflows=f.host.durable.status().workflows;
-        if(workflows.length===1&&workflows.every(w=>w.calls.length===1&&w.calls.every(c=>c.phase==='sealed'))){
-          const receipts=await Promise.all(workflows.map(w=>f.host.durable.describe(w.wid)));
-          assert.ok(receipts.every(r=>r.calls.length===1&&r.calls.every(c=>c.status==='ok'&&c.output.includes('CHILD_REWRITE_BLOCKED'))));break;
-        }
-        if(Date.now()>deadline)assert.fail('Native rewrite-denial child did not seal; no relaunch');await pause();
-      }
-      f.host.durable.status=status;assert.ok(observations>=2);
+      const requests=f.requests.length,broker=f.broker.length;
+      await assert.rejects(createHost({...f.options,root:join(f.root,'unsupported-rewrite-'+i),parentOnly:false,childRead:true}),/Unsupported authorization profile/);
+      assert.equal(f.requests.length,requests);assert.equal(f.broker.length,broker);
+      assert.equal(f.host.durable.status().workflows.length,0);
     }
     for(const [,resolved] of rewrites)assert.ok(!touched.includes(join(f.workspace,resolved)),'Never access/MIME/read rewritten unapproved target');
     const records=f.host.session.sessionManager.getEntries().filter(e=>e.customType==='hyprneuro.tool-call/1');
-    assert.equal(records.filter(e=>e.data.status==='unknown'&&e.data.id.startsWith('child:')).length,1);
+    assert.equal(records.filter(e=>e.data.id.startsWith('child:')).length,0,'Unsupported child never executes');
   } finally {for(const name of Object.keys(original))Workspace.prototype[name]=original[name];}
 }));
 
@@ -284,16 +249,14 @@ test('read-only startup rejects sibling HOME layout and discovery metadata on wo
     if(marker==='package.json')await writeFile(file,'{"pi-subagents":{"agents":["unexpected"]}}');else await mkdir(file);
     try{await assert.rejects(createHost(f.options),/discovery metadata forbidden/);}finally{await rm(file,{recursive:true,force:true});}
   }
-  // Ancestor metadata introduced after startup is refused before delegation or
-  // renewed discovery; owner read remains scoped and never adds agent context.
+  // Metadata introduced before first activation is refused BEFORE inference,
+  // not treated as permission to launch an unsupported delegation profile.
   const marker=join(f.ownerRoot,'home','.agents');await mkdir(marker);
-  const n=f.approvals.length;
   try{
-    await f.chat(tool('subagents',{action:'run',request:'bad-ancestor',agent:'delegate',task:'CHILD_ZERO_TASK',tools:[],model:'hyprneuro-local/lfm-text',once:true,writer:false,context:'fresh',cwd:f.workspace,timeoutMs:10000},'ancestor_discovery'));
-    assert.equal(f.approvals.length,n+1); // activation only; no delegation approval
+    await assert.rejects(f.host.owner.chat({text:'No model or delegation admission'},()=>{}),/discovery metadata/);
+    assert.equal(f.requests.length,0);assert.equal(f.approvals.length,0);
     assert.equal(f.host.durable.status().workflows.length,0);
-    await f.chat(tool('subagents',{action:'agents'},'ancestor_agents'));
-    assert.equal(f.approvals.length,n+1);
+    assert.equal(f.host.owner.phase,'ordinary','Rejected before SDK preparation: no uncertain native outcome');
   }finally{await rm(marker,{recursive:true,force:true});}
 }));
 
@@ -322,10 +285,10 @@ test('parent-only activation advertises and executes read only; forged delegatio
   assert.equal(f.childRequests,0);
   assert.ok(!f.requests.some(r=>JSON.stringify(r.messages).includes('CHILD_READ_TASK')&&!r.tools.some(t=>t.function.name==='read')));
   assert.ok(!host.session.sessionManager.getEntries().some(e=>e.customType==='hyprneuro.tool-call/1'&&e.data.id==='forged_parent_delegate'));
-  assert.deepEqual(f.broker.filter(p=>p.action==='auth_create').map(p=>p.ops),[['read']]);
-  await assert.rejects(createHost({...f.options,childRead:true}),/Parent-only requires/);
+  assert.deepEqual(f.broker.filter(p=>p.action==='mock_grant').map(p=>p.ops),[['read']]);
+  await assert.rejects(createHost({...f.options,childRead:true}),/Unsupported authorization profile/);
   await host.close();
-  await assert.rejects(createHost({...f.options,parentOnly:false}),/configuration changed/);
+  await assert.rejects(createHost({...f.options,parentOnly:false}),/Unsupported authorization profile/);
 },{parentOnly:true,childRead:false,readPaths:['fixture.txt']}));
 
 test('PERSISTENT actual SDK parent read: detach revokes, same journal reconnect reconsents, orderly reopen',()=>fixture(async f=>{
@@ -337,7 +300,7 @@ test('PERSISTENT actual SDK parent read: detach revokes, same journal reconnect 
   const before=f.approvals.length;
   await f.host.owner.detachControl();
   assert.equal(f.host.owner.closed,false);assert.equal(f.host.owner.phase,'ordinary');
-  assert.equal(f.broker.at(-1).action,'auth_revoke');
+  assert.equal(f.broker.at(-1).action,'mock_release');
   assert.equal((await f.host.owner.status()).tool_permission,'activation_required');
   assert.equal(f.host.session.sessionManager.getSessionId(),id);
   await f.chat(tool('read',{path:'fixture.txt'},'persistent_read_2'),done);
@@ -377,37 +340,24 @@ test('REAL BROKER persistent never-activated idle detach/reconnect/close needs n
   await assert.rejects(readFile(join(f.ownerRoot,'owner.guard')),{code:'ENOENT'});
 },{parentOnly:true,childRead:false,persistent:true},{realBroker:true}));
 
-test('REAL BROKER persistent actual native read revokes existing scope and requires fresh activation/read after detach',()=>fixture(async f=>{
-  await f.chat(tool('read',{path:'fixture.txt'},'real_broker_read'),done);
-  assert.equal((await f.options.rpc({action:'auth_check',task_id:'readonly',op:'read',path:join(f.workspace,'fixture.txt')})).allowed,true);
-  await f.host.owner.detachControl();
-  assert.equal((await f.options.rpc({action:'auth_check',task_id:'readonly',op:'read'})).reason,'scope_revoked');
-  const approvals=f.approvals.length,id=f.host.session.sessionManager.getSessionId();
-  await f.reopen();assert.equal(f.host.session.sessionManager.getSessionId(),id,'real journal resumes unchanged');
-  await f.chat(tool('read',{path:'fixture.txt'},'real_broker_fresh'),done);
-  assert.equal(f.approvals.length,approvals+2);
-  f.fault(p=>p.action==='auth_revoke');
-  await assert.rejects(f.host.owner.detachControl(),/acknowledgement lost/);
-  assert.equal(f.host.owner.phase,'failed');
-  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'detach-unknown');
-  await assert.rejects(f.host.owner.chat({text:'never replay'},()=>{}),/admission closed/);
-  f.fault(()=>false); // Known fixture fault only; close must revoke, not reset/replay.
-  await f.host.close();
-  assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'failed');
-  assert.ok(await readFile(join(f.ownerRoot,'owner.guard')));
-},{parentOnly:true,childRead:false,persistent:true},{realBroker:true}));
+test('REAL BROKER actual SDK activation/read/denial/owned cleanup uses genuine private channel, not mock receipts',()=>{
+  const result=spawnSync('/home/ron/Projects/Hyprneuro/python/.venv/bin/python',
+    ['-m','pytest','-p','no:cacheprovider','python/tests/test_trusted_consent_sdk.py','-q','-ra'],
+    {encoding:'utf8',timeout:60000,env:{...process.env,PYTHONPATH:fileURLToPath(new URL('../python/src',import.meta.url)),PYTHONDONTWRITEBYTECODE:'1'}});
+  assert.equal(result.status,0,result.stdout+'\n'+result.stderr);
+});
 
-test('PERSISTENT lost activation acknowledgement blocks new activation/model work and revokes fixed task on detach',()=>fixture(async f=>{
-  f.fault(p=>p.action==='auth_create');
-  await assert.rejects(f.host.owner.chat({text:'will not infer'},()=>{}),/acknowledgement lost/);
+test('PERSISTENT unproven activation blocks model work; no fixed-task cleanup without owned receipt',()=>fixture(async f=>{
+  f.fault(p=>p.action==='mock_grant');
+  await assert.rejects(f.host.owner.chat({text:'will not infer'},()=>{}),/Unproven typed consent|Owned cleanup unknown/);
   assert.equal(f.host.owner.phase,'failed');
   assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'activation-unknown');
   const approvals=f.approvals.length;
   await assert.rejects(f.host.owner.chat({text:'never replay'},()=>{}),/admission closed/);
-  assert.equal(f.approvals.length,approvals);assert.equal(f.broker.filter(p=>p.action==='auth_create').length,1);
+  assert.equal(f.approvals.length,approvals);assert.equal(f.broker.filter(p=>p.action==='mock_grant').length,1);
   assert.equal(f.requests.length,0);
   await f.host.owner.detachControl();
-  assert.equal(f.broker.at(-1).action,'auth_revoke');assert.equal(f.host.owner.phase,'failed');
+  assert.equal(f.broker.filter(p=>p.action==='mock_release').length,0);assert.equal(f.host.owner.phase,'failed');
 },{parentOnly:true,childRead:false,persistent:true}));
 
 test('PERSISTENT stop with real authenticated control retains closed checkpoint, no late detach overwrites or fabricated prompt',()=>fixture(async f=>{

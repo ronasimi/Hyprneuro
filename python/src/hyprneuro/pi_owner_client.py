@@ -61,12 +61,12 @@ class PiOwnerClient:
             raise
 
     async def call(self, op, **fields):
-        if op not in ('chat', 'status', 'on', 'off', 'consent', 'cancel'):
+        if op not in ('chat', 'status', 'on', 'off', 'consent', 'cancel', 'broker_proof', 'grants_invalidated', 'grant_release_done'):
             raise ValueError('Unknown Pi owner operation')
-        allowed = {'chat': {'text', 'recommend'}, 'consent': {'answer_id', 'allowed'}, 'cancel': {'chat_id', 'generation'}, 'status': set(), 'on': set(), 'off': set()}
+        allowed = {'grants_invalidated': set(), 'grant_release_done': {'release_id','success'}, 'broker_proof': {'nonce'}, 'chat': {'text', 'recommend'}, 'consent': {'answer_id', 'allowed', 'receipt'}, 'cancel': {'chat_id', 'generation'}, 'status': set(), 'on': set(), 'off': set()}
         if fields.keys() - allowed[op]:
             raise ValueError('Unknown Pi owner fields')
-        if (op in ('on', 'off', 'consent') or op == 'chat' and fields.get('recommend') is True) and not self.trusted:
+        if (op in ('on', 'off', 'consent', 'broker_proof', 'grants_invalidated', 'grant_release_done') or op == 'chat' and fields.get('recommend') is True) and not self.trusted:
             raise PermissionError('Trusted UI control channel required')
         if self.read_task.done() or len(self.pending) >= 8:
             raise ConnectionError('Pi owner disconnected or request bound reached')

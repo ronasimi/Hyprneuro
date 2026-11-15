@@ -12,7 +12,7 @@ export async function privateDirectory(root) {
   const st=await lstat(root);
   if(await realpath(root)!==root||!st.isDirectory()||st.uid!==process.getuid()||(st.mode&0o077))throw new Error('Unsafe owner directory');
 }
-export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disconnectControl(),singleControl=false,read}={}) {
+export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disconnectControl(),singleControl=false,read,registration}={}) {
   await privateDirectory(root);
   const keys={};
   for(const role of (read?['chat','control','read']:['chat','control'])) {
@@ -27,6 +27,7 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
     if(sockets.size>=8){socket.destroy();return;}sockets.add(socket);
     const nonce=randomBytes(32);socket.write(nonce);
     let authenticated=false,role,buffer=Buffer.alloc(0),unsubscribe,pending=0,chat;
+    const controlGeneration=randomUUID();
     const cancel=new AbortController();
     const timer=setTimeout(()=>socket.destroy(),5000);
     const send=value=>{
@@ -43,11 +44,11 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
       if(!value||Array.isArray(value)||typeof value!=='object')throw new Error('Object request required');
       const {op,id}=value;
       if(typeof id!=='string'||!/^[\w.-]{1,80}$/.test(id))throw new Error('Bounded correlation id required');
-      const fields={status:['op','id'],on:['op','id'],off:['op','id'],consent:['op','id','answer_id','allowed'],cancel:['op','id','chat_id','generation'],chat:['op','id','text','recommend'],read:['op','id','call','exec','tool_id','args']};
+      const fields={grants_invalidated:['op','id'],grant_release_done:['op','id','release_id','success'],broker_proof:['op','id','nonce'],status:['op','id'],on:['op','id'],off:['op','id'],consent:['op','id','answer_id','allowed','receipt'],cancel:['op','id','chat_id','generation'],chat:['op','id','text','recommend'],read:['op','id','call','exec','tool_id','args']};
       if(!fields[op]||Object.keys(value).some(k=>!fields[op].includes(k)))throw new Error('Unknown operation/fields');
       if(role==='read'&&op!=='read'||op==='read'&&(role!=='read'||!read))throw new Error('Read bridge role has no chat/control/lifecycle authority');
       if(op==='read')return read(value,cancel.signal);
-      if(['on','off','consent'].includes(op)&&role!=='control')throw new Error('Trusted UI control authentication required');
+      if(['on','off','consent','broker_proof','grants_invalidated','grant_release_done'].includes(op)&&role!=='control')throw new Error('Trusted UI control authentication required');
       if(op==='chat'&&value.recommend===true&&role!=='control')throw new Error('recommend=true requires explicit trusted UI preference');
       if(op==='cancel') {
         if(role!=='chat'||!chat||value.chat_id!==chat.id||value.generation!==chat.generation)
@@ -56,8 +57,19 @@ export async function serveOwner(root,owner,{onControlDisconnect=()=>owner.disco
         // Acknowledgement is the completed/drained chat outcome, never abort().
         return chat.done;
       }
+      if(op==='grants_invalidated'){owner.grantsInvalidated();return {accepted:true};}
+      if(op==='grant_release_done'){owner.releaseDone(value.release_id,value.success);return {accepted:true};}
+      if(op==='broker_proof') {
+        if(!registration||typeof value.nonce!=='string'||!/^[0-9a-f]{64}$/.test(value.nonce))
+          throw new Error('Registered host CONTROL challenge required');
+        const binding=await registration();
+        cancel.signal.throwIfAborted();
+        const body={...binding,control_generation:controlGeneration,nonce:value.nonce};
+        const wire=JSON.stringify(Object.fromEntries(Object.entries(body).sort(([a],[b])=>a.localeCompare(b,'en'))));
+        return {...body,mac:createHmac('sha256',keys.control).update('hyprneuro.grant-registration/1\0').update(wire).digest('hex')};
+      }
       if(op==='status')return owner.status();
-      if(op==='consent'){owner.consent(value.answer_id,value.allowed);return {accepted:true};}
+      if(op==='consent'){owner.consent(value.answer_id,value.allowed,value.receipt);return {accepted:true};}
       if(op==='on'||op==='off')return owner.transition(op);
       if(chat)throw new Error('One active chat per connection');
       const current={id,generation:randomUUID(),requested:false,abort:new AbortController(),

@@ -28,6 +28,14 @@ class Client:
         self.disconnect();await asyncio.gather(self.read_task,return_exceptions=True)
 
 
+class BrokerFixture:
+    """Transport-control unit double only; it grants nothing."""
+    async def register(self, root, control):
+        pass
+    async def invalidate(self):
+        pass
+
+
 class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.packets=[];self.clients=[];self.starts=[];self.guard=Guard()
@@ -35,7 +43,7 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(trusted);c=Client(root);self.clients.append(c);return c
         async def send(packet):self.packets.append(packet)
         async def start(root):self.starts.append(str(root));(Path(root)/'owner.sock').touch()
-        self.bridge=ManagedDesktopBridge(send,connect=connect,guard=self.guard,start_service=start)
+        self.bridge=ManagedDesktopBridge(send,connect=connect,guard=self.guard,start_service=start,broker=BrokerFixture())
         self.validate=patch('hyprneuro.pi_managed_bridge.load_config',return_value={'task_id':'fixture','read_paths':['fixture.txt']});self.validate.start()
     async def asyncTearDown(self):
         await self.bridge.close();self.validate.stop();self.tmp.cleanup()
@@ -119,3 +127,11 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('authenticating',self.packets[-1]['error'])
         self.assertNotIn('SECRET',json.dumps(self.packets))
         self.assertEqual(len(self.starts),1)
+
+    async def test_missing_private_handoff_refused_before_unlock_service_or_owner(self):
+        self.bridge.broker=None
+        await self.bridge.request({'op':'connect','root':str(self.root)})
+        self.assertEqual(self.clients,[])
+        self.assertEqual(self.starts,[])
+        self.assertIsNone(self.bridge.control)
+        self.assertEqual(self.packets[-1]['type'],'error')

@@ -12,8 +12,10 @@ from .pi_owner_client import MAX_FRAME, PiOwnerClient
 
 
 class DesktopBridge:
-    def __init__(self, root, send, connect=PiOwnerClient.connect, *, chat_timeout=310):
+    def __init__(self, root, send, connect=PiOwnerClient.connect, *, chat_timeout=310, broker=None):
         self.root, self.send, self.connect = root, send, connect
+        self.broker = broker
+        self.broker_pending = {}
         self.chat_timeout = chat_timeout
         self.control = self.chat_client = None
         self.chat_task = None
@@ -24,6 +26,10 @@ class DesktopBridge:
 
     async def start(self):
         self.control = await self.connect(self.root, trusted=True)
+        status = await self.control.call('status')
+        if status.get('authorization_profile') and self.broker is None:
+            self.control.disconnect()
+            raise PermissionError('Unsupported legacy tool adapter; private managed channel required')
         await self.send({'type': 'connected'})
 
     async def events(self, client, *, host=False):
@@ -45,10 +51,26 @@ class DesktopBridge:
                             # Never offer approval of hidden/truncated action details.
                             if (not isinstance(event.get('title'), str) or len(event['title']) > 300
                                     or not isinstance(event.get('detail'), str) or len(event['detail']) > 24000):
-                                await self.control.call('consent', answer_id=cid, allowed=False)
+                                await self.consent_reply(cid, False)
                                 await self.send({'type': 'notice', 'text': 'Host consent denied: details exceed display bound'})
                                 continue
+                            if 'audit' in event:
+                                audit = event['audit']
+                                if self.broker is None or not isinstance(audit, dict) or set(audit) != {
+                                        'kind', 'scope', 'generation', 'native_call_id', 'arguments_sha256'}:
+                                    raise PermissionError('No exact typed private consent channel')
+                                pending = await self.broker.call('request', consent_id=cid, **audit)
+                                if set(pending) != {'request', 'nonce', 'body_hash'}:
+                                    raise PermissionError('Invalid private consent request')
+                                self.broker_pending[cid] = dict(pending, arguments_sha256=audit['arguments_sha256'])
                             self.consents[cid] = asyncio.create_task(self.expire(cid))
+                        elif event.get('type') == 'grant_release':
+                            if self.broker is None:
+                                raise PermissionError('No owned cleanup channel')
+                            result = await self.broker.call('release', request=event['request'])
+                            success = result.get('revoked') is True or result.get('reason') == 'no_owned_mutation'
+                            await self.control.call('grant_release_done', release_id=event['id'], success=success)
+                            continue
                         await self.send(packet)
                     elif not host and packet.get('type') == 'event':
                         await self.send(packet)
@@ -59,10 +81,31 @@ class DesktopBridge:
                     get.cancel()
                 await asyncio.gather(get, return_exceptions=True)
 
+    async def consent_reply(self, cid, approved):
+        pending = self.broker_pending.pop(cid, None)
+        if pending is None:
+            return await self.control.call('consent', answer_id=cid, allowed=approved)
+        try:
+            result = await self.broker.call('decision', request=pending['request'], nonce=pending['nonce'],
+                                            body_hash=pending['body_hash'], allowed=approved)
+            if result.get('request') != pending['request'] or type(result.get('accepted')) is not bool:
+                raise PermissionError('Uncertain private decision result')
+            receipt = dict(request=pending['request'], body_hash=pending['body_hash'], consent_id=cid,
+                           arguments_sha256=pending['arguments_sha256'])
+            return await self.control.call('consent', answer_id=cid, allowed=result['accepted'], receipt=receipt)
+        except BaseException:
+            # Grant/ACK ambiguity is NOT human denial. Seal both native transports
+            # and the private registration; never fabricate a negative decision.
+            await self.broker.close()
+            for client in (self.chat_client, self.control):
+                if client is not None:
+                    client.disconnect()
+            raise
+
     async def expire(self, cid):
         await asyncio.sleep(110)  # before the owner's 120s deadline
         try:
-            await self.control.call('consent', answer_id=cid, allowed=False)
+            await self.consent_reply(cid, False)
         except Exception:
             pass  # owner may already have expired/denied it; never retry
         finally:
@@ -76,7 +119,7 @@ class DesktopBridge:
             if timer:
                 timer.cancel()
             try:
-                await self.control.call('consent', answer_id=cid, allowed=False)
+                await self.consent_reply(cid, False)
             except Exception:
                 pass  # already expired/settled; do not retry
             await self.send({'type': 'consent_closed', 'answer_id': cid})
@@ -160,7 +203,7 @@ class DesktopBridge:
                     raise ValueError('No matching fresh host consent')
                 self.consents.pop(cid).cancel()
                 try:
-                    result = await self.control.call('consent', answer_id=cid, allowed=approved)
+                    result = await self.consent_reply(cid, approved)
                 finally:
                     await self.send({'type': 'consent_closed', 'answer_id': cid})
             else:
@@ -176,6 +219,17 @@ class DesktopBridge:
                 await self.status()
             await self.send({'type': 'result', 'op': op, 'result': result})
         except Exception:
+            if op == 'chat' and self.broker is not None:
+                # Failed native admission/outcome must not leave published
+                # authority eligible while the UI reports the failed request.
+                self.failed = True
+                try:
+                    async with asyncio.timeout(5):
+                        await self.broker.invalidate()
+                finally:
+                    for client in (self.chat_client, self.control):
+                        if client is not None:
+                            client.disconnect()
             # Do not reflect exception bodies/paths/credentials into the desktop.
             await self.send({'type': 'error', 'op': op, 'error':
                              'Pi request failed or interrupted; review owner session/checkpoint. No automatic retry.'})
@@ -206,7 +260,11 @@ class DesktopBridge:
 
 
 async def run():
-    explicit = sys.argv[1:] == ['--explicit-connect']
+    explicit = sys.argv[1:] in (['--explicit-connect'], ['--explicit-connect', '--broker-fd=3'])
+    broker = None
+    if sys.argv[1:] == ['--explicit-connect', '--broker-fd=3']:
+        from .trusted_control import GrantControlClient
+        broker = await GrantControlClient.inherited(3)
     if not explicit and (os.environ.get('HYPRNEURO_PI_UI') != '1' or not os.environ.get('HYPRNEURO_PI_OWNER_DIR')):
         return 2
     loop = asyncio.get_running_loop()
@@ -226,7 +284,7 @@ async def run():
 
     if explicit:
         from .pi_managed_bridge import ManagedDesktopBridge
-        bridge = ManagedDesktopBridge(send)
+        bridge = ManagedDesktopBridge(send, broker=broker)
     else:
         bridge = DesktopBridge(os.environ['HYPRNEURO_PI_OWNER_DIR'], send)
     workers = []
@@ -248,6 +306,8 @@ async def run():
             task.cancel()
         await asyncio.gather(*workers, return_exceptions=True)
         await bridge.close()
+        if broker is not None:
+            await broker.close()
         reader_transport.close()
         writer.close()
     return 0

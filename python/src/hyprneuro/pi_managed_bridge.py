@@ -28,10 +28,13 @@ class OwnerConnectError(RuntimeError):
         self.stage = stage
 
 
+CLEANUP_TIMEOUT = 5
+
+
 class ManagedDesktopBridge(DesktopBridge):
-    def __init__(self, send, *, connect=None, guard=None, start_service=None):
+    def __init__(self, send, *, connect=None, guard=None, start_service=None, broker=None):
         kw = {'connect': connect} if connect else {}
-        super().__init__(None, send, **kw)
+        super().__init__(None, send, broker=broker, **kw)
         self.guard = guard
         self.start_service = start_service or self._start_service
         self.workers = []
@@ -61,6 +64,9 @@ class ManagedDesktopBridge(DesktopBridge):
             try:
                 if self.control or self.failed:
                     raise ValueError('Disconnect/review before another explicit connect')
+                stage = 'trusted-broker'
+                if self.broker is None:
+                    raise PermissionError('Unsupported legacy tool adapter; fixed private handoff required')
                 stage = "unlock"
                 await self.ensure_unlocked()
                 stage = "descriptor"
@@ -87,6 +93,10 @@ class ManagedDesktopBridge(DesktopBridge):
                             or status.get('read_paths') != sorted(str(Path(root) / 'home/workspace' / p) for p in config['read_paths'])):
                         raise ValueError('Wrong or unknown owner profile/session; no adoption')
                     await self.ensure_unlocked()
+                    stage = 'trusted-broker'
+                    if self.broker is None:
+                        raise PermissionError('Fixed trusted broker handoff required')
+                    await self.broker.register(root, control)
                 except BaseException:
                     await control.close()
                     raise
@@ -111,6 +121,8 @@ class ManagedDesktopBridge(DesktopBridge):
             notice = asyncio.create_task(self.send({'type': 'unavailable', 'text': 'Pi disconnected/locked; inspect native checkpoint. Explicit disconnect required; no fallback or replay.'}))
             try:
                 await self.detach()
+            except Exception:
+                self.failed = True  # unavailable/unknown, never clean or retried
             finally:
                 await notice
 
@@ -121,17 +133,30 @@ class ManagedDesktopBridge(DesktopBridge):
             chat, self.chat_client = self.chat_client, None
             timers = list(self.consents.values())
             self.consents.clear()
+            self.broker_pending.clear()
             workers, self.workers = self.workers, []
             # Drop BOTH transports before awaiting any task/close completion.
             # Owner-side control EOF denies pending consent and revokes scope.
             clients = [client for client in (chat, control) if client is not None]
-            for client in clients:
-                client.disconnect()
+            if chat is not None:
+                chat.disconnect()  # seal/abort native chat before scoped cleanup
             tasks = set(timers + workers + [monitor, self.chat_task]) - {None, asyncio.current_task()}
             for task in tasks:
                 task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            await asyncio.gather(*(client.close() for client in clients))
+            try:
+                if self.broker is not None:
+                    async with asyncio.timeout(CLEANUP_TIMEOUT):
+                        invalidated = await self.broker.invalidate()
+                        if invalidated and control is not None:
+                            await control.call('grants_invalidated')
+            except BaseException:
+                self.failed = True  # uncertain cleanup is never disconnected/clean
+                raise
+            finally:
+                for client in clients:
+                    client.disconnect()
+                await asyncio.gather(*tasks, return_exceptions=True)
+                await asyncio.gather(*(client.close() for client in clients))
 
     async def request(self, packet):
         op = packet.get('op')

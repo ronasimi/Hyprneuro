@@ -1,3 +1,4 @@
+import {mockConsent} from './support/mock-consent.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,mkdir,writeFile,rm,readFile} from 'node:fs/promises';
@@ -12,114 +13,29 @@ const sdkPath=process.env.PI_HARNESS_SDK;
 const durableDir=process.env.PI_HARNESS_DURABLE;
 if(!sdkPath||!durableDir)throw new Error('Explicit installed PI_HARNESS_SDK and PI_HARNESS_DURABLE required; no installs');
 
-test('real single Pi session loads native Durable; persistent chat + command workflow + child drain',async()=>{
-  const root=await mkdtemp(join(tmpdir(),'hn-owner-')),saved={...process.env};
-  let host,requests=0,workspace,delegate=false,passed=false;
-  const server=createServer(async(req,res)=>{
-    requests++;for await(const _ of req){}
-    res.writeHead(200,{'content-type':'text/event-stream'});
-    const args={action:'run',request:'actual-command',command:[process.execPath,'-e',
-      "require('fs').writeFileSync('started','yes');setTimeout(()=>require('fs').appendFileSync('durable.txt','x'),400)"],cwd:workspace,timeoutMs:2000};
-    const choice=delegate?{index:0,delta:{tool_calls:[{index:0,id:'delegate_1',type:'function',function:{name:'subagents',arguments:JSON.stringify(args)}}]},finish_reason:'tool_calls'}:
-      {index:0,delta:{content:'native Pi answer'},finish_reason:'stop'};
-    delegate=false;
-    res.end('data: '+JSON.stringify({choices:[choice]})+'\n\ndata: [DONE]\n\n');
-  });
-  await new Promise(r=>server.listen(0,'127.0.0.1',r));
+test('UNSUPPORTED legacy/nonpersistent/Durable command owner profiles reject before SDK, inference or authorization',async()=>{
+  const saved=process.env.HYPRNEURO_PI_OWNER_ENABLE;process.env.HYPRNEURO_PI_OWNER_ENABLE='1';
+  const root=await mkdtemp(join(tmpdir(),'hn-unsupported-'));let calls=0;
   try {
-    workspace=join(root,'workspace');await mkdir(workspace);
-    const state=join(root,'residency');await mkdir(state,{mode:0o700});
-    process.env.HYPRNEURO_PI_OWNER_ENABLE='1';process.env.HYPRNEURO_RESIDENCY_DIR=state;
-    const ownerRoot=join(root,'owner');await mkdir(join(ownerRoot,'durable'),{recursive:true,mode:0o700});
-    await writeFile(join(ownerRoot,'durable','config.json'),JSON.stringify({exactCapture:false,k:{idleExitMs:200}}),{mode:0o600});
-    const model={id:'mock',provider:'hn-mock',api:'openai-completions',baseUrl:`http://127.0.0.1:${server.address().port}/v1`,
-      input:['text'],reasoning:false,contextWindow:1000,maxTokens:100,cost:{input:0,output:0,cacheRead:0,cacheWrite:0},
-      compat:{supportsDeveloperRole:false,supportsStore:false,supportsUsageInStreaming:false,maxTokensField:'max_tokens'}};
-    const options={sdkPath,durableDir,piBin:'/home/ron/.pi/agent/bin/pi',root:ownerRoot,workspace,taskId:'test',appId:'test',serve:false,
-      providers:{names:[]},model,rpc:async packet=>packet.action==='auth_check'?{allowed:true}:{authorized:true}};
-    host=await createHost(options);
-    host.runtime.registerProvider('hn-mock',{baseUrl:model.baseUrl,api:'openai-completions',apiKey:'local',models:[{...model,name:'mock'}]});
-    const approve=event=>{if(event.type==='consent')host.owner.consent(event.id,true);};host.owner.listeners.add(approve);
-    await assert.rejects(createHost({sdkPath,durableDir,piBin:'/home/ron/.pi/agent/bin/pi',root:ownerRoot,workspace}),/Previous\/live owner/);
-    const id=host.session.sessionManager.getSessionId();
-    const streamed=[];await host.owner.chat({text:'first'},event=>streamed.push(event));
-    assert.equal(streamed.filter(e=>e.type==='delta').map(e=>e.text).join(''),'native Pi answer');
-    assert.ok(streamed.some(e=>e.type==='turn_end'&&e.stopReason==='stop'&&typeof e.usage==='object'));
-    await host.owner.chat({text:'second'},()=>{});
-    assert.equal(requests,2);
-    await host.owner.chat({text:'/moe on'},()=>{}); // RPC text must NOT dispatch registered trusted commands.
-    assert.equal(requests,3);assert.equal(host.session.sessionManager.getSessionId(),id);
-    assert.ok(host.session.getActiveToolNames().includes('subagents'));
-    assert.ok(host.session.sessionManager.getEntries().filter(e=>e.type==='message'&&e.message.role==='user').length>=2);
-    delegate=true;
-    await host.owner.chat({text:'Run approved Durable command'},()=>{});
-    assert.ok(host.session.extensionRunner.getCommand('moe'));
-    const deadline=Date.now()+10000;
-    while(true) {
-      try{await readFile(join(workspace,'started'));break;}catch(error){if(error.code!=='ENOENT')throw error;}
-      if(Date.now()>deadline)assert.fail('Native Durable command never started');
-      await new Promise(r=>setTimeout(r,20));
+    for(const flags of [{},{profile:'read-only',normalOnly:true,parentOnly:true,persistent:false},
+      {profile:'read-only',normalOnly:true,parentOnly:false,persistent:true},
+      {profile:'read-only',normalOnly:true,parentOnly:true,persistent:true,childRead:true}]) {
+      await assert.rejects(createHost({root:join(root,'never-created'),workspace:'/never-opened',sdkPath:'/never-imported',
+        rpc:async()=>{calls++;},...flags}),/Unsupported authorization profile/);
     }
-    await host.durable.quiesce(10000); // paused flag alone must NOT end this wait
-    assert.equal(await readFile(join(workspace,'durable.txt'),'utf8'),'x');
-    const workflows=host.durable.status().workflows;
-    assert.equal(workflows.length,1);
-    const receipt=await host.durable.describe(workflows[0].wid);
-    assert.equal(receipt.calls[0].status,'ok');
-    await host.durable.resume();
-    delegate=true;
-    await host.owner.chat({text:'Retry same durable request'},()=>{});
-    assert.equal(await readFile(join(workspace,'durable.txt'),'utf8'),'x');
-    assert.equal(host.session.sessionManager.getSessionId(),id);
-    await host.close();host=undefined;
-    host=await createHost({...options,serve:true});
-    host.runtime.registerProvider('hn-mock',{baseUrl:model.baseUrl,api:'openai-completions',apiKey:'local',models:[{...model,name:'mock'}]});
-    host.owner.listeners.add(event=>{if(event.type==='consent')host.owner.consent(event.id,true);});
-    assert.equal(host.session.sessionManager.getSessionId(),id);
-    const script=`import asyncio,sys,json,os
+    assert.equal(calls,0);await assert.rejects(readFile(join(root,'never-created','owner.guard')),{code:'ENOENT'});
+    const script=`import asyncio,os,sys
 async def main():
- env=dict(os.environ,HYPRNEURO_PI_UI='1',HYPRNEURO_PI_OWNER_DIR=sys.argv[1])
- p=await asyncio.create_subprocess_exec(sys.executable,'-m','hyprneuro.pi_desktop_bridge',env=env,
-   stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
- assert json.loads(await p.stdout.readline())['type']=='connected'
- # Status can be uninitialized in this fixture; never initialize/adopt it.
- assert json.loads(await p.stdout.readline())['type']=='status'
- p.stdin.write((json.dumps({'op':'chat','text':'漢'*11000},ensure_ascii=False)+'\\n').encode('utf-8'));await p.stdin.drain()
- events=[]
- while True:
-  packet=json.loads(await asyncio.wait_for(p.stdout.readline(),5))
-  if packet['type']=='event':events.append(packet['event'])
-  if packet['type']=='result' and packet['op']=='chat':
-   assert packet['result']['settled'];break
-  assert packet['type'] not in ('error','unavailable'),packet
- assert ''.join(e.get('text','') for e in events if e.get('channel')=='answer')=='native Pi answer'
- assert any(e['type']=='turn_end' for e in events)
- p.stdin.close();assert await asyncio.wait_for(p.wait(),5)==0
- assert await p.stderr.read()==b''
+ p=await asyncio.create_subprocess_exec(sys.executable,'-m','hyprneuro.pi_desktop_bridge',
+   env=dict(os.environ,HYPRNEURO_PI_UI='0',HYPRNEURO_PI_OWNER_DIR=sys.argv[1]),
+   stdout=asyncio.subprocess.PIPE,stderr=asyncio.subprocess.PIPE)
+ out,err=await p.communicate();assert p.returncode==2;assert out==b'';assert err==b''
 asyncio.run(main())
 `;
-    const p=spawn('/usr/bin/python3',['-c',script,ownerRoot],{env:{...process.env,PYTHONPATH:resolve('python/src')},stdio:['ignore','pipe','pipe']});
+    const p=spawn('/usr/bin/python3',['-c',script,root],{env:{...process.env,PYTHONPATH:resolve('python/src')},stdio:['ignore','pipe','pipe']});
     let error='';p.stderr.on('data',data=>error+=data);
     assert.equal(await new Promise(r=>p.on('close',r)),0,error);
-    assert.ok(host.session.sessionManager.getEntries().some(e=>e.type==='message'&&e.message.role==='user'&&
-      e.message.content.some(part=>part.type==='text'&&part.text==='漢'.repeat(11000))));
-    await host.close();host=undefined;
-    // Native orchestrator idle-exits; do not remove journals while it still owns them.
-    const {pathToFileURL}=await import('node:url');
-    const {readerLedger}=await import(pathToFileURL(join(durableDir,'dist/orchestrator/reader-ledger.js')));
-    const {processAlive}=await import(pathToFileURL(join(durableDir,'dist/orchestrator/snapshot.js')));
-    const until=Date.now()+5000;
-    while(true){const o=readerLedger(join(ownerRoot,'durable')).state.state.orchestrator;if(!o||o.exited||!processAlive(o.pid,o.start))break;
-      if(Date.now()>until)assert.fail('Owned temporary Durable orchestrator did not idle-exit');await new Promise(r=>setTimeout(r,25));}
-    passed=true;
-  } catch(error) {
-    await writeFile(join(root,'failure.txt'),error.stack??String(error),{mode:0o600});throw error;
-  } finally {
-    await host?.close().catch(error=>console.error('Owner cleanup failed; journals retained:',root,error.message));server.closeAllConnections();await new Promise(r=>server.close(r));
-    for(const k of Object.keys(process.env))if(!(k in saved))delete process.env[k];Object.assign(process.env,saved);
-    if(passed)await rm(root,{recursive:true,force:true});
-    else console.error('Owner failure evidence retained:',root);
-  }
+  } finally {if(saved===undefined)delete process.env.HYPRNEURO_PI_OWNER_ENABLE;else process.env.HYPRNEURO_PI_OWNER_ENABLE=saved;await rm(root,{recursive:true,force:true});}
 });
 
 test('actual Pi classifier/SystemOne schema recommends only after admitted D1 completion',async()=>{

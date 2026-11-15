@@ -1,0 +1,25 @@
+{
+  "status": "explicit scoped profile decision, not repaired broader capability or READY",
+  "decision": "Persistent normal-only parent READONLY only; unsupported profiles reject before work; ordinary own-app Legacy remains tool-free",
+  "original_failed_run": "01M7F7N98AMH0GHFWSEKW79Z9E",
+  "original_failed_log_sha256": "9df01428546073e626009b0b2a34416baf9e8a5f05b7ff7567fa0599266c8b23",
+  "original_failed_cases": [
+    "native Durable read child bridge/default-zero-tools",
+    "native-child exact SDK filename fallback variants 0,1,2,3",
+    "broader single-session Durable command/drain plus legacy adapter"
+  ],
+  "original_source_snapshots": {
+    "native-mcp.mjs": "6859c6d4f92cc00d293edb6f9e3688be470278bc1ecf3c0d4a23e2f1672948ae",
+    "pi-owner-readonly.mjs": "de9f575e41ebab4eb07b1bffd0d58bce7e13c5d4651d70dbd0841b204ccb68a7",
+    "pi-owner.mjs": "68b05a33dafb52d300b1009e7035777ccd4063a2e82410bd267501b3a23c4df5"
+  },
+  "genuine_sdk_private_channel": {
+    "run": "01M7F7N98AMH0GHFWSEKW79Z9E",
+    "tests": 3,
+    "log_sha256": "ae68e0f7f27b3f7da53506754d05b547a9a7d377b8a07efa6d4c04ac3f6adbaf",
+    "scope": "actual SDK/broker/private FD; synthetic UI parent/unit metadata/consent packets; no live human/GTK claim"
+  },
+  "cancellation_review_pin": "69fe9d876a8e32bcf4bea86b5652922d3f5e30a5",
+  "production_mutated": false,
+  "memory_integrated": false
+}

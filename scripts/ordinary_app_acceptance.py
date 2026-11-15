@@ -152,6 +152,7 @@ class UI:
         return subprocess.check_output(args,text=True,timeout=timeout(getattr(self,'deadline',None)))
 
     def ordinary(self):
+        if getattr(self,'keys_inflight',False):raise RuntimeError('Prior exact key release uncertain; ordinary input prohibited')
         self.safe()
         if self.prompt():raise RuntimeError('Unexpected human gate during ordinary input')
         workspace=json.loads(self.command('hyprctl','-j','activeworkspace'))
@@ -210,11 +211,29 @@ class UI:
         if status['mode']!='legacy' or status['connected']:
             raise RuntimeError('Global keyboard tests are Legacy-only; native uses exact Send action')
         self.keys_inflight=True
+        self.pending_key_chain=key
+        self.key_cleanup_error=None
+        original=None
         try:self.command('wdotool','--backend','wlr-protocols','key',key)
+        except BaseException as error:
+            original=error
+            raise
         finally:
-            # Release only this driver's injected chain, even on termination.
-            try:self.command('wdotool','--backend','wlr-protocols','keyup',key)
-            finally:self.keys_inflight=False
+            # Only the already-attempted exact chain. Even after lock/identity drift,
+            # release its modifiers; do NOT query expired scope or inject new input.
+            # Independent cleanup budget, never a general command/deadline bypass.
+            try:
+                subprocess.check_output(('wdotool','--backend','wlr-protocols','keyup',self.pending_key_chain),text=True,timeout=5)
+            except BaseException as error:
+                category='timeout' if isinstance(error,subprocess.TimeoutExpired) else 'failure'
+                self.key_cleanup_error=category  # enum only; retain pending chain
+                if original is not None:
+                    original.add_note('Exact key release uncertain ('+category+'); no further ordinary input')
+                else:
+                    raise RuntimeError('Exact key release uncertain ('+category+')') from error
+            else:
+                self.keys_inflight=False
+                self.pending_key_chain=None
 
     def settings_view(self):
         nodes=self.nodes()

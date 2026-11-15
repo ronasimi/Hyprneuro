@@ -15,6 +15,8 @@ import re
 import sqlite3
 import time
 
+from .application import memory_owner, _validate_scope_key
+
 ALLOWED_SOURCES = frozenset({"hyprland", "chrome", "journal", "network", "resource", "omni", "manual"})
 ALLOWED_KINDS = re.compile(r"[a-z][a-z0-9_]{0,63}\Z")
 SEARCH_TERMS = re.compile(r"[^\W_]+", re.UNICODE)
@@ -23,6 +25,53 @@ MAX_DESCRIPTION = 4096
 MAX_OCR = 8192
 ALERT_KINDS = ("journal_alert", "network_alert", "resource_alert")
 _SEVERITIES = ("info", "warning", "error", "critical")
+
+
+_MEMORY_COLUMNS = (
+    ("scope", "TEXT", 1, 1), ("key", "TEXT", 1, 2),
+    ("value_json", "TEXT", 1, 0), ("task_id", "TEXT", 0, 0),
+    ("app_id", "TEXT", 0, 0), ("project_id", "TEXT", 0, 0),
+    ("updated_ms", "INTEGER", 1, 0),
+)
+_MEMORY_V4_COLUMNS = tuple((n, t, required, 3 if n == "key" else pk)
+                           for n, t, required, pk in _MEMORY_COLUMNS) + (
+    ("owner_id", "TEXT", 1, 2), ("legacy_unscoped", "INTEGER", 1, 4),
+)
+_MEMORY_LEGACY_TABLE = """CREATE TABLE app_memory (
+    scope TEXT NOT NULL, key TEXT NOT NULL, value_json TEXT NOT NULL,
+    task_id TEXT, app_id TEXT, project_id TEXT, updated_ms INTEGER NOT NULL,
+    PRIMARY KEY(scope,key)
+)"""
+_MEMORY_TABLE = """CREATE TABLE app_memory (
+    scope TEXT NOT NULL, key TEXT NOT NULL, value_json TEXT NOT NULL,
+    task_id TEXT, app_id TEXT, project_id TEXT, updated_ms INTEGER NOT NULL,
+    owner_id TEXT NOT NULL, legacy_unscoped INTEGER NOT NULL CHECK(legacy_unscoped IN (0,1)),
+    PRIMARY KEY(scope,owner_id,key,legacy_unscoped)
+)"""
+_MEMORY_INDEX = ("CREATE INDEX app_memory_scope_time ON app_memory "
+                 "(scope,legacy_unscoped,owner_id,updated_ms DESC)")
+
+
+def _store_version(db):
+    tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    if not tables:
+        return None
+    if "sidecar_meta" not in tables:
+        raise RuntimeError("Unrecognized sidecar schema (missing version)")
+    rows = db.execute("SELECT value FROM sidecar_meta WHERE key='schema_version'").fetchall()
+    if len(rows) != 1 or rows[0][0] not in {"1", "2", "3", "4"}:
+        raise RuntimeError("Unsupported sidecar schema version")
+    version = rows[0][0]
+    columns = tuple((r[1], r[2], r[3], r[5]) for r in db.execute("PRAGMA table_info(app_memory)"))
+    expected = _MEMORY_V4_COLUMNS if version == "4" else _MEMORY_COLUMNS
+    if columns != expected and not (version == "1" and not columns):
+        raise RuntimeError("Unrecognized app_memory schema")
+    if columns:
+        sql = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='app_memory'").fetchone()[0]
+        expected_sql = _MEMORY_TABLE if version == "4" else _MEMORY_LEGACY_TABLE
+        if re.sub(r"\s+", "", sql).casefold() != re.sub(r"\s+", "", expected_sql).casefold():
+            raise RuntimeError("Unrecognized app_memory constraints")
+    return version
 
 
 def _severity(message):
@@ -89,6 +138,13 @@ class SidecarStore:
             if path.is_symlink() or (path.exists() and path.stat().st_uid != os.getuid()):
                 raise RuntimeError("Unsafe sidecar database path")
         self.db = sqlite3.connect(str(path))
+        try:
+            version = _store_version(self.db)
+            if version not in (None, "4"):
+                raise RuntimeError("Explicit backed-up SidecarStore.migrate_memory required before opening legacy database")
+        except BaseException:
+            self.db.close()
+            raise
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA busy_timeout=3000")
         self.db.execute("PRAGMA foreign_keys=ON")
@@ -161,18 +217,11 @@ class SidecarStore:
                     description=new.description,app_id=new.app_id,url_preview=public_url(new.url) WHERE rowid=new.id;
             END;
         """)
+        if version is None:
+            with self.db:
+                self.db.execute(_MEMORY_TABLE)
+                self.db.execute(_MEMORY_INDEX)
         self.db.executescript("""
-            CREATE TABLE IF NOT EXISTS app_memory (
-                scope TEXT NOT NULL,
-                key TEXT NOT NULL,
-                value_json TEXT NOT NULL,
-                task_id TEXT,
-                app_id TEXT,
-                project_id TEXT,
-                updated_ms INTEGER NOT NULL,
-                PRIMARY KEY (scope, key)
-            );
-            CREATE INDEX IF NOT EXISTS app_memory_scope_time ON app_memory(scope, updated_ms DESC);
             CREATE TABLE IF NOT EXISTS skill_manifests (
                 app_id TEXT PRIMARY KEY,
                 manifest_json TEXT NOT NULL
@@ -198,8 +247,8 @@ class SidecarStore:
             );
         """)
         with self.db:
-            self.db.execute("INSERT INTO sidecar_meta VALUES ('schema_version','3') "
-                            "ON CONFLICT(key) DO UPDATE SET value='3'")
+            self.db.execute("INSERT INTO sidecar_meta VALUES ('schema_version','4') "
+                            "ON CONFLICT(key) DO UPDATE SET value='4'")
         if not self.db.execute("SELECT 1 FROM sidecar_meta WHERE key='search_v2'").fetchone():
             with self.db:
                 self.db.execute("DELETE FROM search_fts")
@@ -210,6 +259,85 @@ class SidecarStore:
                 self.db.execute("INSERT INTO sidecar_meta VALUES ('search_v2','1')")
         if path.exists():
             path.chmod(0o600)
+
+    @classmethod
+    def migrate_memory(cls, path, *, backup_path):
+        """Explicit offline v1/v2/v3 -> v4 migration; never called by startup.
+
+        The separate SQLite backup includes committed WAL data. Hold a write lock
+        across version check, backup and transactional DDL/copy/version update.
+        Any failure rolls back the source; a completed backup is retained.
+        """
+        path, backup_path = Path(path), Path(backup_path)
+        if (path.is_symlink() or not path.is_file() or path.stat().st_uid != os.getuid()
+                or backup_path.resolve() == path.resolve()):
+            raise ValueError("Migration requires an owned database and a distinct new backup")
+        uri = path.resolve().as_uri()
+        db = sqlite3.connect(uri + "?mode=rw", uri=True)
+        try:
+            db.execute("BEGIN IMMEDIATE")
+            version = _store_version(db)  # Checked under the lock, not a cached caller version.
+            if version not in {"1", "2", "3"}:
+                raise RuntimeError("Migration requires schema version 1, 2 or 3")
+            if db.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+                raise RuntimeError("Database integrity check failed")
+            for _, table, sql in db.execute(
+                    "SELECT type,tbl_name,sql FROM sqlite_master WHERE type IN ('trigger','view')"):
+                if table == "app_memory" or re.search(r"\bapp_memory\b", sql, re.IGNORECASE):
+                    raise RuntimeError("Unrecognized app_memory dependency")
+            for (table,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'"):
+                quoted = '"' + table.replace('"', '""') + '"'
+                if any(table == "app_memory" or fk[2] == "app_memory"
+                       for fk in db.execute(f"PRAGMA foreign_key_list({quoted})")):
+                    raise RuntimeError("Unrecognized app_memory foreign key")
+            indexes = db.execute("PRAGMA index_list(app_memory)").fetchall()
+            for index in indexes:
+                if index[1] == "app_memory_scope_time":
+                    if db.execute("SELECT sql FROM sqlite_master WHERE name=?", (index[1],)).fetchone()[0] != (
+                            "CREATE INDEX app_memory_scope_time ON app_memory(scope, updated_ms DESC)"):
+                        raise RuntimeError("Unrecognized app_memory index")
+                elif index[3] != "pk":
+                    raise RuntimeError("Unrecognized app_memory index")
+            fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            os.close(fd)
+            reader = sqlite3.connect(uri + "?mode=ro", uri=True)
+            try:
+                backup = sqlite3.connect(str(backup_path))
+                try:
+                    reader.backup(backup)
+                finally:
+                    backup.close()
+            finally:
+                reader.close()
+            cls._migrate_memory_schema(db)
+            db.execute("UPDATE sidecar_meta SET value='4' WHERE key='schema_version'")
+            db.commit()
+        except BaseException:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+        return {"schema_version": "4", "backup_path": str(backup_path)}
+
+    @staticmethod
+    def _migrate_memory_schema(db):
+        exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_memory'").fetchone()
+        if exists:
+            db.execute("ALTER TABLE app_memory RENAME TO app_memory_v3")
+            db.execute("DROP INDEX IF EXISTS app_memory_scope_time")
+        db.execute(_MEMORY_TABLE)
+        if exists:
+            for row in db.execute("SELECT scope,key,value_json,task_id,app_id,project_id,updated_ms FROM app_memory_v3"):
+                scope, key, value, task, app, project, when = row
+                try:
+                    owner = memory_owner(scope, task_id=task, app_id=app, project_id=project)
+                    _validate_scope_key(scope, key)
+                    legacy = 0
+                except (ValueError, TypeError):
+                    owner, legacy = "", 1
+                db.execute("INSERT INTO app_memory VALUES(?,?,?,?,?,?,?,?,?)", (*row, owner, legacy))
+            db.execute("DROP TABLE app_memory_v3")
+        db.execute(_MEMORY_INDEX)
 
     def close(self):
         self.db.close()
@@ -510,30 +638,26 @@ class SidecarStore:
     _TASK_STATUS = frozenset({"active", "suspended", "done", "failed", "cancelled"})
 
     def app_memory_remember(self, scope, key, value_json, *, task_id=None, app_id=None, project_id=None):
-        if scope not in self._MEMORY_SCOPES:
-            raise ValueError("Invalid memory scope")
-        if not isinstance(key, str) or not key or len(key) > 128:
-            raise ValueError("Invalid memory key")
+        _validate_scope_key(scope, key)
+        owner = memory_owner(scope, task_id=task_id, app_id=app_id, project_id=project_id)
         if not isinstance(value_json, str) or len(value_json) > 16_384:
             raise ValueError("Invalid memory value")
         when = int(time.time() * 1000)
-        for name, value in (("task_id", task_id), ("app_id", app_id), ("project_id", project_id)):
-            if value is not None and (not isinstance(value, str) or len(value) > 128):
-                raise ValueError(f"Invalid {name}")
         with self.db:
             self.db.execute(
-                "INSERT INTO app_memory(scope,key,value_json,task_id,app_id,project_id,updated_ms) "
-                "VALUES(?,?,?,?,?,?,?) ON CONFLICT(scope,key) DO UPDATE SET value_json=excluded.value_json,"
+                "INSERT INTO app_memory(scope,key,value_json,task_id,app_id,project_id,updated_ms,owner_id,legacy_unscoped) "
+                "VALUES(?,?,?,?,?,?,?,?,0) ON CONFLICT(scope,owner_id,key,legacy_unscoped) DO UPDATE SET value_json=excluded.value_json,"
                 "task_id=excluded.task_id,app_id=excluded.app_id,project_id=excluded.project_id,updated_ms=excluded.updated_ms",
-                (scope, key, value_json, task_id, app_id, project_id, when))
+                (scope, key, value_json, task_id, app_id, project_id, when, owner))
         return {"stored": True, "scope": scope, "key": key, "updated_ms": when}
 
     def app_memory_recall(self, scope, *, key=None, limit=10, task_id=None, app_id=None, project_id=None):
-        if scope not in self._MEMORY_SCOPES:
-            raise ValueError("Invalid memory scope")
-        if not 1 <= limit <= 50:
+        owner = memory_owner(scope, task_id=task_id, app_id=app_id, project_id=project_id)
+        if key is not None:
+            _validate_scope_key(scope, key)
+        if type(limit) is not int or not 1 <= limit <= 50:
             raise ValueError("limit must be 1..50")
-        where, args = ["scope=?"], [scope]
+        where, args = ["scope=?", "owner_id=?", "legacy_unscoped=0"], [scope, owner]
         if key is not None:
             where.append("key=?"); args.append(key)
         if app_id is not None:
@@ -544,7 +668,7 @@ class SidecarStore:
             where.append("project_id=?"); args.append(project_id)
         rows = self.db.execute(
             "SELECT scope,key,value_json,task_id,app_id,project_id,updated_ms FROM app_memory "
-            "WHERE " + " AND ".join(where) + " ORDER BY updated_ms DESC LIMIT ?", [*args, limit]).fetchall()
+            "WHERE " + " AND ".join(where) + " ORDER BY updated_ms DESC,key LIMIT ?", [*args, limit]).fetchall()
         out = []
         for (s, k, v, t, a, p, when) in rows:
             try:
@@ -557,11 +681,12 @@ class SidecarStore:
 
     def app_memory_trim(self, keep: int = 64) -> int:
         """Evict the oldest app-scoped rows beyond `keep`. Returns evicted count.
-        Idle compaction keeps the app tier within a small bounded budget."""
+        Idle compaction keeps owned app memory bounded; legacy provenance is retained.
+        """
         if not 8 <= keep <= 1024:
             raise ValueError("keep must be 8..1024")
-        cur = self.db.execute("DELETE FROM app_memory WHERE scope='app' AND rowid NOT IN "
-                              "(SELECT rowid FROM app_memory WHERE scope='app' "
+        cur = self.db.execute("DELETE FROM app_memory WHERE scope='app' AND legacy_unscoped=0 AND rowid NOT IN "
+                              "(SELECT rowid FROM app_memory WHERE scope='app' AND legacy_unscoped=0 "
                               "ORDER BY updated_ms DESC LIMIT ?)", (keep,))
         self.db.commit()
         return cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0

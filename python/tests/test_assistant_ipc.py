@@ -47,7 +47,7 @@ class StoreMigrationTests(unittest.TestCase):
 
     def test_schema_version_bumped(self):
         row = self.store.db.execute("SELECT value FROM sidecar_meta WHERE key='schema_version'").fetchone()
-        self.assertEqual(row[0], "3")
+        self.assertEqual(row[0], "4")
 
     def test_memory_roundtrip(self):
         self.store.app_memory_remember("app", "pref.theme", json.dumps("dark"), app_id="google-chrome")
@@ -166,6 +166,24 @@ class AssistantIpcTests(unittest.IsolatedAsyncioTestCase):
         # App-scoped records are not leaked into a global key lookup.
         self.assertEqual(await request({"action": "memory_recall", "scope": "global",
                                         "key": "pref.theme"}, socket_path=self.socket), [])
+
+    async def test_memory_owner_identity_and_missing_owner_denial_over_ipc(self):
+        for scope in ("task", "app", "project"):
+            field = scope + "_id"
+            for owner in ("a", "b"):
+                await request({"action": "memory_remember", "scope": scope,
+                               "key": "same", "value": owner, field: owner}, socket_path=self.socket)
+            for owner in ("a", "b"):
+                rows = await request({"action": "memory_recall", "scope": scope,
+                                      "key": "same", field: owner}, socket_path=self.socket)
+                self.assertEqual([row["value"] for row in rows], [owner])
+            for action in ("memory_recall", "memory_remember"):
+                with self.assertRaisesRegex(RuntimeError, "required"):
+                    await request({"action": action, "scope": scope, "key": "same"},
+                                  socket_path=self.socket)
+        with self.assertRaisesRegex(RuntimeError, "global"):
+            await request({"action": "memory_remember", "scope": "global", "key": "same",
+                           "value": "not global", "app_id": "a"}, socket_path=self.socket)
 
     async def test_skill_discover_and_load(self):
         await self._wait_app("google-chrome")

@@ -1,0 +1,83 @@
+{
+  "recorded_utc": "2026-11-15T03:34:45.461771+00:00",
+  "status": "SOURCE ONLY; independent parent review before merge/current production migration",
+  "base_commit": "fc43267173d6c1386891c708c9ddcc77724ed3f7",
+  "scope": "P1-D owner-qualified memory and explicit backed-up schema migration",
+  "source_sha256": {
+    "python/src/hyprneuro/application.py": "9680d6eb56c33dee9ff1a052b0fdcc6beab77cf7fd52f53c7cf6007611aff071",
+    "python/src/hyprneuro/sidecar_store.py": "0d76a8f7e7f0200871f45b945fb2a0e5c6fc80a7f2cab91d51992baf4c0bc762",
+    "python/tests/test_application.py": "f9907ec69e0134265f97d12eb8eae4bb7792e4f7174c8cb0285a7f40fc9a6fb0",
+    "python/tests/test_assistant_ipc.py": "eebc4091dba15583daa9fd0c4010b293cb265a23ba4de87e6a8f0cfc042c78fb",
+    "python/tests/test_telemetry.py": "f47304de5034d508c28494b8eb3896bd776559a7bb1d3eb605b9b9ebdc9dd6f7",
+    "python/tests/test_memory_store.py": "f34b22857d7861f8449da1129849e95197e94f6028dcce1e25282c5bcccead67",
+    "python/tests/fixtures/memory-schema-v1.sql": "02669cd875d7d4e8ac22ecb12663857a0cd22a4769dba41d68fd9bd891110206",
+    "python/tests/fixtures/memory-schema-v2.sql": "88c700f97f3cd759992278b551f208e15ad3fb95f0bf3ee9eb5e167c9344286d",
+    "python/tests/fixtures/memory-schema-v3.sql": "ef547326f8eec55e01fc2b4c3a739045fd8301494985699b872a21a5a309e34b",
+    "docs/MEMORY_IDENTITY.md": "a3cf6168c2de6ba1a872451308c3e27ab6c83543947c607ff6e8d6d6770a090b"
+  },
+  "evidence_root": "/home/ron/Workspace/hyprneuro-memory-evidence",
+  "artifact_sha256": {
+    "run-tests.sh": "a95859922afb605b8a84a9396aef3c283d980609d6eb0ee5c4df88cf0b2380fe",
+    "before-collision.log": "fa07131dcc4f9a3b30ceb1fc7c0d169388c784497896fd68d917d57db8b90015",
+    "before-sqlite-collision.py": "19174e30a313c157df3fe129d88fb0f19f6439c81aec73a795f249168dccd781",
+    "before-sqlite-collision.log": "6dc9b1d5ee673ef83515bc2e533add56e4ff2353c1e78c3e3dc9ca4e688cab9d",
+    "first-focused.log": "d7f8a5abacdae9d701074215828570dd1372058f81ba1ddd6f4d1ea17dffdeda",
+    "focused-attempt2.log": "82cf2766399a6ee04fcb0fa6bcd5a150261b1bd2a3c9cfd39666bc8ab8ab5dce",
+    "focused-attempt3.log": "3d3ef0accfd3e9b68671350552a9d926b5327edfd0b2b1213fc03ea21e026f25",
+    "focused-attempt4.log": "44df4386ba55f5654affc351f9305c89fdfa715e32c53b323c334a67cd41e656",
+    "focused-attempt5.log": "3ebb88045ae67a39d250dfe2596f939a3366598bd5590cf61de06dd288cf4e50",
+    "focused-attempt6.log": "97ee2948f6b9da7f3d0a694f44d96144aa36e621d45eb2c6debe764bf8bf61cf",
+    "focused-final.log": "4856d8709b128303e189397817ae5b97d52f1b9928b66be6bd959f309e252ebe",
+    "full-attempt1.log": "5753901374843d3d5bb6e099d4bd964e838f358c713052e3ff5c72826ad6ee1b",
+    "full-attempt2.log": "c47a1355c8aed11107d5e4fdb827312b0a6e63524fa1b34919e0da4c034ed160",
+    "full-final.log": "c227da29d9914075671560f1cb1b3074a18ce1d6b2c3b3b5a23c7e70f2f6dfcd",
+    "full-final2.log": "4ea64f6a9c34a4b78f1441ce32c92e4459c0257be063ef7a27fb44329906a113"
+  },
+  "python": "/home/ron/Projects/Hyprneuro/python/.venv/bin/python",
+  "python_version": "Python 3.13.15 (main, Sep 24 2026, 17:55:50) [Clang 22.1.3 ]",
+  "focused": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q tests/test_memory_store.py tests/test_application.py tests/test_assistant_ipc.py tests/test_telemetry.py",
+    "log": "focused-final.log",
+    "passed": 178,
+    "subtests_passed": 17,
+    "seconds": 19.83
+  },
+  "full_python": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q -rs",
+    "log": "full-final2.log",
+    "passed": 597,
+    "skipped": 2,
+    "subtests_passed": 138,
+    "seconds": 31.72,
+    "skips": [
+      "optional Pillow visual gate",
+      "explicit installed SDK/Durable paths not supplied"
+    ]
+  },
+  "warnings": "Python -W error; no warning suppression; pytest plugin autoload disabled; no cacheprovider or bytecode writes",
+  "before_failures": [
+    "In-memory app-a overwritten by app-b (assertion exit 1)",
+    "Pinned fc43267 SQLite task/app/project owner-a overwritten by owner-b (assertion exit 1)"
+  ],
+  "retained_retries": [
+    "Migration test snapshot initially requested rowid from rowid-less FTS tables; resource-warning cascade retained",
+    "Snapshot ordering ties initially compared in incompatible orders; fixed in test harness",
+    "Initial full Python run: 593 passed, 2 skipped, 1 failed; missing private XDG runtime directory for systemd-analyze verify; directory created, no installer code changed"
+  ],
+  "migration": {
+    "from_versions": [
+      "1",
+      "2",
+      "3"
+    ],
+    "to_version": "4",
+    "startup_auto_migration": false,
+    "production_db_opened": false,
+    "original_columns_preserved": true,
+    "ambiguous_owner_policy": "retain legacy_unscoped=1, excluded from normal recall/promotion/idle trim",
+    "rollback": "entire verified pre-migration SQLite backup; no lossy PK downgrade; retain post-migration database separately",
+    "overwritten_historical_rows_recoverable": false
+  },
+  "runtime_changes": "none; no service control, GUI, real inference, provider request, production DB access, push or deployment",
+  "next_dependency": "independent parent source/contract/migration review before merge; separately approved quiesced backup/candidate/restore plan before any current production DB migration"
+}

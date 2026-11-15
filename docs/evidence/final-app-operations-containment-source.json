@@ -1,0 +1,48 @@
+{
+  "base_commit": "af7501686034425c8f7e63ff44bf57c5f453935f",
+  "blocked_review": "01M7FJM29P80CXY0BX9P1HWN7B/bundle-ops",
+  "status": "Focused operator source PASS; new source/bundle/operations rereview REQUIRED; no deployment authority",
+  "run": "01M7FKFCA2W990423YQPWKK9ZP",
+  "tests": 45,
+  "subtests": 69,
+  "phases": {
+    "operator-tests": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "3bba2dcbf8655d80219ed8f1fbb4d7c0e06846f4036205519834bf303e75bcff"
+    },
+    "profile-metadata": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "756532801fde99bc275723bc76e9a35a96c2ef5926cec45a8503d9b360e22b61"
+    }
+  },
+  "source_sha256": {
+    "scripts/apply_app_release.py": "4fcadc73bb68c24366b580c93ae348552feb29dd7cb849d141b3bfea4e3aa027",
+    "scripts/prepare_app_release.py": "9649967cb0a316950c153c826fb40cbd88ad04a85ed7bd1519c352460b402caa",
+    "scripts/verify_app_release.py": "cc831ae810ec3ff95581e2982a8ecc894a19333508d5c9a10d16edd0cb56a8aa",
+    "scripts/guard_app_release.py": "a309eb2fc8d30b97cb9f438592bd2a5906f47e1ff68ab54896b7e4b9227b0ebe",
+    "python/tests/test_release_guard.py": "29e2f31e0eb055e59d5d0dc882c374f20dc04a74506a8ad8e69a4e7e76c11134"
+  },
+  "coverage": [
+    "Real apply fault injection after sidecar start, UI start and installed verification: app-only stop/verification",
+    "Acceptance failures, cancellation/lock, malformed journal and native owner unknown state trigger containment",
+    "Stop failure records failed-UNCONTAINED; no unlock check in containment; no owner/model signals",
+    "Acceptance exit0 is NOT human/READY evidence; once-only operation/apply markers prevent replay",
+    "Each littlemoe, bigmoe and legacy moe must be inactive/dead/PID0/jobempty/NeedDaemonReload=no; queued job rejects even PID0",
+    "Snapshot-only candidate preparation copies pinned old backup; no production SQLite open"
+  ],
+  "retained_failed_runs": [
+    "01M7FK9V1PA6DZG9RSHH02XG0P",
+    "01M7FKBFA8TPZZE4HATEHDRD73"
+  ],
+  "blocked_bundle_preserved": "/home/ron/Workspace/hn-grant-af75016",
+  "production_database_opened": false,
+  "production_deployed": false,
+  "memory_merged": false,
+  "limits": [
+    "Guard lifetime is the full reviewed acceptance-command lifetime; no claim beyond it or after uncatchable process death",
+    "Owner/model processes are never signalled by containment; app stop is not remote-compute-stop proof",
+    "Native/MCP/broader profiles remain unsupported; genuine security Allow is human-only"
+  ]
+}

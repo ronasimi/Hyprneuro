@@ -1398,3 +1398,36 @@ rereview; source is NOT self-approved and authority closure is NOT claimed.
 Memory/CANCEL aggregate452ef1df remains separate despite its source approval;
 no merge, schema4 production startup/migration, freeze, preparation, deployment
 or production process mutation occurred. Overall **NOT READY**.
+
+## 35. Bundle/operations BLOCK correction — guarded acceptance and actual MoE profiles
+
+`01M7FJM29P80CXY0BX9P1HWN7B/bundle-ops` BLOCKED candidate hn-grant-af75016:
+old direct apply did not contain post-start/acceptance failures, and its legacy
+moe-only gate omitted actual littlemoe/bigmoe profiles. That immutable blocked
+bundle is preserved unchanged; no apply or production DB open followed the BLOCK.
+
+New guard wraps once-only apply AND the full explicit reviewed acceptance command.
+Failure/cancellation/lock/observable journal or owner-unknown states stop ONLY UI
+and sidecar, without an unlock prerequisite, then verify PID0/inactive/dead/no job/
+empty cgroup and persist failed-apps-stopped or failed-UNCONTAINED. Stop failure is
+never relabelled contained. It never signals owners/models, restores old sidecar,
+replays apply.started or invents human acceptance. Command exit0 is only command
+completion. Guard must remain alive throughout later human/security-gate waits;
+uncatchable death cannot be represented as successful containment. Direct apply
+CLI is disabled; reviewed guard is the only executable deployment entrypoint.
+
+Preparation and verification now gate littlemoe, bigmoe AND legacy moe on exact
+inactive/dead/PID0/no job/no pending reload. Read-only unit metadata confirms all
+three currently inert; /home/ron/.bin/lfm declares moe→littlemoe, default 8B Q5_K_M
+and 24B IQ4_XS profiles. No launcher, preset, drop-in, model, package or port edited.
+A pinned snapshot-only preparation option avoids opening production SQLite until
+operations approval; its backup is explicitly NOT a current-DB attestation.
+
+Focused `01M7FKFCA2W990423YQPWKK9ZP`:45 tests+69subtests PASS (`-W error`,
+private fixtures, machine lease). Real apply fault injection follows EACH service
+start and installed verification; acceptance/stop-failure negatives included.
+R1 fixture warnings/mock exhaustion and R2 missing-runner failures retained, not
+waived. [Receipt](evidence/final-app-operations-containment-source.json).
+Next: fresh immutable candidate and revised guarded operations review, with no
+production DB open/migration or deployment. Memory aggregate stays separate.
+Overall NOT READY; source/bundle/operations rereview is mandatory.

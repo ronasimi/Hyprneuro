@@ -30,12 +30,12 @@ def atomic_copy(src,dst,mode):
     finally:os.close(fd)
 
 
-def main():
+def main(argv=None):
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('bundle',type=Path);p.add_argument('--session',required=True)
     p.add_argument('--parent-authorized',action='store_true')
     p.add_argument('--fresh-user-unlock-confirmed',action='store_true')
-    a=p.parse_args()
+    a=p.parse_args(argv)
     if not a.parent_authorized or not a.fresh_user_unlock_confirmed:
         p.error('BLOCKED: parent review/start relay AND fresh actual user unlock confirmation required')
     os.umask(0o077)
@@ -77,4 +77,4 @@ def main():
 
 
 if __name__=='__main__':
-    main()
+    raise SystemExit('Direct apply disabled: use guard_app_release.py with a reviewed acceptance command')

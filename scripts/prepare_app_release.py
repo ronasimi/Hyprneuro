@@ -33,6 +33,17 @@ def private_file(path):
     return p
 
 
+MOE_UNITS = ('lfm@littlemoe.service', 'lfm@bigmoe.service', 'lfm@moe.service')
+
+
+def check_moe_inert():
+    for unit in MOE_UNITS:
+        fields = dict(line.split('=', 1) for line in run('systemctl','--user','show',unit,
+            '-p','ActiveState','-p','SubState','-p','MainPID','-p','Job','-p','NeedDaemonReload',timeout=5).splitlines())
+        if fields != dict(ActiveState='inactive',SubState='dead',MainPID='0',Job='',NeedDaemonReload='no'):
+            raise RuntimeError('MoE profile active/pending/unknown: '+unit)
+
+
 def check_owner_inert(template, previous_instance):
     """Read-only global gate: no enabled template/instances, jobs or live owners."""
     pattern='hyprneuro-pi-owner@*.service'
@@ -139,6 +150,19 @@ def prepare_parent_owner(source, owner, python, staged):
 
 
 
+def copy_database_snapshot(bundle, manifest_sha, production_path, destination):
+    """Copy a pinned ALREADY PREPARED backup; never open production SQLite."""
+    manifest = private_file(bundle/'manifest.json')
+    if digest(manifest) != manifest_sha: raise RuntimeError('Snapshot manifest changed')
+    data = json.loads(manifest.read_text())['database']
+    snapshot = private_file(data['backup'])
+    if data['path'] != str(production_path) or digest(snapshot) != data['backup_sha256']:
+        raise RuntimeError('Snapshot identity changed')
+    with destination.open('xb') as file: file.write(snapshot.read_bytes())
+    return dict(bundle=str(bundle),manifest_sha256=manifest_sha,sha256=data['backup_sha256'],
+                current_database_read=False,not_current_database_attestation=True)
+
+
 def prepare_trusted_launch(source, python, binary, staged, runtime):
     """Stage only fixed launch material; no server, consent, database or unit calls."""
     entry = staged/'pi-desktop-entry.py'
@@ -176,7 +200,11 @@ def main():
     parser.add_argument('--output', required=True, type=Path)
     parser.add_argument('--previous-bundle', type=Path, help='Exact previously reviewed/applied owner-template release')
     parser.add_argument('--previous-manifest-sha256', help='Pinned reviewed previous manifest SHA256; never ambient adoption')
+    parser.add_argument('--database-snapshot-bundle',type=Path,help='Use existing pinned preparation backup; no production DB open')
+    parser.add_argument('--database-snapshot-manifest-sha256')
     args = parser.parse_args()
+    if bool(args.database_snapshot_bundle) != bool(args.database_snapshot_manifest_sha256):
+        parser.error('Both database snapshot pins required')
     repo = Path(__file__).resolve().parents[1]
     commit = run('git', '-C', str(repo), 'rev-parse', args.commit + '^{commit}')
     dest = args.output
@@ -199,6 +227,7 @@ def main():
     ui = unit_identity('hyprneuro-ui.service')
     sidecar = unit_identity('hyprneuro.service')
     models=[unit_identity('lfm@'+role+'.service') for role in ('text','omni','decision')]
+    check_moe_inert()
     installed = private_file(Path.home()/'.local/bin/hyprneuro-ui')
     if digest(installed) != ui['exe_sha256']:
         raise RuntimeError('Installed UI differs from running UI; do not preserve stale rollback')
@@ -226,10 +255,17 @@ def main():
     def progress(*_):
         if time.monotonic()>deadline:
             raise TimeoutError('SQLite backup deadline; do not apply')
-    with closing(sqlite3.connect(db.as_uri()+'?mode=ro',uri=True,timeout=5)) as src, closing(sqlite3.connect(backup/'observations.sqlite3')) as dst:
-        src.backup(dst,pages=256,progress=progress,sleep=.02)
-        if dst.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
-            raise RuntimeError('Backup integrity failure')
+    snapshot_provenance = None
+    if args.database_snapshot_bundle:
+        snapshot_provenance = copy_database_snapshot(args.database_snapshot_bundle,
+            args.database_snapshot_manifest_sha256,db,backup/'observations.sqlite3')
+        with closing(sqlite3.connect((backup/'observations.sqlite3').as_uri()+'?mode=ro',uri=True)) as check:
+            if check.execute('PRAGMA quick_check').fetchall() != [('ok',)]: raise RuntimeError('Snapshot integrity failure')
+    else:
+        with closing(sqlite3.connect(db.as_uri()+'?mode=ro',uri=True,timeout=5)) as src, closing(sqlite3.connect(backup/'observations.sqlite3')) as dst:
+            src.backup(dst,pages=256,progress=progress,sleep=.02)
+            if dst.execute('PRAGMA quick_check').fetchall() != [('ok',)]:
+                raise RuntimeError('Backup integrity failure')
     settings = Path(config)/'hyprneuro/settings.json'
     settings_receipt = None
     if settings.exists():
@@ -315,9 +351,8 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
         (staged/'start-owner.sh').write_text(launch);(staged/'start-owner.sh').chmod(0o500)
     for identity in (ui,sidecar,*models):
         assert unit_identity(identity['unit'])==identity, 'Running identity changed during preparation'
-    if run('systemctl','--user','show','lfm@moe.service','-p','MainPID','--value')!='0' or run('systemctl','--user','show','lfm@moe.service','-p','ActiveState','--value')!='inactive':
-        raise RuntimeError('MoE active; stop preparation without model operation')
-    for name in ['prepare_app_release.py','verify_app_release.py','apply_app_release.py']:
+    check_moe_inert()
+    for name in ['prepare_app_release.py','verify_app_release.py','apply_app_release.py','guard_app_release.py']:
         shutil.copyfile(repo/'scripts'/name,staged/name);(staged/name).chmod(0o500)
     # Freeze exported payload; Python runtime must never create cache files here.
     for p in source.rglob('*'):
@@ -328,9 +363,10 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
     manifest=dict(explicit_ui=explicit_ui,persistent_owner=explicit_ui,commit=commit,prepared_only=True,ui=ui,sidecar=sidecar,models=models,units=units,owner_template_baseline=owner_baseline,
         python=str(python),import_origins=origins,installed_ui=str(installed),installed_mode=stat.S_IMODE(installed.stat().st_mode),
         installed_sha256=digest(installed),binary=str(bin_dir/'hyprneuro-ui'),binary_sha256=digest(bin_dir/'hyprneuro-ui'),
-        database=dict(path=str(db),backup=str(backup/'observations.sqlite3'),backup_sha256=digest(backup/'observations.sqlite3'),quick_check='ok'),
+        database=dict(path=str(db),backup=str(backup/'observations.sqlite3'),backup_sha256=digest(backup/'observations.sqlite3'),quick_check='ok',snapshot_provenance=snapshot_provenance),
         editable_metadata=dict(path='/home/ron/Projects/Hyprneuro/python/.venv/lib/python3.13/site-packages/__editable__.hyprneuro-0.1.0.pth',sha256=digest('/home/ron/Projects/Hyprneuro/python/.venv/lib/python3.13/site-packages/__editable__.hyprneuro-0.1.0.pth')),
         settings=settings_receipt,task=task,owner=str(owner),workspace=str(workspace),runtime=runtime,
+        consent_journal=str(Path(state)/'hyprneuro/consent-audit/v1.jsonl'),
         owner_descriptor_sha256=digest(owner/'owner.json') if explicit_ui else None,
         owner_unit='hyprneuro-pi-owner@'+run('systemd-escape','--path',str(owner))+'.service' if explicit_ui else None,
         staged_files={p.name:digest(p) for p in staged.iterdir() if p.is_file()},

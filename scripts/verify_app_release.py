@@ -7,7 +7,7 @@ import socket
 import struct
 import stat
 from pathlib import Path
-from prepare_app_release import digest, private_file, unit_identity, run, check_owner_baseline
+from prepare_app_release import digest, private_file, unit_identity, run, check_owner_baseline, check_moe_inert
 
 
 def check_ui_mode(env, manifest, legacy):
@@ -121,7 +121,7 @@ def verify(bundle, installed=False, legacy=False):
         if unit_identity(identity['unit'])!=identity:raise RuntimeError('Model identity changed')
     for unit in ['hyprneuro.service','hyprneuro-ui.service','lfm@text.service','lfm@omni.service','lfm@decision.service','lfm@moe.service']:
         if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value')!='no':raise RuntimeError('Pending unit configuration change: '+unit)
-    if run('systemctl','--user','show','lfm@moe.service','-p','MainPID','--value')!='0' or run('systemctl','--user','show','lfm@moe.service','-p','ActiveState','--value')!='inactive':raise RuntimeError('MoE active/unknown')
+    check_moe_inert()
     if not installed:
         for identity in (m['ui'],m['sidecar']):
             if unit_identity(identity['unit'])!=identity:raise RuntimeError('App baseline changed; no stale overwrite/restore')

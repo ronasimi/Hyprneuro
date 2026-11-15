@@ -21,3 +21,31 @@ void __wrap_gtk_layer_set_keyboard_mode(GtkWindow *w,GtkLayerShellKeyboardMode m
     }
 }
 int main(int argc,char **argv) {return hyprneuro_private_fixture_main(argc,argv);}
+/* Synthetic private systemd metadata ONLY for real trusted-launch fixture.
+ * All non-systemd calls go to the real private session bus. */
+GVariant *__real_g_dbus_connection_call_sync(GDBusConnection *,const gchar *,const gchar *,const gchar *,const gchar *,GVariant *,const GVariantType *,GDBusCallFlags,gint,GCancellable *,GError **);
+GVariant *__wrap_g_dbus_connection_call_sync(GDBusConnection *bus,const gchar *name,const gchar *path,const gchar *iface,const gchar *method,GVariant *params,const GVariantType *type,GDBusCallFlags flags,gint timeout,GCancellable *cancel,GError **error) {
+    const char *broker=g_getenv("HN_PRIVATE_BROKER_PID");
+    if (broker && !g_strcmp0(name,"org.freedesktop.systemd1")) {
+        g_printerr("PRIVATE SYNTHETIC UNIT method=%s\n",method);
+        if (!g_strcmp0(method,"GetUnit")) return g_variant_ref_sink(g_variant_new("(o)","/fixture/sidecar"));
+        if (!g_strcmp0(method,"GetAll")) {
+            GVariantBuilder b;g_variant_builder_init(&b,G_VARIANT_TYPE("a{sv}"));
+            g_variant_builder_add(&b,"{sv}","ActiveState",g_variant_new_string("active"));
+            g_variant_builder_add(&b,"{sv}","SubState",g_variant_new_string("running"));
+            g_variant_builder_add(&b,"{sv}","Job",g_variant_new("(uo)",0,"/"));
+            return g_variant_ref_sink(g_variant_new("(a{sv})",&b));
+        }
+        if (!g_strcmp0(method,"Get"))return g_variant_ref_sink(g_variant_new("(v)",g_variant_new_uint32((guint)g_ascii_strtoull(broker,NULL,10))));
+        g_error("Unexpected private metadata call");
+    }
+    return __real_g_dbus_connection_call_sync(bus,name,path,iface,method,params,type,flags,timeout,cancel,error);
+}
+GSubprocessLauncher *__real_g_subprocess_launcher_new(GSubprocessFlags);
+GSubprocessLauncher *__wrap_g_subprocess_launcher_new(GSubprocessFlags flags) {
+    if (g_getenv("HN_PRIVATE_BROKER_PID")) {
+        g_printerr("PRIVATE BOOTSTRAP reached fixed child spawn; inherited stderr (production policy unchanged)\n");
+        flags &= ~G_SUBPROCESS_FLAGS_STDERR_SILENCE;
+    }
+    return __real_g_subprocess_launcher_new(flags);
+}

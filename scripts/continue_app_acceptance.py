@@ -108,6 +108,62 @@ def verify_started(bundle,root,context_sha256):
     verify(bundle,root,context_sha256)
 
 
+def sidecar_identity(deadline):
+    from prepare_app_release import run
+    remaining=deadline-time.monotonic()
+    if remaining<=0:raise TimeoutError('Sidecar readiness total deadline')
+    fields=dict(x.split('=',1) for x in run('systemctl','--user','show','hyprneuro.service',
+        '-p','MainPID','-p','ActiveState','-p','SubState','-p','Job','-p','NeedDaemonReload',timeout=min(3,remaining)).splitlines())
+    if ({k:fields[k] for k in ['ActiveState','SubState','Job','NeedDaemonReload']}!=dict(
+            ActiveState='active',SubState='running',Job='',NeedDaemonReload='no')):
+        raise RuntimeError('Sidecar state/job/reload changed')
+    pid=int(fields['MainPID']);proc=Path('/proc')/str(pid)
+    if pid<=0 or proc.stat().st_uid!=os.getuid():raise RuntimeError('Sidecar PID/UID invalid')
+    result=dict(pid=pid,start=(proc/'stat').read_text().rsplit(')',1)[1].split()[19])
+    if time.monotonic()>=deadline:raise TimeoutError('Sidecar readiness total deadline')
+    return result
+
+
+def listener_snapshot(path,pid):
+    try:info=path.lstat()
+    except FileNotFoundError:return None
+    if path!=path.resolve() or not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600:
+        raise RuntimeError('Sidecar listener path/type/UID/mode invalid')
+    owned=set()
+    for fd in (Path('/proc')/str(pid)/'fd').iterdir():
+        try:target=os.readlink(fd)
+        except FileNotFoundError:continue  # unrelated descriptor closed
+        if target.startswith('socket:[') and target.endswith(']'):owned.add(target[8:-1])
+    rows=[]
+    for line in (Path('/proc')/str(pid)/'net/unix').read_text().splitlines()[1:]:
+        row=line.split()
+        if len(row)==8 and row[7]==str(path):rows.append(row)
+    if len(rows)>1:raise RuntimeError('Ambiguous/rebound sidecar socket pathname')
+    valid=[r for r in rows if r[6] in owned and int(r[3],16)&0x10000 and r[4]=='0001' and r[5]=='01']
+    if len(valid)>1:raise RuntimeError('Ambiguous sidecar listener')
+    if not valid:return None
+    return dict(filesystem_device=info.st_dev,filesystem_inode=info.st_ino,kernel_socket_inode=valid[0][6])
+
+
+def wait_sidecar_listener(path,deadline):
+    expected=sidecar_identity(deadline)
+    while time.monotonic()<deadline:
+        if sidecar_identity(deadline)!=expected:raise RuntimeError('Sidecar PID/start replaced')
+        snapshot=listener_snapshot(path,expected['pid'])
+        if snapshot:
+            if sidecar_identity(deadline)!=expected:raise RuntimeError('Sidecar changed during readiness observation')
+            return dict(identity=expected,path=str(path),snapshot=snapshot)
+        time.sleep(min(.05,max(0,deadline-time.monotonic())))
+    raise TimeoutError('Sidecar listener readiness deadline; UI NOT started')
+
+
+def recheck_sidecar_listener(proof,deadline):
+    if (sidecar_identity(deadline)!=proof['identity'] or
+            listener_snapshot(Path(proof['path']),proof['identity']['pid'])!=proof['snapshot'] or
+            sidecar_identity(deadline)!=proof['identity']):
+        raise RuntimeError('Sidecar listener changed before UI start')
+
+
 def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=None):
     if not authorized or not unlocked:raise PermissionError('Actual reviewed parent relay/fresh unlock checks required')
     # Preflight failure never starts/stops an unrelated app. No failed marker replay.
@@ -125,9 +181,13 @@ def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=N
         write_state(root,state,'starting-installed-sidecar')
         desktop_safe(session);load_context(bundle,root,context_sha256)
         subprocess.run(['systemctl','--user','start','hyprneuro.service'],check=True,timeout=15)
+        write_state(root,state,'waiting-sidecar-control-listener')
+        readiness_deadline=min(deadline,time.monotonic()+8)  # ONE budget including final post-await recheck
+        proof=wait_sidecar_listener(Path(m['runtime'])/'hyprharness/grant-control.sock',readiness_deadline)
         write_state(root,state,'starting-installed-UI')
         desktop_safe(session);load_context(bundle,root,context_sha256)
-        subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=15)
+        recheck_sidecar_listener(proof,readiness_deadline)  # after context/unlock awaits, immediately before UI start
+        subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=min(15,max(.001,deadline-time.monotonic())))
         write_state(root,state,'verifying-installed')
         verify_started(bundle,root,context_sha256)
         write_state(root,state,'acceptance-window')

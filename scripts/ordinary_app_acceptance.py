@@ -225,9 +225,10 @@ class UI:
             if name in ['Reload','← Back'] and not self.settings_view():return False
             matches=[node for node in self.nodes() if node.get_role_name()=='button' and node.get_name()==name
                      and node.get_state_set().contains(self.Atspi.StateType.SHOWING)]
-            if len(matches)>1:raise RuntimeError('Exact visible button ambiguous')
+            if len(matches)>1:raise RuntimeError(self.button_diagnostic(name))
             return matches[0] if matches and matches[0].get_state_set().contains(self.Atspi.StateType.SENSITIVE) else False
-        self.desktop.wait(selected,timeout=8)  # read-only retries, NEVER retry action
+        try:self.desktop.wait(selected,timeout=8)  # read-only retries, NEVER retry action
+        except AssertionError as error:raise RuntimeError(self.button_diagnostic(name)) from error
         node=selected()
         if not node or self.Atspi.Action.get_n_actions(node)!=1:raise RuntimeError('Exact button/action unavailable')
         if name=='Reload':
@@ -238,6 +239,15 @@ class UI:
         elif name in ['Expand transcript: Normal → Expanded','Restore transcript: Expanded → Normal']:
             other='Restore transcript: Expanded → Normal' if name.startswith('Expand') else 'Expand transcript: Normal → Expanded'
             self.desktop.wait(lambda:self.size()==other,timeout=3)
+
+    def button_diagnostic(self,name):
+        self.safe()
+        nodes=[n for n in self.nodes() if n.get_role_name()=='button' and n.get_name()==name]
+        visible=[n for n in nodes if n.get_state_set().contains(self.Atspi.StateType.SHOWING)]
+        eligible=[n for n in visible if n.get_state_set().contains(self.Atspi.StateType.SENSITIVE)]
+        state='absent' if not nodes else 'hidden' if not visible else 'ambiguous' if len(visible)>1 else 'insensitive' if not eligible else 'eligible-but-view/action-unproved'
+        # Literal widget/owned PID only: no ambient captions, stderr or secrets.
+        return f'Own button pid={self.current["pid"]} label={name!r} state={state}; bootstrap-stage=unobserved (not a cause claim)'
 
     def reload_once(self,node,selected):
         from gi.repository import GLib

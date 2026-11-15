@@ -30,7 +30,7 @@ class ContinuationTests(unittest.TestCase):
                 def state(*args):
                     if failure=='persist' or (failure=='persist-after-start' and args[2]=='verifying-installed'):raise OSError('fsync failure')
                     return persist(*args)
-                with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run',side_effect=control),patch.object(continuation,'verify_started',side_effect=verified),patch.object(continuation,'write_state',side_effect=state),patch.object(guard,'observe',side_effect=observed),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}) as contained,patch.object(apply,'desktop_safe'),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,8000] if failure=='timeout' else None):
+                with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run',side_effect=control),patch.object(continuation,'verify_started',side_effect=verified),patch.object(continuation,'write_state',side_effect=state),patch.object(guard,'observe',side_effect=observed),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}) as contained,patch.object(apply,'desktop_safe'),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,0,0,8000] if failure=='timeout' else None):
                     self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),2 if failure=='persist' else 1)
                     contained.assert_called_once()
                 self.assertTrue(all(c[:3]==['systemctl','--user','start'] and c[-1] in guard.APPS for c in calls))
@@ -41,13 +41,13 @@ class ContinuationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
             context=dict(id='synthetic',driver='/synthetic/driver')
-            with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation.subprocess,'run',side_effect=RuntimeError('start')),patch.object(apply,'desktop_safe'),patch.object(guard,'contain',return_value={u:dict(stopped=False) for u in guard.APPS}):
+            with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation.subprocess,'run',side_effect=RuntimeError('start')),patch.object(apply,'desktop_safe'),patch.object(guard,'contain',return_value={u:dict(stopped=False) for u in guard.APPS}):
                 self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),1)
                 self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-UNCONTAINED')
                 with self.assertRaisesRegex(RuntimeError,'already used'):continuation.execute(root,root,'synthetic',True,True,'a'*64)
 
     def test_preflight_failure_never_starts_or_stops(self):
-        with patch.object(continuation,'preflight',side_effect=RuntimeError('unknown owner')),patch.object(continuation.subprocess,'run') as commands:
+        with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',side_effect=RuntimeError('unknown owner')),patch.object(continuation.subprocess,'run') as commands:
             with self.assertRaises(RuntimeError):continuation.execute(Path('/synthetic'),Path('/synthetic'),'synthetic',True,True)
             commands.assert_not_called()
 
@@ -69,7 +69,7 @@ class ContinuationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
             context=dict(id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=None;process.terminate.side_effect=RuntimeError('unknown')
-            with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,8000]):
+            with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,0,0,8000]):
                 self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),1)
             self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-UNCONTAINED')
 
@@ -77,7 +77,7 @@ class ContinuationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
             context=dict(id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=0;process.returncode=0
-            with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(continuation.subprocess,'Popen',return_value=process):
+            with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(continuation.subprocess,'Popen',return_value=process):
                 self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),0)
             state=json.loads((root/'continuation-state.json').read_text());self.assertFalse(state['human_acceptance_claimed'])
             self.assertIn('NOT-human-READY',state['phase'])

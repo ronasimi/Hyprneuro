@@ -27,13 +27,13 @@ class BudgetTests(unittest.TestCase):
   phase=os.environ.get('HN_BUDGET_WORKER')
   if not phase:self.skipTest('subprocess worker only')
   with tempfile.TemporaryDirectory() as d:
-   root=Path(d);artifact=root/'artifact';artifact.write_text('OLD');ctx=dict(version=2,id='private',driver='/never');starts=[];checked=[];actual_run=subprocess.run
+   root=Path(d);artifact=root/'artifact';artifact.write_text('OLD');source=root/'candidate';source.write_text('NEW');source.chmod(0o400);ctx=dict(version=2,id='private',driver='/never');starts=[];checked=[];actual_run=subprocess.run
    def helper():
     import inspect
     kw=dict(deadline=time.monotonic()+.03) if 'deadline' in inspect.signature(prep.run).parameters else {}
     prep.run(sys.executable,'-B','-c','import time;time.sleep(5)',**kw)
    def cutover(*args,**kwargs):
-    artifact.write_text('NEW')
+    apply.atomic_copy(source,artifact,0o600)
     if phase=='partial':helper()
    def recheck(*args,**kwargs):
     checked.append(1)
@@ -43,7 +43,7 @@ class BudgetTests(unittest.TestCase):
     return actual_run(argv,*args,**kwargs)
    with patch.object(control,'preflight',return_value=(ctx,dict(runtime='/private'))),patch.object(control,'load_context',return_value=ctx),patch.object(repair,'cutover',side_effect=cutover),patch.object(repair,'verify_replacements',side_effect=recheck),patch.object(apply,'desktop_safe'),patch.object(control,'wait_sidecar_listener',return_value={}),patch.object(control,'recheck_sidecar_listener'),patch.object(subprocess,'run',side_effect=run),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}) as stop:
     self.assertEqual(control.execute(root,root,'private',True,True,'a'*64),1);stop.assert_called_once()
-   self.assertEqual(artifact.read_text(),'NEW');self.assertEqual(starts,[] if phase=='partial' else ['hyprneuro.service'])
+   self.assertEqual(source.read_text(),'NEW');self.assertEqual(artifact.read_text(),'NEW');self.assertEqual(starts,[] if phase=='partial' else ['hyprneuro.service'])
    self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-apps-stopped')
  def test_both_inherited_restart_policies_effectively_overridden(self):
   # Synthetic manager snapshot, not host systemd: an on-failure base for BOTH
@@ -67,3 +67,13 @@ class BudgetTests(unittest.TestCase):
      effective[unit]='on-failure'
      with self.assertRaisesRegex(RuntimeError,'restart'):repair.verify_replacements(ctx,m)
      effective[unit]='no'
+ def test_desktop_and_unit_helpers_receive_remaining_budget(self):
+  deadline=time.monotonic()+.5
+  fields='User='+str(os.getuid())+'\nRemote=no\nType=wayland\nActive=yes\nLockedHint=no'
+  with patch.object(subprocess,'check_output',return_value=fields) as check,patch.object(subprocess,'run',return_value=subprocess.CompletedProcess([],1)) as locker:
+   apply.desktop_safe('synthetic',deadline=deadline)
+   self.assertLessEqual(check.call_args.kwargs['timeout'],.5);self.assertLessEqual(locker.call_args.kwargs['timeout'],.5)
+  fields='MainPID='+str(os.getpid())+'\nActiveState=active\nFragmentPath=/private/base\nDropInPaths='
+  with patch.object(subprocess,'check_output',return_value=fields) as check:
+   self.assertEqual(prep.unit_identity('synthetic',deadline=deadline)['pid'],os.getpid())
+   self.assertGreater(check.call_args.kwargs['timeout'],0);self.assertLessEqual(check.call_args.kwargs['timeout'],.5)

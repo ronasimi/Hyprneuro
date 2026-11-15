@@ -160,10 +160,11 @@ class UI:
             if (max(ours['x'],node['x'])<min(ours['x']+ours['w'],node['x']+node['w'])
                     and max(ours['y'],node['y'])<min(ours['y']+ours['h'],node['y']+node['h'])):
                 raise RuntimeError('Overlapping foreground layer; no input')
+        return ours
 
     def composer(self):
         node=self.desktop.find('text',COMPOSER)
-        if node is None:raise RuntimeError('Exact composer absent')
+        if node is None or not node.get_state_set().contains(self.Atspi.StateType.SHOWING):raise RuntimeError('Exact visible composer absent')
         return node
 
     def expect_draft(self,text):
@@ -175,9 +176,25 @@ class UI:
         if text not in [FIRST,SECOND,READ]:raise RuntimeError('Nonliteral input prohibited')
         self.empty()
         node=self.composer()
-        if not node.get_editable_text_iface().set_text_contents(text):raise RuntimeError('Composer edit failed')
-        if not node.get_component_iface().grab_focus():raise RuntimeError('Composer focus failed')
+        # GTK4 does not implement AT-SPI Component.GrabFocus. Use only this
+        # exact visible composer's window-relative bounds inside our verified layer.
+        layer=self.ordinary();rect=self.Atspi.Component.get_extents(node,self.Atspi.CoordType.WINDOW)
+        if not (rect.width>0 and rect.height>0 and rect.x>=0 and rect.y>=0
+                and rect.x+rect.width<=layer['w'] and rect.y+rect.height<=layer['h']):
+            raise RuntimeError('Composer bounds outside own layer')
+        if self.ordinary()!=layer:raise RuntimeError('Own layer changed before focus')
+        self.focus_pointer(layer,layer['x']+rect.x+rect.width//2,layer['y']+rect.y+rect.height//2)
+        self.desktop.wait(lambda:self.composer().get_state_set().contains(self.Atspi.StateType.FOCUSED),timeout=3)
+        self.ordinary();node=self.composer()
+        if not self.Atspi.EditableText.set_text_contents(node,text):raise RuntimeError('Composer edit failed')
+        if not self.Atspi.Text.set_caret_offset(node,len(text)):raise RuntimeError('Composer caret failed')
         self.expect_draft(text)
+
+    def focus_pointer(self,layer,x,y):
+        if self.ordinary()!=layer:raise RuntimeError('Own scope changed before move')
+        self.command('wdotool','--backend','wlr-protocols','mousemove',str(x),str(y))
+        if self.ordinary()!=layer:raise RuntimeError('Own scope changed after move; no click')
+        self.command('wdotool','--backend','wlr-protocols','click','1')
 
     def key(self,key):
         if key not in ['ctrl+Return','Return']:raise RuntimeError('Unapproved key')
@@ -193,14 +210,42 @@ class UI:
             try:self.command('wdotool','--backend','wlr-protocols','keyup',key)
             finally:self.keys_inflight=False
 
+    def settings_view(self):
+        nodes=self.nodes()
+        return (any(n.get_role_name()=='button' and n.get_name()=='← Back'
+                    and n.get_state_set().contains(self.Atspi.StateType.SHOWING) for n in nodes)
+                and any(n.get_role_name()=='label' and n.get_name()=='Transcript size'
+                        and n.get_state_set().contains(self.Atspi.StateType.SHOWING) for n in nodes))
+
     def button(self,name):
         if name not in BUTTONS:raise RuntimeError('Unapproved button (security/chooser actions prohibited)')
-        self.ordinary()
-        matches=[node for node in self.nodes() if node.get_role_name()=='button' and node.get_name()==name
-                 and node.get_state_set().contains(self.Atspi.StateType.SHOWING)
-                 and node.get_state_set().contains(self.Atspi.StateType.SENSITIVE)]
-        if len(matches)!=1:raise RuntimeError('Exact visible/enabled button ambiguous or absent')
-        self.desktop.activate('button',name)
+        def selected():
+            self.ordinary()
+            if name in ['Reload','← Back'] and not self.settings_view():return False
+            matches=[node for node in self.nodes() if node.get_role_name()=='button' and node.get_name()==name
+                     and node.get_state_set().contains(self.Atspi.StateType.SHOWING)]
+            if len(matches)>1:raise RuntimeError('Exact visible button ambiguous')
+            return matches[0] if matches and matches[0].get_state_set().contains(self.Atspi.StateType.SENSITIVE) else False
+        self.desktop.wait(selected,timeout=8)  # read-only retries, NEVER retry action
+        node=selected()
+        if not node or self.Atspi.Action.get_n_actions(node)!=1:raise RuntimeError('Exact button/action unavailable')
+        if not self.Atspi.Action.do_action(node,0):raise RuntimeError('Exact button action failed')
+        if name=='Reload':
+            # Prove THIS action started, then completed. A missed busy edge is
+            # failure, never permission to leave Settings or repeat activation.
+            def busy():
+                self.ordinary()
+                return self.settings_view() and any(n.get_role_name()=='button' and n.get_name()=='Reload'
+                    and n.get_state_set().contains(self.Atspi.StateType.SHOWING)
+                    and not n.get_state_set().contains(self.Atspi.StateType.SENSITIVE) for n in self.nodes())
+            self.desktop.wait(busy,timeout=3)
+            self.desktop.wait(lambda:selected() and not any(n.get_role_name()=='label' and 'Loading…' in n.get_name()
+                              for n in self.nodes()),timeout=8)
+        elif name=='Settings':self.desktop.wait(self.settings_view,timeout=3)
+        elif name=='← Back':self.desktop.wait(lambda:not self.settings_view(),timeout=3)
+        elif name in ['Expand transcript: Normal → Expanded','Restore transcript: Expanded → Normal']:
+            other='Restore transcript: Expanded → Normal' if name.startswith('Expand') else 'Expand transcript: Normal → Expanded'
+            self.desktop.wait(lambda:self.size()==other,timeout=3)
 
     def size(self):
         for name in ['Expand transcript: Normal → Expanded','Restore transcript: Expanded → Normal']:

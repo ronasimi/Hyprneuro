@@ -59,7 +59,7 @@ class TypedDesktop(Hyprland):
     def directory(self):
         return Path("/fixture")
 
-    async def query(self, name):
+    async def query(self, name, *, deadline=None):
         barrier = name
         if name == "activewindow":
             self.focus_queries += 1
@@ -68,7 +68,7 @@ class TypedDesktop(Hyprland):
             await self.hook(barrier)
         return {"tag": "v0.57.3"} if name == "version" else dict(self.window)
 
-    def _request(self, command):
+    def _request(self, command, *, deadline=None):
         # Baseline adapter dispatch path; never a real socket.
         self.writes.append(command.encode())
         return "ok"

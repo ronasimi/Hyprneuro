@@ -26,6 +26,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from .desktop import IPC_TIMEOUT_SECONDS, _remaining
+
 DEFAULT_TTL_MS = 10_000
 MAX_TTL_MS = 120_000
 
@@ -132,7 +134,7 @@ class LeaseManager:
 class FocusValidator:
     """Validate that a target window is still the focused, valid window."""
 
-    async def validate(self, desktop, expected: dict) -> dict:
+    async def validate(self, desktop, expected: dict, *, deadline=None) -> dict:
         """Check the live focused window against `expected` (address/class).
 
         `expected` must carry an `address`; `class` is also checked when given.
@@ -141,7 +143,9 @@ class FocusValidator:
         if not isinstance(expected, dict) or not expected.get("address"):
             return {"valid": False, "reason": "no_expected_window"}
         try:
-            window = await desktop.query("activewindow")
+            window = await desktop.query("activewindow", **({"deadline": deadline} if deadline is not None else {}))
+        except TimeoutError:
+            raise
         except (OSError, ValueError, RuntimeError):
             return {"valid": False, "reason": "compositor_unavailable"}
         if not window or not window.get("address"):
@@ -186,6 +190,7 @@ class DesktopController:
 
     async def perform(self, task_id: str, token: str, op: str, value=None,
                       *, expected_window: dict | None = None) -> dict:
+        deadline = time.monotonic() + IPC_TIMEOUT_SECONDS
         # Snapshot caller-owned metadata: it cannot change the target while an
         # asynchronous validation is pending. All current ops affect focus/layout.
         expected = dict(expected_window) if isinstance(expected_window, dict) else {}
@@ -203,9 +208,10 @@ class DesktopController:
                 raise DispatchDenied({"ok": False, "stage": "lease", "reason": "no_active_lease"})
             if self.leases.is_paused(task_id, token):
                 raise DispatchDenied({"ok": False, "stage": "lease", "reason": "lease_paused"})
+            _remaining(deadline)
 
         async def before_dispatch():
-            fv = await self.focus.validate(self.desktop, expected)
+            fv = await self.focus.validate(self.desktop, expected, deadline=deadline)
             # Recheck after the awaited focus read, including on focus failure.
             authority()
             if not fv["valid"]:
@@ -217,8 +223,11 @@ class DesktopController:
             if any(not isinstance(expected.get(key), str) or not expected[key]
                    for key in ("address", "class")):
                 raise DispatchDenied({"ok": False, "stage": "focus", "reason": "target_app_required"})
-            await before_dispatch()
-            result = await self.desktop.action(op, value, before_dispatch=before_dispatch)
+            async with asyncio.timeout_at(deadline):
+                await before_dispatch()
+                result = await self.desktop.action(op, value, before_dispatch=before_dispatch, deadline=deadline)
+        except TimeoutError:
+            return {"ok": False, "stage": "timeout", "reason": "desktop_deadline_exceeded"}
         except DispatchDenied as exc:
             return exc.result
         except (OSError, ValueError, RuntimeError) as exc:

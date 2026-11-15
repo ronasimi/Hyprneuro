@@ -20,13 +20,13 @@ class FakeDesktop:
         self.actions = []
         self.queries = 0
 
-    async def query(self, name):
+    async def query(self, name, *, deadline=None):
         self.queries += 1
         if name != "activewindow":
             raise ValueError("unknown")
         return self._window
 
-    async def action(self, op, value=None, *, before_dispatch):
+    async def action(self, op, value=None, *, before_dispatch, deadline=None):
         await before_dispatch()
         if self._action_error:
             raise self._action_error
@@ -134,7 +134,7 @@ class FocusValidatorTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_compositor_unavailable(self):
         class Err:
-            async def query(self, name):
+            async def query(self, name, *, deadline=None):
                 raise OSError("no compositor")
         r = await fv_validate(Err(), {"address": "0xabc"})
         self.assertEqual(r["reason"], "compositor_unavailable")

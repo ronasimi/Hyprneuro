@@ -1,7 +1,7 @@
 """STOPPED565 -> new db8 diagnostic artifacts only; no SQL, restore or starts.
 Called exclusively inside reviewed continuation's once-only guard/containment.
 """
-import json,os,stat
+import json,os,stat,time
 from pathlib import Path
 from continuation_context import digest,MANIFEST
 
@@ -24,6 +24,8 @@ def stopped_baseline(bundle,context,m):
     for unit in ['hyprneuro.service','hyprneuro-ui.service']:
         if unit_state(unit)!=dict(ActiveState='inactive',SubState='dead',MainPID='0',Job='',ControlGroup=''):raise RuntimeError('Repair requires stopped apps')
         if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Unreviewed app reload')
+    check_unit_backups(old,previous['units'])
+    if digest(old/'backup/hyprneuro-ui')!=previous['installed_sha256'] or digest(previous['database']['backup'])!=previous['database']['backup_sha256']:raise RuntimeError('Previous immutable archive drift')
     check_unit_backups(bundle,m['units'])
     for path,sha in context['installed_files'].items():
         file=private_file(path)
@@ -64,9 +66,13 @@ def cutover(bundle,context,m,session,check_context):
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Replacement effective units changed')
         if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Replacement not loaded')
 
-def verify_replacements(context,m):
+def verify_replacements(context,m,deadline=None):
     """Fresh closed-set artifact/mode checks before EACH reviewed app start."""
     from prepare_app_release import private_file,run
+    def timeout():
+        remaining=5 if deadline is None else deadline-time.monotonic()
+        if remaining<=0:raise TimeoutError('Repaired start recheck deadline')
+        return min(3,remaining)
     for path,entry in context['replacement_files'].items():
         p=private_file(path)
         if p!=Path(path) or digest(p)!=entry['sha256'] or stat.S_IMODE(p.stat().st_mode)!=entry['mode']:raise RuntimeError('Repaired artifact drift before start')
@@ -74,6 +80,6 @@ def verify_replacements(context,m):
         expected=context['replacement_files'].get(entry['path'],entry)['sha256']
         if digest(private_file(entry['path']))!=expected:raise RuntimeError('Repaired/base unit drift before start')
     for identity in [m['ui'],m['sidecar']]:
-        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
+        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=timeout()).splitlines())
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Repaired effective units drift before start')
-        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Repaired unit reload drift before start')
+        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=timeout())!='no':raise RuntimeError('Repaired unit reload drift before start')

@@ -1,3 +1,13 @@
+// One budget for the entire local cancellation proof, including SDK promises.
+// Observing both race arms also consumes failures after timeout; no replay.
+export async function boundedProof(completion, milliseconds) {
+  let timer;
+  try {
+    return await Promise.race([completion,new Promise(resolve=>{timer=setTimeout(()=>resolve(false),milliseconds);})]);
+  } catch {return false;}
+  finally {clearTimeout(timer);}
+}
+
 // Request-local HTTP ownership, only for the closed normal-only parent profile.
 // Neither abort() nor a terminal model event alone is closure evidence.
 export class CancellationScope {
@@ -69,12 +79,11 @@ export class CancellationScope {
     }
   }
   async drained() {
-    let timer;
-    try {
-      const completed=Promise.all([...this.streams.map(s=>s.completion),
-        ...this.requests.map(r=>r.cancellation)]).then(()=>true);
-      if(!await Promise.race([completed,new Promise(resolve=>{timer=setTimeout(()=>resolve(false),2000);})]))return false;
-    }catch{return false;}finally{clearTimeout(timer);}
+    // The owner bounds the ENTIRE proof. Keep tracking these real closures
+    // after that deadline; timeout is never evidence that cleanup completed.
+    const results=await Promise.allSettled([...this.streams.map(s=>s.completion),
+      ...this.requests.map(r=>r.cancellation)]);
+    if(results.some(result=>result.status==='rejected'))return false;
     // No header-only abort guess: an owned body and positive reader closure are
     // mandatory. SDK onResult additionally proves lazy producer/iterator drain.
     return this.closed&&!this.uncertain&&this.streams.length>0&&this.streams.every(s=>s.drained)&&

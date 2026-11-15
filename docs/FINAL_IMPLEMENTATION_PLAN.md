@@ -1161,3 +1161,42 @@ independent rereview. **No new bundle freeze/deploy until approval.** Separate
 failed-owner recovery gates remain, as do consent-audit/native-metrics/media/
 provider/skills/Hermes/Durable/soak requirements and external VIDEO refusal.
 Overall **NOT READY**.
+
+## 31. Audit P1-C2 complete cancellation proof budget — source-only correction
+
+The independent development audit found that fc43267 awaited SDK abort/idle
+before starting its transport-drain timer. Its narrow checkpoint/UI approval did
+**not** clear this newly reproduced liveness BLOCK. The unchanged historical
+[audit](DEVELOPMENT_AUDIT.md) is retained; [exact correction evidence](evidence/final-cancellation-liveness-source.json)
+supersedes only that source gap, pending independent review.
+
+The budget now starts at interrupt and covers abort, native prompt settlement,
+idle and producer/body drain. Timeout returns unknown, persists chat-unknown
+when storage works, retains the sealed scope and failed admission, consumes
+late failures and tracks actual cleanup. Early rejection cannot hide pending
+SDK/drain work. Late completion cannot reopen admission or persist known.
+Close/detach wait the bounded current cancellation queue, then refuse unfinished
+cleanup rather than hanging on another abort or claiming closed. The success
+checkpoint now also rechecks cancellation; the prior preprompt guard remains.
+
+Actual-SDK regressions cover stalled abort/idle/prompt, before-cancel queued
+same-generation fetch/tool work, late events/rejections, deadline without explicit
+cancel and success-checkpoint races. Headless pending-cleanup close test verifies
+no second abort/no fake closed. Final full run
+`01M7EM6TKWY0EQCY6VTQ24TQWJ` passes **478 Python +138 subtests/one optional skip,
+100 Node,24 normal C+24 ASan/UBSan C**, fresh GTK builds. Source/log hashes verified.
+Earlier focused failures, a private timed-out runner, corrections and both full
+runs are retained; setup ResourceWarnings/deprecations remain. Budget is not a
+hard realtime/filesystem guarantee or remote-compute-stopped assertion.
+
+**Next dependency:** independent exact cancellation source review. Authority
+commit6c9e25eecccec5291a0134026c9eace553256cac is separate and NOT integrated here;
+its real-broker public auth_create denial remains an explicit integration BLOCK.
+Design/review authenticated human CONTROL→host capability grant with durable
+exact action/scope/owner/request correlation, then atomic integration and real
+broker activation/read tests. No public/sameUID/model JSON approval bypass.
+Parallel authority/memory writers' files untouched. No recovery signal/reset,
+new bundle preparation, deploy, model restart or production inference/capture
+performed. Original conditional retirement authority still requires fresh exact
+identity/no-work/Legacy/locker/flock gates after source/release-plan review.
+Overall **NOT READY**.

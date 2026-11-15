@@ -1,0 +1,180 @@
+{
+  "source_base": "fc43267173d6c1386891c708c9ddcc77724ed3f7",
+  "status": "Cancellation liveness correction tested SOURCE ONLY; independent review required. NOT authority-integrated, bundled, deployed or live-accepted.",
+  "audit_finding": "P1-C2 abort/idle acknowledgement awaited before old drain budget; reviewer01M7E75AKT6V1GCWZXZJRFNEWK/tests-progress; retained original reproduction /home/ron/Workspace/a-fc43267-7nN7/idle-boundary.mjs and idle-boundary.log.",
+  "implementation": [
+    "Budget starts at interrupt, min(2000ms, callTimeoutMs), covers abort, native prompt settlement, idle and positive producer/body drain. Native prompt/idle wait races interruption so SDK stall cannot strand serialized request before proof.",
+    "All-settled tracking prevents early SDK rejection hiding another pending SDK task; transport drain tracked even on SDK rejection. Timeout consumes later failures but never marks cleanup complete or asserts remote termination.",
+    "On expiry, persist chat-unknown when I/O succeeds, retain sealed request scope and failed admission. Late cleanup cannot persist known, reopen admission or replay. Close/detach refuse unfinished cancellation after bounded current queue completion; close records close-unknown, never claims closed.",
+    "Late retained subscriber fenced; post-success-checkpoint abort recheck closes adjacent cancellation gap. Original preprompt abort check retained.",
+    "Scope.drained no longer owns a separate timeout: its completion tracks actual closures after the owner budget expires. Unproven scope retained, including after late completion."
+  ],
+  "proof_limits": "JS scheduling and checkpoint filesystem I/O cannot be hard realtime bounded. Budget bounds awaited SDK/transport proof, not remote compute stop/TCP peer ACK, persistence latency or unrelated pre-admission callbacks. Generic lifecycle without cancellation unchanged.",
+  "tests": {
+    "run": "01M7EM6TKWY0EQCY6VTQ24TQWJ",
+    "Python": {
+      "passed": 478,
+      "subtests": 138,
+      "optional_Pillow_skip": 1
+    },
+    "Node": 100,
+    "C": {
+      "C": {
+        "cases": 24,
+        "log_sha256": "c4a415b0bf8eb033ac97c3fc77548bc893d6c380c7c46eb07708cb2ce39b7a10"
+      },
+      "C-sanitized": {
+        "cases": 24,
+        "log_sha256": "46ef882601ff98158fb1581be0204bd479e0d9cf9aa0fde52532138360ce7c0c"
+      }
+    },
+    "fresh_normal_and_sanitized_GTK_builds": true,
+    "new_regressions": [
+      "Actual SDK stalled abort acknowledgement",
+      "Actual SDK stalled idle",
+      "Actual SDK stalled prompt wrapper",
+      "Before-cancel queued same-generation fetch/tool admission denied after timeout",
+      "Late subscriber cannot resurrect completed request",
+      "Cancel during success checkpoint with stalled abort",
+      "Early abort rejection plus stalled/late-rejecting native work tracked and consumed",
+      "Pending cleanup close refuses without another abort or fake closed",
+      "Deadline without explicit cancel releases serialized request as unknown"
+    ],
+    "phase_results": {
+      "python": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "d7b4b036605f5333044e16942e15080a0c1b5fd1073c8106a9ca1442eefe8ecd"
+      },
+      "node": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "5375f91da8dbabaa606f278d04d7b0bafe75ac35d026faeb016930fde27e4714"
+      },
+      "C-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "94a9c75cbda2af1ec3b0c277c084e0b5c57e872831d463d150e11b8d3e2f1652"
+      },
+      "C-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "008fb1e23cca407cd134f97db17db2c9b74b4dab4df74ea504f55c18fbd17b64"
+      },
+      "C-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "523c5cea7f132730412ea6a71f77f1c50feb6b54bbfb692822fb49d91c581f6f"
+      },
+      "C-sanitized-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "03a326dd66537cc6a18ebacdf2bf21545655e6f49d55859edd91c970a6a73edc"
+      },
+      "C-sanitized-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "6ccdd8e1cb3fea95546f6fdf84d572faff50ae992fea82ef760e9d637f7af9f3"
+      },
+      "C-sanitized-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "04e9095f307df104acf51702dab4f713c437f5c34a4a413bf433594de3fe4423"
+      }
+    }
+  },
+  "tested_source_sha256": {
+    "extensions/pi-owner/owner.mjs": "46e639e1d2848d91befc6bf1dd4a94a673430bd6b7098fba73fb10ca394d03cd",
+    "extensions/pi-owner/cancellation.mjs": "0b1246125edd3001dd73dffec249219b2245e194e794a0047ac0bc9fc53aa50e",
+    "tests/pi-owner-cancellation.mjs": "5c39e6687017306659e10bfbdf9aa23f3ec078a0ebab2d29506881ff1247313c"
+  },
+  "retained_history": {
+    "first_focused": "focused-node.log retained failures and timed-out private runner; only verified owned runner/children terminated, not production.",
+    "corrections": "Idle fault was injected before prompt admission; moved after real text. Lifecycle close waits bounded current cancel queue before refusing pending cleanup; body fixture explicitly awaits real cleanup after releasing its own barrier.",
+    "focused_r2": "30 passed",
+    "focused_r3": "31 passed",
+    "full_r1": "478Python/138subtests/1skip;100Node;24+24C passed before final strengthening to track drain even on SDK rejection.",
+    "warnings": "Retained Meson setup-log ResourceWarnings/GdkPixbuf deprecations; not warning-free."
+  },
+  "private_logs": [
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/C-build.log",
+      "sha256": "809128621c7abf596be789debed8a35368aac4a9542315d6f6a556b0341b72ce"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/C-sanitized-build.log",
+      "sha256": "ef0bf8fb1d167c29a4f9404c16c67ac68959ebf871f8ceda514806eb6dab9ae1"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/C-sanitized-setup.log",
+      "sha256": "abf9912623e6e452752e02824f64d8c8b8e5b8707e7e3efce105a501f145da91"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/C-sanitized-tests.log",
+      "sha256": "3a022fb046d2fdcc675c9db005a511329c399ce78f7c90abb0418e67794da9ff"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/C-setup.log",
+      "sha256": "9f6b9dc6f12f5eedbf5ed5fa9388279b37ae4a97cd170ce13d383c12233e8608"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/C-tests.log",
+      "sha256": "f3e59bd46bb9758585de959c019fdabede5ed4b795398670dd1b0faddb2ba6c6"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/focused-node-r2.log",
+      "sha256": "1192fd30a65430f346dcb4610a6a3bc0b5358dd862a9ae451db2d1a98acf3c86"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/focused-node-r3.log",
+      "sha256": "699ab950443f1749f97119e7faeac0da69f086a692f76c2e39d473e94a89e90e"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/focused-node.log",
+      "sha256": "d5316711b3591391294b2eeb1eb898292b003a9085c5eff6f37aef21a339ca00"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/C-build.log",
+      "sha256": "008fb1e23cca407cd134f97db17db2c9b74b4dab4df74ea504f55c18fbd17b64"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/C-sanitized-build.log",
+      "sha256": "6ccdd8e1cb3fea95546f6fdf84d572faff50ae992fea82ef760e9d637f7af9f3"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/C-sanitized-setup.log",
+      "sha256": "03a326dd66537cc6a18ebacdf2bf21545655e6f49d55859edd91c970a6a73edc"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/C-sanitized-tests.log",
+      "sha256": "04e9095f307df104acf51702dab4f713c437f5c34a4a413bf433594de3fe4423"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/C-setup.log",
+      "sha256": "94a9c75cbda2af1ec3b0c277c084e0b5c57e872831d463d150e11b8d3e2f1652"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/C-tests.log",
+      "sha256": "523c5cea7f132730412ea6a71f77f1c50feb6b54bbfb692822fb49d91c581f6f"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/node.log",
+      "sha256": "5375f91da8dbabaa606f278d04d7b0bafe75ac35d026faeb016930fde27e4714"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/full-r2/python.log",
+      "sha256": "d7b4b036605f5333044e16942e15080a0c1b5fd1073c8106a9ca1442eefe8ecd"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/node.log",
+      "sha256": "81e166518e3da9eb6dffaef1b28227c370ab407cefa4bbdb114ba7180524e113"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/python.log",
+      "sha256": "3a0d5ceba29cd86241d395472d865493b6b3e07dfa987f613946702162c25c4f"
+    }
+  ],
+  "integration_blocker": "Authority commit6c9e25eecccec5291a0134026c9eace553256cac not integrated. Its separate actual-SDK real-broker public auth_create denial remains BLOCK, not waived by this pre-authority-base full PASS. Authenticated exact human CONTROL-to-grant proposal/review plus atomic source integration required before any enablement/release.",
+  "operations": "No production signals/reset/flock probes/preparation/apply/model restart/inference/capture or grants performed in this source-only correction. Last retained runtime inventory is historical, not freshly asserted. Audit document preserved unchanged.",
+  "next": "Independent exact cancellation source review, then reviewed trusted consent grant-channel design and atomic integration with authority change. Live failed-owner retirement must freshly revalidate original conditional authorization; no freeze/deploy now."
+}

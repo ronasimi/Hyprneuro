@@ -9,6 +9,7 @@ import {connect} from 'node:net';
 import {createInterface} from 'node:readline';
 import {createHost} from '../extensions/pi-owner/host.mjs';
 import {signature} from '../extensions/pi-owner/socket.mjs';
+import {PiOwner} from '../extensions/pi-owner/owner.mjs';
 
 const sdkPath=process.env.PI_HARNESS_SDK,durableDir=process.env.PI_HARNESS_DURABLE;
 if(!sdkPath||!durableDir)throw new Error('Explicit installed SDK/Durable required, no installation');
@@ -210,7 +211,7 @@ test('unacknowledged owned reader cancellation stays UNKNOWN despite native abor
     cancel(f.chat,admission);assert.ok((await terminal(f.chat)).every(p=>p.type==='error'));
     assert.equal(f.host.session.isIdle,true);assert.equal(f.host.owner.phase,'failed');assert.equal(f.requests(),1);
     assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
-  }finally{release();await scope.requests[0].cancellation.catch(()=>{});}
+  }finally{release();await scope.requests[0].cancellation.catch(()=>{});await f.host.owner.cancellationCleanup.completion;}
 },(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial before unacknowledged cleanup'}));}));
 
 test('attempted late native fetch after fence is rejected before transport and invalidates tool-free proof', {timeout:15000},()=>fixture(async f=>{
@@ -251,3 +252,102 @@ test('cancel while chat-intent checkpoint awaits admits ZERO native prompts or H
   assert.equal((await terminal(f.chat,1))[0].type,'error');assert.equal(prompts,0);assert.equal(f.requests(),0);
   await f.host.close();assert.ok(await readFile(join(f.ownerRoot,'owner.guard')));
 },(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.end(finish('MUST NOT BE REQUESTED'));}));
+
+for(const stalled of ['abort','idle','prompt'])test(`actual SDK cancellation budget includes stalled ${stalled}; late work stays sealed/unknown`,{timeout:15000},()=>fixture(async f=>{
+  let release,lateEvent;
+  const gate=new Promise(resolve=>{release=resolve;});
+  const subscribe=f.host.session.subscribe.bind(f.host.session);
+  f.host.session.subscribe=fn=>{lateEvent=fn;return subscribe(fn);};
+  const method={abort:'abort',idle:'waitForIdle',prompt:'prompt'}[stalled];
+  const original=f.host.session[method].bind(f.host.session);
+  const stalledMethod=async(...args)=>{const result=await original(...args);await gate;return result;};
+  if(stalled!=='idle')f.host.session[method]=stalledMethod;
+  f.host.owner.callTimeoutMs=100;
+  try {
+    f.chat.send({op:'chat',id:'first',text:'Synthetic stalled SDK cleanup, never replay'});
+    const admission=await f.chat.next();let event;
+    do{event=await f.chat.next();}while(event.event?.type!=='delta');
+    if(stalled==='idle')f.host.session[method]=stalledMethod;
+    const scope=f.host.owner.currentChat;assert.ok(scope);
+    // Queue work BEFORE cancellation; it resumes in this same sealed generation.
+    const queued=[gate.then(()=>assert.rejects(scope.fetch('http://127.0.0.1:1/queued-fetch'),/sealed/)),
+      gate.then(()=>assert.throws(()=>scope.toolAdmission(),/sealed/))];
+    const started=performance.now();cancel(f.chat,admission);
+    let timer;
+    const result=await Promise.race([terminal(f.chat),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Cancellation escaped full proof budget')),700);})]).finally(()=>clearTimeout(timer));
+    assert.ok(performance.now()-started<700);assert.ok(result.every(p=>p.type==='error'));
+    assert.equal(f.host.owner.phase,'failed');assert.equal(f.host.owner.currentChat,scope);assert.equal(scope.closed,true);
+    assert.equal(f.host.owner.cancellationCleanup.settled,false);
+    const path=join(f.ownerRoot,'checkpoint.json'),checkpoint=await readFile(path,'utf8');assert.equal(JSON.parse(checkpoint).phase,'chat-unknown');
+    const before=f.requests();await assert.rejects(scope.fetch('http://127.0.0.1:1/must-not-connect'),/sealed/);
+    assert.throws(()=>scope.toolAdmission(),/sealed/);
+    assert.throws(()=>scope.native({streamSimple(){assert.fail('Late native producer admitted');}}).streamSimple({},{}),/sealed/);
+    // Fault-inject a retained subscriber after unsubscribe: no late UI event or state resurrection.
+    lateEvent({type:'message_end',message:{role:'assistant',stopReason:'stop'}});
+    await assert.rejects(f.host.owner.detachControl(),/cleanup pending/);
+    release();await Promise.all(queued);await f.host.owner.cancellationCleanup.completion;
+    assert.equal(f.host.owner.phase,'failed');assert.equal(scope.closed,true);assert.equal(f.host.owner.currentChat,scope);
+    assert.equal(f.requests(),before);assert.notEqual(JSON.parse(await readFile(path,'utf8')).phase,'ordinary');
+    f.chat.send({op:'chat',id:'next',text:'Separate new prompt must be rejected, not replayed'});
+    assert.equal((await f.chat.next()).event.type,'chat_admission');assert.equal((await terminal(f.chat,1))[0].type,'error');
+    assert.equal(f.requests(),before);assert.equal(f.host.owner.closed,false);
+  } finally {release();await f.host.owner.cancellationCleanup?.completion.catch(()=>{});}
+},(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial mock text'}));}));
+
+test('cancel during successful checkpoint cannot bypass stalled abort budget or admit a next turn',{timeout:15000},()=>fixture(async f=>{
+  let entered,releaseCheckpoint,releaseAbort;
+  const enteredCheckpoint=new Promise(resolve=>{entered=resolve;});
+  const checkpointGate=new Promise(resolve=>{releaseCheckpoint=resolve;});
+  const abortGate=new Promise(resolve=>{releaseAbort=resolve;});
+  const checkpoint=f.host.owner.checkpoint,abort=f.host.session.abort.bind(f.host.session);
+  f.host.owner.checkpoint=async(...args)=>{await checkpoint(...args);if(args[0]==='ordinary'&&f.host.owner.currentChat){entered();await checkpointGate;}};
+  f.host.session.abort=async()=>{await abort();await abortGate;};f.host.owner.callTimeoutMs=100;
+  try {
+    f.chat.send({op:'chat',id:'first',text:'Synthetic finish/checkpoint cancellation race'});const admission=await f.chat.next();await enteredCheckpoint;
+    cancel(f.chat,admission);await until(()=>f.host.owner.currentChat.closed);releaseCheckpoint();
+    const results=await terminal(f.chat);assert.ok(results.every(p=>p.type==='error'));
+    assert.equal(f.host.owner.phase,'failed');assert.equal(f.host.owner.cancellationCleanup.proven,false);
+    assert.equal(f.host.owner.currentChat.closed,true);assert.equal(f.requests(),1);
+    assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
+  } finally {releaseCheckpoint();releaseAbort();await f.host.owner.cancellationCleanup?.completion;}
+},(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.end(finish('natural completion before checkpoint cancel'));}));
+
+test('early SDK abort rejection cannot hide stalled native work; late rejection is consumed',{timeout:15000},()=>fixture(async f=>{
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const prompt=f.host.session.prompt.bind(f.host.session),abort=f.host.session.abort.bind(f.host.session);
+  f.host.session.prompt=async(...args)=>{await prompt(...args);await gate;throw new Error('Injected late prompt rejection');};
+  f.host.session.abort=async()=>{await abort();throw new Error('Injected early abort rejection');};
+  f.host.owner.callTimeoutMs=100;
+  try {
+    f.chat.send({op:'chat',id:'first',text:'Synthetic early/late cleanup failures'});const admission=await f.chat.next();
+    let event;do{event=await f.chat.next();}while(event.event?.type!=='delta');cancel(f.chat,admission);
+    assert.ok((await terminal(f.chat)).every(p=>p.type==='error'));
+    assert.equal(f.host.owner.phase,'failed');assert.equal(f.host.owner.cancellationCleanup.settled,false);
+    const scope=f.host.owner.currentChat;assert.equal(scope.closed,true);
+    release();assert.equal(await f.host.owner.cancellationCleanup.completion,false);
+    assert.equal(f.host.owner.cancellationCleanup.settled,true);assert.equal(f.host.owner.currentChat,scope);
+    assert.equal(f.host.owner.cancellationCleanup.proven,false);assert.equal(f.requests(),1);
+    assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
+  } finally {release();await f.host.owner.cancellationCleanup?.completion;f.host.session.prompt=prompt;f.host.session.abort=abort;}
+},(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial before injected failures'}));}));
+
+test('close with unfinished cancellation records unknown without aborting again or claiming closed',async()=>{
+  const phases=[];let aborts=0;
+  const owner=new PiOwner({session:{abort(){aborts++;}},checkpoint:async phase=>phases.push(phase)});
+  owner.phase='failed';owner.cancellationCleanup={settled:false};
+  await assert.rejects(owner.close(),/cleanup pending/);
+  assert.equal(aborts,0);assert.equal(owner.closed,false);assert.equal(owner.phase,'failed');assert.deepEqual(phases,['close-unknown']);
+});
+
+test('actual SDK deadline, without explicit cancel, releases serialized request despite stalled abort',{timeout:15000},()=>fixture(async f=>{
+  let release;const gate=new Promise(resolve=>{release=resolve;});
+  const abort=f.host.session.abort.bind(f.host.session);
+  f.host.session.abort=async()=>{await abort();await gate;};f.host.owner.callTimeoutMs=150;
+  try {
+    const start=performance.now();f.chat.send({op:'chat',id:'first',text:'Synthetic deadline, no correlated user cancel'});await f.chat.next();
+    const [result]=await terminal(f.chat,1);assert.equal(result.type,'error');assert.ok(performance.now()-start<1000);
+    assert.equal(f.host.owner.phase,'failed');assert.equal(f.host.owner.cancellationCleanup.proven,false);
+    assert.equal(f.host.owner.currentChat.closed,true);assert.equal(f.host.owner.cancellationCleanup.settled,false);
+    await f.host.owner.queue;assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
+  } finally {release();await f.host.owner.cancellationCleanup?.completion;}
+},(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial before deadline'}));}));

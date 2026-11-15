@@ -1,5 +1,6 @@
 // One long-lived actual Pi session. This is scheduling/UI IO, never a model/tool loop.
 import { randomUUID } from 'node:crypto';
+import { boundedProof } from './cancellation.mjs';
 
 export class PiOwner {
   constructor({session,durable,command,checkpoint,route,prepare,cancelTransition,settleParent,lifecycleUnavailable,detach,cancellation,cancellationIdle,callTimeoutMs=300000}) {
@@ -35,6 +36,8 @@ export class PiOwner {
     this.disconnectControl();
     this.detaching=(async()=>{
       try {
+        if(this.cancellationCleanup)await this.queue;
+        if(this.cancellationCleanup&&!this.cancellationCleanup.settled)throw new Error('Cancellation cleanup pending; guard retained');
         this.session.clearQueue?.();await this.session.abort();await this.queue;
         await this.detach?.();await this.checkpoint(this.phase);
       } catch(error){this.phase='failed';await this.checkpoint('detach-unknown');throw error;}
@@ -91,8 +94,23 @@ export class PiOwner {
       signal?.addEventListener('abort',external,{once:true});if(signal?.aborted)external();
       signal=deadline.signal;
       const timer=setTimeout(()=>deadline.abort(new Error('Pi request deadline; inspect checkpoint, no replay')),this.callTimeoutMs);
-      let aborting;
-      const interrupt=()=>{this.currentChat?.seal();this.disconnectControl();this.session.clearQueue?.();aborting=Promise.resolve(this.session.abort?.());void aborting.catch(()=>{});};
+      let nativeWork,cleanup,interrupted;
+      const interruption=new Promise(resolve=>{interrupted=resolve;});
+      const interrupt=()=>{
+        this.currentChat?.seal();this.disconnectControl();interrupted();
+        const record=cleanup={scope:this.currentChat,settled:false};this.cancellationCleanup=record;
+        // Start the shared budget NOW, not after abort()/idle have returned.
+        const aborting=Promise.resolve().then(()=>{this.session.clearQueue?.();return this.session.abort?.();});
+        record.completion=(async()=>{
+          // An early rejection must not hide another still-running SDK task.
+          const results=await Promise.allSettled([aborting,nativeWork,
+            Promise.resolve().then(()=>this.session.waitForIdle())]);
+          const drained=record.scope?await record.scope.drained():false;
+          return !results.some(result=>result.status==='rejected')&&drained;
+        })();
+        void record.completion.then(()=>{record.settled=true;},()=>{record.settled=true;});
+        record.proof=boundedProof(record.completion,Math.min(2000,this.callTimeoutMs)).then(proven=>{record.proven=proven;return proven;});
+      };
       signal.addEventListener('abort',interrupt,{once:true});
       try {
       signal?.throwIfAborted();
@@ -127,8 +145,9 @@ export class PiOwner {
       try{scope=this.cancellation?.();}catch(error){this.phase='failed';await this.checkpoint('chat-unknown');throw error;}
       this.currentChat=scope;
       if(cancelRequest)cancelRequest.fence=()=>scope?.seal();
-      let nativeFailed=false,stopReason,nativeError;
+      let nativeFailed=false,stopReason,nativeError,observing=true;
       const unsub=this.session.subscribe(event=>{
+        if(!observing)return; // A retained late callback cannot resurrect a terminal request.
         const update=event.assistantMessageEvent;
         if(event.type==='message_update'&&['text_delta','thinking_delta'].includes(update?.type)) {
           for(let i=0;i<update.delta.length;i+=4000)emit({type:'delta',channel:update.type==='text_delta'?'answer':'reasoning',text:update.delta.slice(i,i+4000)});
@@ -145,19 +164,23 @@ export class PiOwner {
         // Checkpoint I/O can yield to cancel before this scope exists. Recheck
         // inside the unknown/finally guard, with no await before SDK admission.
         signal?.throwIfAborted();
-        await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});await this.session.waitForIdle();signal?.throwIfAborted();
+        nativeWork=(async()=>{
+          await this.session.prompt(text,{expandPromptTemplates:false,source:'rpc',streamingBehavior:'followUp'});
+          await this.session.waitForIdle();
+        })();
+        await Promise.race([nativeWork,interruption.then(()=>{throw signal.reason;})]);signal?.throwIfAborted();
         // Pi resolves prompt() on native error/abort as well as success. Settled
         // is not successful: retain the unknown guard and never replay it.
         if(nativeFailed)throw new Error('Native Pi request failed; inspect checkpoint, no replay');
-        await this.checkpoint(this.phase);return {settled:true};}
+        await this.checkpoint(this.phase);signal.throwIfAborted();return {settled:true};}
       catch(error){
         // Only the same authenticated request's explicit cancel can qualify;
         // socket loss, deadline, HTTP errors, tools and unknown drains cannot.
-        if(scope&&cancelRequest?.requested&&signal.reason===cancelRequest.reason&&
+        const proven=cleanup?await cleanup.proof:false;
+        if(proven&&scope&&cancelRequest?.requested&&signal.reason===cancelRequest.reason&&
             !cancelRequest.disconnected()&&!this.closing&&this.phase==='ordinary'&&stopReason==='aborted'&&nativeError==='Request was aborted') {
           try {
-            await aborting;await this.session.waitForIdle();
-            if(await scope.drained()&&this.cancellationIdle()) {
+            if(this.cancellationIdle()) {
               const outcome={kind:'cancelled-known',generation:cancelRequest.generation};
               await this.checkpoint(this.phase,outcome);
               if(cancelRequest.disconnected()||this.closing||this.detaching)throw new Error('Cancellation acknowledgement lost admission');
@@ -167,7 +190,13 @@ export class PiOwner {
         }
         this.phase='failed';await this.checkpoint('chat-unknown');throw error;
       }
-      finally{unsub();scope?.seal();this.currentChat=undefined;if(cancelRequest)cancelRequest.fence=undefined;}
+      finally{
+        observing=false;unsub();scope?.seal();
+        // Retain the sealed generation while SDK cleanup is unproven, even if
+        // it settles later. Failed admission never reopens on late completion.
+        if(!cleanup||!cleanup.scope||cleanup.proven===true)this.currentChat=undefined;
+        if(cancelRequest)cancelRequest.fence=undefined;
+      }
       } finally {clearTimeout(timer);signal.removeEventListener('abort',interrupt);originalSignal?.removeEventListener('abort',external);}
     });
   }
@@ -175,6 +204,8 @@ export class PiOwner {
     return this.shutdown??=(async()=>{
       this.closing=true;this.disconnectControl();
       try {
+        if(this.cancellationCleanup)await this.queue;
+        if(this.cancellationCleanup&&!this.cancellationCleanup.settled)throw new Error('Cancellation cleanup pending; guard retained');
         await this.detaching;
         if(this.transitionKind==='on'){this.cancelOn=true;await this.cancelTransition?.().catch(()=>{});}
         this.session.clearQueue?.();await this.session.abort();await this.queue;

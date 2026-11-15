@@ -60,3 +60,14 @@ class KeyCleanupFences(unittest.TestCase):
   with patch.object(m.subprocess,'check_output',side_effect=OSError('private error')):
    with self.assertRaisesRegex(RuntimeError,'release uncertain'):ui.key('Return')
   self.assertTrue(ui.keys_inflight);self.assertEqual(ui.pending_key_chain,'Return')
+ def test_private_executable_release_spawns_after_key_timeout(self):
+  import os,tempfile,time,json
+  with tempfile.TemporaryDirectory() as directory:
+   root=Path(directory);log=root/'argv.jsonl';tool=root/'wdotool'
+   tool.write_text('#!'+sys.executable+'\nimport sys,time,json\nwith open('+repr(str(log))+',"a") as f:f.write(json.dumps(sys.argv[1:])+"\\n")\nif sys.argv[-2]=="key":time.sleep(5)\n');tool.chmod(0o700)
+   ui=self.ui();ui.deadline=time.monotonic()+.15
+   with patch.dict(os.environ,PATH=str(root)+os.pathsep+os.environ.get('PATH','')):
+    with self.assertRaises(subprocess.TimeoutExpired):ui.key('ctrl+Return')
+   calls=[json.loads(line) for line in log.read_text().splitlines()]
+   self.assertEqual(calls,[['--backend','wlr-protocols','key','ctrl+Return'],['--backend','wlr-protocols','keyup','ctrl+Return']])
+   self.assertFalse(ui.keys_inflight);self.assertIsNone(ui.pending_key_chain)

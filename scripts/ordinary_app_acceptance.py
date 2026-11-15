@@ -120,7 +120,7 @@ class UI:
         def walk(node):
             role=node.get_role_name()
             if role=='label':parts.append(node.get_name())
-            elif role=='text':parts.append(node.get_text_iface().get_text(0,16000))
+            elif role=='text':parts.append(self.Atspi.Text.get_text(node,0,16000))
             for child in node:
                 if child:walk(child)
         walk(windows[0]);detail='\n'.join(parts)[:20000]
@@ -160,7 +160,7 @@ class UI:
         return node
 
     def expect_draft(self,text):
-        self.desktop.wait(lambda:self.composer().get_text_iface().get_text(0,-1)==text,timeout=3)
+        self.desktop.wait(lambda:self.Atspi.Text.get_text(self.composer(),0,-1)==text,timeout=3)
 
     def empty(self):self.ordinary();self.expect_draft('')
 
@@ -230,12 +230,12 @@ class UI:
         if 'Hyprneuro · error' in labels:raise RuntimeError('Actual GUI turn error')
         status='Legacy sidecar · tool-free' if legacy else 'Pi owner · settled (not tool success)'
         if status not in labels:return False
-        if self.composer().get_text_iface().get_text(0,-1):return False
+        if self.Atspi.Text.get_text(self.composer(),0,-1):return False
         texts=[n for n in self.nodes() if n.get_role_name()=='text' and not n.get_name()
                and n.get_state_set().contains(self.Atspi.StateType.SHOWING)]
         if len(texts)!=1:raise RuntimeError('Transcript selector ambiguous')
         # Never persist existing text; only validate own synthetic suffix canary.
-        if expected not in current_answer(texts[0].get_text_iface().get_text(0,-1)):
+        if expected not in current_answer(self.Atspi.Text.get_text(texts[0],0,-1)):
             raise RuntimeError('Current settled answer failed own canary (not prior/user text)')
         return True
 

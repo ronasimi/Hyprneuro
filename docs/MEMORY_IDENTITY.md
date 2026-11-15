@@ -1,8 +1,13 @@
 # Owner-qualified memory — source-only P1-D repair
 
-Base: `fc43267173d6c1386891c708c9ddcc77724ed3f7`. This is not a deployment or
-production-migration receipt. Independent parent review is required before merge
-and before any separately authorized migration of the current database.
+Original base: `fc43267173d6c1386891c708c9ddcc77724ed3f7`.
+Correction base: `65723158df32330ca51e3ba8ffdb1fbcd1b251cd`.
+Independent review `01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review` **BLOCKED** that
+exact correction base on two P1 migration defects. The source corrections below
+await independent re-review. **Source integration remains BLOCKED** until that
+review accepts the corrected migration/rollback plan. This is not a deployment
+or production-migration receipt. Independent parent review is required before
+merge and before any separately authorized migration of the current database.
 
 ## API contract
 
@@ -82,10 +87,23 @@ source, candidate, backup and restore destinations first.
 
 The method:
 
-1. Opens an existing owned, non-symlink source (never creates a missing source).
+1. Before opening either SQLite connection or exclusively creating a backup,
+   resolves source/backup paths and rejects the source itself and its `-journal`,
+   `-wal`, `-shm` paths. Parent/leaf symlink aliases and existing hard-link aliases
+   are checked. Case-folded path aliases are conservatively rejected even on
+   case-sensitive filesystems, without creating probe artifacts. Resolved paths
+   are used for subsequent opens. Both immediate parents must be user-owned and
+   not group/world-writable; ancestors must be user/root-owned and not writable
+   by others unless sticky (e.g. a root-owned `/tmp` above a private directory).
+   Opens only an existing owned, non-symlink source, never a missing source.
 2. Takes `BEGIN IMMEDIATE`, checks the actual version and recognized historical
    memory schema under that lock, and runs SQLite `quick_check`. Unexpected
    memory indexes, triggers, views or foreign-key dependencies are rejected.
+   Table/foreign-key target and index names are compared case-insensitively for
+   the known ASCII SQLite identifiers. The sqlite_master memory-name lookups use
+   `COLLATE NOCASE`, and metadata-table discovery folds identifier case. Exact
+   structural validation still rejects unknown columns/constraints/index DDL;
+   version metadata keys are data, not identifiers, and remain case-sensitive.
 3. Exclusively creates a distinct mode-0600 backup. SQLite's backup API on a
    separate reader includes committed WAL data while the write lock prevents
    another writer changing the source. Existing backup files are never replaced.
@@ -129,8 +147,9 @@ Final `-W error` runs using the existing Python 3.13 venv, private Workspace
 HOME/TMPDIR/XDG, no pytest/bytecode caches, offline flags, no service management,
 GUI, model inference, provider requests or production database access:
 
-- Focused: **178 passed, 17 subtests passed** (19.83 s).
-- Full Python: **597 passed, 2 skipped, 138 subtests passed** (31.72 s).
+- Focused (same four modules, expanded regressions): **206 passed, 17 subtests
+  passed** (11.86 s).
+- Full Python: **625 passed, 2 skipped, 138 subtests passed** (29.82 s).
   Skips: optional Pillow visual gate; actual SDK/Durable fixture requiring explicit
   installed paths (not supplied). Synthetic loopback/Unix IPC fixtures are not
   production inference or services.
@@ -154,3 +173,35 @@ private XDG runtime directory did not yet exist for `systemd-analyze --user
 verify`; creating that private directory fixed it without changing installer or
 service code. Warnings were not suppressed. The final receipt does not claim
 production migration, live memory acceptance or independent review completion.
+
+
+### Independent-review P1 corrections
+
+The original 178-focused / 597-full source result did not clear migration safety:
+review found that a backup at `source.db-journal` could be reused/deleted by SQLite
+in DELETE mode, and `REFERENCES APP_MEMORY` bypassed the case-sensitive dependency
+guard. The latter silently retargeted a populated FK to the dropped
+`app_memory_v3`, producing a `foreign_key_check` violation.
+
+Before changing the implementation, both actual failures were reproduced with
+synthetic Workspace databases; `review-p1-before-repro.log` retains migration
+success, absent backup, clean pre-migration FK check and broken post-migration FK.
+`review-p1-before-tests.log` retains 12 failing / 2 passing new regression cases
+against the exact `6572315` implementation. A first diagnostic log also remains:
+it printed the FK violation but initially only accumulated the backup failure in
+its final assertion; the corrected diagnostic records both failures explicitly.
+
+New tests parameterize the source and all three sidecar suffixes across direct,
+parent-symlink, source-parent-symlink, leaf-symlink and case aliases, asserting
+neither SQLite connect nor exclusive open is reached, no new destination or
+sidecar appears, and source bytes/schema/version/content remain unchanged. They
+also cover hard links, untrusted immediate/ancestor directories, recognized
+mixed-case sqlite_master names, and populated uppercase/mixed-case FKs. FK
+rejection occurs before backup creation, preserving all schema/content and a
+clean `foreign_key_check`. No real production DB was opened. No automatic startup
+migration, application-contract expansion or other-owner source change was added.
+
+The baseline receipt is retained as `review-p1-base-receipt.json` in the evidence
+directory; the tracked receipt now hashes the corrected source and fresh logs.
+Independent corrected-source review and an approved quiesced backup/candidate/
+restore plan remain mandatory before source integration or production migration.

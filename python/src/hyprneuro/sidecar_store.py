@@ -53,7 +53,7 @@ _MEMORY_INDEX = ("CREATE INDEX app_memory_scope_time ON app_memory "
 
 
 def _store_version(db):
-    tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    tables = {r[0].casefold() for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     if not tables:
         return None
     if "sidecar_meta" not in tables:
@@ -67,7 +67,7 @@ def _store_version(db):
     if columns != expected and not (version == "1" and not columns):
         raise RuntimeError("Unrecognized app_memory schema")
     if columns:
-        sql = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='app_memory'").fetchone()[0]
+        sql = db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='app_memory' COLLATE NOCASE").fetchone()[0]
         expected_sql = _MEMORY_TABLE if version == "4" else _MEMORY_LEGACY_TABLE
         if re.sub(r"\s+", "", sql).casefold() != re.sub(r"\s+", "", expected_sql).casefold():
             raise RuntimeError("Unrecognized app_memory constraints")
@@ -269,10 +269,26 @@ class SidecarStore:
         Any failure rolls back the source; a completed backup is retained.
         """
         path, backup_path = Path(path), Path(backup_path)
-        if (path.is_symlink() or not path.is_file() or path.stat().st_uid != os.getuid()
-                or backup_path.resolve() == path.resolve()):
+        if path.is_symlink() or not path.is_file() or path.stat().st_uid != os.getuid():
             raise ValueError("Migration requires an owned database and a distinct new backup")
-        uri = path.resolve().as_uri()
+        path, backup_path = path.resolve(), backup_path.resolve()
+        reserved = [Path(str(path) + suffix) for suffix in ("", "-journal", "-wal", "-shm")]
+        # Reject case aliases conservatively even on case-sensitive filesystems;
+        # do not probe filesystem semantics by creating application artifacts.
+        if any(str(backup_path).casefold() == str(candidate).casefold()
+               or (backup_path.exists() and candidate.exists() and backup_path.samefile(candidate))
+               for candidate in reserved):
+            raise ValueError("Migration backup must not alias the database or its SQLite sidecars")
+        for parent in {path.parent, backup_path.parent}:
+            info = parent.stat()
+            if info.st_uid != os.getuid() or info.st_mode & 0o022:
+                raise ValueError("Migration database and backup require trusted owned parent directories")
+            for ancestor in parent.parents:
+                info = ancestor.stat()
+                if (info.st_uid not in (0, os.getuid())
+                        or (info.st_mode & 0o022 and not info.st_mode & 0o1000)):
+                    raise ValueError("Migration database and backup require trusted parent ancestry")
+        uri = path.as_uri()
         db = sqlite3.connect(uri + "?mode=rw", uri=True)
         try:
             db.execute("BEGIN IMMEDIATE")
@@ -283,17 +299,17 @@ class SidecarStore:
                 raise RuntimeError("Database integrity check failed")
             for _, table, sql in db.execute(
                     "SELECT type,tbl_name,sql FROM sqlite_master WHERE type IN ('trigger','view')"):
-                if table == "app_memory" or re.search(r"\bapp_memory\b", sql, re.IGNORECASE):
+                if table.casefold() == "app_memory" or re.search(r"\bapp_memory\b", sql, re.IGNORECASE):
                     raise RuntimeError("Unrecognized app_memory dependency")
             for (table,) in db.execute("SELECT name FROM sqlite_master WHERE type='table'"):
                 quoted = '"' + table.replace('"', '""') + '"'
-                if any(table == "app_memory" or fk[2] == "app_memory"
+                if any(table.casefold() == "app_memory" or fk[2].casefold() == "app_memory"
                        for fk in db.execute(f"PRAGMA foreign_key_list({quoted})")):
                     raise RuntimeError("Unrecognized app_memory foreign key")
             indexes = db.execute("PRAGMA index_list(app_memory)").fetchall()
             for index in indexes:
-                if index[1] == "app_memory_scope_time":
-                    if db.execute("SELECT sql FROM sqlite_master WHERE name=?", (index[1],)).fetchone()[0] != (
+                if index[1].casefold() == "app_memory_scope_time":
+                    if db.execute("SELECT sql FROM sqlite_master WHERE name=? COLLATE NOCASE", (index[1],)).fetchone()[0] != (
                             "CREATE INDEX app_memory_scope_time ON app_memory(scope, updated_ms DESC)"):
                         raise RuntimeError("Unrecognized app_memory index")
                 elif index[3] != "pk":
@@ -321,7 +337,7 @@ class SidecarStore:
 
     @staticmethod
     def _migrate_memory_schema(db):
-        exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_memory'").fetchone()
+        exists = db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='app_memory' COLLATE NOCASE").fetchone()
         if exists:
             db.execute("ALTER TABLE app_memory RENAME TO app_memory_v3")
             db.execute("DROP INDEX IF EXISTS app_memory_scope_time")

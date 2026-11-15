@@ -420,3 +420,156 @@ def test_wal_backup_and_writer_lock_version_check(tmp_path):
         assert_original(writer, before, "3")
     finally:
         writer.close()
+
+
+@pytest.mark.parametrize("suffix", ["", "-journal", "-wal", "-shm"])
+@pytest.mark.parametrize("alias", ["direct", "parent-symlink", "source-parent-symlink", "leaf-symlink", "case-variant"])
+def test_backup_rejects_database_and_sidecar_names_before_open(tmp_path, suffix, alias):
+    path = tmp_path / "source.db"
+    db = historical(path, "3")
+    before = snapshot(db)
+    schema = db.execute("SELECT * FROM sqlite_master ORDER BY name").fetchall()
+    db.close()
+    original = path.read_bytes()
+    destination = Path(str(path) + suffix)
+    if alias == "parent-symlink":
+        linked = tmp_path / "alias"
+        linked.symlink_to(tmp_path, target_is_directory=True)
+        destination = linked / destination.name
+    elif alias == "source-parent-symlink":
+        linked = tmp_path / "alias"
+        linked.symlink_to(tmp_path, target_is_directory=True)
+        path = linked / path.name
+    elif alias == "leaf-symlink":
+        linked = tmp_path / "backup-alias"
+        linked.symlink_to(destination)
+        destination = linked
+    elif alias == "case-variant":
+        destination = destination.with_name(destination.name.upper())
+    destination_existed = destination.exists() or destination.is_symlink()
+    # Preflight must reject without even opening the source (which could create
+    # a journal) or reserving/creating the backup destination.
+    with patch("hyprneuro.sidecar_store.sqlite3.connect") as connect, patch(
+            "hyprneuro.sidecar_store.os.open") as open_file:
+        with pytest.raises(ValueError, match="backup"):
+            SidecarStore.migrate_memory(path, backup_path=destination)
+        connect.assert_not_called()
+        open_file.assert_not_called()
+    assert path.read_bytes() == original
+    assert (destination.exists() or destination.is_symlink()) == destination_existed
+    for sidecar in ("-journal", "-wal", "-shm"):
+        assert not Path(str(path) + sidecar).exists()
+    db = sqlite3.connect(path)
+    try:
+        assert snapshot(db) == before
+        assert db.execute("SELECT * FROM sqlite_master ORDER BY name").fetchall() == schema
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("target", ["APP_MEMORY", "App_Memory"])
+def test_case_insensitive_populated_foreign_key_rejected_before_backup(tmp_path, target):
+    path, backup = tmp_path / "db", tmp_path / "backup"
+    db = historical(path, "3")
+    db.execute("PRAGMA foreign_keys=ON")
+    db.execute(f"CREATE TABLE dependent(scope TEXT,key TEXT,FOREIGN KEY(scope,key) REFERENCES {target}(scope,key))")
+    db.execute("INSERT INTO dependent VALUES('app','same')")
+    db.commit()
+    assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    before = snapshot(db)
+    schema = db.execute("SELECT * FROM sqlite_master ORDER BY name").fetchall()
+    db.close()
+    original = path.read_bytes()
+    with pytest.raises(RuntimeError, match="foreign key"):
+        SidecarStore.migrate_memory(path, backup_path=backup)
+    assert not backup.exists()
+    assert path.read_bytes() == original
+    db = sqlite3.connect(path)
+    try:
+        assert snapshot(db) == before
+        assert db.execute("SELECT * FROM sqlite_master ORDER BY name").fetchall() == schema
+        assert db.execute("PRAGMA foreign_key_check").fetchall() == []
+    finally:
+        db.close()
+
+
+def test_backup_hardlink_to_source_rejected_before_open(tmp_path):
+    path, backup = tmp_path / "db", tmp_path / "backup"
+    db = historical(path, "3")
+    db.close()
+    backup.hardlink_to(path)
+    original = path.read_bytes()
+    with patch("hyprneuro.sidecar_store.sqlite3.connect") as connect, patch(
+            "hyprneuro.sidecar_store.os.open") as open_file:
+        with pytest.raises(ValueError, match="backup"):
+            SidecarStore.migrate_memory(path, backup_path=backup)
+        connect.assert_not_called()
+        open_file.assert_not_called()
+    assert path.read_bytes() == backup.read_bytes() == original
+
+
+@pytest.mark.parametrize("untrusted", ["source", "backup"])
+def test_migration_requires_trusted_resolved_parent_before_open(tmp_path, untrusted):
+    source_dir, backup_dir = tmp_path / "source", tmp_path / "backups"
+    source_dir.mkdir(mode=0o700)
+    backup_dir.mkdir(mode=0o700)
+    path, backup = source_dir / "db", backup_dir / "backup"
+    db = historical(path, "3")
+    db.close()
+    original = path.read_bytes()
+    parent = source_dir if untrusted == "source" else backup_dir
+    parent.chmod(0o777)
+    try:
+        with patch("hyprneuro.sidecar_store.sqlite3.connect") as connect, patch(
+                "hyprneuro.sidecar_store.os.open") as open_file:
+            with pytest.raises(ValueError, match="trusted"):
+                SidecarStore.migrate_memory(path, backup_path=backup)
+            connect.assert_not_called()
+            open_file.assert_not_called()
+        assert path.read_bytes() == original
+        assert not backup.exists()
+    finally:
+        parent.chmod(0o700)
+
+
+@pytest.mark.parametrize("table_name", ["APP_MEMORY", "App_Memory"])
+def test_sqlite_master_memory_identifiers_are_case_insensitive(tmp_path, table_name):
+    path = tmp_path / "db"
+    sql = (Path(__file__).parent / "fixtures" / "memory-schema-v3.sql").read_text()
+    sql = sql.replace("CREATE TABLE app_memory (", f"CREATE TABLE {table_name} (")
+    sql = sql.replace("sidecar_meta", "SIDECAR_META")
+    db = sqlite3.connect(path)
+    try:
+        db.executescript(sql)
+        db.execute("INSERT INTO app_memory VALUES('app','key','1',NULL,'owner',NULL,1)")
+        db.commit()
+    finally:
+        db.close()
+    SidecarStore.migrate_memory(path, backup_path=tmp_path / "backup")
+    store = SidecarStore(path)
+    try:
+        assert store.app_memory_recall("app", app_id="owner")[0]["value"] == 1
+        assert store.db.execute("PRAGMA foreign_key_check").fetchall() == []
+    finally:
+        store.close()
+
+
+def test_writable_parent_ancestor_denied_without_artifacts(tmp_path):
+    shared, private = tmp_path / "shared", tmp_path / "shared" / "private"
+    private.mkdir(parents=True, mode=0o700)
+    path, backup = private / "db", private / "backup"
+    db = historical(path, "3")
+    db.close()
+    original = path.read_bytes()
+    shared.chmod(0o777)
+    try:
+        with patch("hyprneuro.sidecar_store.sqlite3.connect") as connect, patch(
+                "hyprneuro.sidecar_store.os.open") as open_file:
+            with pytest.raises(ValueError, match="trusted parent ancestry"):
+                SidecarStore.migrate_memory(path, backup_path=backup)
+            connect.assert_not_called()
+            open_file.assert_not_called()
+        assert path.read_bytes() == original
+        assert not backup.exists()
+    finally:
+        shared.chmod(0o700)

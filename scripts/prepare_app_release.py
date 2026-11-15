@@ -352,7 +352,7 @@ exec env -i PATH=/usr/bin:/bin LANG=C.UTF-8 HOME='{owner}/home' XDG_RUNTIME_DIR=
     for identity in (ui,sidecar,*models):
         assert unit_identity(identity['unit'])==identity, 'Running identity changed during preparation'
     check_moe_inert()
-    for name in ['prepare_app_release.py','verify_app_release.py','apply_app_release.py','guard_app_release.py']:
+    for name in ['prepare_app_release.py','verify_app_release.py','apply_app_release.py','guard_app_release.py','wait_app_acceptance.py']:
         shutil.copyfile(repo/'scripts'/name,staged/name);(staged/name).chmod(0o500)
     # Freeze exported payload; Python runtime must never create cache files here.
     for p in source.rglob('*'):

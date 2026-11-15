@@ -128,3 +128,18 @@ class ActualApplyContainmentTests(unittest.TestCase):
                 self.assertEqual(state['phase'],'failed-apps-stopped')
                 self.assertTrue((root/'apply.started').exists());self.assertFalse((root/'apply.completed').exists())
                 self.assertTrue(db.exists());self.assertTrue((root/'installed').exists())
+
+
+class AcceptanceCoordinatorTests(unittest.TestCase):
+    def test_operation_bound_results_timeout_and_stale_results(self):
+        import wait_app_acceptance as waiter
+        for result,expected in [('completed',0),('failed',1),('cancelled',1),('absent',1),('stale',None)]:
+            with self.subTest(result=result),tempfile.TemporaryDirectory() as directory:
+                root=Path(directory);root.chmod(0o700)
+                started=root/'operation.started';started.write_text('synthetic operation');started.chmod(0o600)
+                if result!='absent':
+                    target=root/'acceptance-result.json'
+                    target.write_text(json.dumps(dict(operation_started_sha256='stale' if result=='stale' else prepare.digest(started),result=result)));target.chmod(0o600)
+                if result=='stale':
+                    with self.assertRaises(RuntimeError):waiter.wait(root,timeout=1)
+                else:self.assertEqual(waiter.wait(root,timeout=.01),expected)

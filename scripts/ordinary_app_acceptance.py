@@ -5,6 +5,7 @@ No lease acquisition, service operation, chooser approval or security action.
 Only literal synthetic text reaches the own-app composer. Never writes coordinator
 results. Real human prompts remain pending; completion files are NOT consent.
 """
+import argparse
 import hashlib
 import json
 import os
@@ -64,8 +65,9 @@ def exercise(ui, pending, deadline):
 
 
 class UI:
-    def __init__(self,bundle):
+    def __init__(self,bundle,continuation=None):
         self.bundle=bundle
+        self.runtime=continuation or bundle
         if hashlib.sha256((bundle/'manifest.json').read_bytes()).hexdigest()!=MANIFEST:
             raise RuntimeError('Wrong reviewed bundle')
         self.m=json.loads((bundle/'manifest.json').read_text())
@@ -88,23 +90,24 @@ class UI:
 
     def record(self,phase,**metadata):
         self.events.append(dict(phase=phase,**metadata))
-        target=self.bundle/'ordinary-acceptance.json'
+        runtime=getattr(self,'runtime',self.bundle)
+        target=runtime/'ordinary-acceptance.json'
         with target.open('w') as file:
             json.dump(dict(events=self.events,human_acceptance_claimed=False),file,indent=2)
             file.flush();os.fsync(file.fileno())
         if phase in ['HUMAN-NEEDED','HUMAN-NEEDED-CHOOSER']:
             self.gate_seq=getattr(self,'gate_seq',0)+1
-            event=self.bundle/'acceptance-human-gate.json'
+            event=runtime/'acceptance-human-gate.json'
             if self.gate_seq==1 and event.exists():raise RuntimeError('Preexisting human event; no stale overwrite')
-            packet=dict(version=1,operation_sha256=hashlib.sha256((self.bundle/'operation.started').read_bytes()).hexdigest(),
+            packet=dict(version=1,operation_sha256=hashlib.sha256((runtime/'operation.started').read_bytes()).hexdigest(),
                         seq=self.gate_seq,kind='consent' if phase=='HUMAN-NEEDED' else 'chooser',
                         prompt=(metadata['prompt'] if phase=='HUMAN-NEEDED' else metadata['prompt']+'\nHuman action: select owner DIRECTORY '+metadata['owner_directory']+' containing owner.json SHA256 '+self.m['owner_descriptor_sha256']+'. Do NOT select the JSON file.'),
                         descriptor_sha256=self.m['owner_descriptor_sha256'])
-            temporary=self.bundle/'acceptance-human-gate.tmp'
+            temporary=runtime/'acceptance-human-gate.tmp'
             with temporary.open('x') as file:
                 json.dump(packet,file);file.flush();os.fsync(file.fileno())
             os.replace(temporary,event)
-            fd=os.open(self.bundle,os.O_RDONLY|os.O_DIRECTORY)
+            fd=os.open(runtime,os.O_RDONLY|os.O_DIRECTORY)
             try:os.fsync(fd)
             finally:os.close(fd)
         print(phase,flush=True)
@@ -249,20 +252,27 @@ def coordinator(bundle,deadline,ready):
 
 def main():
     os.umask(0o077)
-    bundle=Path(sys.argv[1]);deadline=time.monotonic()+7200
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('bundle',type=Path)
+    parser.add_argument('--continuation',type=Path);args=parser.parse_args()
+    bundle=args.bundle;runtime=args.continuation or bundle;deadline=time.monotonic()+7200
     sys.path.insert(0,str(bundle/'staged'))
-    def pending(ready):coordinator(bundle,deadline,ready)
+    def pending(ready):coordinator(runtime,deadline,ready)
     def terminate(signum,frame):raise InterruptedError('Acceptance driver terminated')
     signal.signal(signal.SIGTERM,terminate)
     parent=Path('/proc')/str(os.getppid())/'cmdline'
     argv=parent.read_bytes().rstrip(b'\0').decode().split('\0')
-    if len(argv)<3 or argv[1]!=str(bundle/'staged/guard_app_release.py') or argv[2]!=str(bundle):
-        raise RuntimeError('Driver must be direct child of the reviewed guard, not standalone/nested lease')
-    if not (bundle/'operation.started').exists() or not (bundle/'apply.completed').exists():
-        raise RuntimeError('No current guarded applied operation')
+    if args.continuation:
+        from continuation_context import require_parent
+        pid=os.getppid();start=Path('/proc',str(pid),'stat').read_text().rsplit(')',1)[1].split()[19]
+        require_parent(bundle,runtime,argv,pid,start)
+    else:
+        if len(argv)<3 or argv[1]!=str(bundle/'staged/guard_app_release.py') or argv[2]!=str(bundle):
+            raise RuntimeError('Driver must be direct child of the reviewed guard, not standalone/nested lease')
+        if not (bundle/'operation.started').exists() or not (bundle/'apply.completed').exists():
+            raise RuntimeError('No current guarded applied operation')
     ui=None
     try:
-        ui=UI(bundle);exercise(ui,pending,deadline)
+        ui=UI(bundle,args.continuation);exercise(ui,pending,deadline)
         ui.record('coordinator-ended-not-human-or-READY-evidence')
     except BaseException as error:
         if ui:ui.record('FAILED',error=type(error).__name__)

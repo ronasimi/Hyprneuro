@@ -6,6 +6,7 @@ completion wakes MAIN. After each genuine human gate,
 parent starts a new watcher with the returned sequence. No polling, mutation,
 model/GUI actions or notifications to invented Durable targets.
 """
+import argparse
 import ctypes
 import hashlib
 import json
@@ -33,7 +34,7 @@ def private_read(path,bound=32768):
     finally:os.close(fd)
 
 
-def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST):
+def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None):
     if type(after) is not int or after<0:raise ValueError('Invalid sequence cursor')
     info=bundle.lstat()
     if bundle!=bundle.resolve() or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
@@ -41,20 +42,25 @@ def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST):
     raw=private_read(bundle/'manifest.json',1024*1024)
     if hashlib.sha256(raw).hexdigest()!=expected_manifest:raise ValueError('Wrong immutable manifest')
     descriptor=json.loads(raw)['owner_descriptor_sha256']
+    event_root=continuation or bundle
+    if continuation:
+        from continuation_context import load_context
+        load_context(bundle,continuation)
     libc=ctypes.CDLL(None,use_errno=True)
     fd=libc.inotify_init1(os.O_NONBLOCK|os.O_CLOEXEC)
     if fd<0:raise OSError(ctypes.get_errno(),'inotify_init1')
     deadline=time.monotonic()+timeout;operation=None
     try:
         # Watch FIRST, then read/recheck state: no check→subscribe lost-wake gap.
-        wd=libc.inotify_add_watch(fd,os.fsencode(bundle),0x100|0x80|0x8|0x400|0x800)
+        wd=libc.inotify_add_watch(fd,os.fsencode(event_root),0x100|0x80|0x8|0x400|0x800)
         if wd<0:raise OSError(ctypes.get_errno(),'inotify_add_watch')
         while True:
-            try:token=hashlib.sha256(private_read(bundle/'operation.started')).hexdigest()
+            if continuation:load_context(bundle,continuation)
+            try:token=hashlib.sha256(private_read(event_root/'operation.started')).hexdigest()
             except FileNotFoundError:token=None
             if operation is not None and token!=operation:raise RuntimeError('Operation changed/disappeared')
             if token is not None:operation=token
-            try:data=json.loads(private_read(bundle/EVENT))
+            try:data=json.loads(private_read(event_root/EVENT))
             except FileNotFoundError:data=None
             if data is not None:
                 if (not isinstance(data,dict) or set(data)!={'version','operation_sha256','seq','kind','prompt','descriptor_sha256'}
@@ -81,4 +87,7 @@ def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST):
 
 
 if __name__=='__main__':
-    print(json.dumps(watch(Path(sys.argv[1]),int(sys.argv[2]))),flush=True)
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('bundle',type=Path)
+    parser.add_argument('after',type=int);parser.add_argument('--continuation',type=Path)
+    args=parser.parse_args()
+    print(json.dumps(watch(args.bundle,args.after,continuation=args.continuation)),flush=True)

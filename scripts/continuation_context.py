@@ -1,0 +1,42 @@
+"""Explicit private post-install attempt binding; never grants permission."""
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+
+MANIFEST='44bf0c8d3a41aa402253e5a8548b1b834d1062b0635343c0f271ba854da3a857'
+
+
+def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load_context(bundle,root):
+    if not bundle.is_absolute() or bundle!=bundle.resolve():raise PermissionError('Canonical bundle required')
+    info=root.lstat()
+    if root!=root.resolve() or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o700:
+        raise PermissionError('Private canonical continuation directory required')
+    file=root/'continuation-context.json';info=file.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o400 or info.st_size>65536:
+        raise PermissionError('Pinned private continuation context required')
+    data=json.loads(file.read_text())
+    if (type(data['version']) is not int or data['version']!=1 or data['id']!=root.name or data['bundle']!=str(bundle)
+            or data['manifest_sha256']!=MANIFEST or digest(bundle/'manifest.json')!=MANIFEST):
+        raise ValueError('Wrong continuation identity/bundle')
+    if data['entry'] not in data['external_files'] or data['driver'] not in data['external_files']:
+        raise ValueError('Unpinned continuation entry/driver')
+    for path,sha in data['original_failed_files'].items():
+        if digest(path)!=sha:raise RuntimeError('Original failed attempt changed; no replay/repair')
+    for path,sha in data['external_files'].items():
+        if digest(path)!=sha:raise RuntimeError('Continuation source pin changed')
+    return data
+
+
+def require_parent(bundle,root,argv,pid,start):
+    context=load_context(bundle,root)
+    expected=[context['entry'],str(bundle),'--continuation',str(root),'--session']
+    if argv[1:6]!=expected:raise RuntimeError('Wrong continuation guard ancestry')
+    marker=json.loads((root/'operation.started').read_text())
+    if marker!={'id':context['id'],'context_sha256':digest(root/'continuation-context.json'),'pid':pid,'start':start}:
+        raise RuntimeError('Wrong live continuation generation')
+    return context

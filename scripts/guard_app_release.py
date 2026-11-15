@@ -64,6 +64,11 @@ def observe(bundle, manifest, session):
         phase=json.loads(checkpoint.read_text()).get('phase')
         if not isinstance(phase,str) or phase=='failed' or 'unknown' in phase:
             raise RuntimeError('Native owner failed/unknown during acceptance')
+        if phase!='closed':
+            state=unit_state(manifest['owner_unit'])
+            if (state.get('ActiveState')!='active' or state.get('SubState')!='running'
+                    or not state.get('MainPID','').isdigit() or int(state['MainPID'])==0 or state.get('Job')!=''):
+                raise RuntimeError('Native owner exited/unavailable during acceptance')
     journals=list((owner/'sessions').glob('*.jsonl'))
     if len(journals)>32: raise RuntimeError('Native journal observation bound')
     audit=manifest.get('consent_journal')

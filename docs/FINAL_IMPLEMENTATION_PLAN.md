@@ -1423,7 +1423,7 @@ and 24B IQ4_XS profiles. No launcher, preset, drop-in, model, package or port ed
 A pinned snapshot-only preparation option avoids opening production SQLite until
 operations approval; its backup is explicitly NOT a current-DB attestation.
 
-Focused `01M7FKTRB9HN82D7V3SMT9PXMA`:46 tests+74subtests PASS (`-W error`,
+Focused `01M7FM1M217SPXNY8K1PH0CSDA`:47 tests+74subtests PASS (`-W error`,
 private fixtures, machine lease). Real apply fault injection follows EACH service
 start and installed verification; acceptance/stop-failure negatives included.
 R1 fixture warnings/mock exhaustion and R2 missing-runner failures retained, not
@@ -1436,3 +1436,8 @@ The staged `wait_app_acceptance.py` supplies the exact bounded operations driver
 waits through ALL intended human/test gates for an operation-token-bound
 completed/failed/cancelled coordinator result. Missing/stale/malformed/timeout
 is failure. This coordinator result is never human consent or READY evidence.
+
+Final guard also observes live owner unit state once a nonclosed checkpoint exists:
+owner exit with a stale ordinary checkpoint is a failure. Regression PASS. The
+prepared hn-grant-1406b79 candidate is superseded/unapplied and remains untouched;
+final corrected source receives a fresh-path bundle.

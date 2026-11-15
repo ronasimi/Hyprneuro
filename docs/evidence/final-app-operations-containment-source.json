@@ -2,14 +2,14 @@
   "base_commit": "af7501686034425c8f7e63ff44bf57c5f453935f",
   "blocked_review": "01M7FJM29P80CXY0BX9P1HWN7B/bundle-ops",
   "status": "Focused operator source PASS; new source/bundle/operations rereview REQUIRED; no deployment authority",
-  "run": "01M7FKTRB9HN82D7V3SMT9PXMA",
-  "tests": 46,
+  "run": "01M7FM1M217SPXNY8K1PH0CSDA",
+  "tests": 47,
   "subtests": 74,
   "phases": {
     "operator-tests": {
       "exit": 0,
       "locker_failure": [],
-      "log_sha256": "157eec208fc61855fd1a48206485f83fd369154d87e5ba5fe082f6c43e158cbd"
+      "log_sha256": "49132239ba5b3ad71f59223bc824be708ffc6e9eae594a442b8a2027d51a2386"
     },
     "profile-metadata": {
       "exit": 0,
@@ -21,8 +21,8 @@
     "scripts/apply_app_release.py": "4fcadc73bb68c24366b580c93ae348552feb29dd7cb849d141b3bfea4e3aa027",
     "scripts/prepare_app_release.py": "655ce00a20941dc9f58b1a0587c2dabe387c2623f946f76eb4d4e3d3bf6ab5f1",
     "scripts/verify_app_release.py": "cc831ae810ec3ff95581e2982a8ecc894a19333508d5c9a10d16edd0cb56a8aa",
-    "scripts/guard_app_release.py": "a309eb2fc8d30b97cb9f438592bd2a5906f47e1ff68ab54896b7e4b9227b0ebe",
-    "python/tests/test_release_guard.py": "1ec8600c65853fec6163b55e07023551594b4bf59413f36ea5ed3cc9c0d351cd",
+    "scripts/guard_app_release.py": "0a6a03f22d8f5bc76f58e5d4334b48e9b23a8d713292b3aff019c5ca5c0f9fc4",
+    "python/tests/test_release_guard.py": "fa6a181a2377f4fa550613104adbe5bac0a132a3365afc08a8bf21742d54fed0",
     "scripts/wait_app_acceptance.py": "3de8a40ada12949b235bb852e768b327e915392256bae1c45f8ac4164d52d87f"
   },
   "coverage": [
@@ -32,7 +32,8 @@
     "Acceptance exit0 is NOT human/READY evidence; once-only operation/apply markers prevent replay",
     "Each littlemoe, bigmoe and legacy moe must be inactive/dead/PID0/jobempty/NeedDaemonReload=no; queued job rejects even PID0",
     "Snapshot-only candidate preparation copies pinned old backup; no production SQLite open",
-    "Bounded actual acceptance coordinator: completed/failed/cancelled/absent/stale operation token, no human/security authority claim"
+    "Bounded actual acceptance coordinator: completed/failed/cancelled/absent/stale operation token, no human/security authority claim",
+    "Native owner unit exit/PID0 with stale ordinary checkpoint is failure, not ignored"
   ],
   "retained_failed_runs": [
     "01M7FK9V1PA6DZG9RSHH02XG0P",
@@ -48,5 +49,7 @@
     "Native/MCP/broader profiles remain unsupported; genuine security Allow is human-only"
   ],
   "earlier_receipt_sha256": "f26ddc3f4f03fe3b9b6c1d90404d3ca83ac84a9c750c8abb9bb3cdddc463335c",
-  "earlier_source_commit": "45bb11ffa2219552a421900230d9fa83b7232374"
+  "earlier_source_commit": "45bb11ffa2219552a421900230d9fa83b7232374",
+  "coordinator_receipt_sha256": "239b83594ad1bbb604a4484ff212cd58abf2bcc9dad67e3c6603798ebb7ef78a",
+  "coordinator_source_commit": "1406b7917684a160a6351027b8de5a6a1233319f"
 }

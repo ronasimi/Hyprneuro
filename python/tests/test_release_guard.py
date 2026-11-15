@@ -143,3 +143,14 @@ class AcceptanceCoordinatorTests(unittest.TestCase):
                 if result=='stale':
                     with self.assertRaises(RuntimeError):waiter.wait(root,timeout=1)
                 else:self.assertEqual(waiter.wait(root,timeout=.01),expected)
+
+
+class OwnerExitObservationTests(unittest.TestCase):
+    def test_owner_exit_with_last_ordinary_checkpoint_is_not_silently_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'checkpoint.json').write_text('{"phase":"ordinary"}')
+            live=dict(ActiveState='active',SubState='running',MainPID='42',Job='')
+            dead=dict(ActiveState='inactive',SubState='dead',MainPID='0',Job='')
+            with patch.object(guard,'desktop_safe'),patch.object(guard,'check_moe_inert'),patch.object(guard,'unit_state',side_effect=[live,live,dead]):
+                with self.assertRaisesRegex(RuntimeError,'Native owner exited'):
+                    guard.observe(root,dict(owner=str(root),owner_unit='synthetic-owner.service'),'fixture')

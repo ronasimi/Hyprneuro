@@ -1,7 +1,8 @@
 """Real product GTK construction/actions, isolated Xvfb+D-Bus+synthetic backend.
 No production UI/settings/model/SDK/chooser/consent activity. No FakeUI selectors.
 """
-import asyncio,importlib.util,json,os,subprocess,sys,threading,time
+import asyncio,importlib.util,json,os,subprocess,sys,threading,time,warnings
+warnings.filterwarnings("ignore",message=r".*asyncio\..*.*",category=DeprecationWarning)
 from pathlib import Path
 # Reuse existing explicit private accessibility-bus setup before importing GI.
 if '--isolated-bus' in sys.argv:
@@ -22,7 +23,10 @@ socket=private/'backend.sock'
 async def handle(reader,writer):
     request=json.loads(await reader.readline());requests.append(request);action=request.get('action')
     if action=='ui_settings_get':
-        if len([r for r in requests if r.get('action')=='ui_settings_get'])==2:await asyncio.sleep(.6)
+        if len([r for r in requests if r.get('action')=='ui_settings_get'])==2:
+            await asyncio.sleep(float(os.environ.get('HN_RELOAD_DELAY','.6')))
+            if os.environ.get('HN_RELOAD_CASE')=='error':
+                writer.write(b'{"ok":false,"error":"synthetic reload error"}\n');await writer.drain();writer.close();return
         while not release.is_set():await asyncio.sleep(.02)
         data=dict(ui_transcript_size='restored',ui_autoscroll=True,ui_panel_opacity=.9)
         for name in ['journal','network','resources']:data.update({name+'_active':False,name+'_task':'synthetic','alert_'+name:False})
@@ -55,47 +59,84 @@ try:
     def command(*args):
         assert args[:3]==('wdotool','--backend','wlr-protocols')
         if args[3]=='mousemove':command.position=(int(args[4]),int(args[5]))
-        else:assert args[3:]==('click','1');pointer(*command.position)
+        elif args[3]=='click':assert args[3:]==('click','1');pointer(*command.position)
+        else:
+            assert args[3] in ['key','keyup'] and args[4] in ['ctrl+Return','Return']
+            if args[3]=='keyup':
+                Atspi.generate_keyboard_event(36,None,Atspi.KeySynthType.RELEASE)
+                if args[4]=='ctrl+Return':Atspi.generate_keyboard_event(37,None,Atspi.KeySynthType.RELEASE)
+            else:
+                if args[4]=='ctrl+Return':Atspi.generate_keyboard_event(37,None,Atspi.KeySynthType.PRESS)
+                Atspi.generate_keyboard_event(36,None,Atspi.KeySynthType.PRESSRELEASE)
         return ''
     ui.command=command
-    ui.ordinary=ordinary;ui.consent_prompts=set()
-    ui.button('Settings')
-    desktop.wait(lambda:any(n.get_role_name()=='button' and n.get_name()=='← Back' and n.get_state_set().contains(Atspi.StateType.SHOWING) for n in Desktop.nodes(child.pid)),timeout=3)
-    inventory=[dict(name=n.get_name(),showing=n.get_state_set().contains(Atspi.StateType.SHOWING),sensitive=n.get_state_set().contains(Atspi.StateType.SENSITIVE)) for n in Desktop.nodes(child.pid) if n.get_role_name()=='button' and n.get_name() in driver.BUTTONS]
-    print('ACTUAL WIDGET INVENTORY',json.dumps(inventory),flush=True)
-    # Actual request_preferences sets prefs_busy; Reload exists but insensitive.
-    reload=desktop.find('button','Reload');assert reload and not reload.get_state_set().contains(Atspi.StateType.SENSITIVE)
+    ui.ordinary=ordinary;ui.consent_prompts=set();ui.safe=safe;ui.m={'runtime':str(private)}
+    sys.path.insert(0,str(root/'scripts'))
+    from verify_app_release import ui_status
+    ui.status_reader=ui_status
+    case=os.environ.get('HN_RELOAD_CASE','success')
+    if case=='sync-return':
+        # Transport-latency injection: actual GTK completion/events occur before
+        # the ONE action RPC returns to production code. No post-action crutch.
+        from gi.repository import GLib
+        class Action:
+            get_n_actions=Atspi.Action.get_n_actions
+            @staticmethod
+            def do_action(node,index):
+                result=Atspi.Action.do_action(node,index)
+                if node.get_name()=='Reload':
+                    until=time.monotonic()+3
+                    while time.monotonic()<until:
+                        context=GLib.MainContext.default()
+                        while context.pending():context.iteration(False)
+                        if len([r for r in requests if r.get('action')=='ui_settings_get'])==2 and node.get_state_set().contains(Atspi.StateType.SENSITIVE):break
+                        time.sleep(.01)
+                    else:raise AssertionError('Synchronous-return injection timed out')
+                    print('ACTUAL GTK completion/events BEFORE action RPC return',flush=True)
+                return result
+        class SyncAPI:
+            def __getattr__(self,name):return Action if name=='Action' else getattr(Atspi,name)
+        ui.Atspi=SyncAPI()
+    if case=='missing':
+        class DropEvents:
+            @staticmethod
+            def new(callback):return Atspi.EventListener.new(lambda *args:None)
+        class API:
+            EventListener=DropEvents
+            def __getattr__(self,name):return getattr(Atspi,name)
+        ui.Atspi=API()  # explicit delivery-loss injection; GTK/action remain real
+    if case=='cancel':
+        def cancelled():
+            if len([r for r in requests if r.get('action')=='ui_settings_get'])==2:raise InterruptedError('Synthetic cancellation')
+            return ordinary()
+        ui.ordinary=cancelled
+    class ExerciseComplete(Exception):pass
+    def record(phase,**kwargs):
+        if phase=='ordinary-checks-completed':raise ExerciseComplete()
+        raise AssertionError('Unexpected native/human gate')
+    ui.record=record
     threading.Timer(.3,release.set).start()
-    ui.button('Reload')  # OLD selector fails here; corrected bounded wait must pass
+    try:driver.exercise(ui,lambda ready:None,time.monotonic()+15)
+    except ExerciseComplete:assert case in ['success','sync-return']
+    except (RuntimeError,InterruptedError,AssertionError) as error:
+        assert case in ['error','cancel','missing'],str(error)
+        if case=='error':assert str(error)=='Reload completion reports error/unknown status'
+        if case=='cancel':assert isinstance(error,InterruptedError)
+        if case=='missing':assert str(error)=='Timed out waiting for actual GTK state'
+        assert len([r for r in requests if r.get('action')=='ui_settings_get'])==2
+        print('PASS exact production exercise fail-closed',case,'single Reload; no retry',flush=True)
+        raise SystemExit(0)
+    else:raise AssertionError('Exercise passed through human boundary')
     assert len([r for r in requests if r.get('action')=='ui_settings_get'])==2
-    assert desktop.find('button','Reload').get_state_set().contains(Atspi.StateType.SENSITIVE), 'Reload returned before completion'
-    ui.button('← Back')
-    original=ui.size();ui.button(original);ui.button(ui.size());assert ui.size()==original
-    ui.draft(driver.FIRST)
-    # Private Xvfb's standard XKB keycodes: Control_L37, Return36.
-    # Private registry injects ONLY into the private X server, not host Wayland.
-    Atspi.generate_keyboard_event(37,None,Atspi.KeySynthType.PRESS)
-    try:Atspi.generate_keyboard_event(36,None,Atspi.KeySynthType.PRESSRELEASE)
-    finally:Atspi.generate_keyboard_event(37,None,Atspi.KeySynthType.RELEASE)
-    ui.expect_draft(driver.FIRST+'\n')
-    Atspi.generate_keyboard_event(36,None,Atspi.KeySynthType.PRESSRELEASE)
+    chats=[r for r in requests if r.get('action')=='agent_chat'];assert len(chats)==2
+    assert any(m.get('role')=='assistant' and m.get('content')==driver.MARKER for m in chats[1]['history'])
+    assert not ui.keys_inflight
+    print('PASS exact production exercise ordinary sequence fast/delayed Reload; no fixture completion waits',flush=True)
+    # Additional explicit Send selector coverage (exercise uses Return in Legacy).
+    ui.draft(driver.FIRST);ui.button('Send')
     desktop.wait(lambda:ui.settled(driver.MARKER,legacy=True),timeout=5)
-    ui.draft(driver.SECOND)
-    ui.button('Send')
-    desktop.wait(lambda:ui.settled(driver.MARKER,legacy=True),timeout=5)
-    chats=[x for x in requests if x.get('action')=='agent_chat'];assert len(chats)==2
-    assert any(m.get('role')=='assistant' and m.get('content')==driver.MARKER for m in chats[1].get('history',[])), 'Actual assistant history not retained'
     desktop.control('hide');desktop.control('show');ui.expect_draft('')
-    for name in ['Settings','Send','Connect Pi owner…',ui.size()]:assert desktop.find('button',name),name
-    before=len([r for r in requests if r.get('action')=='ui_settings_get'])
-    try:ui.button('Reload')
-    except AssertionError:pass
-    else:raise AssertionError('Hidden settings Reload accepted')
-    assert len([r for r in requests if r.get('action')=='ui_settings_get'])==before
-    try:ui.button('Allow')
-    except RuntimeError:pass
-    else:raise AssertionError('Security action accepted')
-    print('PASS actual product Settings→busy Reload wait→Reload→Back→Normal/Expanded restore→CtrlEnter/Enter→synthetic chat/history→hide/show selectors. NOT production inference/SDK/human acceptance.',flush=True)
+    raise SystemExit(0)
 finally:
     release.set()
     if child.poll() is None:child.terminate()

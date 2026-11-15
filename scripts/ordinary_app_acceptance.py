@@ -230,23 +230,53 @@ class UI:
         self.desktop.wait(selected,timeout=8)  # read-only retries, NEVER retry action
         node=selected()
         if not node or self.Atspi.Action.get_n_actions(node)!=1:raise RuntimeError('Exact button/action unavailable')
-        if not self.Atspi.Action.do_action(node,0):raise RuntimeError('Exact button action failed')
         if name=='Reload':
-            # Prove THIS action started, then completed. A missed busy edge is
-            # failure, never permission to leave Settings or repeat activation.
-            def busy():
-                self.ordinary()
-                return self.settings_view() and any(n.get_role_name()=='button' and n.get_name()=='Reload'
-                    and n.get_state_set().contains(self.Atspi.StateType.SHOWING)
-                    and not n.get_state_set().contains(self.Atspi.StateType.SENSITIVE) for n in self.nodes())
-            self.desktop.wait(busy,timeout=3)
-            self.desktop.wait(lambda:selected() and not any(n.get_role_name()=='label' and 'Loading…' in n.get_name()
-                              for n in self.nodes()),timeout=8)
-        elif name=='Settings':self.desktop.wait(self.settings_view,timeout=3)
+            self.reload_once(node,selected)
+        elif not self.Atspi.Action.do_action(node,0):raise RuntimeError('Exact button action failed')
+        if name=='Settings':self.desktop.wait(self.settings_view,timeout=3)
         elif name=='← Back':self.desktop.wait(lambda:not self.settings_view(),timeout=3)
         elif name in ['Expand transcript: Normal → Expanded','Restore transcript: Expanded → Normal']:
             other='Restore transcript: Expanded → Normal' if name.startswith('Expand') else 'Expand transcript: Normal → Expanded'
             self.desktop.wait(lambda:self.size()==other,timeout=3)
+
+    def reload_once(self,node,selected):
+        from gi.repository import GLib
+        states=[];errors=[];armed=False
+        def event(packet,*unused):
+            try:
+                if armed and packet.source==node:
+                    if packet.source.get_process_id()!=self.current['pid'] or packet.detail1 not in [0,1]:
+                        raise RuntimeError('Reload event identity/state mismatch')
+                    if not states or states[-1]!=packet.detail1:states.append(packet.detail1)
+            except Exception:errors.append('Reload state event invalid')
+        def pump():
+            context=GLib.MainContext.default()
+            for _ in range(1024):
+                if not context.pending():return
+                context.iteration(False)
+            raise RuntimeError('Accessibility event overflow')
+        listener=self.Atspi.EventListener.new(event)
+        kind='object:state-changed:sensitive'
+        if not listener.register(kind):raise RuntimeError('Reload event subscription failed')
+        try:
+            pump();self.ordinary()
+            if selected()!=node:raise RuntimeError('Reload target changed before activation')
+            armed=True
+            if not self.Atspi.Action.do_action(node,0):raise RuntimeError('Exact Reload action failed')
+            def completed():
+                pump();self.ordinary()
+                if errors or states not in [[],[0],[0,1]]:raise RuntimeError('Reload event sequence invalid')
+                if states!=[0,1] or selected()!=node:return False
+                labels=[n.get_name() for n in self.nodes() if n.get_role_name()=='label'
+                        and n.get_name().startswith('Size — active:')
+                        and n.get_state_set().contains(self.Atspi.StateType.SHOWING)]
+                if len(labels)!=1 or len(labels[0].splitlines())!=6:
+                    raise RuntimeError('Reload completion reports error/unknown status')
+                return True
+            self.desktop.wait(completed,timeout=8)
+        finally:
+            armed=False
+            if not listener.deregister(kind):raise RuntimeError('Reload event unsubscription failed')
 
     def size(self):
         for name in ['Expand transcript: Normal → Expanded','Restore transcript: Expanded → Normal']:

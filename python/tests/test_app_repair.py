@@ -57,7 +57,7 @@ class RepairTests(unittest.TestCase):
     def persist(*args):
      if failure=='persist':raise OSError('State failure')
      original(*args)
-    with patch.object(control,'preflight',return_value=(context,dict(runtime='/private'))),patch.object(control,'load_context',return_value=context),patch.object(repair,'cutover',side_effect=RuntimeError('Cutover failed') if failure=='replacement' else None),patch.object(control,'wait_sidecar_listener',return_value={}),patch.object(control,'recheck_sidecar_listener'),patch.object(control.subprocess,'run',side_effect=run),patch.object(control.subprocess,'Popen',return_value=process),patch.object(control,'verify_started',side_effect=RuntimeError('Verify') if failure=='verify' else None),patch.object(apply,'desktop_safe'),patch.object(guard,'observe',side_effect=observed),patch.object(guard,'contain',return_value={u:dict(stopped=failure!='uncontained') for u in guard.APPS}) as contained,patch.object(control,'write_state',side_effect=persist),patch.object(control.time,'monotonic',side_effect=[0,0,0,8000] if failure=='timeout' else None):
+    with patch.object(control,'preflight',return_value=(context,dict(runtime='/private'))),patch.object(control,'load_context',return_value=context),patch.object(repair,'cutover',side_effect=RuntimeError('Cutover failed') if failure=='replacement' else None),patch.object(repair,'verify_replacements'),patch.object(control,'wait_sidecar_listener',return_value={}),patch.object(control,'recheck_sidecar_listener'),patch.object(control.subprocess,'run',side_effect=run),patch.object(control.subprocess,'Popen',return_value=process),patch.object(control,'verify_started',side_effect=RuntimeError('Verify') if failure=='verify' else None),patch.object(apply,'desktop_safe'),patch.object(guard,'observe',side_effect=observed),patch.object(guard,'contain',return_value={u:dict(stopped=failure!='uncontained') for u in guard.APPS}) as contained,patch.object(control,'write_state',side_effect=persist),patch.object(control.time,'monotonic',side_effect=[0,0,0,8000] if failure=='timeout' else None):
      self.assertIn(control.execute(root,root,'private',True,True,'a'*64),[1,2]);contained.assert_called_once()
      with self.assertRaisesRegex(RuntimeError,'already used'):control.execute(root,root,'private',True,True,'a'*64)
     if failure=='replacement':self.assertFalse(calls)
@@ -83,3 +83,19 @@ class RepairTests(unittest.TestCase):
      if fault=='none':self.assertEqual(binding.load_context(bundle,root,pin)['version'],2)
      else:
       with self.assertRaises((RuntimeError,ValueError)):binding.load_context(bundle,root,pin)
+ def test_fresh_postreplacement_drift_rejects_before_start(self):
+  for fault in ['artifact','mode','base','loaded','reload']:
+   with self.subTest(fault=fault),tempfile.TemporaryDirectory() as d:
+    root=Path(d);file=root/'replacement';file.write_text('NEW');file.chmod(0o600);base=root/'base';base.write_text('BASE');base.chmod(0o600)
+    context=dict(replacement_files={str(file):dict(sha256=repair.digest(file),mode=0o600)})
+    identity=dict(unit='private',fragment=str(base),dropins=[str(file)])
+    m=dict(units=[dict(path=str(base),sha256=repair.digest(base)),dict(path=str(file),sha256='OLD')],ui=identity,sidecar=identity)
+    if fault=='artifact':file.write_text('DRIFT')
+    if fault=='mode':file.chmod(0o400)
+    if fault=='base':base.write_text('DRIFT')
+    def show(*args,**kw):
+     if 'FragmentPath' in args:return 'FragmentPath='+('DRIFT' if fault=='loaded' else str(base))+'\nDropInPaths='+str(file)
+     return 'yes' if fault=='reload' else 'no'
+    with patch.object(prep,'run',side_effect=show),patch.object(control.subprocess,'run') as effects:
+     with self.assertRaises(RuntimeError):repair.verify_replacements(context,m)
+     effects.assert_not_called()

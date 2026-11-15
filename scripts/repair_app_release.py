@@ -63,3 +63,17 @@ def cutover(bundle,context,m,session,check_context):
         effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Replacement effective units changed')
         if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Replacement not loaded')
+
+def verify_replacements(context,m):
+    """Fresh closed-set artifact/mode checks before EACH reviewed app start."""
+    from prepare_app_release import private_file,run
+    for path,entry in context['replacement_files'].items():
+        p=private_file(path)
+        if p!=Path(path) or digest(p)!=entry['sha256'] or stat.S_IMODE(p.stat().st_mode)!=entry['mode']:raise RuntimeError('Repaired artifact drift before start')
+    for entry in m['units']:
+        expected=context['replacement_files'].get(entry['path'],entry)['sha256']
+        if digest(private_file(entry['path']))!=expected:raise RuntimeError('Repaired/base unit drift before start')
+    for identity in [m['ui'],m['sidecar']]:
+        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
+        if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Repaired effective units drift before start')
+        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Repaired unit reload drift before start')

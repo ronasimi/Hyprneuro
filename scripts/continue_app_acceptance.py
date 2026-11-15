@@ -189,12 +189,16 @@ def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=N
             cutover(bundle,context,m,session,lambda:load_context(bundle,root,context_sha256))
         write_state(root,state,'starting-installed-sidecar')
         desktop_safe(session);load_context(bundle,root,context_sha256)
+        if context['version']==2:
+            from repair_app_release import verify_replacements
+            verify_replacements(context,m)
         subprocess.run(['systemctl','--user','start','hyprneuro.service'],check=True,timeout=15)
         write_state(root,state,'waiting-sidecar-control-listener')
         readiness_deadline=min(deadline,time.monotonic()+8)  # ONE budget including final post-await recheck
         proof=wait_sidecar_listener(Path(m['runtime'])/'hyprharness/grant-control.sock',readiness_deadline)
         write_state(root,state,'starting-installed-UI')
         desktop_safe(session);load_context(bundle,root,context_sha256)
+        if context['version']==2:verify_replacements(context,m)
         recheck_sidecar_listener(proof,readiness_deadline)  # after context/unlock awaits, immediately before UI start
         subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=min(15,max(.001,deadline-time.monotonic())))
         write_state(root,state,'verifying-installed')

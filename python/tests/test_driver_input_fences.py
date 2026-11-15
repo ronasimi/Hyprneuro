@@ -32,7 +32,7 @@ class InputFences(unittest.TestCase):
 class KeyCleanupFences(unittest.TestCase):
  def ui(self):
   import types
-  ui=m.UI.__new__(m.UI);ui.deadline=0;ui.keys_inflight=False;ui.current={'pid':123};ui.m={'runtime':'/private'}
+  ui=m.UI.__new__(m.UI);ui.deadline=__import__('time').monotonic()+5;ui.keys_inflight=False;ui.current={'pid':123};ui.m={'runtime':'/private'}
   ui.ordinary=lambda:None
   ui.Atspi=types.SimpleNamespace(StateType=types.SimpleNamespace(FOCUSED=1))
   ui.composer=lambda:types.SimpleNamespace(get_state_set=lambda:types.SimpleNamespace(contains=lambda state:True))
@@ -40,24 +40,33 @@ class KeyCleanupFences(unittest.TestCase):
   return ui
  def test_expired_operation_still_spawns_one_exact_bounded_release(self):
   ui=self.ui();original=subprocess.TimeoutExpired('key',.01)
-  ui.command=lambda *args:(_ for _ in ()).throw(original)
-  with patch.object(m.subprocess,'check_output',return_value='') as release:
+  def command(argv,**kwargs):
+   if argv[-2]=='key':ui.deadline=0;raise original
+   return ''
+  with patch.object(m.subprocess,'check_output',side_effect=command) as release:
    with self.assertRaises(subprocess.TimeoutExpired) as caught:ui.key('ctrl+Return')
   self.assertIs(caught.exception,original);self.assertFalse(ui.keys_inflight)
-  release.assert_called_once_with(('wdotool','--backend','wlr-protocols','keyup','ctrl+Return'),text=True,timeout=5)
+  self.assertEqual(release.call_count,2)
+  release.assert_called_with(('wdotool','--backend','wlr-protocols','keyup','ctrl+Return'),text=True,timeout=5)
  def test_release_failure_preserves_chain_original_error_and_blocks_input(self):
   for error in [subprocess.TimeoutExpired('keyup',5),OSError('private error')]:
    with self.subTest(error=type(error).__name__):
-    ui=self.ui();original=subprocess.TimeoutExpired('key',.01);ui.command=lambda *args:(_ for _ in ()).throw(original)
-    with patch.object(m.subprocess,'check_output',side_effect=error) as release:
+    ui=self.ui();original=subprocess.TimeoutExpired('key',.01);ui.deadline=__import__('time').monotonic()+5
+    def command(argv,**kwargs):
+     if argv[-2]=='key':ui.deadline=0;raise original
+     raise error
+    with patch.object(m.subprocess,'check_output',side_effect=command) as release:
      with self.assertRaises(subprocess.TimeoutExpired) as caught:ui.key('ctrl+Return')
     self.assertIs(caught.exception,original);self.assertTrue(ui.keys_inflight);self.assertEqual(ui.pending_key_chain,'ctrl+Return');self.assertTrue(ui.key_cleanup_error)
-    self.assertEqual(release.call_count,1)
+    self.assertEqual(release.call_count,2)
     del ui.ordinary
     with self.assertRaisesRegex(RuntimeError,'uncertain'):ui.ordinary()
  def test_release_failure_after_success_is_explicit_failure(self):
-  ui=self.ui();ui.command=lambda *args:''
-  with patch.object(m.subprocess,'check_output',side_effect=OSError('private error')):
+  ui=self.ui()
+  def command(argv,**kwargs):
+   if argv[-2]=='keyup':raise OSError('private error')
+   return ''
+  with patch.object(m.subprocess,'check_output',side_effect=command):
    with self.assertRaisesRegex(RuntimeError,'release uncertain'):ui.key('Return')
   self.assertTrue(ui.keys_inflight);self.assertEqual(ui.pending_key_chain,'Return')
  def test_private_executable_release_spawns_after_key_timeout(self):
@@ -71,3 +80,9 @@ class KeyCleanupFences(unittest.TestCase):
    calls=[json.loads(line) for line in log.read_text().splitlines()]
    self.assertEqual(calls,[['--backend','wlr-protocols','key','ctrl+Return'],['--backend','wlr-protocols','keyup','ctrl+Return']])
    self.assertFalse(ui.keys_inflight);self.assertIsNone(ui.pending_key_chain)
+ def test_expired_before_attempt_spawns_neither_key_nor_release(self):
+  ui=self.ui();ui.deadline=0
+  with patch.object(m.subprocess,'check_output') as command:
+   with self.assertRaises(TimeoutError):ui.key('ctrl+Return')
+   command.assert_not_called()
+  self.assertFalse(ui.keys_inflight)

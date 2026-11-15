@@ -210,11 +210,13 @@ class UI:
         status=self.status_reader(Path(self.m['runtime'])/'hyprneuro/ui.sock',self.current['pid'])
         if status['mode']!='legacy' or status['connected']:
             raise RuntimeError('Global keyboard tests are Legacy-only; native uses exact Send action')
+        from command_budget import timeout
+        key_timeout=timeout(getattr(self,'deadline',None))  # no attempt => no release authority
         self.keys_inflight=True
         self.pending_key_chain=key
         self.key_cleanup_error=None
         original=None
-        try:self.command('wdotool','--backend','wlr-protocols','key',key)
+        try:subprocess.check_output(('wdotool','--backend','wlr-protocols','key',key),text=True,timeout=key_timeout)
         except BaseException as error:
             original=error
             raise

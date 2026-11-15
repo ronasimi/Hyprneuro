@@ -74,9 +74,10 @@ class UI:
         self.m=json.loads((bundle/'manifest.json').read_text())
         sys.path.insert(0,str(bundle/'staged'))
         from prepare_app_release import unit_identity
-        from verify_app_release import verify,ui_status
+        from verify_app_release import ui_status
+        from verify_installed_continuation import verify
         self.identity=unit_identity;self.status_reader=ui_status
-        verify(bundle,installed=True,legacy=True)  # post-cutover metadata, no SQL
+        verify(bundle,self.runtime,context_sha256)  # post-cutover metadata, no SQL
         self.current=unit_identity('hyprneuro-ui.service')
         if self.current['pid']==self.m['ui']['pid']:raise RuntimeError('Old UI still running')
         sys.path.insert(0,str(bundle/'source/ui/tests'))

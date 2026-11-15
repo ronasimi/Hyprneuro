@@ -20,7 +20,7 @@ class ContinuationTests(unittest.TestCase):
                 def control(argv,**kwargs):
                     calls.append(argv)
                     if (failure=='sidecar' and argv[-1]=='hyprneuro.service') or (failure=='ui' and argv[-1]=='hyprneuro-ui.service'):raise RuntimeError('Synthetic AFTER successful start')
-                def verified(bundle):
+                def verified(bundle,*args):
                     if failure=='verify':raise RuntimeError('Installed verify failed')
                 def observed(*args):
                     if failure=='lock':raise RuntimeError('Locked')
@@ -127,7 +127,7 @@ class ImmutableContextTests(unittest.TestCase):
             entry=base/'entry.py';entry.write_text('SYNTHETIC code')
             context=dict(version=1,id=root.name,bundle=str(bundle),manifest_sha256=pin,entry=str(entry),driver=str(entry),external_files={str(entry):binding.digest(entry)},original_failed_files={str(original):binding.digest(original)})
             file=root/'continuation-context.json';file.write_text(json.dumps(context));file.chmod(0o400);context_pin=binding.digest(file)
-            with patch.object(binding,'MANIFEST',pin):
+            with patch.object(binding,'MANIFEST',pin),patch('runtime_attestation.validate',return_value={}):
                 binding.load_context(bundle,root,context_pin)
                 original.write_text('CHANGED')
                 with self.assertRaises(RuntimeError):binding.load_context(bundle,root,context_pin)

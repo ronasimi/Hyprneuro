@@ -67,7 +67,9 @@ def preflight(bundle,root,session,context_sha256):
         if state!={'ActiveState':'inactive','SubState':'dead','MainPID':'0','Job':'','ControlGroup':''}:
             raise RuntimeError('Apps must be stopped/PID0/no job/cgroup before continuation')
         if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('App reload drift')
-    for identity in m['models']:
+    from runtime_attestation import validate
+    for entry in validate(context)['models']:
+        identity=entry['identity']
         if dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','ActiveState','-p','SubState',timeout=5).splitlines())!=dict(ActiveState='active',SubState='running'):raise RuntimeError('Model state drift')
         if unit_identity(identity['unit'])!=identity:raise RuntimeError('Active model identity drift')
         if run('systemctl','--user','show',identity['unit'],'-p','Job','--value',timeout=5):raise RuntimeError('Model job')
@@ -93,16 +95,17 @@ def preflight(bundle,root,session,context_sha256):
     return context,m
 
 
-def verify_started(bundle):
+def verify_started(bundle,root,context_sha256):
     from prepare_app_release import unit_identity
-    from verify_app_release import verify
+    from verify_installed_continuation import verify
     deadline=time.monotonic()+8
     while time.monotonic()<deadline:
+        load_context(bundle,root,context_sha256)
         origin=json.loads((bundle/'sidecar-origin.json').read_text())
         if origin['pid']==unit_identity('hyprneuro.service')['pid']:break
         time.sleep(.1)
     else:raise TimeoutError('New sidecar origin not attested')
-    verify(bundle,installed=True,legacy=True)
+    verify(bundle,root,context_sha256)
 
 
 def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=None):
@@ -126,7 +129,7 @@ def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=N
         desktop_safe(session);load_context(bundle,root,context_sha256)
         subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=15)
         write_state(root,state,'verifying-installed')
-        verify_started(bundle)
+        verify_started(bundle,root,context_sha256)
         write_state(root,state,'acceptance-window')
         observe(bundle,m,session);load_context(bundle,root,context_sha256)
         child=subprocess.Popen(['/usr/bin/python',context['driver'],str(bundle),'--continuation',str(root),'--context-sha256',context_sha256])

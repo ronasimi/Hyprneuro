@@ -32,6 +32,9 @@ def load_context(bundle,root,expected_sha):
         if digest(path)!=sha:raise RuntimeError('Original failed attempt changed; no replay/repair')
     for path,sha in data['external_files'].items():
         if digest(path)!=sha:raise RuntimeError('Continuation source pin changed')
+    from runtime_attestation import validate
+    validate(data)
+    if digest(file)!=expected_sha:raise RuntimeError('Approved context changed during runtime observation')
     return data
 
 

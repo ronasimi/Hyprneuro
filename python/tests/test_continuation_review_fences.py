@@ -58,7 +58,7 @@ class ContextPinTests(unittest.TestCase):
                     # Old-code adapter only to retain meaningful FAIL-before proof.
                     if 'expected_sha' in binding.load_context.__code__.co_varnames:return binding.load_context(bundle,attempt,approved)
                     return binding.load_context(bundle,attempt)
-                with patch.object(binding,'MANIFEST',pin):
+                with patch.object(binding,'MANIFEST',pin),patch('runtime_attestation.validate',return_value={}):
                     load();(attempt/'operation.started').write_text(json.dumps(dict(context_sha256=approved)))
                     replacement=attempt/'replacement';data[field]=value;replacement.write_text(json.dumps(data));replacement.chmod(0o400);replacement.replace(file)
                     with self.assertRaisesRegex(RuntimeError,'context|Context'):load()
@@ -77,7 +77,7 @@ class ContextPinTests(unittest.TestCase):
                 file=attempt/'continuation-context.json';file.write_text(json.dumps(data));file.chmod(0o400);approved=binding.digest(file)
                 def replace():
                     changed=dict(data,original_failed_files={},workspace=99);tmp=attempt/'replacement';tmp.write_text(json.dumps(changed));tmp.chmod(0o400);tmp.replace(file)
-                with patch.object(binding,'MANIFEST',pin):
+                with patch.object(binding,'MANIFEST',pin),patch('runtime_attestation.validate',return_value={}):
                     if actor=='controller':
                         writer=ctrl.write_state
                         def record(*args):writer(*args);replace()

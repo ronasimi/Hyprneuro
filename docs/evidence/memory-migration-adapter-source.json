@@ -1,0 +1,110 @@
+{
+  "recorded_utc": "2026-11-15T04:21:18.436830+00:00",
+  "base_commit": "3a71e1602768bdb4d39513591c40aa87d2d50e0a",
+  "status": "SOURCE ONLY FIXTURE MILESTONE; adapter independent review pending; source integration HELD until reviewed aggregate latest-cancellation validation",
+  "approved_plan": {
+    "commit": "3a71e1602768bdb4d39513591c40aa87d2d50e0a",
+    "review": "01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review@3 (user-relayed)"
+  },
+  "source_sha256": {
+    "scripts/memory_migration_candidate.py": "709c7fec5dcbf990c6f5be1fb2bfce0fd614a9ea1ceebb8604021ab68e988980",
+    "python/tests/test_memory_migration_candidate.py": "0ccd4d8e7a49bf4624dc771728367e63a0e6a2ea195edcc5df74ea77f9d4227c",
+    "docs/MEMORY_MIGRATION_FIXTURE_ADAPTER.md": "d25f440fcd40fff176b027c51e9994549a5539b0160a605ee73bbab46843dfc2"
+  },
+  "unchanged_approved_files_sha256": {
+    "python/src/hyprneuro/application.py": "9680d6eb56c33dee9ff1a052b0fdcc6beab77cf7fd52f53c7cf6007611aff071",
+    "python/src/hyprneuro/sidecar_store.py": "44f7efee468c5b954ca705911499b9fa23f8bf3efa043340df5c6016fb10f75a",
+    "scripts/prepare_app_release.py": "9ed6a5bbdb2437e4e12b83c2e6c2531d1b1eb7d8f72cb42035694947b4c92a53",
+    "scripts/apply_app_release.py": "3826802b38d39bca17bb109736147bb0a01e8c3dae9f5efb97ecd1e8aa96ac63",
+    "scripts/verify_app_release.py": "aaf6255ec37b2699a7715304fb1bbec60b64796eb8f5ee2fb4632978c551d16c",
+    "docs/MEMORY_MIGRATION_PLAN.md": "de534462e2bff4ccb04ca0e93d7aa035a054e90c7f41f3ca2d2af209bd4fa1c2"
+  },
+  "evidence_root": "/home/ron/Workspace/hyprneuro-memory-evidence",
+  "artifact_sha256": {
+    "run-tests.sh": "a95859922afb605b8a84a9396aef3c283d980609d6eb0ee5c4df88cf0b2380fe",
+    "adapter-focused-attempt1.log": "35f68c3d443c6fdd0fe591771dc86502aec6e0c56f310c7d9684dd81e8eced55",
+    "adapter-focused-attempt2.log": "4b2b7b75eccc476c892396f8ef37a711d757621d8b78589c705abf6a74fda0af",
+    "adapter-focused-attempt3.log": "e96855005b18e60eb94b6c2cafd8a27b8bb21e24b3e2acf5c384ebd3f00c2bb8",
+    "adapter-focused-attempt4.log": "c8532c85964b2989d0056aab54d09a17121cd8248474a8f0e819e0f55c4231c0",
+    "adapter-focused-final.log": "8806dacbd1798cf55d60b647191705ff96a14e269a202911b6d8cbcfe5dc33d7",
+    "adapter-combined-focused-attempt1.log": "b48eeda7012aad999a72451140b9d88d37591b83cac0a243175591056e89c5eb",
+    "adapter-combined-focused-attempt2.log": "6d7c54738fc83da73354b5a80aa8a0b2c119c5279ce54fc34beeb67ee31588dc",
+    "adapter-combined-focused-final.log": "a2a5203cea159a719bfd11e9c9a5f1c0e15b0e2b95b9615e189686d9d09f5af8",
+    "adapter-full-attempt1.log": "4579682f7fba3621a04553bcfb1f0094a46d25c539fbe26ff53a8198f217ac26",
+    "adapter-full-attempt2.log": "bf4658ec0c556d596fe78d48552823c37ea77d2bf5d2648daa7f61da142a1e51",
+    "adapter-full-final.log": "9386c26932bd440c4079c5489dbb33911641916d1f46c989158ab3307d79fbdc",
+    "adapter-demo.py": "82dda0673a5364c8e5cd7441227f232f7f9c9d3437d10abe91191c2ef839d39f",
+    "adapter-demo.log": "ddc0cb1b98c2f1dd7ab32d61aea184dc9e49c112ae9682e38c231b5f28be555b",
+    "make-adapter-receipt.py": "28b9768a59b9aee1c7b3e9bdf6e89be7d09a1068ad61cedfb0d0379937797fa9"
+  },
+  "demo_artifact_sha256": {
+    "hn-memory-fixture-adapter-demo01/fixture.json": "62c8a3efc7f5f03841a2d99ba7eff0a0de63cacc16503f39eff3dc2e9dc79f22",
+    "hn-memory-fixture-adapter-demo01/input.sqlite3": "bcceaf9674f7772eaca4e140e871e8aff6965eb5cd59c0eb10c67b1c6a947e08",
+    "hn-memory-fixture-adapter-demo01/input.sqlite3-shm": "5f7d6295ba56cb4a6d1958d63bf3b6525431f13ee7100b43ab65bdfe7a57b9a1",
+    "hn-memory-fixture-adapter-demo01/input.sqlite3-wal": "c7fae22f7c8cb1479e5b3075cc5da0d74b06b9a79d05289147ac1010387549ae",
+    "hn-memory-fixture-adapter-demo01/operation/baseline.sqlite3": "74a434ff727a3de84fbee70473dd810f2dae917ffda86ea9eb1b8f81ec34b3e6",
+    "hn-memory-fixture-adapter-demo01/operation/candidate.sqlite3": "6dabf66860a8a751e6150d51cebf6784b3ba1a60b935d38d792b0916fed3cd33",
+    "hn-memory-fixture-adapter-demo01/operation/migration-backup.sqlite3": "74a434ff727a3de84fbee70473dd810f2dae917ffda86ea9eb1b8f81ec34b3e6",
+    "hn-memory-fixture-adapter-demo01/operation/prepare-request.json": "a3a7dbaef83686d6416c1b4e4170d5754953ed53b45cb72d2b5e7c66a40ff018",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/authoritative.sqlite3": "ddb1daa6d4f17ee12c914153032c06fe0244821f1a47c2de5e9f5fff13112410",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/plan.json": "74664f54c18c842d12890baff876f46d6cf6126d207b5efaa10d61dec41393de",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/raw/current.sqlite3": "bcceaf9674f7772eaca4e140e871e8aff6965eb5cd59c0eb10c67b1c6a947e08",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/raw/current.sqlite3-shm": "d4a54ccac1e655723b436c88701d6219c164f73c9ed4b8f319ae405081fdb18b",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/raw/current.sqlite3-wal": "c7fae22f7c8cb1479e5b3075cc5da0d74b06b9a79d05289147ac1010387549ae",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/settings-current.json": "e817ac896e4e89b1f7dc73de60b8859cc4243b87ba293a9c7dd6ca2957626f82",
+    "hn-memory-fixture-adapter-demo01/operation/state.json": "b3d5481b10b153dad6a8f91373f6dea59c0b52c99ef8a52536ef7d371d341d67",
+    "hn-memory-fixture-adapter-demo01/request.json": "645e02c01970ba20e4855e0406fe07bd87466fa87f9e392149ec53891d5d5a96",
+    "hn-memory-fixture-adapter-demo01/settings.json": "e817ac896e4e89b1f7dc73de60b8859cc4243b87ba293a9c7dd6ca2957626f82"
+  },
+  "adapter_tests": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q tests/test_memory_migration_candidate.py",
+    "log": "adapter-focused-final.log",
+    "passed": 57,
+    "seconds": 20.7
+  },
+  "combined_focused": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q tests/test_memory_migration_candidate.py tests/test_memory_store.py tests/test_application.py tests/test_assistant_ipc.py tests/test_telemetry.py",
+    "log": "adapter-combined-focused-final.log",
+    "passed": 263,
+    "subtests_passed": 17,
+    "seconds": 31.23
+  },
+  "full_python": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q -rs",
+    "log": "adapter-full-final.log",
+    "passed": 682,
+    "subtests_passed": 138,
+    "skipped": 2,
+    "seconds": 43.43,
+    "skips": [
+      "optional Pillow visual gate",
+      "explicit installed SDK/Durable fixture paths absent"
+    ]
+  },
+  "environment": "existing Python 3.13 venv; -W error; isolated Workspace HOME/TMPDIR/XDG; offline flags; no bytecode/pytest caches; no warning suppression",
+  "retained_failure": "WAL baseline rehearsal exposed copied WAL-mode headers leaving private artifact sidecars during reads; failed adapter/combined/full logs retained. Fix normalizes only fresh backup destinations to DELETE; source remains unchanged.",
+  "cli_rehearsal": {
+    "root": "/home/ron/Workspace/hyprneuro-memory-evidence/hn-memory-fixture-adapter-demo01",
+    "actions": [
+      "prepare",
+      "verify",
+      "replace-fixture",
+      "activation-fence",
+      "synthetic owner/task/WAL/settings writes",
+      "recovery"
+    ],
+    "result": "retain_current_forward_repair / blocked_duplicate_keys; both owners, committed WAL, task and current settings preserved; no downgrade or restore"
+  },
+  "production_mode_available": false,
+  "production_paths_or_settings_payloads_opened": false,
+  "runtime_attestation_or_service_ops": false,
+  "network_gui_capture_models_providers": false,
+  "push_or_deploy": false,
+  "remaining_limits": [
+    "Fixture digest-bound quiescence declaration is not proof of real service shutdown or authorization; no production mode",
+    "No downgrade transform or old snapshot/settings restore exists",
+    "Filesystem blocking is not a hard real-time deadline guarantee",
+    "Latest approved cancellation pin aggregate-source validation not yet performed; no claim that current memory branch incorporates it"
+  ],
+  "next_dependency": "Independent adapter review; then parent-owned clean aggregate latest approved cancellation pin and offline combined validation; production adapter/release handoff and explicit migration approval remain separate gates"
+}

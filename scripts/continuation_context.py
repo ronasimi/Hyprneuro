@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import sys
 
 MANIFEST='44bf0c8d3a41aa402253e5a8548b1b834d1062b0635343c0f271ba854da3a857'
 
@@ -33,6 +34,10 @@ def load_context(bundle,root,expected_sha):
     for path,sha in data['external_files'].items():
         if digest(path)!=sha:raise RuntimeError('Continuation source pin changed')
     from runtime_attestation import validate
+    if 'runtime_attestation' in data:
+        for name,sha in json.loads((bundle/'manifest.json').read_text())['staged_files'].items():
+            if digest(bundle/'staged'/name)!=sha:raise RuntimeError('Pinned runtime helper/staged source changed')
+        sys.path.insert(0,str(bundle/'staged'))
     validate(data)
     if digest(file)!=expected_sha:raise RuntimeError('Approved context changed during runtime observation')
     return data

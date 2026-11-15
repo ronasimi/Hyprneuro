@@ -10,6 +10,8 @@ desktop lease by itself. A desktop-control lease (Phase 5) is a separate,
 higher-assurance mechanism that must also be satisfied before GUI automation.
 
 Rules (see docs/ARCHITECTURE.md, section "Task-scoped autonomy"):
+  * ALL creation/expansion requires the host-only grant capability, including
+    ordinary read/write/execute scopes. No model boolean can grant authority.
   * A scope is created per task with a bounded set of allowed operations.
   * `check` denies unless the scope is active, the operation is allowed, the
     app/path constraints match, and (for privileged ops) the scope was created
@@ -19,7 +21,7 @@ Rules (see docs/ARCHITECTURE.md, section "Task-scoped autonomy"):
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # Operations that are ordinary and may run without a recorded approval, as long
@@ -80,18 +82,31 @@ class AuthorizationScope:
 class PermissionBroker:
     """In-memory (or store-backed) authorization policy for durable tasks.
 
-    The public API is identical for both backends so unit tests can run
-    in-memory while the service uses the store.
+    The default broker permits inspection and revocation, never grants. The
+    host may inject an opaque grant capability and supply it after validating
+    trusted consent bound to the exact action/scope. `approved` is policy
+    metadata, NOT evidence of consent or a substitute for that capability.
+    Both backends enforce the same boundary.
     """
 
-    def __init__(self, store: Any | None = None):
+    def __init__(self, store: Any | None = None, *, grant_capability: object | None = None):
+        # Only the trusted host holds this opaque object. Never deserialize a
+        # grant capability from RPC arguments; same-UID transport is not consent.
+        if grant_capability is not None and type(grant_capability) is not object:
+            raise ValueError("grant_capability must be an opaque host object")
+        self._grant_capability = grant_capability
         self._store = store
         self._scopes: dict[str, AuthorizationScope] = {}
+
+    def _require_grant(self, capability: object | None) -> None:
+        if self._grant_capability is None or capability is not self._grant_capability:
+            raise PermissionError("Trusted grant capability required")
 
     # -- creation --
     def authorize(self, task_id: str, *, app_id: str | None = None,
                   file_prefix: str | None = None, ops: tuple = NORMAL_OPS,
-                  approved: bool = False) -> dict:
+                  approved: bool = False, grant_capability: object | None = None) -> dict:
+        self._require_grant(grant_capability)
         task_id = _check_id(task_id, "task_id")
         if not task_id:
             raise ValueError("task_id is required")
@@ -156,7 +171,7 @@ class PermissionBroker:
             return {"allowed": False, "reason": "requires_approval"}
         # Application constraint: if the scope is bound to an app, the
         # operation must target that app.
-        if scope.app_id is not None and app_id is not None and app_id != scope.app_id:
+        if scope.app_id is not None and app_id != scope.app_id:
             return {"allowed": False, "reason": "app_out_of_scope"}
         # File constraint: if the scope is bound to a prefix, the path must be
         # inside it (prefix match on the normalized path).
@@ -168,8 +183,9 @@ class PermissionBroker:
     # -- expansion / revocation --
     def expand(self, task_id: str, *, ops: tuple | None = None,
                file_prefix: str | None = None, app_id: str | None = None,
-               approved: bool) -> dict:
-        """Widen a scope. Expansion is privileged and ALWAYS requires approval."""
+               approved: bool, grant_capability: object | None = None) -> dict:
+        """Widen a scope only through the trusted host consent boundary."""
+        self._require_grant(grant_capability)
         if type(approved) is not bool:
             raise ValueError("scope expansion requires an explicit boolean approval")
         scope = self._get(task_id)

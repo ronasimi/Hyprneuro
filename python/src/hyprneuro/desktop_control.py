@@ -20,6 +20,7 @@ three checks above.
 """
 from __future__ import annotations
 
+import asyncio
 import secrets
 import time
 from dataclasses import dataclass
@@ -42,7 +43,7 @@ class DesktopLease:
     paused: bool = False
 
     def expired(self, now_ms: int | None = None) -> bool:
-        return (now_ms or _now_ms()) >= self.expires_ms
+        return (_now_ms() if now_ms is None else now_ms) >= self.expires_ms
 
     def compact(self) -> dict:
         return {"task_id": self.task_id, "token": self.token,
@@ -161,13 +162,19 @@ def _safe_window(window: dict) -> dict:
             "workspace": (window.get("workspace") or {}).get("id")}
 
 
-class DesktopController:
-    """Gates every desktop action behind authorization + lease + focus.
+class DispatchDenied(PermissionError):
+    """Policy denial carried across the adapter's final pre-dispatch gate."""
 
-    `desktop` is the Hyprland adapter (real or fake). `broker` is the
-    PermissionBroker. `lease_manager` is the LeaseManager. `focus_validator`
-    is optional; when present, an `expected_window` must be supplied for
-    actions and validated immediately before execution.
+    def __init__(self, result):
+        self.result = result
+        super().__init__(result["reason"])
+
+
+class DesktopController:
+    """Every mutation requires an app/window binding and a final adapter gate.
+
+    The adapter must await `before_dispatch` AFTER its own awaited preparation,
+    then send the typed command without another yield or worker-queue hop.
     """
 
     def __init__(self, desktop, broker, lease_manager, focus_validator=None):
@@ -179,24 +186,41 @@ class DesktopController:
 
     async def perform(self, task_id: str, token: str, op: str, value=None,
                       *, expected_window: dict | None = None) -> dict:
-        # 1. Authorization: desktop_control must be allowed for this task.
-        auth = self.broker.check(task_id, "desktop_control")
-        if not auth["allowed"]:
-            return {"ok": False, "stage": "authorization", "reason": auth["reason"]}
-        # 2. Lease: an active, valid, non-paused lease for this task.
-        if not self.leases.is_held(task_id, token):
-            return {"ok": False, "stage": "lease", "reason": "no_active_lease"}
-        if self.leases.is_paused(task_id, token):
-            return {"ok": False, "stage": "lease", "reason": "lease_paused"}
-        # 3. Focus validation (when an expected window is provided).
-        if expected_window is not None:
-            fv = await self.focus.validate(self.desktop, expected_window)
+        # Snapshot caller-owned metadata: it cannot change the target while an
+        # asynchronous validation is pending. All current ops affect focus/layout.
+        expected = dict(expected_window) if isinstance(expected_window, dict) else {}
+        app_id = expected.get("class")
+
+        def authority():
+            # Even cancellation requested in the current event-loop turn (before
+            # CancelledError is delivered) must fence the synchronous send.
+            if asyncio.current_task().cancelling():
+                raise asyncio.CancelledError
+            auth = self.broker.check(task_id, "desktop_control", app_id=app_id)
+            if not auth["allowed"]:
+                raise DispatchDenied({"ok": False, "stage": "authorization", "reason": auth["reason"]})
+            if not self.leases.is_held(task_id, token):
+                raise DispatchDenied({"ok": False, "stage": "lease", "reason": "no_active_lease"})
+            if self.leases.is_paused(task_id, token):
+                raise DispatchDenied({"ok": False, "stage": "lease", "reason": "lease_paused"})
+
+        async def before_dispatch():
+            fv = await self.focus.validate(self.desktop, expected)
+            # Recheck after the awaited focus read, including on focus failure.
+            authority()
             if not fv["valid"]:
-                return {"ok": False, "stage": "focus", "reason": fv["reason"],
-                        "window": fv.get("window")}
-        # 4. Bounded action.
+                raise DispatchDenied({"ok": False, "stage": "focus", "reason": fv["reason"],
+                                      "window": fv.get("window")})
+
         try:
-            result = await self.desktop.action(op, value)
+            authority()
+            if any(not isinstance(expected.get(key), str) or not expected[key]
+                   for key in ("address", "class")):
+                raise DispatchDenied({"ok": False, "stage": "focus", "reason": "target_app_required"})
+            await before_dispatch()
+            result = await self.desktop.action(op, value, before_dispatch=before_dispatch)
+        except DispatchDenied as exc:
+            return exc.result
         except (OSError, ValueError, RuntimeError) as exc:
             return {"ok": False, "stage": "action", "reason": str(exc)[:200]}
         self.actions += 1

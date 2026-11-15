@@ -1369,3 +1369,32 @@ aggregate merge, production DB operation/migration, production reset/signal,
 preparation or deployment occurred. Next dependency: independent exact scoped
 source review, then exact immutable bundle review and fresh recovery gates.
 Overall **NOT READY**; broader features and external VIDEO refusal still block.
+
+## 34. Independent grant-review P1 correction — focused PASS, rereview required
+
+Independent `01M7F90BJX6B118X3SKH1ZJFTP/grant-source` BLOCKED b88cdc3:
+owner/config identity was checked only at registration, and successful slow
+mutation-intent fsync could cross consent expiry before the authorization write.
+The correction is separate from b88cdc3 and preserves its original receipts.
+
+Immediately before the one-use decision, private control now awaits fresh owner/
+config verification against the registered snapshots and rechecks the child AFTER
+that await. Drift invalidates registration synchronously before response I/O.
+Immediately after mutation-intent persistence, the core rechecks registration and
+expiry before ANY slot/store mutation, without an intervening await.
+
+Before `01M7F9DTD5P2WG9S2GRBARGPSE` reproduced all SIX failing subcases:
+owner exit, replacement epoch, descriptor drift, child drift during await,
+expiry during successful fsync and registration invalidation during successful
+fsync. After `01M7F9EQV9YYS1M9K2VXXFCK0B`: **38 cancellation/socket Node,
+63 focused Python+18subtests PASS**, Python `-W error`, isolated private offline
+HOME/XDG, explicit installed SDK/Durable, serialized machine lease and fresh
+locker checks. Actual SDK private-channel positives/lifecycle negatives remain
+included. No fresh whole-suite run or live GTK/human acceptance is claimed.
+
+[Correction receipt](evidence/final-trusted-consent-review-correction.json)
+contains exact base/code/log hashes. Next dependency is independent correction
+rereview; source is NOT self-approved and authority closure is NOT claimed.
+Memory/CANCEL aggregate452ef1df remains separate despite its source approval;
+no merge, schema4 production startup/migration, freeze, preparation, deployment
+or production process mutation occurred. Overall **NOT READY**.

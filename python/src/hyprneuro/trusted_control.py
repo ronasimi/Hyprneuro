@@ -224,6 +224,12 @@ class GrantControlServer:
                                                consent_id=value['consent_id'], arguments_sha256=value['arguments_sha256'])
                     await send_frame(writer, result)
                 elif op == 'decision' and registration and set(value) == {'op', 'request', 'nonce', 'body_hash', 'allowed'}:
+                    current_config, current_owner = await self.verifier.owner(config['root'])
+                    if current_config != config or current_owner != owner:
+                        raise PermissionError('Registered owner changed before decision')
+                    self.verifier.child(ui, child['pid'], child['start'])
+                    # No await between final child/owner snapshot fence and the
+                    # one-use core decision; the core rechecks its own gates.
                     try:
                         result = self.core.decide(registration, value['request'], value['nonce'], value['body_hash'], value['allowed'])
                     except ConsentDenied:
@@ -245,6 +251,11 @@ class GrantControlServer:
             raise
         except Exception as error:
             self.failures += 1
+            if registration:
+                try:
+                    self.core.invalidate(registration)  # eligibility BEFORE response I/O
+                except Exception:
+                    self.failures += 1  # invalidate seals before audit even if audit fails
             try:
                 await send_frame(writer, {'error': str(error)[:300]})
             except (OSError, ConnectionError, TimeoutError):

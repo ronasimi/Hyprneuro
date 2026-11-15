@@ -184,3 +184,27 @@ class ConsentCoreTests(unittest.TestCase):
             self.assertTrue(other.broken)
         finally:
             other.close()
+
+    def test_mutation_intent_fsync_rechecks_expiry_and_registration_before_write(self):
+        for drift in ['expiry', 'registration']:
+            with self.subTest(drift=drift):
+                # Fresh independent core per drift; no production stores or human proof.
+                with tempfile.TemporaryDirectory() as directory:
+                    store=SidecarStore(':memory:');journal=ConsentJournal(Path(directory)/'audit.jsonl')
+                    host=TrustedConsent(store,journal);reg=host.register(self.binding)
+                    clock=[100.0];append=journal.append
+                    def delayed_append(event):
+                        append(event)  # successful real append/fsync, then boundary drift
+                        if event['kind']=='mutation_intent':
+                            if drift=='expiry': clock[0]=220.0
+                            else: host.invalidate(reg)
+                    try:
+                        with patch('hyprneuro.trusted_consent.time.monotonic',side_effect=lambda:clock[0]):
+                            request=host.request(reg,'grant_create',self.scope,generation='test',native_call_id='test')
+                            with patch.object(journal,'append',side_effect=delayed_append), patch.object(store,'auth_upsert',wraps=store.auth_upsert) as writes:
+                                with self.assertRaises(PermissionError):host.decide(reg,**request,allowed=True)
+                                self.assertEqual(writes.call_count,0)
+                            self.assertEqual(store.auth_list(),[]);self.assertEqual(host.slots,{})
+                            self.assertNotIn(request['request'],host.pending)
+                            with self.assertRaises(PermissionError):host.decide(reg,**request,allowed=True)
+                    finally:journal.close();store.close()

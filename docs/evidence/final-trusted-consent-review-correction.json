@@ -1,0 +1,60 @@
+{
+  "base_commit": "b88cdc3c78eae3c8affd567a587b9dcb018f3168",
+  "review_block": "01M7F90BJX6B118X3SKH1ZJFTP/grant-source",
+  "status": "Focused source correction PASS; independent rereview REQUIRED; no authority-closure/deployment/READY claim",
+  "fixes": [
+    "Immediately before one-use core decision, await registered owner/config revalidation, compare registration snapshots, then synchronously recheck child. Errors invalidate registration before response I/O.",
+    "Immediately after successful mutation-intent append/fsync, synchronously recheck live registration and expiry before slot creation or store write."
+  ],
+  "before_run": "01M7F9DTD5P2WG9S2GRBARGPSE",
+  "before": {
+    "before-regressions": {
+      "exit": 1,
+      "locker_failure": [],
+      "log_sha256": "d9e7ad8e3224759aba65c4689bf3ec8dccc3f92f385b842d55a165d1cdad2dbb"
+    }
+  },
+  "before_subcase_failures": [
+    "expiry during successful mutation-intent fsync",
+    "registration invalidated during successful mutation-intent fsync",
+    "owner exit before Allow",
+    "owner replacement epoch before Allow",
+    "descriptor drift before Allow",
+    "child drift during owner-revalidation await"
+  ],
+  "after_run": "01M7F9EQV9YYS1M9K2VXXFCK0B",
+  "after": {
+    "focused-node": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "2b1058b199030e19c098a14fa8b67dcc9cb7690c8eae5d0589e60f30ed3aaaef"
+    },
+    "focused-python": {
+      "exit": 0,
+      "locker_failure": [],
+      "log_sha256": "03f62d46df2a46e4a2f2069b8df88cfa867f5bfdc8477d7574c9716b2e42e868"
+    }
+  },
+  "validation": {
+    "Node_cancellation_socket": 38,
+    "Python_focused": 63,
+    "Python_subtests": 18,
+    "Python_flags": "-W error; isolated HOME/XDG; explicit SDK/Durable; serialized machine lease",
+    "scope": "bridge/managed bridge/authorization/consent core/control/actual SDK fixture; no fresh whole-suite claim"
+  },
+  "source_sha256": {
+    "python/src/hyprneuro/trusted_consent.py": "da4c11b13ffcb8604339a5ad9cd49fcb9e54340c331c1a8dfd5bfbc2cb03ff24",
+    "python/src/hyprneuro/trusted_control.py": "eb062f69e9eeaa84504cefc3ec0ff259e0f307d517047b683444c9ee06b1387a",
+    "python/tests/test_trusted_consent.py": "7b16bdd7032b54f524f430eb03aacf24777463d113a21728507b7834776943a5",
+    "python/tests/test_trusted_control.py": "760d43ee18ffb62941b5d244f506697f70db2bd4ac55404742320c4bd485bc6e"
+  },
+  "regression_assertions": [
+    "zero authorization store writes and zero slots/publication for owner/config/child drift",
+    "registration invalidated before error response I/O and cannot be reused",
+    "expiry/invalidation during intent persistence yields zero store writes and zero slots; decision consumed and nonreplayable"
+  ],
+  "original_receipts_preserved": true,
+  "production_mutated": false,
+  "memory_merged": false,
+  "remaining": "Independent rereview of exact correction; only afterward coherent immutable bundle and operations reviews. Memory aggregate remains separate; no migration authority."
+}

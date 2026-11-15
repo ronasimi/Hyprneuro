@@ -156,6 +156,11 @@ class _AuthorizationView:
         row["approved"] = bool(row.get("approved", False))
         host.journal.append({"kind": "mutation_intent", "request": request_id,
                              "registration": pending.registration, "row_hash": fingerprint(row)})
+        # Persistence may block across expiry or invalidate the registration.
+        # Final synchronous fence: no slot/store mutation before both checks.
+        host._registration(pending.registration)
+        if time.monotonic() >= pending.expires:
+            raise PermissionError('Consent expired during mutation-intent persistence')
         slot = Mutation(pending.registration, request_id, row)
         host.slots[row["task_id"]] = slot  # also tracks a commit with lost result
         return host.store.auth_upsert(row)

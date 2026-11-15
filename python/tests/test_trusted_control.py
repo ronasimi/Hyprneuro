@@ -124,3 +124,76 @@ class CredentialLimitTests(unittest.TestCase):
         finally:
             left.close()
             right.close()
+
+
+class DecisionRevalidationTests(unittest.IsolatedAsyncioTestCase):
+    """Real frame/state/core/broker; fixture verifier epochs, not owner attestation."""
+    async def test_owner_drift_and_post_await_child_drift_before_allow(self):
+        from unittest.mock import patch
+        import hyprneuro.trusted_control as transport
+        for drift in ['exit', 'epoch', 'descriptor', 'child']:
+            with self.subTest(drift=drift), tempfile.TemporaryDirectory() as directory:
+                root=Path(directory)
+                store=SidecarStore(':memory:');journal=ConsentJournal(root/'audit.jsonl')
+                core=TrustedConsent(store,journal)
+                binding=dict(owner_root=str(root),owner_pid=os.getpid(),owner_start='fixture-start',
+                    owner_session='fixture-session',control_generation='fixture-control',
+                    descriptor_sha256='a'*64,task_id='test',app_id='fixture',workspace=str(root/'workspace'),
+                    read_policy_sha256='b'*64,ops=['read'])
+                class Verifier:
+                    calls=0
+                    child_changed=False
+                    async def ui(self,pid): return dict(pid=pid)
+                    def child(self,ui,pid,start):
+                        if self.child_changed: raise PermissionError('Fixture child drift')
+                        return dict(pid=pid,start=start)
+                    async def owner(self,path):
+                        self.calls+=1
+                        config=dict(root=str(root),descriptor='original')
+                        owner=dict(pid=os.getpid(),start='fixture-start',cgroup='fixture-cgroup')
+                        if self.calls>=3:
+                            await asyncio.sleep(0)  # child MUST be checked after this await
+                            if drift=='exit': raise PermissionError('Fixture owner exited')
+                            if drift=='epoch': owner['start']='replacement-epoch'
+                            if drift=='descriptor': config['descriptor']='changed'
+                            if drift=='child': self.child_changed=True
+                        return config,owner
+                    def registration(self,*args): return binding
+                verifier=Verifier();handler=GrantControlServer(core,verifier)
+                server=await asyncio.start_unix_server(handler.handle,path=str(root/'private.sock'))
+                writer=None;record=None
+                original_send=transport.send_frame
+                async def checked_send(writer,value):
+                    if 'error' in value and record is not None:
+                        self.assertFalse(record.live,'Invalidation must precede error response I/O')
+                    await original_send(writer,value)
+                try:
+                    with patch.object(transport,'send_frame',checked_send), patch.object(store,'auth_upsert',wraps=store.auth_upsert) as writes:
+                        reader,writer=await asyncio.open_unix_connection(str(root/'private.sock'))
+                        launch=await read_frame(reader)
+                        await send_frame(writer,dict(op='launch',nonce=launch['nonce'],child_pid=os.getpid(),child_start='fixture-child'))
+                        self.assertEqual(await read_frame(reader),{'type':'launch_ready'})
+                        await send_frame(writer,dict(op='owner_challenge',root=str(root)))
+                        await read_frame(reader)
+                        await send_frame(writer,dict(op='register',proof={}))
+                        reg=(await read_frame(reader))['registration'];record=core.registrations[reg]
+                        scope=dict(task_id='test',app_id='fixture',file_prefix=binding['workspace'],ops=['read'])
+                        await send_frame(writer,dict(op='request',kind='grant_create',scope=scope,generation='fixture-gen',
+                            native_call_id='fixture-native',consent_id='fixture-consent',arguments_sha256='c'*64))
+                        pending=await read_frame(reader)
+                        await send_frame(writer,dict(op='decision',allowed=True,**pending))
+                        result=await read_frame(reader)
+                        self.assertIn('error',result,'Stale owner/child must never publish Allow')
+                        self.assertFalse(record.live)
+                        self.assertEqual(writes.call_count,0);self.assertEqual(core.slots,{})
+                        self.assertEqual(store.auth_list(),[]);self.assertEqual(core.pending,{})
+                        with self.assertRaises(PermissionError):
+                            core.request(reg,'grant_create',scope,generation='replay',native_call_id='replay')
+                finally:
+                    if writer:
+                        writer.close();await writer.wait_closed()
+                    server.close();await server.wait_closed()
+                    tasks=list(handler.handlers)
+                    for task in tasks:task.cancel()
+                    await asyncio.gather(*tasks,return_exceptions=True)
+                    journal.close();store.close()

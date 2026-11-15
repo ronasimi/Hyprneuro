@@ -5,6 +5,7 @@ Reviewed GTK deliberately transfers this connection to its exact fixed child.
 No FD-transfer detection or loaded-Python-code/same-UID sandbox claim is made.
 """
 import asyncio
+import fcntl
 import hashlib
 import hmac
 import json
@@ -170,13 +171,38 @@ async def send_frame(writer, value):
 
 
 def diagnostic_rejection(stage, error, counter):
-    """NONAUTHORITATIVE, bounded and enum-only; never interferes with cleanup."""
-    stages={'peer','ui-identity','launch-frame','child-identity','launch-ready','private-operation'}
-    if counter>=16 or sys.stderr is None:return
-    category='timeout' if isinstance(error,TimeoutError) else 'identity' if isinstance(error,PermissionError) else 'failure'
+    """Best-effort Linux FIFO only; no buffered I/O, shared flag change or fallback."""
+    if counter >= 16 or sys.stderr is None or sys.platform != 'linux':
+        return
+    stages = {'peer', 'ui-identity', 'launch-frame', 'child-identity', 'launch-ready', 'private-operation'}
+    category = 'timeout' if isinstance(error, TimeoutError) else 'identity' if isinstance(error, PermissionError) else 'failure'
+    pinned = owned = None
     try:
-        print(json.dumps({'diagnostic':'NONAUTHORITATIVE','stage':stage if stage in stages else 'unknown','category':category},ensure_ascii=True),file=sys.stderr,flush=True)
-    except Exception:pass
+        payload = (json.dumps({'diagnostic': 'NONAUTHORITATIVE',
+                              'stage': stage if stage in stages else 'unknown',
+                              'category': category}, ensure_ascii=True) + '\n').encode('ascii')
+        if len(payload) > 512:  # <= Linux minimum PIPE_BUF; atomic or EAGAIN
+            return
+        pinned = os.dup(2)  # pin destination; NEVER change this shared description's flags
+        fcntl.fcntl(pinned, fcntl.F_GETPIPE_SZ)  # kernel pipe check; no file metadata I/O
+        original = os.fstat(pinned)
+        if not stat.S_ISFIFO(original.st_mode):  # sockets, files, terminals: DROP
+            return
+        # Reopening the pinned FIFO creates an INDEPENDENT open file description.
+        owned = os.open(f'/proc/self/fd/{pinned}', os.O_WRONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+        target = os.fstat(owned)
+        if not stat.S_ISFIFO(target.st_mode) or (original.st_dev, original.st_ino) != (target.st_dev, target.st_ino):
+            return
+        os.write(owned, payload)  # one atomic nonblocking attempt; full/no reader => DROP
+    except Exception:
+        pass
+    finally:
+        for fd in (owned, pinned):
+            if fd is not None:
+                try:
+                    os.close(fd)
+                except OSError:
+                    pass
 
 
 class GrantControlServer:
@@ -268,14 +294,14 @@ class GrantControlServer:
         except asyncio.CancelledError:
             raise
         except Exception as error:
-            diagnostic_rejection(stage,error,self.diagnostic_count)
-            self.diagnostic_count=min(16,self.diagnostic_count+1)
             self.failures += 1
             if registration:
                 try:
                     self.core.invalidate(registration)  # eligibility BEFORE response I/O
                 except Exception:
                     self.failures += 1  # invalidate seals before audit even if audit fails
+            diagnostic_rejection(stage, error, self.diagnostic_count)
+            self.diagnostic_count = min(16, self.diagnostic_count + 1)
             try:
                 await send_frame(writer, {'error': str(error)[:300]})
             except (OSError, ConnectionError, TimeoutError):

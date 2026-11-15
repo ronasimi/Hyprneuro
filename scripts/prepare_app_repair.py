@@ -6,15 +6,21 @@ from continuation_context import MANIFEST,digest
 from prepare_app_release import private_file,prepare_parent_owner,prepare_trusted_launch,run,check_owner_inert,check_moe_inert
 COMMIT='db8fedae8f4baa35f0ed8193914169eceb7bbe22'
 
-def prepare(dest,oldroot):
+def prepare(dest,oldroot,proposal=None,proposal_sha256=None):
     os.umask(0o077)
     if not dest.is_absolute() or dest!=dest.resolve() or dest.exists():raise ValueError('New canonical bundle required')
     oldctx=json.loads(private_file(oldroot/'continuation-context.json').read_text());old=Path(oldctx['bundle'])
     if digest(old/'manifest.json')!=MANIFEST:raise RuntimeError('Wrong installed565 baseline')
     m=json.loads((old/'manifest.json').read_text())
     from runtime_attestation import validate
-    validate(oldctx)  # EXACT approved prospective baseline, never recapture/rebaseline
-    for p,h in {**oldctx['installed_files'],**oldctx['preserved_files']}.items():
+    runtime_context=oldctx
+    if proposal is not None:
+        if digest(private_file(proposal))!=proposal_sha256:raise RuntimeError('Explicit proposed preparation baseline pin changed')
+        proposed=json.loads(proposal.read_text())
+        if proposed['status']!='PROPOSED-UNAPPROVED-FOR-EXECUTION':raise RuntimeError('Wrong proposed baseline scope')
+        runtime_context=proposed
+    validate(runtime_context)  # Explicit pinned proposal OR unchanged prior baseline; no recapture
+    for p,h in {**oldctx['installed_files'],**runtime_context.get('preserved_files',oldctx['preserved_files'])}.items():
         if digest(p)!=h:raise RuntimeError('Installed/preserved baseline drift')
     from guard_app_release import unit_state
     for unit in ['hyprneuro.service','hyprneuro-ui.service']:
@@ -82,10 +88,11 @@ def prepare(dest,oldroot):
     if m['source_files']!=json.loads(approved.read_text()):raise RuntimeError('Export is not exact approved db8 source')
     m['managed_app_source_catalog']={p:h for p,h in m['source_files'].items() if p.startswith(('ui/src/','python/src/','extensions/'))}
     (dest/'manifest.json').write_text(json.dumps(m,indent=2)+'\n');(dest/'manifest.json').chmod(0o400)
-    validate(oldctx)
+    validate(runtime_context)
     print(json.dumps(dict(bundle=str(dest),manifest_sha256=digest(dest/'manifest.json'),binary_sha256=digest(binary),started=False)))
 if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path);parser.add_argument('--installed-context',type=Path,required=True);a=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('output',type=Path);parser.add_argument('--installed-context',type=Path,required=True);parser.add_argument('--proposed-runtime-context',type=Path);parser.add_argument('--proposed-runtime-context-sha256');a=parser.parse_args()
+    if bool(a.proposed_runtime_context)!=bool(a.proposed_runtime_context_sha256):parser.error('Both explicit proposal pins required')
     # SQL forbidden even accidentally during preparation; descriptor staging uses no SQL.
     sys.addaudithook(lambda event,args:(_ for _ in ()).throw(RuntimeError('No SQL during repair preparation')) if event=='sqlite3.connect' else None)
-    prepare(a.output,a.installed_context)
+    prepare(a.output,a.installed_context,a.proposed_runtime_context,a.proposed_runtime_context_sha256)

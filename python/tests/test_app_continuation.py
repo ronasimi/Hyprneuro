@@ -31,7 +31,7 @@ class ContinuationTests(unittest.TestCase):
                     if failure=='persist' or (failure=='persist-after-start' and args[2]=='verifying-installed'):raise OSError('fsync failure')
                     return persist(*args)
                 with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run',side_effect=control),patch.object(continuation,'verify_started',side_effect=verified),patch.object(continuation,'write_state',side_effect=state),patch.object(guard,'observe',side_effect=observed),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}) as contained,patch.object(apply,'desktop_safe'),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,8000] if failure=='timeout' else None):
-                    self.assertEqual(continuation.execute(root,root,'synthetic',True,True),2 if failure=='persist' else 1)
+                    self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),2 if failure=='persist' else 1)
                     contained.assert_called_once()
                 self.assertTrue(all(c[:3]==['systemctl','--user','start'] and c[-1] in guard.APPS for c in calls))
                 self.assertTrue((root/'operation.started').exists())
@@ -42,9 +42,9 @@ class ContinuationTests(unittest.TestCase):
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
             context=dict(id='synthetic',driver='/synthetic/driver')
             with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation.subprocess,'run',side_effect=RuntimeError('start')),patch.object(apply,'desktop_safe'),patch.object(guard,'contain',return_value={u:dict(stopped=False) for u in guard.APPS}):
-                self.assertEqual(continuation.execute(root,root,'synthetic',True,True),1)
+                self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),1)
                 self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-UNCONTAINED')
-                with self.assertRaisesRegex(RuntimeError,'already used'):continuation.execute(root,root,'synthetic',True,True)
+                with self.assertRaisesRegex(RuntimeError,'already used'):continuation.execute(root,root,'synthetic',True,True,'a'*64)
 
     def test_preflight_failure_never_starts_or_stops(self):
         with patch.object(continuation,'preflight',side_effect=RuntimeError('unknown owner')),patch.object(continuation.subprocess,'run') as commands:
@@ -57,20 +57,20 @@ class ContinuationTests(unittest.TestCase):
             context=dict(id='synthetic',entry='/synthetic/continue')
             marker=dict(id='synthetic',context_sha256=binding.digest(root/'continuation-context.json'),pid=42,start='123')
             (root/'operation.started').write_text(json.dumps(marker))
-            argv=['python','/synthetic/continue','/synthetic/bundle','--continuation',str(root),'--session','synthetic']
+            argv=['python','/synthetic/continue','/synthetic/bundle','--continuation',str(root),'--session','synthetic','--context-sha256',binding.digest(root/'continuation-context.json')]
             with patch.object(binding,'load_context',return_value=context):
-                binding.require_parent(Path('/synthetic/bundle'),root,argv,42,'123')
+                binding.require_parent(Path('/synthetic/bundle'),root,argv,42,'123',binding.digest(root/'continuation-context.json'))
                 for pid,start in [(43,'123'),(42,'124')]:
-                    with self.assertRaises(RuntimeError):binding.require_parent(Path('/synthetic/bundle'),root,argv,pid,start)
+                    with self.assertRaises(RuntimeError):binding.require_parent(Path('/synthetic/bundle'),root,argv,pid,start,binding.digest(root/'continuation-context.json'))
                 argv[1]='/synthetic/original/guard'
-                with self.assertRaises(RuntimeError):binding.require_parent(Path('/synthetic/bundle'),root,argv,42,'123')
+                with self.assertRaises(RuntimeError):binding.require_parent(Path('/synthetic/bundle'),root,argv,42,'123',binding.digest(root/'continuation-context.json'))
 
     def test_uncertain_driver_stop_is_uncontained_even_when_apps_stopped(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
             context=dict(id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=None;process.terminate.side_effect=RuntimeError('unknown')
             with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,8000]):
-                self.assertEqual(continuation.execute(root,root,'synthetic',True,True),1)
+                self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),1)
             self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-UNCONTAINED')
 
     def test_success_is_command_completion_not_human_or_ready_evidence(self):
@@ -78,7 +78,7 @@ class ContinuationTests(unittest.TestCase):
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
             context=dict(id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=0;process.returncode=0
             with patch.object(continuation,'preflight',return_value=(context,{})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(continuation.subprocess,'Popen',return_value=process):
-                self.assertEqual(continuation.execute(root,root,'synthetic',True,True),0)
+                self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),0)
             state=json.loads((root/'continuation-state.json').read_text());self.assertFalse(state['human_acceptance_claimed'])
             self.assertIn('NOT-human-READY',state['phase'])
 
@@ -126,12 +126,12 @@ class ImmutableContextTests(unittest.TestCase):
             original=bundle/'operation.started';original.write_text('FAILED ORIGINAL')
             entry=base/'entry.py';entry.write_text('SYNTHETIC code')
             context=dict(version=1,id=root.name,bundle=str(bundle),manifest_sha256=pin,entry=str(entry),driver=str(entry),external_files={str(entry):binding.digest(entry)},original_failed_files={str(original):binding.digest(original)})
-            file=root/'continuation-context.json';file.write_text(json.dumps(context));file.chmod(0o400)
+            file=root/'continuation-context.json';file.write_text(json.dumps(context));file.chmod(0o400);context_pin=binding.digest(file)
             with patch.object(binding,'MANIFEST',pin):
-                binding.load_context(bundle,root)
+                binding.load_context(bundle,root,context_pin)
                 original.write_text('CHANGED')
-                with self.assertRaises(RuntimeError):binding.load_context(bundle,root)
+                with self.assertRaises(RuntimeError):binding.load_context(bundle,root,context_pin)
                 original.write_text('FAILED ORIGINAL');entry.write_text('CHANGED')
-                with self.assertRaises(RuntimeError):binding.load_context(bundle,root)
+                with self.assertRaises(RuntimeError):binding.load_context(bundle,root,context_pin)
                 entry.write_text('SYNTHETIC code');file.chmod(0o600)
-                with self.assertRaises(PermissionError):binding.load_context(bundle,root)
+                with self.assertRaises(PermissionError):binding.load_context(bundle,root,context_pin)

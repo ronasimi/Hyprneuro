@@ -29,8 +29,8 @@ def write_state(root,state,phase):
     finally:os.close(fd)
 
 
-def preflight(bundle,root,session):
-    context=load_context(bundle,root)
+def preflight(bundle,root,session,context_sha256):
+    context=load_context(bundle,root,context_sha256)
     sys.path.insert(0,str(bundle/'staged'))
     from guard_app_release import unit_state
     from apply_app_release import desktop_safe
@@ -48,6 +48,17 @@ def preflight(bundle,root,session):
         if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=context['installed_modes'][path] or file!=file.resolve():raise RuntimeError('Installed mode/canonical identity drift')
     for path,sha in context['preserved_files'].items():
         if digest(path)!=sha:raise RuntimeError('Settings/model config baseline drift')
+    # Archive validation is NOT a live base/effective unit baseline check.
+    baseline={str(Path(item['path']).resolve()):item['sha256'] for item in m['units']}
+    baseline.update(context['installed_files'])  # reviewed NEW replacement hashes
+    for identity in [m['sidecar'],m['ui']]:
+        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],
+            '-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
+        if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:
+            raise RuntimeError('Effective app unit fragment/drop-in drift')
+        for name in [identity['fragment'],*identity['dropins']]:
+            if digest(name)!=baseline.get(str(Path(name).resolve())):
+                raise RuntimeError('Current app unit baseline changed')
     check_unit_backups(bundle,m['units'])
     if digest(m['database']['backup'])!=m['database']['backup_sha256']:raise RuntimeError('Archived backup drift')
     if digest(bundle/'backup/hyprneuro-ui')!=m['installed_sha256']:raise RuntimeError('Archived UI drift')
@@ -94,13 +105,13 @@ def verify_started(bundle):
     verify(bundle,installed=True,legacy=True)
 
 
-def execute(bundle,root,session,authorized=False,unlocked=False):
+def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=None):
     if not authorized or not unlocked:raise PermissionError('Actual reviewed parent relay/fresh unlock checks required')
     # Preflight failure never starts/stops an unrelated app. No failed marker replay.
-    context,m=preflight(bundle,root,session)
+    context,m=preflight(bundle,root,session,context_sha256)
     for name in ['operation.started','continuation-state.json','continuation-state.tmp','acceptance-result.json','acceptance-human-gate.json','acceptance-human-gate.tmp','ordinary-acceptance.json']:
         if (root/name).exists() or (root/name).is_symlink():raise RuntimeError('Continuation already used; no replay')
-    marker=dict(id=context['id'],context_sha256=digest(root/'continuation-context.json'),pid=os.getpid(),start=Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[19])
+    marker=dict(id=context['id'],context_sha256=context_sha256,pid=os.getpid(),start=Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[19])
     with (root/'operation.started').open('x') as file:
         json.dump(marker,file);file.flush();os.fsync(file.fileno())
     from guard_app_release import contain,observe
@@ -109,21 +120,21 @@ def execute(bundle,root,session,authorized=False,unlocked=False):
     child=None;deadline=time.monotonic()+7200
     try:
         write_state(root,state,'starting-installed-sidecar')
-        desktop_safe(session)
+        desktop_safe(session);load_context(bundle,root,context_sha256)
         subprocess.run(['systemctl','--user','start','hyprneuro.service'],check=True,timeout=15)
         write_state(root,state,'starting-installed-UI')
-        desktop_safe(session)
+        desktop_safe(session);load_context(bundle,root,context_sha256)
         subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=15)
         write_state(root,state,'verifying-installed')
         verify_started(bundle)
         write_state(root,state,'acceptance-window')
-        observe(bundle,m,session);load_context(bundle,root)
-        child=subprocess.Popen(['/usr/bin/python',context['driver'],str(bundle),'--continuation',str(root)])
+        observe(bundle,m,session);load_context(bundle,root,context_sha256)
+        child=subprocess.Popen(['/usr/bin/python',context['driver'],str(bundle),'--continuation',str(root),'--context-sha256',context_sha256])
         while child.poll() is None:
             if time.monotonic()>=deadline:raise TimeoutError('Continuation acceptance deadline')
-            observe(bundle,m,session);load_context(bundle,root);time.sleep(.25)
+            observe(bundle,m,session);load_context(bundle,root,context_sha256);time.sleep(.25)
         if child.returncode:raise RuntimeError('Acceptance driver failed')
-        observe(bundle,m,session);load_context(bundle,root)
+        observe(bundle,m,session);load_context(bundle,root,context_sha256)
         write_state(root,state,'acceptance-command-completed-NOT-human-READY-evidence')
         return 0
     except BaseException as error:
@@ -144,11 +155,12 @@ def execute(bundle,root,session,authorized=False,unlocked=False):
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('bundle',type=Path)
     p.add_argument('--continuation',type=Path,required=True);p.add_argument('--session',required=True)
+    p.add_argument('--context-sha256',required=True)
     p.add_argument('--parent-authorized',action='store_true');p.add_argument('--fresh-user-unlock-confirmed',action='store_true')
     a=p.parse_args();os.umask(0o077)
     def cancelled(signum,frame):raise InterruptedError('Continuation cancelled')
     signal.signal(signal.SIGTERM,cancelled)
-    return execute(a.bundle,a.continuation,a.session,a.parent_authorized,a.fresh_user_unlock_confirmed)
+    return execute(a.bundle,a.continuation,a.session,a.parent_authorized,a.fresh_user_unlock_confirmed,a.context_sha256)
 
 
 if __name__=='__main__':raise SystemExit(main())

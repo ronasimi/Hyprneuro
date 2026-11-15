@@ -65,9 +65,10 @@ def exercise(ui, pending, deadline):
 
 
 class UI:
-    def __init__(self,bundle,continuation=None):
+    def __init__(self,bundle,continuation=None,context_sha256=None):
         self.bundle=bundle
         self.runtime=continuation or bundle
+        self.context_sha256=context_sha256
         if hashlib.sha256((bundle/'manifest.json').read_bytes()).hexdigest()!=MANIFEST:
             raise RuntimeError('Wrong reviewed bundle')
         self.m=json.loads((bundle/'manifest.json').read_text())
@@ -134,6 +135,9 @@ class UI:
         return True
 
     def safe(self):
+        if getattr(self,'context_sha256',None):
+            from continuation_context import load_context
+            load_context(self.bundle,self.runtime,self.context_sha256)
         self.desktop.safe()
         if self.identity('hyprneuro-ui.service')!=self.current:raise RuntimeError('UI identity changed')
 
@@ -243,20 +247,25 @@ class UI:
         return True
 
 
-def coordinator(bundle,deadline,ready):
+def coordinator(bundle,deadline,ready,check_context=None):
     from wait_app_acceptance import wait
+    if check_context:check_context()
     if ready or (bundle/'acceptance-result.json').exists():
         result=wait(bundle,timeout=max(0,deadline-time.monotonic()))
+        if check_context:check_context()
         if result or not ready:raise RuntimeError('Failed/cancelled/premature coordinator completion')
 
 
 def main():
     os.umask(0o077)
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('bundle',type=Path)
-    parser.add_argument('--continuation',type=Path);args=parser.parse_args()
+    parser.add_argument('--continuation',type=Path);parser.add_argument('--context-sha256');args=parser.parse_args()
     bundle=args.bundle;runtime=args.continuation or bundle;deadline=time.monotonic()+7200
     sys.path.insert(0,str(bundle/'staged'))
-    def pending(ready):coordinator(runtime,deadline,ready)
+    def checked_context():
+        from continuation_context import load_context
+        load_context(bundle,runtime,args.context_sha256)
+    def pending(ready):coordinator(runtime,deadline,ready,checked_context if args.continuation else None)
     def terminate(signum,frame):raise InterruptedError('Acceptance driver terminated')
     signal.signal(signal.SIGTERM,terminate)
     parent=Path('/proc')/str(os.getppid())/'cmdline'
@@ -264,7 +273,7 @@ def main():
     if args.continuation:
         from continuation_context import require_parent
         pid=os.getppid();start=Path('/proc',str(pid),'stat').read_text().rsplit(')',1)[1].split()[19]
-        require_parent(bundle,runtime,argv,pid,start)
+        require_parent(bundle,runtime,argv,pid,start,args.context_sha256)
     else:
         if len(argv)<3 or argv[1]!=str(bundle/'staged/guard_app_release.py') or argv[2]!=str(bundle):
             raise RuntimeError('Driver must be direct child of the reviewed guard, not standalone/nested lease')
@@ -272,7 +281,7 @@ def main():
             raise RuntimeError('No current guarded applied operation')
     ui=None
     try:
-        ui=UI(bundle,args.continuation);exercise(ui,pending,deadline)
+        ui=UI(bundle,args.continuation,args.context_sha256);exercise(ui,pending,deadline)
         ui.record('coordinator-ended-not-human-or-READY-evidence')
     except BaseException as error:
         if ui:ui.record('FAILED',error=type(error).__name__)

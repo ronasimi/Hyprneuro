@@ -34,7 +34,7 @@ def private_read(path,bound=32768):
     finally:os.close(fd)
 
 
-def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None):
+def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None,context_sha256=None):
     if type(after) is not int or after<0:raise ValueError('Invalid sequence cursor')
     info=bundle.lstat()
     if bundle!=bundle.resolve() or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
@@ -45,7 +45,7 @@ def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None
     event_root=continuation or bundle
     if continuation:
         from continuation_context import load_context
-        load_context(bundle,continuation)
+        load_context(bundle,continuation,context_sha256)
     libc=ctypes.CDLL(None,use_errno=True)
     fd=libc.inotify_init1(os.O_NONBLOCK|os.O_CLOEXEC)
     if fd<0:raise OSError(ctypes.get_errno(),'inotify_init1')
@@ -55,7 +55,7 @@ def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None
         wd=libc.inotify_add_watch(fd,os.fsencode(event_root),0x100|0x80|0x8|0x400|0x800)
         if wd<0:raise OSError(ctypes.get_errno(),'inotify_add_watch')
         while True:
-            if continuation:load_context(bundle,continuation)
+            if continuation:load_context(bundle,continuation,context_sha256)
             try:token=hashlib.sha256(private_read(event_root/'operation.started')).hexdigest()
             except FileNotFoundError:token=None
             if operation is not None and token!=operation:raise RuntimeError('Operation changed/disappeared')
@@ -88,6 +88,6 @@ def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('bundle',type=Path)
-    parser.add_argument('after',type=int);parser.add_argument('--continuation',type=Path)
+    parser.add_argument('after',type=int);parser.add_argument('--continuation',type=Path);parser.add_argument('--context-sha256')
     args=parser.parse_args()
-    print(json.dumps(watch(args.bundle,args.after,continuation=args.continuation)),flush=True)
+    print(json.dumps(watch(args.bundle,args.after,continuation=args.continuation,context_sha256=args.context_sha256)),flush=True)

@@ -123,6 +123,46 @@ static void pi_unavailable(App *a) {
     if (a->pi_out) g_output_stream_close(a->pi_out, NULL, NULL);
 }
 
+/* Diagnostics are never readiness, consent or authority. GTK main-context only. */
+static guint pi_diagnostic_count;
+static const char *pi_diagnostic_stage(const char *stage) {
+    const char *known[]={"policy-read","policy-hash","policy-schema","entry-read","entry-hash",
+        "broker-connect","broker-peer","sidecar-identity","challenge","spawn","child-start","attest-write",
+        "broker-inherited","stdio-setup","managed-import","managed-init","bridge-eof","child-exit",NULL};
+    if (stage && strlen(stage)<=32 && g_utf8_validate(stage,-1,NULL))
+        for (int i=0;known[i];i++)if (!strcmp(stage,known[i]))return known[i];
+    return "unknown";
+}
+static void pi_diagnostic_emit(const char *stage,const char *category,int status) {
+    if (pi_diagnostic_count>=16)return;
+    pi_diagnostic_count++;
+    if (strcmp(category,"failure") && strcmp(category,"exit") && strcmp(category,"signal") && strcmp(category,"unknown"))category="unknown";
+    g_printerr("{\"diagnostic\":\"NONAUTHORITATIVE\",\"stage\":\"%s\",\"category\":\"%s\",\"status\":%d}\n",
+        pi_diagnostic_stage(stage),category,status);
+}
+static const char *pi_diagnostic_frame_stage(JsonNode *packet) {
+    if (!packet || !JSON_NODE_HOLDS_OBJECT(packet))return "unknown";
+    JsonObject *o=json_node_get_object(packet);
+    const char *stage=jstr(jmember(packet,"stage")), *category=jstr(jmember(packet,"category"));
+    if (json_object_get_size(o)!=3 || g_strcmp0(jstr(jmember(packet,"type")),"bootstrap_failure") || g_strcmp0(category,"failure"))return "unknown";
+    if (!g_strcmp0(stage,"broker-inherited") || !g_strcmp0(stage,"stdio-setup") || !g_strcmp0(stage,"managed-import") || !g_strcmp0(stage,"managed-init"))return pi_diagnostic_stage(stage);
+    return "unknown";
+}
+static void pi_diagnostic_fail(App *a,const char *stage) {
+    pi_unavailable(a);
+    g_free(a->pi_connect_error);
+    a->pi_connect_error=g_strdup_printf("Pi bridge unavailable · diagnostic %s · no authority/retry",pi_diagnostic_stage(stage));
+    pi_route_update(a);pi_diagnostic_emit(stage,"failure",0);
+}
+static void pi_owned_exit(GObject *object,GAsyncResult *result,gpointer data) {
+    GError *error=NULL;
+    if (g_subprocess_wait_finish(G_SUBPROCESS(object),result,&error)) {
+        if (g_subprocess_get_if_exited(G_SUBPROCESS(object)))pi_diagnostic_emit("child-exit","exit",g_subprocess_get_exit_status(G_SUBPROCESS(object)));
+        else if (g_subprocess_get_if_signaled(G_SUBPROCESS(object)))pi_diagnostic_emit("child-exit","signal",g_subprocess_get_term_sig(G_SUBPROCESS(object)));
+    } else pi_diagnostic_emit("child-exit","unknown",0);
+    g_clear_error(&error);g_free(data); /* immutable pre-wait start, never App */
+}
+
 static void pi_write_next(App *a);
 static void pi_written(GObject *object, GAsyncResult *result, gpointer data) {
     App *a = data;
@@ -325,6 +365,10 @@ static void pi_packet(App *a, JsonNode *packet) {
     if (a->pi_dead) return; /* Late buffered status/events cannot resurrect a disconnect. */
     const char *type = jstr(jmember(packet, "type"));
     const char *op = jstr(jmember(packet, "op"));
+    if (!g_strcmp0(type,"bootstrap_failure")) {
+        pi_diagnostic_fail(a,pi_diagnostic_frame_stage(packet));
+        return; /* NEVER any ready/consent interpretation */
+    }
     if (!g_strcmp0(type, "disconnected")) {
         pi_owner_unavailable(a); a->pi_optin = FALSE;
         g_clear_pointer(&a->pi_connect_error, g_free); pi_render(a);
@@ -395,7 +439,7 @@ static void pi_read_next(App *a);
 static void pi_read(GObject *object, GAsyncResult *result, gpointer data) {
     App *a = data;
     gssize n = g_input_stream_read_finish(G_INPUT_STREAM(object), result, NULL);
-    if (n <= 0) { pi_unavailable(a); return; }
+    if (n <= 0) { if (!a->pi_dead)pi_diagnostic_fail(a,"bridge-eof"); return; }
     for (gssize i=0; i<n; i++) {
         char c = a->pi_buffer[i];
         if (c == '\n') {
@@ -495,7 +539,9 @@ static gboolean pi_broker_attest(GSocket *socket, const char *packet) {
     }
     return TRUE;
 }
-static GSubprocess *pi_fixed_bridge(void) {
+static GSubprocess *pi_fixed_bridge(const char **stage,char **verified_start) {
+    *verified_start=NULL;
+    *stage="policy-read";
     const char *policy_path = g_getenv("HYPRNEURO_PI_TRUSTED_POLICY");
     const char *policy_sha = g_getenv("HYPRNEURO_PI_TRUSTED_POLICY_SHA256");
     const char *broker_path = g_getenv("HYPRNEURO_PI_BROKER_SOCKET");
@@ -511,33 +557,42 @@ static GSubprocess *pi_fixed_bridge(void) {
         !g_path_is_absolute(broker_path) || lstat(policy_path, &info) || !S_ISREG(info.st_mode) ||
         info.st_uid != geteuid() || info.st_nlink != 1 || (info.st_mode & 077) || info.st_size > 4096) goto done;
     if (!g_file_get_contents(policy_path, &raw, &length, NULL) || length > 4096) goto done;
+    *stage="policy-hash";
     digest = g_compute_checksum_for_data(G_CHECKSUM_SHA256, (guchar *)raw, length);
     if (g_strcmp0(digest, policy_sha)) goto done;
+    *stage="policy-schema";
     parser = json_parser_new();
     if (!json_parser_load_from_data(parser, raw, length, NULL)) goto done;
     JsonNode *root = json_parser_get_root(parser);
     const char *python = jstr(jmember(root, "python")), *entry = jstr(jmember(root, "entry"));
-    if (g_strcmp0(jstr(jmember(root, "schema")), "hyprneuro.trusted-launch/1") ||
-        !python || !entry || !g_path_is_absolute(python) || !g_path_is_absolute(entry) ||
-        !g_file_get_contents(entry, &entry_raw, &entry_length, NULL) || entry_length > 16384) goto done;
+    if (g_strcmp0(jstr(jmember(root,"schema")),"hyprneuro.trusted-launch/1") ||
+        !python || !entry || !g_path_is_absolute(python) || !g_path_is_absolute(entry))goto done;
+    *stage="entry-read";
+    if (!g_file_get_contents(entry,&entry_raw,&entry_length,NULL) || entry_length>16384)goto done;
     g_clear_pointer(&digest, g_free);
+    *stage="entry-hash";
     digest = g_compute_checksum_for_data(G_CHECKSUM_SHA256, (guchar *)entry_raw, entry_length);
     if (g_strcmp0(digest, jstr(jmember(root, "entry_sha256")))) goto done;
+    *stage="broker-connect";
     client = g_socket_client_new(); g_socket_client_set_timeout(client, 3);
     address = g_unix_socket_address_new(broker_path);
     connection = g_socket_client_connect(client, G_SOCKET_CONNECTABLE(address), NULL, NULL);
     if (!connection) goto done;
     GSocket *socket = g_socket_connection_get_socket(connection);
+    *stage="broker-peer";
     peer = g_socket_get_credentials(socket, NULL);
     if (!peer || g_credentials_get_unix_user(peer, NULL) != geteuid()) goto done;
+    *stage="sidecar-identity";
     gint peer_pid = g_credentials_get_unix_pid(peer, NULL);
     if (peer_pid <= 0 || !(before = pi_start_ticks(peer_pid)) || pi_sidecar_main_pid() != (guint)peer_pid ||
         !(after = pi_start_ticks(peer_pid)) || g_strcmp0(before, after)) goto done;
     g_socket_set_blocking(socket, FALSE);
+    *stage="challenge";
     challenge = pi_broker_challenge(socket);
     const char *nonce = jstr(jmember(challenge, "nonce"));
     if (g_strcmp0(jstr(jmember(challenge, "type")), "launch_challenge") || !nonce || strlen(nonce) != 64) goto done;
     for (const char *p = nonce; *p; p++) if (!g_ascii_isxdigit(*p) || g_ascii_isupper(*p)) goto done;
+    *stage="spawn";
     launcher = g_subprocess_launcher_new(G_SUBPROCESS_FLAGS_STDIN_PIPE | G_SUBPROCESS_FLAGS_STDOUT_PIPE |
                                          G_SUBPROCESS_FLAGS_STDERR_SILENCE);
     char *clean[] = { "PATH=/usr/bin:/bin", NULL };
@@ -551,14 +606,17 @@ static GSubprocess *pi_fixed_bridge(void) {
     process = g_subprocess_launcher_spawn(launcher, NULL, python, "-I", entry,
                                           "--explicit-connect", "--broker-fd=3", NULL);
     if (!process) goto done;
+    *stage="child-start";
     const char *identifier = g_subprocess_get_identifier(process);
     char *end = NULL; guint64 child = identifier ? g_ascii_strtoull(identifier, &end, 10) : 0;
     if (!child || child > G_MAXINT || !end || *end || !(child_start = pi_start_ticks(child))) {
         g_clear_object(&process); goto done;
     }
+    *stage="attest-write";
     packet = g_strdup_printf("{\"op\":\"launch\",\"nonce\":\"%s\",\"child_pid\":%u,\"child_start\":\"%s\"}\n",
                               nonce, (guint)child, child_start);
     if (!pi_broker_attest(socket, packet)) g_clear_object(&process);
+    if (process)*verified_start=g_strdup(child_start);
 done:
     /* Closing this duplicate leaves only the fixed child's fd3. Failure is EOF,
      * never a fallback launch or an automatic security decision. */
@@ -569,8 +627,16 @@ done:
     g_free(child_start); g_free(packet); return process;
 }
 static void pi_start(App *a) {
-    a->pi_process = pi_fixed_bridge();
-    if (!a->pi_process) { pi_unavailable(a); return; }
+    const char *stage=NULL;
+    char *verified_start=NULL;
+    a->pi_process = pi_fixed_bridge(&stage,&verified_start);
+    if (!a->pi_process) { pi_diagnostic_fail(a,stage); return; }
+    const char *identifier=g_subprocess_get_identifier(a->pi_process);
+    guint64 pid=identifier?g_ascii_strtoull(identifier,NULL,10):0;
+    char *start=pid && pid<=G_MAXUINT?pi_start_ticks(pid):NULL;
+    if (start && verified_start && !strcmp(start,verified_start))g_subprocess_wait_async(a->pi_process,NULL,pi_owned_exit,verified_start);
+    else {pi_diagnostic_emit("child-start","unknown",0);g_free(verified_start);}
+    g_free(start);
     a->pi_in = g_subprocess_get_stdout_pipe(a->pi_process);
     a->pi_out = g_subprocess_get_stdin_pipe(a->pi_process);
     a->pi_io = g_cancellable_new(); a->pi_frame = g_string_new("");

@@ -1,7 +1,7 @@
 """Real product GTK construction/actions, isolated Xvfb+D-Bus+synthetic backend.
 No production UI/settings/model/SDK/chooser/consent activity. No FakeUI selectors.
 """
-import asyncio,importlib.util,json,os,subprocess,sys,threading,time,warnings,hashlib
+import asyncio,importlib.util,json,os,subprocess,sys,threading,time,warnings,hashlib,shutil
 warnings.filterwarnings("ignore",message=r".*asyncio\..*.*",category=DeprecationWarning)
 from pathlib import Path
 # Reuse existing explicit private accessibility-bus setup before importing GI.
@@ -19,6 +19,14 @@ if '--isolated-bus' in sys.argv:
     raise SystemExit(result.returncode)
 assert os.environ.get('HN_PRIVATE_ATSPI_FIXTURE')=='1' and os.environ['GDK_BACKEND']=='x11' and not os.environ.get('WAYLAND_DISPLAY')
 root=Path(__file__).resolve().parents[2];private=Path(os.environ['XDG_RUNTIME_DIR']);release=threading.Event();requests=[]
+bridge_python=Path(os.environ.get('HN_BRIDGE_PYTHON','/usr/bin/python'))
+bridge_entry=private/'bridge-entry.py';bridge_source=root
+if os.environ.get('HN_INSTALLED_LAYOUT')=='1':
+    installed=Path('/home/ron/Workspace/hn-grant-565d896')
+    layout=private/'release';(layout/'staged').mkdir(parents=True)
+    shutil.copytree((root/'python/src/hyprneuro') if os.environ.get('HN_DIAGNOSTIC_SOURCE') else (installed/'source/python/src/hyprneuro'),layout/'source/python/src/hyprneuro')
+    bridge_entry=layout/'staged/pi-desktop-entry.py';shutil.copyfile(installed/'staged/pi-desktop-entry.py',bridge_entry);bridge_entry.chmod(0o500)
+    bridge_source=layout/'source'
 socket=private/'backend.sock';bridge_fixture=os.environ.get('HN_BRIDGE_FIXTURE')=='1';bootstrap=[];private_broker=None;child=None;server_loop=None;stop_server=None
 async def handle(reader,writer):
     request=json.loads(await reader.readline());requests.append(request);action=request.get('action')
@@ -40,25 +48,35 @@ async def serve():
     server=await asyncio.start_unix_server(handle,str(socket))
     if bridge_fixture:
         await asyncio.sleep(float(os.environ.get('HN_BOOTSTRAP_DELAY','0')))
-        sys.path.insert(0,str(root/'python/src'))
+        sys.path.insert(0,str(bridge_source/'python/src'))
         from hyprneuro.trusted_control import GrantControlServer,LaunchPolicy,LaunchVerifier
         from hyprneuro.trusted_consent import ConsentJournal,TrustedConsent
         from hyprneuro.sidecar_store import SidecarStore
         store=SidecarStore(private/'fixture.sqlite3')
         journal=ConsentJournal(private/'consent.jsonl')
         class Verifier(LaunchVerifier):
+            async def ui(self,*args):
+                identity=await super().ui(*args)
+                if os.environ.get('HN_BOOTSTRAP_FAULT')=='challenge-timeout':await asyncio.sleep(4)
+                if os.environ.get('HN_BOOTSTRAP_FAULT')=='broker-reject':raise PermissionError('SECRET_NONCE')
+                return identity
             def child(self,*args):
+                if os.environ.get('HN_BOOTSTRAP_FAULT')=='child-identity':args=(*args[:2],args[2]+'1')
                 identity=super().child(*args)
-                fds={str(fd):os.readlink('/proc/'+str(identity['pid'])+'/fd/'+str(fd)) for fd in [0,1,2,3]}
+                fds={}
+                for fd in [0,1,2,3]:
+                    try:fds[str(fd)]=os.readlink('/proc/'+str(identity['pid'])+'/fd/'+str(fd))
+                    except FileNotFoundError:fds[str(fd)]='missing'
                 env=dict(v.split(b'=',1) for v in Path('/proc',str(identity['pid']),'environ').read_bytes().split(b'\0') if b'=' in v)
                 assert env[b'PATH']==b'/usr/bin:/bin' and b'PYTHONPATH' not in env and env[b'HOME']==os.environ['HOME'].encode()
-                assert fds['3'].startswith('socket:') and fds['0']!=fds['3'] and fds['1']!=fds['3']
+                assert (fds['3'].startswith('socket:') or os.environ.get('HN_BOOTSTRAP_FAULT')=='fd3') and fds['0']!=fds['3'] and fds['1']!=fds['3']
                 bootstrap.append(dict(stage='real-child-verified',identity=identity,fd_aliases=fds,clean_environment_verified=True))
                 return identity
         async def units(unit):
+            if os.environ.get('HN_BOOTSTRAP_FAULT')=='wrong-ui':return os.getpid(),'/wrong'
             assert unit=='hyprneuro-ui.service' and child is not None
             return child.pid,Path('/proc/self/cgroup').read_text().strip()[3:]
-        policy=LaunchPolicy(Path('/usr/bin/python'),private/'bridge-entry.py',root,hashlib.sha256(Path(os.environ['HN_ORDINARY_WIDGET_BINARY']).read_bytes()).hexdigest(),hashlib.sha256((private/'bridge-entry.py').read_bytes()).hexdigest())
+        policy=LaunchPolicy(bridge_python,bridge_entry,bridge_source,hashlib.sha256(Path(os.environ['HN_ORDINARY_WIDGET_BINARY']).read_bytes()).hexdigest(),hashlib.sha256(bridge_entry.read_bytes()).hexdigest())
         private_broker=GrantControlServer(TrustedConsent(store,journal),Verifier(policy,units=units))
         broker=await asyncio.start_unix_server(private_broker.handle,str(private/'grant.sock'))
         (private/'grant.sock').chmod(0o600)
@@ -73,9 +91,25 @@ async def serve():
     else:
         async with server:await stop_server.wait()
 if bridge_fixture:
-    entry=private/'bridge-entry.py';entry.write_text('import sys\nsys.path.insert(0,'+repr(str(root/'python/src'))+')\nfrom hyprneuro.pi_desktop_bridge import main\nraise SystemExit(main())\n');entry.chmod(0o500)
+    entry=bridge_entry
+    if os.environ.get('HN_INSTALLED_LAYOUT')!='1':entry.write_text('import sys\nsys.path.insert(0,'+repr(str(root/'python/src'))+')\nfrom hyprneuro.pi_desktop_bridge import main\nraise SystemExit(main())\n');entry.chmod(0o500)
     if os.environ.get('HN_BOOTSTRAP_FAULT')=='import':entry.chmod(0o600);entry.write_text('raise ModuleNotFoundError("synthetic fixture import failure")\n');entry.chmod(0o500)
-    policy=private/'launch.json';policy.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python='/usr/bin/python',entry=str(entry),entry_sha256=hashlib.sha256(entry.read_bytes()).hexdigest(),source=str(root),ui_sha256=hashlib.sha256(Path(os.environ['HN_ORDINARY_WIDGET_BINARY']).read_bytes()).hexdigest())));policy.chmod(0o400)
+    fault=os.environ.get('HN_BOOTSTRAP_FAULT')
+    if fault in ['managed-import','managed-init','fd3','stdio']:
+        inject={
+            'managed-import':"import builtins\nold_import=builtins.__import__\ndef broken(name,*a,**k):\n if name.endswith('pi_managed_bridge'):raise ModuleNotFoundError('SECRET_NONCE')\n return old_import(name,*a,**k)\nbuiltins.__import__=broken\n",
+            'managed-init':"from hyprneuro.pi_managed_bridge import ManagedDesktopBridge\ndef broken(*a,**k):raise RuntimeError('SECRET_NONCE')\nManagedDesktopBridge.__init__=broken\n",
+            'fd3':"import os\nos.close(3)\n",
+            'stdio':"import asyncio\nasync def broken(*a,**k):raise RuntimeError('SECRET_NONCE')\nasyncio.BaseEventLoop.connect_read_pipe=broken\n"}[fault]
+        entry.chmod(0o600);entry.write_text(entry.read_text().replace('raise SystemExit(main())',inject+'raise SystemExit(main())'));entry.chmod(0o500)
+    policy=private/'launch.json';policy.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python=str(bridge_python),entry=str(entry),entry_sha256=hashlib.sha256(entry.read_bytes()).hexdigest(),source=str(bridge_source),ui_sha256=hashlib.sha256(Path(os.environ['HN_ORDINARY_WIDGET_BINARY']).read_bytes()).hexdigest())));policy.chmod(0o400)
+    if fault in ['schema','entry-read','entry-hash','spawn']:
+        obj=json.loads(policy.read_text())
+        if fault=='schema':obj['schema']='invalid'
+        if fault=='entry-read':obj['entry']=str(private/'missing-entry')
+        if fault=='entry-hash':obj['entry_sha256']='0'*64
+        if fault=='spawn':obj['python']=str(private/'missing-python')
+        policy.chmod(0o600);policy.write_text(json.dumps(obj));policy.chmod(0o400)
 thread=threading.Thread(target=lambda:asyncio.run(serve()),daemon=True);thread.start()
 while not socket.exists():time.sleep(.01)
 sys.path.insert(0,str(root/'ui/tests'));from desktop_driver import Desktop,Atspi
@@ -96,6 +130,9 @@ if bridge_fixture:
         while not (private/'grant.sock').exists():
             assert time.monotonic()<until;time.sleep(.01)
     env.update(HN_PRIVATE_BROKER_PID=str(os.getpid()),HYPRNEURO_PI_TRUSTED_POLICY=str(private/'launch.json'),HYPRNEURO_PI_TRUSTED_POLICY_SHA256=hashlib.sha256((private/'launch.json').read_bytes()).hexdigest(),HYPRNEURO_PI_BROKER_SOCKET=str(private/'grant.sock'))
+if bridge_fixture and os.environ.get('HN_BOOTSTRAP_FAULT')=='broker-connect':env['HYPRNEURO_PI_BROKER_SOCKET']=str(private/'missing-broker.sock')
+if bridge_fixture and os.environ.get('HN_BOOTSTRAP_FAULT')=='wrong-peer':env['HN_PRIVATE_WRONG_PEER']='1'
+if bridge_fixture and os.environ.get('HN_BOOTSTRAP_FAULT')=='policy-read':env['HYPRNEURO_PI_TRUSTED_POLICY']=str(private/'missing-policy')
 if bridge_fixture and os.environ.get('HN_BOOTSTRAP_FAULT')=='policy':env['HYPRNEURO_PI_TRUSTED_POLICY_SHA256']='0'*64
 child=subprocess.Popen([os.environ['HN_ORDINARY_WIDGET_BINARY']],env=env,cwd=os.environ['HOME'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
 ui_process_start=Path('/proc',str(child.pid),'stat').read_text().rsplit(')',1)[1].split()[19]
@@ -200,6 +237,7 @@ try:
         assert case in ['error','cancel','missing','bootstrap-unavailable'],str(error)
         if case=='bootstrap-unavailable':
             node=desktop.find('button','Connect Pi owner…');assert node and node.get_state_set().contains(Atspi.StateType.SHOWING) and not node.get_state_set().contains(Atspi.StateType.SENSITIVE)
+            if os.environ.get('HN_DIAGNOSTIC_SOURCE'):assert any(n.get_role_name()=='label' and n.get_name().startswith('Pi bridge unavailable · diagnostic ') for n in Desktop.nodes(child.pid))
             print('PROVEN PRIVATE failure visible INSENSITIVE Connect, NOT absent/not Settings; live cause remains UNKNOWN',flush=True)
         if case=='error':assert str(error)=='Reload completion reports error/unknown status'
         if case=='cancel':assert isinstance(error,InterruptedError)

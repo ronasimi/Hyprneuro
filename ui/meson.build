@@ -30,3 +30,6 @@ test('ui-pi-picker', picker_test)
 
 cancel_test = executable('test-ui-pi-cancel', 'tests/pi_cancel.c', dependencies: deps, link_args: ['-lm'])
 test('ui-pi-cancel', cancel_test)
+
+diag_test = executable('test-ui-pi-diagnostics', 'tests/pi_diagnostics.c', dependencies: deps, link_args: ['-lm'])
+test('ui-pi-diagnostics', diag_test)

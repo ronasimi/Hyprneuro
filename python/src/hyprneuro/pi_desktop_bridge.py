@@ -259,19 +259,24 @@ class DesktopBridge:
             await self.control.close()  # last control disconnect denies/cleans up
 
 
-async def run():
+async def _run(startup):
     explicit = sys.argv[1:] in (['--explicit-connect'], ['--explicit-connect', '--broker-fd=3'])
     broker = None
+    startup[0] = 'broker-inherited'
     if sys.argv[1:] == ['--explicit-connect', '--broker-fd=3']:
         from .trusted_control import GrantControlClient
         broker = await GrantControlClient.inherited(3)
+        startup[1] = broker
     if not explicit and (os.environ.get('HYPRNEURO_PI_UI') != '1' or not os.environ.get('HYPRNEURO_PI_OWNER_DIR')):
         return 2
+    startup[0] = 'stdio-setup'
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(limit=MAX_FRAME + 1)
     reader_transport, _ = await loop.connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin.buffer)
+    startup[2] = reader_transport
     transport, protocol = await loop.connect_write_pipe(asyncio.streams.FlowControlMixin, sys.stdout.buffer)
     writer = asyncio.StreamWriter(transport, protocol, None, loop)
+    startup[3] = writer
     lock = asyncio.Lock()
 
     async def send(packet):
@@ -283,7 +288,9 @@ async def run():
             await asyncio.wait_for(writer.drain(), 5)
 
     if explicit:
+        startup[0] = 'managed-import'
         from .pi_managed_bridge import ManagedDesktopBridge
+        startup[0] = 'managed-init'
         bridge = ManagedDesktopBridge(send, broker=broker)
     else:
         bridge = DesktopBridge(os.environ['HYPRNEURO_PI_OWNER_DIR'], send)
@@ -311,6 +318,26 @@ async def run():
         reader_transport.close()
         writer.close()
     return 0
+
+
+async def run():
+    startup=['unknown',None,None,None]
+    try:return await _run(startup)
+    except Exception:
+        stage=startup[0] if startup[0] in {'broker-inherited','stdio-setup','managed-import','managed-init'} else 'unknown'
+        try:
+            sys.stdout.write(json.dumps({'type':'bootstrap_failure','stage':stage,'category':'failure'},ensure_ascii=True)+'\n')
+            sys.stdout.flush()
+        except Exception:pass
+        if startup[1] is not None:
+            try:
+                async with asyncio.timeout(1):await startup[1].close()
+            except Exception:pass
+        for transport in startup[2:]:
+            if transport is not None:
+                try:transport.close()
+                except Exception:pass
+        raise
 
 
 def main():

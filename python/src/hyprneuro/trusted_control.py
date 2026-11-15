@@ -14,6 +14,7 @@ import re
 import socket
 import stat
 import struct
+import sys
 from dataclasses import dataclass
 
 from .pi_owner_service import load_config
@@ -168,12 +169,23 @@ async def send_frame(writer, value):
         await writer.drain()
 
 
+def diagnostic_rejection(stage, error, counter):
+    """NONAUTHORITATIVE, bounded and enum-only; never interferes with cleanup."""
+    stages={'peer','ui-identity','launch-frame','child-identity','launch-ready','private-operation'}
+    if counter>=16 or sys.stderr is None:return
+    category='timeout' if isinstance(error,TimeoutError) else 'identity' if isinstance(error,PermissionError) else 'failure'
+    try:
+        print(json.dumps({'diagnostic':'NONAUTHORITATIVE','stage':stage if stage in stages else 'unknown','category':category},ensure_ascii=True),file=sys.stderr,flush=True)
+    except Exception:pass
+
+
 class GrantControlServer:
     """No public socket dispatch; endpoint is bound only by its trusted host."""
     def __init__(self, core, verifier):
         self.core, self.verifier = core, verifier
         self.handlers = set()
         self.failures = 0
+        self.diagnostic_count = 0
 
     async def handle(self, reader, writer):
         task = asyncio.current_task()
@@ -184,21 +196,27 @@ class GrantControlServer:
         self.handlers.add(task)
         registration = None
         cleanup_started = False
+        stage = 'peer'
         try:
             sock = writer.get_extra_info('socket')
             peer, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
             if uid != os.getuid():
                 raise PermissionError('Wrong private peer UID')
             async with asyncio.timeout(3):
+                stage = 'ui-identity'
                 ui = await self.verifier.ui(peer)
                 nonce = os.urandom(32).hex()
                 await send_frame(writer, {'type': 'launch_challenge', 'nonce': nonce})
+                stage = 'launch-frame'
                 launch = await read_frame(reader, timeout=3)
                 if (set(launch) != {'op', 'nonce', 'child_pid', 'child_start'} or launch['op'] != 'launch'
                         or launch['nonce'] != nonce or type(launch['child_pid']) is not int):
                     raise PermissionError('Wrong trusted launch attestation')
+                stage = 'child-identity'
                 child = self.verifier.child(ui, launch['child_pid'], launch['child_start'])
+                stage = 'launch-ready'
                 await send_frame(writer, {'type': 'launch_ready'})
+            stage = 'private-operation'
             challenge = None
             while True:
                 value = await read_frame(reader)
@@ -250,6 +268,8 @@ class GrantControlServer:
         except asyncio.CancelledError:
             raise
         except Exception as error:
+            diagnostic_rejection(stage,error,self.diagnostic_count)
+            self.diagnostic_count=min(16,self.diagnostic_count+1)
             self.failures += 1
             if registration:
                 try:

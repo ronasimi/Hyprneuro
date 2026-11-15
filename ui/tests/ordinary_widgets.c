@@ -36,7 +36,7 @@ GVariant *__wrap_g_dbus_connection_call_sync(GDBusConnection *bus,const gchar *n
             g_variant_builder_add(&b,"{sv}","Job",g_variant_new("(uo)",0,"/"));
             return g_variant_ref_sink(g_variant_new("(a{sv})",&b));
         }
-        if (!g_strcmp0(method,"Get"))return g_variant_ref_sink(g_variant_new("(v)",g_variant_new_uint32((guint)g_ascii_strtoull(broker,NULL,10))));
+        if (!g_strcmp0(method,"Get"))return g_variant_ref_sink(g_variant_new("(v)",g_variant_new_uint32((guint)(g_getenv("HN_PRIVATE_WRONG_PEER")?getpid():g_ascii_strtoull(broker,NULL,10)))));
         g_error("Unexpected private metadata call");
     }
     return __real_g_dbus_connection_call_sync(bus,name,path,iface,method,params,type,flags,timeout,cancel,error);
@@ -44,8 +44,8 @@ GVariant *__wrap_g_dbus_connection_call_sync(GDBusConnection *bus,const gchar *n
 GSubprocessLauncher *__real_g_subprocess_launcher_new(GSubprocessFlags);
 GSubprocessLauncher *__wrap_g_subprocess_launcher_new(GSubprocessFlags flags) {
     if (g_getenv("HN_PRIVATE_BROKER_PID")) {
-        g_printerr("PRIVATE BOOTSTRAP reached fixed child spawn; inherited stderr (production policy unchanged)\n");
-        flags &= ~G_SUBPROCESS_FLAGS_STDERR_SILENCE;
+        g_printerr("PRIVATE BOOTSTRAP reached fixed child spawn; stderr=%s\n",g_getenv("HN_KEEP_PRODUCTION_STDERR") ? "production-silenced" : "fixture-inherited");
+        if (!g_getenv("HN_KEEP_PRODUCTION_STDERR")) flags &= ~G_SUBPROCESS_FLAGS_STDERR_SILENCE;
     }
     return __real_g_subprocess_launcher_new(flags);
 }

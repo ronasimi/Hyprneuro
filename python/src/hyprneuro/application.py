@@ -432,79 +432,100 @@ class MemoryRecord:
 def _validate_scope_key(scope: str, key: str) -> None:
     if scope not in SCOPES:
         raise ValueError(f"scope must be one of {sorted(SCOPES)}")
-    if not _KEY.fullmatch(str(key)):
+    if not isinstance(key, str) or not _KEY.fullmatch(key):
         raise ValueError("Invalid memory key")
 
 
-class TieredMemory:
-    """Task / app / project / global scoped memory with approval-gated promote.
+def memory_owner(scope: str, *, task_id=None, app_id=None, project_id=None) -> str:
+    """Exact, opaque owner identity; other supplied IDs are restrictive metadata.
 
-    Backends: an in-memory dict (default, for unit tests) or a SidecarStore
-    (for the IPC service). The public API is identical for both.
+    Global is explicitly unowned. Missing scoped owners never mean "all owners".
+    Shared by both backends so direct store calls cannot bypass validation.
+    """
+    if scope not in SCOPES:
+        raise ValueError(f"scope must be one of {sorted(SCOPES)}")
+    ids = {"task": task_id, "app": app_id, "project": project_id}
+    for name, value in ids.items():
+        if value is not None and (not isinstance(value, str) or not value.strip()
+                or len(value) > 128 or any(ord(c) < 32 or ord(c) == 127 for c in value)):
+            raise ValueError(f"Invalid {name}_id")
+    if scope == "global":
+        if any(value is not None for value in ids.values()):
+            raise ValueError("global memory must not have owner IDs")
+        return ""
+    if ids[scope] is None:
+        raise ValueError(f"{scope}_id is required for {scope} memory")
+    return ids[scope]
+
+
+class TieredMemory:
+    """Owner-qualified task/app/project memory and explicitly unowned global facts.
+
+    Additional IDs are metadata filters, not alternative owners. Promotion copies
+    between explicit source/destination bindings after caller-supplied approval;
+    it does not authenticate that approval or grant execution authority.
     """
 
     def __init__(self, store: Any | None = None):
         self._store = store
-        self._mem: dict[str, dict[str, dict]] = {s: {} for s in SCOPES}
+        self._mem: dict[tuple[str, str, str], dict] = {}
 
-    # -- write --
     def remember(self, scope: str, key: str, value: Any, *,
                  task_id: str | None = None, app_id: str | None = None,
                  project_id: str | None = None) -> dict:
         _validate_scope_key(scope, key)
+        owner = memory_owner(scope, task_id=task_id, app_id=app_id, project_id=project_id)
         encoded = json.dumps(value, ensure_ascii=False, default=str)
         if len(encoded) > 16_384:
             raise ValueError("Memory value exceeds 16 KiB")
-        when = _now_ms()
         if self._store is not None:
             return self._store.app_memory_remember(scope, key, encoded,
                                                    task_id=task_id, app_id=app_id,
                                                    project_id=project_id)
-        self._mem[scope][key] = {
-            "value": value, "task_id": task_id, "app_id": app_id,
-            "project_id": project_id, "updated_ms": when,
+        when = _now_ms()
+        self._mem[scope, owner, key] = {
+            "scope": scope, "key": key, "value": json.loads(encoded),
+            "task_id": task_id, "app_id": app_id, "project_id": project_id,
+            "updated_ms": when,
         }
         return {"stored": True, "scope": scope, "key": key, "updated_ms": when}
 
-    # -- read --
     def recall(self, scope: str, *, key: str | None = None, limit: int = 10,
                task_id: str | None = None, app_id: str | None = None,
                project_id: str | None = None) -> list[dict]:
-        if scope not in SCOPES:
-            raise ValueError(f"scope must be one of {sorted(SCOPES)}")
-        if not 1 <= limit <= 50:
+        owner = memory_owner(scope, task_id=task_id, app_id=app_id, project_id=project_id)
+        if key is not None:
+            _validate_scope_key(scope, key)
+        if type(limit) is not int or not 1 <= limit <= 50:
             raise ValueError("limit must be 1..50")
         if self._store is not None:
-            rows = self._store.app_memory_recall(scope, key=key, limit=limit,
+            return self._store.app_memory_recall(scope, key=key, limit=limit,
                                                  task_id=task_id, app_id=app_id,
                                                  project_id=project_id)
-            return rows
-        bucket = self._mem[scope]
         out = []
-        for k, rec in bucket.items():
-            if key is not None and k != key:
+        for (s, o, k), rec in self._mem.items():
+            if s != scope or o != owner or (key is not None and k != key):
                 continue
-            if app_id is not None and rec.get("app_id") != app_id:
+            if any(v is not None and rec[n] != v for n, v in (
+                    ("task_id", task_id), ("app_id", app_id), ("project_id", project_id))):
                 continue
-            if task_id is not None and rec.get("task_id") != task_id:
-                continue
-            if project_id is not None and rec.get("project_id") != project_id:
-                continue
-            out.append({"scope": scope, "key": k, "value": rec["value"],
-                        "updated_ms": rec["updated_ms"]})
-        out.sort(key=lambda r: r["updated_ms"], reverse=True)
+            out.append(copy.deepcopy(rec))
+        out.sort(key=lambda r: (-r["updated_ms"], r["key"]))
         return out[:limit]
 
-    def get(self, scope: str, key: str) -> Any | None:
-        rows = self.recall(scope, key=key, limit=1)
+    def get(self, scope: str, key: str, *, task_id=None, app_id=None, project_id=None) -> Any | None:
+        rows = self.recall(scope, key=key, limit=1, task_id=task_id,
+                           app_id=app_id, project_id=project_id)
         return rows[0]["value"] if rows else None
 
-    # -- promotion --
-    def promote(self, key: str, from_scope: str, to_scope: str, *, approved: bool) -> dict:
-        """Cross-scope promotion ALWAYS requires explicit approval.
+    def promote(self, key: str, from_scope: str, to_scope: str, *, approved: bool,
+                task_id=None, app_id=None, project_id=None,
+                to_task_id=None, to_app_id=None, to_project_id=None) -> dict:
+        """Copy one exact source to an explicitly bound destination (source remains).
 
-        `approved` must be a literal True supplied by the caller after a human
-        decision; the memory layer itself never grants promotion.
+        Unprefixed IDs select/filter the source; to_* IDs bind the destination.
+        The caller must obtain human approval separately; this boolean is not an
+        authorization mechanism. No model-facing promotion IPC is exposed here.
         """
         if type(approved) is not bool:
             raise ValueError("promotion requires an explicit boolean approval")
@@ -512,12 +533,15 @@ class TieredMemory:
         _validate_scope_key(to_scope, key)
         if from_scope == to_scope:
             raise ValueError("from_scope and to_scope must differ")
-        value = self.get(from_scope, key)
-        if value is None:
+        memory_owner(to_scope, task_id=to_task_id, app_id=to_app_id, project_id=to_project_id)
+        rows = self.recall(from_scope, key=key, limit=1, task_id=task_id,
+                           app_id=app_id, project_id=project_id)
+        if not rows:
             raise LookupError(f"No record {key!r} in {from_scope}")
         if not approved:
             return {"promoted": False, "reason": "not_approved"}
-        return self.remember(to_scope, key, value)
+        return self.remember(to_scope, key, rows[0]["value"], task_id=to_task_id,
+                             app_id=to_app_id, project_id=to_project_id)
 
 
 # --- Event-driven focus watcher ---------------------------------------------

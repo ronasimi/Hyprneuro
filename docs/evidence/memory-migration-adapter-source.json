@@ -1,0 +1,171 @@
+{
+  "recorded_utc": "2026-11-15T08:37:47.649564+00:00",
+  "base_commit": "7a6a7efdc97aef6edb81cd6b1e6956bf69288eb5",
+  "status": "SOURCE ONLY; corrected adapter re-review pending after review@4 BLOCK; source integration HELD until clean latest-approved-cancellation aggregate validation",
+  "approved_plan": {
+    "commit": "3a71e1602768bdb4d39513591c40aa87d2d50e0a",
+    "review": "01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review@3 (user-relayed)"
+  },
+  "source_sha256": {
+    "scripts/memory_migration_candidate.py": "877e12d8fb41843ba433914889cb634ae0aba27c415eb000af47b93215c99d10",
+    "python/tests/test_memory_migration_candidate.py": "b94d083827be6a5bd4c68adfd5bf4179b1e4f1e56fd4d2091b0910205ec2f6e2",
+    "docs/MEMORY_MIGRATION_FIXTURE_ADAPTER.md": "c4d1ad2d8f4221b030cc2449fd5ce094c7479ed512bfdacca4617b918b7377cd"
+  },
+  "unchanged_approved_files_sha256": {
+    "python/src/hyprneuro/application.py": "9680d6eb56c33dee9ff1a052b0fdcc6beab77cf7fd52f53c7cf6007611aff071",
+    "python/src/hyprneuro/sidecar_store.py": "44f7efee468c5b954ca705911499b9fa23f8bf3efa043340df5c6016fb10f75a",
+    "scripts/prepare_app_release.py": "9ed6a5bbdb2437e4e12b83c2e6c2531d1b1eb7d8f72cb42035694947b4c92a53",
+    "scripts/apply_app_release.py": "3826802b38d39bca17bb109736147bb0a01e8c3dae9f5efb97ecd1e8aa96ac63",
+    "scripts/verify_app_release.py": "aaf6255ec37b2699a7715304fb1bbec60b64796eb8f5ee2fb4632978c551d16c",
+    "docs/MEMORY_MIGRATION_PLAN.md": "de534462e2bff4ccb04ca0e93d7aa035a054e90c7f41f3ca2d2af209bd4fa1c2"
+  },
+  "evidence_root": "/home/ron/Workspace/hyprneuro-memory-evidence",
+  "artifact_sha256": {
+    "run-tests.sh": "a95859922afb605b8a84a9396aef3c283d980609d6eb0ee5c4df88cf0b2380fe",
+    "adapter-focused-attempt1.log": "35f68c3d443c6fdd0fe591771dc86502aec6e0c56f310c7d9684dd81e8eced55",
+    "adapter-focused-attempt2.log": "4b2b7b75eccc476c892396f8ef37a711d757621d8b78589c705abf6a74fda0af",
+    "adapter-focused-attempt3.log": "e96855005b18e60eb94b6c2cafd8a27b8bb21e24b3e2acf5c384ebd3f00c2bb8",
+    "adapter-focused-attempt4.log": "c8532c85964b2989d0056aab54d09a17121cd8248474a8f0e819e0f55c4231c0",
+    "adapter-focused-final.log": "8806dacbd1798cf55d60b647191705ff96a14e269a202911b6d8cbcfe5dc33d7",
+    "adapter-combined-focused-attempt1.log": "b48eeda7012aad999a72451140b9d88d37591b83cac0a243175591056e89c5eb",
+    "adapter-combined-focused-attempt2.log": "6d7c54738fc83da73354b5a80aa8a0b2c119c5279ce54fc34beeb67ee31588dc",
+    "adapter-combined-focused-final.log": "a2a5203cea159a719bfd11e9c9a5f1c0e15b0e2b95b9615e189686d9d09f5af8",
+    "adapter-full-attempt1.log": "4579682f7fba3621a04553bcfb1f0094a46d25c539fbe26ff53a8198f217ac26",
+    "adapter-full-attempt2.log": "bf4658ec0c556d596fe78d48552823c37ea77d2bf5d2648daa7f61da142a1e51",
+    "adapter-full-final.log": "9386c26932bd440c4079c5489dbb33911641916d1f46c989158ab3307d79fbdc",
+    "adapter-demo.py": "82dda0673a5364c8e5cd7441227f232f7f9c9d3437d10abe91191c2ef839d39f",
+    "adapter-demo.log": "ddc0cb1b98c2f1dd7ab32d61aea184dc9e49c112ae9682e38c231b5f28be555b",
+    "make-adapter-receipt.py": "28b9768a59b9aee1c7b3e9bdf6e89be7d09a1068ad61cedfb0d0379937797fa9",
+    "adapter-review4-base-receipt.json": "06cc86ac8f6a94c96815db3c0f4050eb177b4686e8893627e169179763056742",
+    "adapter-review4-before-tests.log": "e8b83c81f4bd90afc7c65fc24f8632fa715d393ae711533738c7cd16cd2ad0c7",
+    "adapter-review4-before-repro.py": "7757489d6e458a76076365b3fef1dac58ec4f70eeb3f7bcb99f2ec5d680becdc",
+    "adapter-review4-before-repro.log": "0adc06bee97465fc4fac24b97e8307e0d95403b3788c63ca01a1c35875453e77",
+    "adapter-review4-targeted-attempt1.log": "086440e1f38934a7bcc5011270c08f6f43f8f99b9dc1fb8ab23944e735896baa",
+    "adapter-review4-focused-attempt1.log": "b2c9400e3441707b86c41863c1ea14e7350528b5aaed4eb7c958cbad82f902db",
+    "adapter-review4-combined-focused-final.log": "da560778503ecfae11a3b5a8657036327f3b8fcb8bed1f34844bd18187302825",
+    "adapter-review4-full-final.log": "8276eb11234552bd9607284050ed8425fc4086e5fe7f627f44d1ced10e64fbce",
+    "adapter-review4-demo.py": "bd77a9f88625db0b475f1d73ff5abbc2565354ec592cf5b232ab3fe5b1c4cd77",
+    "adapter-review4-demo.log": "8f8692aca96ac5e8222ae28808339d7e6c76fcdcd88279b8d5ffa79aff55e733",
+    "make-adapter-review4-receipt.py": "70edc125075c1a12344ff61b1812f0331e05991f9315f1ee251b788ad5fc6ab3"
+  },
+  "adapter_tests": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q tests/test_memory_migration_candidate.py",
+    "log": "adapter-review4-focused-attempt1.log",
+    "passed": 70,
+    "seconds": 20.48
+  },
+  "combined_focused": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q tests/test_memory_migration_candidate.py tests/test_memory_store.py tests/test_application.py tests/test_assistant_ipc.py tests/test_telemetry.py",
+    "log": "adapter-review4-combined-focused-final.log",
+    "passed": 276,
+    "subtests_passed": 17,
+    "seconds": 37.05
+  },
+  "full_python": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q -rs",
+    "log": "adapter-review4-full-final.log",
+    "passed": 695,
+    "subtests_passed": 138,
+    "skipped": 2,
+    "seconds": 51.19,
+    "skips": [
+      "optional Pillow visual gate",
+      "explicit installed SDK/Durable fixture paths absent"
+    ]
+  },
+  "environment": "existing Python 3.13 venv; -W error; isolated Workspace HOME/TMPDIR/XDG; offline flags; no bytecode/pytest caches; no warning suppression",
+  "retained_failure": "Historical WAL-header retry remains retained. Review@4 actual two-P1 reproductions and five failing regressions were captured before correction; see review_correction and archived base receipt. Corrected runs passed without changing the requested preservation assertions.",
+  "production_mode_available": false,
+  "production_paths_or_settings_payloads_opened": false,
+  "runtime_attestation_or_service_ops": false,
+  "network_gui_capture_models_providers": false,
+  "push_or_deploy": false,
+  "remaining_limits": [
+    "Fixture digest-bound quiescence declaration is not proof of real service shutdown or authorization; no production mode",
+    "No downgrade transform or old snapshot/settings restore exists",
+    "Filesystem blocking is not a hard real-time deadline guarantee",
+    "Latest approved cancellation pin aggregate-source validation not yet performed; no claim that current memory branch incorporates it"
+  ],
+  "next_dependency": "Independent re-review of this corrected fixture-only adapter, then parent-owned clean aggregate with the latest approved cancellation pin and offline combined validation; source integration HELD, no production migration approval",
+  "initial_adapter_base_commit": "3a71e1602768bdb4d39513591c40aa87d2d50e0a",
+  "review_correction": {
+    "review": "01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review@4",
+    "blocked_commit": "7a6a7efdc97aef6edb81cd6b1e6956bf69288eb5",
+    "verdict": "BLOCK: two P1 preservation defects",
+    "before_reproductions": [
+      "Exact blocked blob overwrote a committed stage-time task update and reported replaced_unstarted",
+      "Exact blocked blob accepted a post-child memory trigger through prepare/verify/replace; actual insert deleted tasks"
+    ],
+    "before_regression_result": "5 failed, 57 deselected before implementation changes",
+    "corrections": [
+      "Freeze original replacement request; synchronously revalidate source code identity and input family/settings AFTER complete stage verification immediately before rename",
+      "Validate complete approved v4 table/PK/index SQL/object set and index structure/collations; reject all unexpected triggers/indexes; retain memory_schema digest in every inventory"
+    ],
+    "limits": "Declared trusted-fixture quiescence only, not hostile-writer atomic exclusion. No production mode added.",
+    "independent_corrected_review": "PENDING"
+  },
+  "historical_demo_artifact_sha256": {
+    "hn-memory-fixture-adapter-demo01/fixture.json": "62c8a3efc7f5f03841a2d99ba7eff0a0de63cacc16503f39eff3dc2e9dc79f22",
+    "hn-memory-fixture-adapter-demo01/input.sqlite3": "bcceaf9674f7772eaca4e140e871e8aff6965eb5cd59c0eb10c67b1c6a947e08",
+    "hn-memory-fixture-adapter-demo01/input.sqlite3-shm": "5f7d6295ba56cb4a6d1958d63bf3b6525431f13ee7100b43ab65bdfe7a57b9a1",
+    "hn-memory-fixture-adapter-demo01/input.sqlite3-wal": "c7fae22f7c8cb1479e5b3075cc5da0d74b06b9a79d05289147ac1010387549ae",
+    "hn-memory-fixture-adapter-demo01/operation/baseline.sqlite3": "74a434ff727a3de84fbee70473dd810f2dae917ffda86ea9eb1b8f81ec34b3e6",
+    "hn-memory-fixture-adapter-demo01/operation/candidate.sqlite3": "6dabf66860a8a751e6150d51cebf6784b3ba1a60b935d38d792b0916fed3cd33",
+    "hn-memory-fixture-adapter-demo01/operation/migration-backup.sqlite3": "74a434ff727a3de84fbee70473dd810f2dae917ffda86ea9eb1b8f81ec34b3e6",
+    "hn-memory-fixture-adapter-demo01/operation/prepare-request.json": "a3a7dbaef83686d6416c1b4e4170d5754953ed53b45cb72d2b5e7c66a40ff018",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/authoritative.sqlite3": "ddb1daa6d4f17ee12c914153032c06fe0244821f1a47c2de5e9f5fff13112410",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/plan.json": "74664f54c18c842d12890baff876f46d6cf6126d207b5efaa10d61dec41393de",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/raw/current.sqlite3": "bcceaf9674f7772eaca4e140e871e8aff6965eb5cd59c0eb10c67b1c6a947e08",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/raw/current.sqlite3-shm": "d4a54ccac1e655723b436c88701d6219c164f73c9ed4b8f319ae405081fdb18b",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/raw/current.sqlite3-wal": "c7fae22f7c8cb1479e5b3075cc5da0d74b06b9a79d05289147ac1010387549ae",
+    "hn-memory-fixture-adapter-demo01/operation/recovery/settings-current.json": "e817ac896e4e89b1f7dc73de60b8859cc4243b87ba293a9c7dd6ca2957626f82",
+    "hn-memory-fixture-adapter-demo01/operation/state.json": "b3d5481b10b153dad6a8f91373f6dea59c0b52c99ef8a52536ef7d371d341d67",
+    "hn-memory-fixture-adapter-demo01/request.json": "645e02c01970ba20e4855e0406fe07bd87466fa87f9e392149ec53891d5d5a96",
+    "hn-memory-fixture-adapter-demo01/settings.json": "e817ac896e4e89b1f7dc73de60b8859cc4243b87ba293a9c7dd6ca2957626f82"
+  },
+  "historical_cli_rehearsal": {
+    "root": "/home/ron/Workspace/hyprneuro-memory-evidence/hn-memory-fixture-adapter-demo01",
+    "actions": [
+      "prepare",
+      "verify",
+      "replace-fixture",
+      "activation-fence",
+      "synthetic owner/task/WAL/settings writes",
+      "recovery"
+    ],
+    "result": "retain_current_forward_repair / blocked_duplicate_keys; both owners, committed WAL, task and current settings preserved; no downgrade or restore"
+  },
+  "demo_artifact_sha256": {
+    "hn-memory-fixture-adapter-review4-demo01/fixture.json": "62c8a3efc7f5f03841a2d99ba7eff0a0de63cacc16503f39eff3dc2e9dc79f22",
+    "hn-memory-fixture-adapter-review4-demo01/input.sqlite3": "bcceaf9674f7772eaca4e140e871e8aff6965eb5cd59c0eb10c67b1c6a947e08",
+    "hn-memory-fixture-adapter-review4-demo01/input.sqlite3-shm": "a6077c18baffb2574213540ac6714aa2f10b04e8d89b2765a7e500a62a491d8c",
+    "hn-memory-fixture-adapter-review4-demo01/input.sqlite3-wal": "ed8d978c35db1c3c0a7fc8c92e178b4fddaf99bcff120babe9de7a02d46b7aeb",
+    "hn-memory-fixture-adapter-review4-demo01/operation/baseline.sqlite3": "74a434ff727a3de84fbee70473dd810f2dae917ffda86ea9eb1b8f81ec34b3e6",
+    "hn-memory-fixture-adapter-review4-demo01/operation/candidate.sqlite3": "6dabf66860a8a751e6150d51cebf6784b3ba1a60b935d38d792b0916fed3cd33",
+    "hn-memory-fixture-adapter-review4-demo01/operation/migration-backup.sqlite3": "74a434ff727a3de84fbee70473dd810f2dae917ffda86ea9eb1b8f81ec34b3e6",
+    "hn-memory-fixture-adapter-review4-demo01/operation/prepare-request.json": "c6e885c70db5d0f934923acc7c3f301bd2f8544c6e361c1c1f4795fd6a8f09f6",
+    "hn-memory-fixture-adapter-review4-demo01/operation/recovery/authoritative.sqlite3": "ddb1daa6d4f17ee12c914153032c06fe0244821f1a47c2de5e9f5fff13112410",
+    "hn-memory-fixture-adapter-review4-demo01/operation/recovery/plan.json": "53ee7c5adcce4e9c5c867d0e21f09b18cf4603536c045a1c936fb2f45bba8e36",
+    "hn-memory-fixture-adapter-review4-demo01/operation/recovery/raw/current.sqlite3": "bcceaf9674f7772eaca4e140e871e8aff6965eb5cd59c0eb10c67b1c6a947e08",
+    "hn-memory-fixture-adapter-review4-demo01/operation/recovery/raw/current.sqlite3-shm": "27302e6164c5777568cb06c1b612ddb078f24b35024ffe54948978272a2030ee",
+    "hn-memory-fixture-adapter-review4-demo01/operation/recovery/raw/current.sqlite3-wal": "ed8d978c35db1c3c0a7fc8c92e178b4fddaf99bcff120babe9de7a02d46b7aeb",
+    "hn-memory-fixture-adapter-review4-demo01/operation/recovery/settings-current.json": "e817ac896e4e89b1f7dc73de60b8859cc4243b87ba293a9c7dd6ca2957626f82",
+    "hn-memory-fixture-adapter-review4-demo01/operation/state.json": "711339c6ed26b2a72dcef5c8207b4300217e3f3e7cfa2afa45bbada7ca21cf15",
+    "hn-memory-fixture-adapter-review4-demo01/request.json": "baa62369dba8c3796c734d95cc3acb1653e0531e27d4374cfb1206e332842126",
+    "hn-memory-fixture-adapter-review4-demo01/settings.json": "e817ac896e4e89b1f7dc73de60b8859cc4243b87ba293a9c7dd6ca2957626f82"
+  },
+  "cli_rehearsal": {
+    "root": "/home/ron/Workspace/hyprneuro-memory-evidence/hn-memory-fixture-adapter-review4-demo01",
+    "runner": "adapter-review4-demo.py",
+    "log": "adapter-review4-demo.log",
+    "actions": [
+      "prepare",
+      "verify",
+      "replace-fixture",
+      "activation-fence",
+      "synthetic owner/task/WAL/settings writes",
+      "recovery"
+    ],
+    "result": "retain_current_forward_repair / blocked_duplicate_keys; committed WAL/current settings/both owners preserved, no downgrade or restore"
+  }
+}

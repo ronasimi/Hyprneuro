@@ -190,7 +190,7 @@ class TieredMemoryTests(unittest.TestCase):
         self.mem.remember("app", "pref.theme", "dark", app_id="google-chrome")
         self.mem.remember("global", "unit", "metric")
         self.mem.remember("task", "step", 3, task_id="t1")
-        self.assertEqual(self.mem.get("app", "pref.theme"), "dark")
+        self.assertEqual(self.mem.get("app", "pref.theme", app_id="google-chrome"), "dark")
         self.assertEqual(len(self.mem.recall("global")), 1)
         self.assertEqual(len(self.mem.recall("app", app_id="google-chrome")), 1)
         self.assertEqual(self.mem.recall("app", app_id="other-app"), [])
@@ -211,16 +211,16 @@ class TieredMemoryTests(unittest.TestCase):
 
     def test_promote_requires_approval(self):
         self.mem.remember("app", "pref.theme", "dark", app_id="google-chrome")
-        denied = self.mem.promote("pref.theme", "app", "global", approved=False)
+        denied = self.mem.promote("pref.theme", "app", "global", app_id="google-chrome", approved=False)
         self.assertFalse(denied["promoted"])
         self.assertIsNone(self.mem.get("global", "pref.theme"))
         with self.assertRaises(ValueError):
-            self.mem.promote("pref.theme", "app", "global", approved=None)
+            self.mem.promote("pref.theme", "app", "global", app_id="google-chrome", approved=None)
         with self.assertRaises(ValueError):
             self.mem.promote("pref.theme", "app", "app", approved=True)
         with self.assertRaises(LookupError):
-            self.mem.promote("missing", "app", "global", approved=True)
-        ok = self.mem.promote("pref.theme", "app", "global", approved=True)
+            self.mem.promote("missing", "app", "global", app_id="google-chrome", approved=True)
+        ok = self.mem.promote("pref.theme", "app", "global", app_id="google-chrome", approved=True)
         self.assertTrue(ok["stored"])
         self.assertEqual(self.mem.get("global", "pref.theme"), "dark")
 

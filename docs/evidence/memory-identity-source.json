@@ -1,0 +1,113 @@
+{
+  "recorded_utc": "2026-11-15T03:44:34.175901+00:00",
+  "status": "SOURCE ONLY; integration BLOCKED pending independent corrected-source/migration-plan review; no production migration",
+  "base_commit": "65723158df32330ca51e3ba8ffdb1fbcd1b251cd",
+  "scope": "P1-D owner-qualified memory and explicit backed-up schema migration",
+  "source_sha256": {
+    "python/src/hyprneuro/application.py": "9680d6eb56c33dee9ff1a052b0fdcc6beab77cf7fd52f53c7cf6007611aff071",
+    "python/src/hyprneuro/sidecar_store.py": "44f7efee468c5b954ca705911499b9fa23f8bf3efa043340df5c6016fb10f75a",
+    "python/tests/test_application.py": "f9907ec69e0134265f97d12eb8eae4bb7792e4f7174c8cb0285a7f40fc9a6fb0",
+    "python/tests/test_assistant_ipc.py": "eebc4091dba15583daa9fd0c4010b293cb265a23ba4de87e6a8f0cfc042c78fb",
+    "python/tests/test_telemetry.py": "f47304de5034d508c28494b8eb3896bd776559a7bb1d3eb605b9b9ebdc9dd6f7",
+    "python/tests/test_memory_store.py": "52a4157cc53429395361f8248d3b77843d6a43e377df242deeebd46ee7180c52",
+    "python/tests/fixtures/memory-schema-v1.sql": "02669cd875d7d4e8ac22ecb12663857a0cd22a4769dba41d68fd9bd891110206",
+    "python/tests/fixtures/memory-schema-v2.sql": "88c700f97f3cd759992278b551f208e15ad3fb95f0bf3ee9eb5e167c9344286d",
+    "python/tests/fixtures/memory-schema-v3.sql": "ef547326f8eec55e01fc2b4c3a739045fd8301494985699b872a21a5a309e34b",
+    "docs/MEMORY_IDENTITY.md": "b449128b5fb96a42d0c6c2d3a48be7baabc2caf0b089214845ad3f054ce27295"
+  },
+  "evidence_root": "/home/ron/Workspace/hyprneuro-memory-evidence",
+  "artifact_sha256": {
+    "run-tests.sh": "a95859922afb605b8a84a9396aef3c283d980609d6eb0ee5c4df88cf0b2380fe",
+    "before-collision.log": "fa07131dcc4f9a3b30ceb1fc7c0d169388c784497896fd68d917d57db8b90015",
+    "before-sqlite-collision.py": "19174e30a313c157df3fe129d88fb0f19f6439c81aec73a795f249168dccd781",
+    "before-sqlite-collision.log": "6dc9b1d5ee673ef83515bc2e533add56e4ff2353c1e78c3e3dc9ca4e688cab9d",
+    "first-focused.log": "d7f8a5abacdae9d701074215828570dd1372058f81ba1ddd6f4d1ea17dffdeda",
+    "focused-attempt2.log": "82cf2766399a6ee04fcb0fa6bcd5a150261b1bd2a3c9cfd39666bc8ab8ab5dce",
+    "focused-attempt3.log": "3d3ef0accfd3e9b68671350552a9d926b5327edfd0b2b1213fc03ea21e026f25",
+    "focused-attempt4.log": "44df4386ba55f5654affc351f9305c89fdfa715e32c53b323c334a67cd41e656",
+    "focused-attempt5.log": "3ebb88045ae67a39d250dfe2596f939a3366598bd5590cf61de06dd288cf4e50",
+    "focused-attempt6.log": "97ee2948f6b9da7f3d0a694f44d96144aa36e621d45eb2c6debe764bf8bf61cf",
+    "focused-final.log": "4856d8709b128303e189397817ae5b97d52f1b9928b66be6bd959f309e252ebe",
+    "full-attempt1.log": "5753901374843d3d5bb6e099d4bd964e838f358c713052e3ff5c72826ad6ee1b",
+    "full-attempt2.log": "c47a1355c8aed11107d5e4fdb827312b0a6e63524fa1b34919e0da4c034ed160",
+    "full-final.log": "c227da29d9914075671560f1cb1b3074a18ce1d6b2c3b3b5a23c7e70f2f6dfcd",
+    "full-final2.log": "4ea64f6a9c34a4b78f1441ce32c92e4459c0257be063ef7a27fb44329906a113",
+    "review-p1-base-receipt.json": "fe9e4c8a68071589fa4a0b05af3b0a1e6641c94734a4bc102c357e5b31575c03",
+    "review-p1-before-tests.log": "912da258c8234e795978e3b3529e865e17ac4dc5202fdc993a58c814bd082d85",
+    "review-p1-before-repro.py": "cceeaec3e45c426db522baf8b31f20a3c0c3701a5f9a080e934b0df54db5508d",
+    "review-p1-before-repro.log": "e1aaef823912eba3d82db2d7b2ec54c2295c7f602da813e6a52e2130f3bd70d1",
+    "review-p1-before-repro-attempt1.log": "a300e1861b18d8561239c2d27ae30d87180ee328a15d478a13161668a26865d2",
+    "review-p1-targeted-attempt1.log": "3d349816c235de61010ff1c0b9afc8249e5059b3d343ea6b577eab294316ffe4",
+    "review-p1-memory-attempt1.log": "af8b4354f562b4b1820dee9dece97aeebf7932fa68553f28be50500e9fcba5b5",
+    "review-p1-focused-final.log": "ed235411775c95a7c8d72d4160db4cba544c7a1f45e2a69c08dd63ad8d3559f6",
+    "review-p1-full-final.log": "3a4c535f5151f4ce74363aec555220045a84d2ef9336e0b82aaae70a489b9383",
+    "make-review-p1-receipt.py": "9511194233790e0e0468df1dc3d432cc017dd2e7af605f93ee3e95056a5ff83d"
+  },
+  "python": "/home/ron/Projects/Hyprneuro/python/.venv/bin/python",
+  "python_version": "Python 3.13.15 (main, Sep 24 2026, 17:55:50) [Clang 22.1.3 ]",
+  "focused": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q tests/test_memory_store.py tests/test_application.py tests/test_assistant_ipc.py tests/test_telemetry.py",
+    "log": "review-p1-focused-final.log",
+    "passed": 206,
+    "subtests_passed": 17,
+    "seconds": 11.86
+  },
+  "full_python": {
+    "command": "/home/ron/Workspace/hyprneuro-memory-evidence/run-tests.sh -q -rs",
+    "log": "review-p1-full-final.log",
+    "passed": 625,
+    "skipped": 2,
+    "subtests_passed": 138,
+    "seconds": 29.82,
+    "skips": [
+      "optional Pillow visual gate",
+      "explicit installed SDK/Durable paths not supplied"
+    ]
+  },
+  "warnings": "Python -W error; no warning suppression; pytest plugin autoload disabled; no cacheprovider or bytecode writes",
+  "before_failures": [
+    "In-memory app-a overwritten by app-b (assertion exit 1)",
+    "Pinned fc43267 SQLite task/app/project owner-a overwritten by owner-b (assertion exit 1)",
+    "Pinned 6572315: DELETE journal destination migration success but backup disappeared; populated uppercase FK clean before, dangling app_memory_v3 reference after",
+    "Pinned 6572315: new reserved-path/FK regressions 12 failed, 2 passed before implementation changes"
+  ],
+  "retained_retries": [
+    "Migration test snapshot initially requested rowid from rowid-less FTS tables; resource-warning cascade retained",
+    "Snapshot ordering ties initially compared in incompatible orders; fixed in test harness",
+    "Initial full Python run: 593 passed, 2 skipped, 1 failed; missing private XDG runtime directory for systemd-analyze verify; directory created, no installer code changed",
+    "First review diagnostic printed the FK violation but did not accumulate it in the final failure list; first log retained, corrected diagnostic explicitly records both P1s"
+  ],
+  "migration": {
+    "from_versions": [
+      "1",
+      "2",
+      "3"
+    ],
+    "to_version": "4",
+    "startup_auto_migration": false,
+    "production_db_opened": false,
+    "original_columns_preserved": true,
+    "ambiguous_owner_policy": "retain legacy_unscoped=1, excluded from normal recall/promotion/idle trim",
+    "rollback": "entire verified pre-migration SQLite backup; no lossy PK downgrade; retain post-migration database separately",
+    "overwritten_historical_rows_recoverable": false,
+    "backup_destination_policy": "reject source and -journal/-wal/-shm resolved/case/same-file aliases before SQLite connection or exclusive backup creation; trusted owned parents",
+    "identifier_policy": "case-fold known SQLite ASCII names; COLLATE NOCASE sqlite_master name lookups; version metadata keys remain exact data"
+  },
+  "runtime_changes": "none; no service control, GUI, real inference, provider request, production DB access, push or deployment",
+  "next_dependency": "Independent re-review of corrected source and mandatory migration/rollback plan before source integration/merge; no current production DB migration without separately approved quiesced backup/candidate/restore workflow",
+  "initial_base_commit": "fc43267173d6c1386891c708c9ddcc77724ed3f7",
+  "review": {
+    "id": "01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review",
+    "reviewed_commit": "65723158df32330ca51e3ba8ffdb1fbcd1b251cd",
+    "verdict": "BLOCK: two P1 migration defects",
+    "findings": [
+      "SQLite DELETE journal backup-path alias can be reused/deleted while migration reports success",
+      "Case-sensitive FK target comparison allows uppercase/mixed-case references to be retargeted to dropped app_memory_v3"
+    ],
+    "correction": [
+      "Reject resolved database/sidecar paths, case aliases and same-file aliases before connect/exclusive open; verify trusted parents; no filesystem probe artifacts",
+      "Case-fold SQLite identifier comparisons and use COLLATE NOCASE for sqlite_master name lookups; retain exact unknown-schema denial"
+    ],
+    "corrected_independent_review": "PENDING; integration remains blocked"
+  }
+}

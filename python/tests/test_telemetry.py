@@ -87,10 +87,10 @@ class StoreCompactionTests(unittest.TestCase):
     def test_app_memory_trim(self):
         for i in range(20):
             self.store.app_memory_remember("app", f"k{i}", "{}", app_id="chrome")
-        self.assertEqual(len(self.store.app_memory_recall("app", limit=50)), 20)
+        self.assertEqual(len(self.store.app_memory_recall("app", app_id="chrome", limit=50)), 20)
         evicted = self.store.app_memory_trim(keep=10)
         self.assertEqual(evicted, 10)
-        remaining = self.store.app_memory_recall("app", limit=50)
+        remaining = self.store.app_memory_recall("app", app_id="chrome", limit=50)
         self.assertEqual(len(remaining), 10)
         # Trimming again with everything under the cap evicts nothing.
         self.assertEqual(self.store.app_memory_trim(keep=10), 0)

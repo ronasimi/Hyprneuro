@@ -533,3 +533,187 @@ def test_owned_fixture_child_timeout_kills_and_waits(fixture):
     assert pidfile.exists()
     assert not Path("/proc", pidfile.read_text()).exists()
     assert ops.load_state(fixture)["phase"] == "prepare_intent"
+
+
+@pytest.mark.parametrize("late", ["main", "wal", "settings"])
+@pytest.mark.parametrize("when", ["snapshot", "verification"])
+def test_stage_time_writes_refuse_replacement_and_preserve_latest(fixture, late, when):
+    prepare(fixture)
+    original_request = request(fixture, "replace")
+    real_snapshot, real_inventory = ops.snapshot, ops.inventory
+    latest = {}
+
+    def write_late():
+        if late == "settings":
+            private_json(fixture / "settings.json", {"fixture": "keep stage-time settings"})
+        else:
+            db = sqlite3.connect(fixture / "input.sqlite3")
+            try:
+                if late == "wal":
+                    db.execute("PRAGMA journal_mode=WAL")
+                    db.setconfig(sqlite3.SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, True)
+                main_before_commit = ops.digest(fixture / "input.sqlite3")
+                db.execute("UPDATE tasks SET goal='keep committed stage-time task'")
+                db.commit()
+                if late == "wal":
+                    # Setting WAL mode changes the header, but the committed
+                    # late task update itself resides ONLY in WAL frames.
+                    assert ops.digest(fixture / "input.sqlite3") == main_before_commit
+            finally:
+                db.close()
+        latest["family"] = ops.family(fixture / "input.sqlite3")
+        latest["settings"] = (fixture / "settings.json").read_bytes()
+
+    def stage_then_write(source, destination, budget):
+        real_snapshot(source, destination, budget)
+        if when == "snapshot" and destination == fixture / "replacement.sqlite3":
+            write_late()
+
+    def verify_then_write(path, budget):
+        result = real_inventory(path, budget)
+        if when == "verification" and path == fixture / "replacement.sqlite3":
+            write_late()
+        return result
+
+    with patch.object(ops, "snapshot", side_effect=stage_then_write), patch.object(
+            ops, "inventory", side_effect=verify_then_write):
+        with pytest.raises(ops.Refused, match="stale"):
+            ops.replace_fixture(fixture, original_request)
+    assert ops.family(fixture / "input.sqlite3") == latest["family"]
+    assert (fixture / "settings.json").read_bytes() == latest["settings"]
+    assert (fixture / "replacement.sqlite3").exists()
+    assert ops.load_state(fixture)["phase"] == "replacement_intent"
+    db = sqlite3.connect(fixture / "input.sqlite3")
+    try:
+        assert db.execute("SELECT value FROM sidecar_meta WHERE key='schema_version'").fetchone() == ("3",)
+        if late != "settings":
+            assert db.execute("SELECT goal FROM tasks").fetchone() == ("keep committed stage-time task",)
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("object_sql", [
+    "CREATE TRIGGER destructive_memory AFTER INSERT ON app_memory BEGIN DELETE FROM tasks; END",
+    "CREATE INDEX unexpected_memory ON app_memory(value_json)",
+])
+def test_post_migration_memory_objects_refused_before_prepared(fixture, object_sql):
+    original, settings = (fixture / "input.sqlite3").read_bytes(), (fixture / "settings.json").read_bytes()
+    real_migration = ops._run_migration
+
+    def migrate_then_inject(root, req, budget):
+        real_migration(root, req, budget)
+        db = sqlite3.connect(root / "operation/candidate.sqlite3")
+        try:
+            db.execute(object_sql)
+            db.commit()
+        finally:
+            db.close()
+
+    with patch.object(ops, "_run_migration", side_effect=migrate_then_inject):
+        with pytest.raises(ops.Refused, match="memory.*(schema|object)"):
+            prepare(fixture)
+    assert (fixture / "input.sqlite3").read_bytes() == original
+    assert (fixture / "settings.json").read_bytes() == settings
+    assert ops.load_state(fixture)["phase"] == "prepare_intent"
+    assert (fixture / "operation/candidate.sqlite3").exists()
+    with pytest.raises(ops.Refused):
+        ops.verify(fixture, request(fixture, "verify"))
+
+
+def test_final_replacement_check_revalidates_original_source_identity(fixture):
+    prepare(fixture)
+    req = request(fixture, "replace")
+    source, settings = (fixture / "input.sqlite3").read_bytes(), (fixture / "settings.json").read_bytes()
+    real_inventory, identity = ops.inventory, ops.source_identity()
+    staged = False
+
+    def verify_then_change_identity(path, budget):
+        nonlocal staged
+        result = real_inventory(path, budget)
+        if path == fixture / "replacement.sqlite3":
+            staged = True
+        return result
+
+    def source_identity():
+        return {**identity, "commit": "0" * 40} if staged else identity
+
+    with patch.object(ops, "inventory", side_effect=verify_then_change_identity), patch.object(
+            ops, "source_identity", side_effect=source_identity):
+        with pytest.raises(ops.Refused, match="source commit/blob"):
+            ops.replace_fixture(fixture, req)
+    assert (fixture / "input.sqlite3").read_bytes() == source
+    assert (fixture / "settings.json").read_bytes() == settings
+    assert ops.load_state(fixture)["phase"] == "replacement_intent"
+
+
+def test_original_request_is_not_rebound_to_stage_time_writes(fixture):
+    prepare(fixture)
+    req = request(fixture, "replace")
+    real_snapshot = ops.snapshot
+
+    def write_and_rebind_request(source, destination, budget):
+        real_snapshot(source, destination, budget)
+        if destination == fixture / "replacement.sqlite3":
+            db = sqlite3.connect(fixture / "input.sqlite3")
+            try:
+                db.execute("UPDATE tasks SET goal='keep caller-rebound late write'")
+                db.commit()
+            finally:
+                db.close()
+            req["quiescence"]["database_family"] = ops.family(fixture / "input.sqlite3")
+
+    with patch.object(ops, "snapshot", side_effect=write_and_rebind_request):
+        with pytest.raises(ops.Refused, match="stale"):
+            ops.replace_fixture(fixture, req)
+    assert ops.load_state(fixture)["phase"] == "replacement_intent"
+    db = sqlite3.connect(fixture / "input.sqlite3")
+    try:
+        assert db.execute("SELECT goal FROM tasks").fetchone() == ("keep caller-rebound late write",)
+    finally:
+        db.close()
+
+
+@pytest.mark.parametrize("object_sql", [
+    "CREATE TRIGGER destructive_memory AFTER INSERT ON app_memory BEGIN DELETE FROM tasks; END",
+    "CREATE INDEX unexpected_memory ON app_memory(value_json)",
+])
+def test_verify_rejects_memory_object_tamper_even_with_updated_artifact_hash(fixture, object_sql):
+    prepare(fixture)
+    candidate = fixture / "operation/candidate.sqlite3"
+    db = sqlite3.connect(candidate)
+    try:
+        db.execute(object_sql)
+        db.commit()
+    finally:
+        db.close()
+    record = ops.load_state(fixture)
+    record["artifacts"]["candidate.sqlite3"] = ops.digest(candidate)
+    ops.state(fixture, record)
+    with pytest.raises(ops.Refused, match="memory.*(schema|object)"):
+        ops.verify(fixture, request(fixture, "verify"))
+    assert ops.load_state(fixture)["phase"] == "prepared"
+
+
+def test_complete_memory_schema_digest_is_retained_and_checked_in_stage(fixture):
+    record = prepare(fixture)
+    assert record["candidate"]["memory_schema"]["count"] == 3
+    assert record["candidate"]["memory_schema"] != record["baseline"]["memory_schema"]
+    assert ops.verify(fixture, request(fixture, "verify"))["candidate"]["memory_schema"] == record["candidate"]["memory_schema"]
+    real_snapshot = ops.snapshot
+
+    def stage_then_inject(source, destination, budget):
+        real_snapshot(source, destination, budget)
+        if destination == fixture / "replacement.sqlite3":
+            db = sqlite3.connect(destination)
+            try:
+                db.execute("CREATE INDEX unexpected_stage_memory ON app_memory(value_json)")
+                db.commit()
+            finally:
+                db.close()
+
+    original = (fixture / "input.sqlite3").read_bytes()
+    with patch.object(ops, "snapshot", side_effect=stage_then_inject):
+        with pytest.raises(ops.Refused, match="memory.*(schema|object)"):
+            ops.replace_fixture(fixture, request(fixture, "replace"))
+    assert (fixture / "input.sqlite3").read_bytes() == original
+    assert ops.load_state(fixture)["phase"] == "replacement_intent"

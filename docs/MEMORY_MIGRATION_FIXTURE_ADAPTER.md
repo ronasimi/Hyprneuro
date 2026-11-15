@@ -1,7 +1,10 @@
 # Offline memory candidate adapter — fixture milestone
 
-Base: `3a71e1602768bdb4d39513591c40aa87d2d50e0a`.
-The user relayed plan approval at
+Initial adapter base: `3a71e1602768bdb4d39513591c40aa87d2d50e0a`.
+Correction base: `7a6a7efdc97aef6edb81cd6b1e6956bf69288eb5`.
+Independent review `01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review@4` **BLOCKED**
+that exact adapter on two P1 preservation gaps. The corrected source below
+awaits independent re-review. The user relayed plan approval at
 `01M7EMC0GZTCMDP2XH2GRAX6GV/memory-review@3` and authorized this bounded
 source-only fixture adapter/rehearsal. **Adapter review remains pending. Source
 integration is HELD** until independent adapter review and offline aggregate
@@ -85,19 +88,35 @@ or partial operations are retained and cannot be adopted/replayed.
 
 Verification compares all non-memory schemas and typed sorted-row digests,
 including FTS shadow data; all seven original memory columns; exact derived owner/
-legacy provenance; approved v4 PK/index; normalized schema-version metadata;
+legacy provenance; normalized schema-version metadata;
+**the complete approved v4 memory object set** (table SQL/PK, generated PK index
+and recall index SQL, uniqueness/origin/partial flags, key order and BINARY
+collations);
 read-only integrity/FK checks; and up to 32 vocabulary terms' actual FTS MATCH
 results. Null/text/blob/integer/IEEE-real encodings are distinct; multiplicity is
 preserved. Public outputs contain counts/digests, not rows or settings payloads.
 `verify` rechecks all three artifact hashes **and** their inventories, the current
 input family/settings against the frozen baseline, and refuses artifact sidecars.
-Late main-file, WAL-only or settings writes require a new reviewed preparation,
-not stale-baseline replacement.
+A separate `memory_schema` digest retains every memory-associated schema object
+in each inventory. The approved old/new memory schemas intentionally differ, but
+v4 has no blanket memory-object exemption: every unexpected trigger/index is
+rejected, including injection immediately after migration but before the first
+candidate inventory. The digest is retained in preparation and rechecked in
+verify, replacement-stage and recovery inventories. Late main-file, WAL-only or
+settings writes require a new reviewed preparation, not stale-baseline replacement.
 
 `replace-fixture` is solely a disposable atomic-rename rehearsal. It verifies the
 prepared candidate/current inputs, refuses every input sidecar (even empty),
 persists `replacement_intent`, exclusively snapshots/verifies a same-directory
-stage, renames/fsyncs it onto the fixture input, then persists
+stage, then **revalidates the original frozen phase-bound replacement request**
+(source commit/blob identity and current input DB family/settings) after stage
+verification, synchronously immediately before `os.replace`. A changed input
+refuses replacement, retains the stage and `replacement_intent`, and leaves the
+latest inputs intact. No callback/await or staging work intervenes between this
+final admission check and rename. This is declared trusted-fixture quiescence,
+**not atomic protection against a hostile/concurrent writer** during the
+multi-file checks and rename; no lock-free hostile-writer proof is claimed.
+On success it renames/fsyncs the stage onto the fixture input, then persists
 `replaced_unstarted`. Failure around rename/fsync leaves an unknown intent;
 there is no automatic retry or process start. `activation-fence` only records
 `activation_possible` **before** a test writer may act; it starts nothing. No app
@@ -133,11 +152,11 @@ signals or automatic recovery occur.
 Final warning-strict runs with the existing venv and private Workspace
 HOME/TMPDIR/XDG, disabled bytecode/pytest caches and offline flags:
 
-- New adapter module: **57 passed**, 20.70 s.
-- Adapter plus the four approved memory modules: **263 passed + 17 subtests**,
-  31.23 s.
-- Full isolated `pytest -q -rs`: **682 passed + 138 subtests; 2 optional skips**,
-  43.43 s (Pillow visual gate; explicit installed SDK/Durable fixture paths absent).
+- Corrected adapter module: **70 passed**, 20.48 s.
+- Adapter plus the four approved memory modules: **276 passed + 17 subtests**,
+  37.05 s.
+- Full isolated `pytest -q -rs`: **695 passed + 138 subtests; 2 optional skips**,
+  51.19 s (Pillow visual gate; explicit installed SDK/Durable fixture paths absent).
 
 Tests cover v1/v2/v3 fixtures; typed rows/schema/FTS/legacy preservation; strict
 root/request/source/phase/refusal boundaries; stale main/WAL/settings writes;
@@ -146,7 +165,13 @@ child timeout/reap; atomic replacement failure before/after rename and directory
 fsync failure; pre-activation failure planning; conservative activation fence;
 post-write task/global/auth/observation/settings preservation with committed WAL
 and two same-key owners; downgrade refusal; raw evidence on corrupt recovery;
-and verification/read-only setup cleanup. No existing source/test was edited.
+and verification/read-only setup cleanup. The correction also injects committed
+main/WAL task writes and settings changes both after stage creation and after
+stage verification; identity drift; caller mutation of the original request;
+extra memory triggers/indexes before initial candidate inventory, after prepared
+artifact-hash updates, and in replacement stages. Refusal preserves exact latest
+input family/settings and original task values, not just counts. Existing store/
+application/release code and pre-adapter tests remain unchanged.
 
 Retained retry: adding a WAL-baseline test exposed copied WAL-mode headers whose
 later reads left artifact sidecars. Adapter, combined and full failed logs remain;
@@ -156,7 +181,7 @@ and failures are not relabeled passes.
 A once-only standalone CLI rehearsal also ran prepare → verify → disposable
 replacement → activation fence → actual synthetic WAL/settings/task/owner writes
 → recovery refusal, under:
-`/home/ron/Workspace/hyprneuro-memory-evidence/hn-memory-fixture-adapter-demo01`.
+`/home/ron/Workspace/hyprneuro-memory-evidence/hn-memory-fixture-adapter-review4-demo01`.
 Both colliding owners, committed WAL state and current settings remain in the
 full authoritative v4 snapshot; no downgrade/old restore was executed.
 
@@ -167,3 +192,24 @@ inference, runtime attestation or release operation was accessed/performed in
 this implementation task. Independent adapter review and latest-cancellation
 aggregate-source offline validation remain required; this milestone cannot
 satisfy production migration approval by itself.
+
+
+## Review @4 failure evidence and correction status
+
+Before changing the adapter, `adapter-review4-before-repro.py` executed the exact
+7a6a7ef adapter blob (SHA256 `709c7fec5dcbf990c6f5be1fb2bfce0fd614a9ea1ceebb8604021ab68e988980`)
+on new disposable fixtures. `adapter-review4-before-repro.log` retains:
+
+1. A task update committed after stage creation, followed by successful
+   `replaced_unstarted` with the task value overwritten by the earlier snapshot.
+2. An injected `AFTER INSERT ON app_memory` trigger that passed prepare, verify
+   and replacement, then actually deleted the existing task row on an insert.
+
+The pre-fix regression selection retained **5 failures** (main/WAL/settings stage
+writes, injected trigger and injected index). These failures are not covered up
+by the earlier passing 57/263/682 results. The base receipt is archived externally
+as `adapter-review4-base-receipt.json`; the tracked receipt now describes the
+corrected source and fresh warning-strict runs. No production mode, migration
+scope expansion, release-helper or existing memory-engine change was introduced.
+Corrected-source re-review and clean aggregate validation with the latest approved
+cancellation pin remain required before integration.

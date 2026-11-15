@@ -7,6 +7,7 @@ production quiescence. No service, settings restoration or downgrade is exposed.
 """
 from collections import Counter
 from contextlib import closing
+from copy import deepcopy
 from hashlib import sha256
 from pathlib import Path
 import argparse
@@ -226,6 +227,27 @@ def inventory(path, budget):
         if db.execute("PRAGMA integrity_check").fetchall() != [("ok",)] or db.execute("PRAGMA foreign_key_check").fetchall():
             raise Refused("fixture integrity/foreign-key check failed")
         schema = db.execute("SELECT type,name,tbl_name,sql FROM sqlite_master ORDER BY type,name").fetchall()
+        memory_objects = [row for row in schema if row[2].casefold() == "app_memory"]
+        if version == "4":
+            def canonical(row):
+                kind, name, table, sql = row
+                return (kind.casefold(), name.casefold(), table.casefold(),
+                        re.sub(r"\s+", "", sql).casefold() if sql is not None else None)
+            expected = [("table", "app_memory", "app_memory", module._MEMORY_TABLE),
+                        ("index", "sqlite_autoindex_app_memory_1", "app_memory", None),
+                        ("index", "app_memory_scope_time", "app_memory", module._MEMORY_INDEX)]
+            if sorted(map(canonical, memory_objects)) != sorted(map(canonical, expected)):
+                raise Refused("unexpected v4 memory schema/object set")
+            indexes = {(r[1].casefold(), r[2], r[3], r[4]) for r in db.execute("PRAGMA index_list(app_memory)")}
+            if indexes != {("sqlite_autoindex_app_memory_1", 1, "pk", 0),
+                           ("app_memory_scope_time", 0, "c", 0)}:
+                raise Refused("unexpected v4 memory index structure")
+            for name, columns in (
+                    ("app_memory_scope_time", [("scope", 0), ("legacy_unscoped", 0), ("owner_id", 0), ("updated_ms", 1)]),
+                    ("sqlite_autoindex_app_memory_1", [("scope", 0), ("owner_id", 0), ("key", 0), ("legacy_unscoped", 0)])):
+                actual = [(r[2], r[3], r[4]) for r in db.execute(f"PRAGMA index_xinfo({name})") if r[5]]
+                if actual != [(column, desc, "BINARY") for column, desc in columns]:
+                    raise Refused("unexpected v4 memory index keys/collation")
         tables, memory = {}, []
         for kind, name, table, sql in schema:
             if kind != "table":
@@ -257,12 +279,9 @@ def inventory(path, budget):
             for name in ("observations_fts", "search_fts"):
                 ids = db.execute(f"SELECT rowid FROM {name} WHERE {name} MATCH ? ORDER BY rowid", (phrase,)).fetchall()
                 fts.append((name, term, json.dumps(ids)))
-        if version == "4":
-            columns = [(r[2], r[3]) for r in db.execute("PRAGMA index_xinfo(app_memory_scope_time)") if r[5]]
-            if columns != [("scope", 0), ("legacy_unscoped", 0), ("owner_id", 0), ("updated_ms", 1)]:
-                raise Refused("unexpected v4 memory recall index")
         return {"version": version,
                 "schema": typed_rows([row for row in schema if row[2].casefold() != "app_memory"]),
+                "memory_schema": typed_rows(memory_objects),
                 "tables": tables, "memory_original": typed_rows(original), "memory_identity": typed_rows(actual),
                 "identity_derivable": typed_rows(actual) == typed_rows(derived), "fts": typed_rows(fts),
                 "v3_duplicate_keys": sum(n - 1 for n in Counter((r[0], r[1]) for r in original).values() if n > 1)}
@@ -376,6 +395,7 @@ def verify(root, request, *, _budget=None):
 def replace_fixture(root, request):
     """Atomic rename rehearsal on the disposable input ONLY; never starts code."""
     budget = Budget()
+    request = deepcopy(request)  # Keep the original phase-bound declaration.
     root, db, settings = request_paths(root, request, "replace")
     verify(root, {**request, "quiescence": {**request["quiescence"], "phase": "verify"}}, _budget=budget)
     record = load_state(root)
@@ -387,6 +407,10 @@ def replace_fixture(root, request):
     snapshot(root / "operation/candidate.sqlite3", stage, budget)
     if inventory(stage, budget) != record["candidate"]:
         raise Refused("replacement stage verification failed")
+    budget.remaining()
+    # Final synchronous admission check after ALL staging/verification work.
+    # This assumes declared fixture quiescence, not hostile-writer atomicity.
+    request_paths(root, request, "replace")
     os.replace(stage, db)
     fsync_directory(root)
     record["phase"] = "replaced_unstarted"

@@ -69,7 +69,9 @@ class UI:
         self.bundle=bundle
         self.runtime=continuation or bundle
         self.context_sha256=context_sha256
-        if hashlib.sha256((bundle/'manifest.json').read_bytes()).hexdigest()!=MANIFEST:
+        from continuation_context import load_context
+        expected=load_context(bundle,self.runtime,context_sha256)['manifest_sha256'] if continuation else MANIFEST
+        if hashlib.sha256((bundle/'manifest.json').read_bytes()).hexdigest()!=expected:
             raise RuntimeError('Wrong reviewed bundle')
         self.m=json.loads((bundle/'manifest.json').read_text())
         sys.path.insert(0,str(bundle/'staged'))

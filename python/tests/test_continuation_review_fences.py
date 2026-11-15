@@ -26,7 +26,7 @@ class EffectiveUnitTests(unittest.TestCase):
                 identity=dict(unit='hyprneuro.service',fragment=str(base),dropins=[str(drop)])
                 m=dict(source_files=source_files,staged_files=staged,units=units,sidecar=identity,ui=dict(identity,unit='hyprneuro-ui.service'),database=dict(backup=str(backup),backup_sha256=binding.digest(backup)),installed_sha256=binding.digest(bundle/'backup/hyprneuro-ui'),models=[],owner=str(native),runtime=str(runtime),owner_unit='synthetic-owner',consent_journal=str(audit))
                 (bundle/'manifest.json').write_text(json.dumps(m))
-                context=dict(id='synthetic',installed_files={str(drop):binding.digest(drop)},installed_modes={str(drop):drop.stat().st_mode&0o777},preserved_files={},workspace=4)
+                context=dict(version=1,id='synthetic',installed_files={str(drop):binding.digest(drop)},installed_modes={str(drop):drop.stat().st_mode&0o777},preserved_files={},workspace=4)
                 extra=root/'extra.conf';extra.write_text('loaded EXTRA')
                 if fault=='base-content':base.write_text('CHANGED BASE')
                 def manager(*args,**kwargs):

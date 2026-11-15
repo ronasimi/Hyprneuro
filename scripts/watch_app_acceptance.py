@@ -39,6 +39,9 @@ def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None
     info=bundle.lstat()
     if bundle!=bundle.resolve() or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
         raise PermissionError('Unsafe private event directory')
+    if continuation:
+        from continuation_context import load_context
+        expected_manifest=load_context(bundle,continuation,context_sha256)['manifest_sha256']
     raw=private_read(bundle/'manifest.json',1024*1024)
     if hashlib.sha256(raw).hexdigest()!=expected_manifest:raise ValueError('Wrong immutable manifest')
     descriptor=json.loads(raw)['owner_descriptor_sha256']

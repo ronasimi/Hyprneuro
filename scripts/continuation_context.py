@@ -24,8 +24,16 @@ def load_context(bundle,root,expected_sha):
     if not isinstance(expected_sha,str) or len(expected_sha)!=64 or hashlib.sha256(raw).hexdigest()!=expected_sha:
         raise RuntimeError('Approved continuation context digest changed/missing')
     data=json.loads(raw)
-    if (type(data['version']) is not int or data['version']!=1 or data['id']!=root.name or data['bundle']!=str(bundle)
-            or data['manifest_sha256']!=MANIFEST or digest(bundle/'manifest.json')!=MANIFEST):
+    version=data['version']
+    if type(version) is not int or version not in (1,2):raise ValueError('Wrong context version')
+    expected_manifest=MANIFEST if version==1 else data['manifest_sha256']
+    if version==2:
+        m=json.loads((bundle/'manifest.json').read_text())
+        if (m.get('repair_from')!=dict(bundle=data['previous_bundle'],manifest_sha256=MANIFEST)
+                or m.get('commit')!='db8fedae8f4baa35f0ed8193914169eceb7bbe22'
+                or digest(Path(data['previous_bundle'])/'manifest.json')!=MANIFEST):raise ValueError('Wrong stopped-state repair lineage/source')
+    if (data['id']!=root.name or data['bundle']!=str(bundle)
+            or data['manifest_sha256']!=expected_manifest or digest(bundle/'manifest.json')!=expected_manifest):
         raise ValueError('Wrong continuation identity/bundle')
     if data['entry'] not in data['external_files'] or data['driver'] not in data['external_files']:
         raise ValueError('Unpinned continuation entry/driver')

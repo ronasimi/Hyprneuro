@@ -16,7 +16,7 @@ class ContinuationTests(unittest.TestCase):
         for failure in ['sidecar','ui','verify','driver','lock','cancel','timeout','persist','persist-after-start']:
             with self.subTest(failure=failure),tempfile.TemporaryDirectory() as directory:
                 root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
-                context=dict(id='synthetic',driver='/synthetic/driver');calls=[]
+                context=dict(version=1,id='synthetic',driver='/synthetic/driver');calls=[]
                 def control(argv,**kwargs):
                     calls.append(argv)
                     if (failure=='sidecar' and argv[-1]=='hyprneuro.service') or (failure=='ui' and argv[-1]=='hyprneuro-ui.service'):raise RuntimeError('Synthetic AFTER successful start')
@@ -40,7 +40,7 @@ class ContinuationTests(unittest.TestCase):
     def test_stop_failure_honest_uncontained_and_no_replay(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
-            context=dict(id='synthetic',driver='/synthetic/driver')
+            context=dict(version=1,id='synthetic',driver='/synthetic/driver')
             with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation.subprocess,'run',side_effect=RuntimeError('start')),patch.object(apply,'desktop_safe'),patch.object(guard,'contain',return_value={u:dict(stopped=False) for u in guard.APPS}):
                 self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),1)
                 self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-UNCONTAINED')
@@ -54,7 +54,7 @@ class ContinuationTests(unittest.TestCase):
     def test_context_ancestry_and_new_generation_are_required(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
-            context=dict(id='synthetic',entry='/synthetic/continue')
+            context=dict(version=1,id='synthetic',entry='/synthetic/continue')
             marker=dict(id='synthetic',context_sha256=binding.digest(root/'continuation-context.json'),pid=42,start='123')
             (root/'operation.started').write_text(json.dumps(marker))
             argv=['python','/synthetic/continue','/synthetic/bundle','--continuation',str(root),'--session','synthetic','--context-sha256',binding.digest(root/'continuation-context.json')]
@@ -68,7 +68,7 @@ class ContinuationTests(unittest.TestCase):
     def test_uncertain_driver_stop_is_uncontained_even_when_apps_stopped(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
-            context=dict(id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=None;process.terminate.side_effect=RuntimeError('unknown')
+            context=dict(version=1,id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=None;process.terminate.side_effect=RuntimeError('unknown')
             with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(guard,'contain',return_value={u:dict(stopped=True) for u in guard.APPS}),patch.object(continuation.subprocess,'Popen',return_value=process),patch.object(continuation.time,'monotonic',side_effect=[0,0,0,8000]):
                 self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),1)
             self.assertEqual(json.loads((root/'continuation-state.json').read_text())['phase'],'failed-UNCONTAINED')
@@ -76,7 +76,7 @@ class ContinuationTests(unittest.TestCase):
     def test_success_is_command_completion_not_human_or_ready_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'continuation-context.json').write_text('SYNTHETIC')
-            context=dict(id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=0;process.returncode=0
+            context=dict(version=1,id='synthetic',driver='/synthetic/driver');process=Mock();process.poll.return_value=0;process.returncode=0
             with patch.object(continuation,'wait_sidecar_listener',return_value={}),patch.object(continuation,'recheck_sidecar_listener'),patch.object(continuation,'preflight',return_value=(context,{'runtime':'/synthetic'})),patch.object(continuation,'load_context',return_value=context),patch.object(continuation.subprocess,'run'),patch.object(continuation,'verify_started'),patch.object(apply,'desktop_safe'),patch.object(guard,'observe'),patch.object(continuation.subprocess,'Popen',return_value=process):
                 self.assertEqual(continuation.execute(root,root,'synthetic',True,True,'a'*64),0)
             state=json.loads((root/'continuation-state.json').read_text());self.assertFalse(state['human_acceptance_claimed'])
@@ -93,7 +93,7 @@ class ContinuationRoutingTests(unittest.TestCase):
             for path,text in [(bundle/'operation.started','ORIGINAL FAILED'),(root/'operation.started','NEW GENERATION')]:path.write_text(text);path.chmod(0o600)
             event=dict(version=1,seq=1,kind='consent',prompt='SYNTHETIC',descriptor_sha256='synthetic',operation_sha256=hashlib.sha256((bundle/'operation.started').read_bytes()).hexdigest())
             original=bundle/watcher.EVENT;original.write_text(json.dumps(event));original.chmod(0o600)
-            with patch.object(binding,'load_context',return_value={}):
+            with patch.object(binding,'load_context',return_value={'manifest_sha256':pin}):
                 with self.assertRaises(TimeoutError):watcher.watch(bundle,0,.01,pin,root)
                 target=root/watcher.EVENT;target.write_text(json.dumps(event));target.chmod(0o600)
                 with self.assertRaises(ValueError):watcher.watch(bundle,0,.01,pin,root)

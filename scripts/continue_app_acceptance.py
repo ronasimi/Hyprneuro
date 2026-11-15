@@ -38,7 +38,12 @@ def preflight(bundle,root,session,context_sha256):
     from verify_app_release import check_unit_backups
     desktop_safe(session)
     m=json.loads((bundle/'manifest.json').read_text())
-    assert len(m['source_files'])==301 and len(m['staged_files'])==11
+    if context['version']==1:
+        assert len(m['source_files'])==301 and len(m['staged_files'])==11
+    else:
+        from repair_app_release import stopped_baseline
+        stopped_baseline(bundle,context,m)
+        if [len(m['source_files']),len(m['staged_files'])]!=context['catalog_counts']:raise RuntimeError('Repair catalog drift')
     for folder,entries in [('source',m['source_files']),('staged',m['staged_files'])]:
         for name,sha in entries.items():
             if digest(bundle/folder/name)!=sha:raise RuntimeError('Immutable bundle drift')
@@ -178,6 +183,10 @@ def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=N
     state=dict(history=[],human_acceptance_claimed=False,owner_model_signals=False,continuation_id=context['id'])
     child=None;deadline=time.monotonic()+7200
     try:
+        if context['version']==2:
+            from repair_app_release import cutover
+            write_state(root,state,'repairing-stopped-artifacts')
+            cutover(bundle,context,m,session,lambda:load_context(bundle,root,context_sha256))
         write_state(root,state,'starting-installed-sidecar')
         desktop_safe(session);load_context(bundle,root,context_sha256)
         subprocess.run(['systemctl','--user','start','hyprneuro.service'],check=True,timeout=15)

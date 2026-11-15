@@ -17,7 +17,7 @@ class ReadinessTests(unittest.TestCase):
  def test_negative_zero_ui_and_containment(self):
   for case in ['pid','stale','different-process','uid','mode','path','not-listening','reload','job','timeout']:
    with self.subTest(case=case),tempfile.TemporaryDirectory() as d:
-    root=Path(d);context=dict(id='synthetic',driver='/synthetic');calls=[]
+    root=Path(d);context=dict(version=1,id='synthetic',driver='/synthetic');calls=[]
     def wait(path,deadline):
      identity=dict(pid=os.getpid(),start='SYNTHETIC');path.parent.mkdir()
      sock=socket.socket(socket.AF_UNIX);other=None

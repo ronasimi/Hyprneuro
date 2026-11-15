@@ -9,7 +9,7 @@ class RuntimeTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as directory:
    file=Path(directory)/'runtime.json';models=[dict(identity=dict(unit='lfm@'+r+'.service',pid=10,start='20',exe_sha256='NEW'),argv=['server','--port',str(8081+i)],selected_files={'unit':'HASH'},libraries={'lib':'HASH'},state='active',health={'status':'ok'},identifiers={'data':[{'id':r}]}) for i,r in enumerate(['text','omni','decision'])]
    file.write_text(json.dumps(dict(version=1,continuation_id='new',models=models)));file.chmod(0o400);context=dict(id='new',runtime_attestation=dict(path=str(file),sha256=runtime.digest(file)))
-   with patch.object(runtime,'observe',side_effect=lambda u:copy.deepcopy(next(m for m in models if m['identity']['unit']==u))):self.assertEqual(runtime.validate(context)['models'],models)
+   with patch.object(runtime,'observe',side_effect=lambda u,**kw:copy.deepcopy(next(m for m in models if m['identity']['unit']==u))):self.assertEqual(runtime.validate(context)['models'],models)
    for key in ['pid','start','exe_sha256','argv','selected_files','libraries','state','health','identifiers']:
     changed=copy.deepcopy(models[0])
     if key in changed['identity']:changed['identity'][key]='STALE'
@@ -27,6 +27,7 @@ class RuntimeTests(unittest.TestCase):
   original=original[original.index('    if legacy and not installed:'):original.index("if __name__=='__main__':")].strip()
   actual=actual[actual.index('    if legacy and not installed:'):].strip()
   actual=actual.replace("for identity in [entry['identity'] for entry in runtime['models']]:","for identity in m['models']:")
+  actual=actual.replace(',deadline=deadline','').replace('deadline=deadline','')
   actual=actual.replace('    load_context(bundle,root,context_sha256)\n','')
   self.assertEqual(actual,original)
  def test_api_creation_time_not_identifier(self):

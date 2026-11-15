@@ -20,9 +20,9 @@ from prepare_app_release import run, check_moe_inert
 APPS = ('hyprneuro-ui.service', 'hyprneuro.service')
 
 
-def unit_state(unit):
+def unit_state(unit,deadline=None):
     return dict(line.split('=',1) for line in run('systemctl','--user','show',unit,
-        '-p','ActiveState','-p','SubState','-p','MainPID','-p','Job','-p','ControlGroup',timeout=5).splitlines())
+        '-p','ActiveState','-p','SubState','-p','MainPID','-p','Job','-p','ControlGroup',timeout=5,deadline=deadline).splitlines())
 
 
 def contain():
@@ -50,11 +50,11 @@ def contain():
     return results
 
 
-def observe(bundle, manifest, session):
-    desktop_safe(session)
-    check_moe_inert()
+def observe(bundle, manifest, session,deadline=None):
+    desktop_safe(session,deadline=deadline)
+    check_moe_inert(deadline=deadline)
     for unit in APPS:
-        state=unit_state(unit)
+        state=unit_state(unit,deadline=deadline)
         if (state.get('ActiveState')!='active' or state.get('SubState')!='running'
                 or not state.get('MainPID','').isdigit() or int(state['MainPID'])==0 or state.get('Job')!=''):
             raise RuntimeError('App unavailable during acceptance: '+unit)
@@ -65,7 +65,7 @@ def observe(bundle, manifest, session):
         if not isinstance(phase,str) or phase=='failed' or 'unknown' in phase:
             raise RuntimeError('Native owner failed/unknown during acceptance')
         if phase!='closed':
-            state=unit_state(manifest['owner_unit'])
+            state=unit_state(manifest['owner_unit'],deadline=deadline)
             if (state.get('ActiveState')!='active' or state.get('SubState')!='running'
                     or not state.get('MainPID','').isdigit() or int(state['MainPID'])==0 or state.get('Job')!=''):
                 raise RuntimeError('Native owner exited/unavailable during acceptance')

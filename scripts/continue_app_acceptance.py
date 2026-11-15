@@ -16,6 +16,7 @@ import sys
 import time
 import urllib.request
 from continuation_context import load_context,digest
+from command_budget import timeout as command_timeout
 
 
 def write_state(root,state,phase):
@@ -29,20 +30,20 @@ def write_state(root,state,phase):
     finally:os.close(fd)
 
 
-def preflight(bundle,root,session,context_sha256):
-    context=load_context(bundle,root,context_sha256)
+def preflight(bundle,root,session,context_sha256,deadline=None):
+    context=load_context(bundle,root,context_sha256,deadline=deadline)
     sys.path.insert(0,str(bundle/'staged'))
     from guard_app_release import unit_state
     from apply_app_release import desktop_safe
     from prepare_app_release import check_owner_inert,check_moe_inert,unit_identity,run
     from verify_app_release import check_unit_backups
-    desktop_safe(session)
+    desktop_safe(session,deadline=deadline)
     m=json.loads((bundle/'manifest.json').read_text())
     if context['version']==1:
         assert len(m['source_files'])==301 and len(m['staged_files'])==11
     else:
         from repair_app_release import stopped_baseline
-        stopped_baseline(bundle,context,m)
+        stopped_baseline(bundle,context,m,deadline=deadline)
         if [len(m['source_files']),len(m['staged_files'])]!=context['catalog_counts']:raise RuntimeError('Repair catalog drift')
     for folder,entries in [('source',m['source_files']),('staged',m['staged_files'])]:
         for name,sha in entries.items():
@@ -58,7 +59,7 @@ def preflight(bundle,root,session,context_sha256):
     baseline.update(context['installed_files'])  # reviewed NEW replacement hashes
     for identity in [m['sidecar'],m['ui']]:
         effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],
-            '-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
+            '-p','FragmentPath','-p','DropInPaths',timeout=5,deadline=deadline).splitlines())
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:
             raise RuntimeError('Effective app unit fragment/drop-in drift')
         for name in [identity['fragment'],*identity['dropins']]:
@@ -68,49 +69,49 @@ def preflight(bundle,root,session,context_sha256):
     if digest(m['database']['backup'])!=m['database']['backup_sha256']:raise RuntimeError('Archived backup drift')
     if digest(bundle/'backup/hyprneuro-ui')!=m['installed_sha256']:raise RuntimeError('Archived UI drift')
     for unit in ['hyprneuro-ui.service','hyprneuro.service']:
-        state=unit_state(unit)
+        state=unit_state(unit,deadline=deadline)
         if state!={'ActiveState':'inactive','SubState':'dead','MainPID':'0','Job':'','ControlGroup':''}:
             raise RuntimeError('Apps must be stopped/PID0/no job/cgroup before continuation')
-        if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('App reload drift')
+        if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',timeout=5,deadline=deadline)!='no':raise RuntimeError('App reload drift')
     from runtime_attestation import validate
-    for entry in validate(context)['models']:
+    for entry in validate(context,deadline=deadline)['models']:
         identity=entry['identity']
-        if dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','ActiveState','-p','SubState',timeout=5).splitlines())!=dict(ActiveState='active',SubState='running'):raise RuntimeError('Model state drift')
-        if unit_identity(identity['unit'])!=identity:raise RuntimeError('Active model identity drift')
-        if run('systemctl','--user','show',identity['unit'],'-p','Job','--value',timeout=5):raise RuntimeError('Model job')
-        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Model reload drift')
+        if dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','ActiveState','-p','SubState',timeout=5,deadline=deadline).splitlines())!=dict(ActiveState='active',SubState='running'):raise RuntimeError('Model state drift')
+        if unit_identity(identity['unit'],deadline=deadline)!=identity:raise RuntimeError('Active model identity drift')
+        if run('systemctl','--user','show',identity['unit'],'-p','Job','--value',timeout=5,deadline=deadline):raise RuntimeError('Model job')
+        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5,deadline=deadline)!='no':raise RuntimeError('Model reload drift')
     for port in [8081,8082,8083]:
-        with urllib.request.urlopen('http://127.0.0.1:'+str(port)+'/health',timeout=5) as reply:
+        with urllib.request.urlopen('http://127.0.0.1:'+str(port)+'/health',timeout=command_timeout(deadline,5)) as reply:
             if json.load(reply).get('status')!='ok':raise RuntimeError('Model not ready')
-    check_moe_inert()
-    check_owner_inert(Path.home()/'.config/systemd/user/hyprneuro-pi-owner@.service',m['owner_unit'])
-    if json.loads(run('systemctl','--user','list-units','--all','--no-pager','--output=json','hyprneuro-pi-owner@*.service',timeout=5)):
+    check_moe_inert(deadline=deadline)
+    check_owner_inert(Path.home()/'.config/systemd/user/hyprneuro-pi-owner@.service',m['owner_unit'],deadline=deadline)
+    if json.loads(run('systemctl','--user','list-units','--all','--no-pager','--output=json','hyprneuro-pi-owner@*.service',timeout=5,deadline=deadline)):
         raise RuntimeError('Owner instance appeared; separate conditional authority needed')
     native=Path(m['owner']);runtime=Path(m['runtime'])
     for file in [native/'owner.guard',native/'checkpoint.json',runtime/'hyprneuro/pi-owner-service.lock',runtime/'hyprharness/grant-control.sock']:
         if file.exists() or file.is_symlink():raise RuntimeError('Owner/endpoint/guard appeared')
     if list((native/'sessions').glob('*.jsonl')):raise RuntimeError('Native work appeared')
     if Path(m['consent_journal']).stat().st_size:raise RuntimeError('Prior empty audit changed; manual review')
-    workspace=json.loads(run('hyprctl','-j','activeworkspace',timeout=5))
+    workspace=json.loads(run('hyprctl','-j','activeworkspace',timeout=5,deadline=deadline))
     if workspace['id']!=context['workspace'] or workspace['windows']!=0:raise RuntimeError('Expected empty workspace required; no movement')
     # Read-only capability checks; no focus/input or production app start here.
-    run('wdotool','--backend','wlr-protocols','capabilities',timeout=5)
-    run('/usr/bin/python','-c',"import gi;gi.require_version('Atspi','2.0');from gi.repository import Atspi;assert Atspi.Text.get_text",timeout=5)
-    desktop_safe(session)
+    run('wdotool','--backend','wlr-protocols','capabilities',timeout=5,deadline=deadline)
+    run('/usr/bin/python','-c',"import gi;gi.require_version('Atspi','2.0');from gi.repository import Atspi;assert Atspi.Text.get_text",timeout=5,deadline=deadline)
+    desktop_safe(session,deadline=deadline)
     return context,m
 
 
-def verify_started(bundle,root,context_sha256):
+def verify_started(bundle,root,context_sha256,deadline=None):
     from prepare_app_release import unit_identity
     from verify_installed_continuation import verify
-    deadline=time.monotonic()+8
+    deadline=min(deadline,time.monotonic()+8) if deadline is not None else time.monotonic()+8
     while time.monotonic()<deadline:
-        load_context(bundle,root,context_sha256)
+        load_context(bundle,root,context_sha256,deadline=deadline)
         origin=json.loads((bundle/'sidecar-origin.json').read_text())
-        if origin['pid']==unit_identity('hyprneuro.service')['pid']:break
+        if origin['pid']==unit_identity('hyprneuro.service',deadline=deadline)['pid']:break
         time.sleep(.1)
     else:raise TimeoutError('New sidecar origin not attested')
-    verify(bundle,root,context_sha256)
+    verify(bundle,root,context_sha256,deadline=deadline)
 
 
 def sidecar_identity(deadline):
@@ -172,7 +173,8 @@ def recheck_sidecar_listener(proof,deadline):
 def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=None):
     if not authorized or not unlocked:raise PermissionError('Actual reviewed parent relay/fresh unlock checks required')
     # Preflight failure never starts/stops an unrelated app. No failed marker replay.
-    context,m=preflight(bundle,root,session,context_sha256)
+    deadline=time.monotonic()+7200
+    context,m=preflight(bundle,root,session,context_sha256,deadline=deadline)
     for name in ['operation.started','continuation-state.json','continuation-state.tmp','acceptance-result.json','acceptance-human-gate.json','acceptance-human-gate.tmp','ordinary-acceptance.json']:
         if (root/name).exists() or (root/name).is_symlink():raise RuntimeError('Continuation already used; no replay')
     marker=dict(id=context['id'],context_sha256=context_sha256,pid=os.getpid(),start=Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[19])
@@ -181,36 +183,36 @@ def execute(bundle,root,session,authorized=False,unlocked=False,context_sha256=N
     from guard_app_release import contain,observe
     from apply_app_release import desktop_safe
     state=dict(history=[],human_acceptance_claimed=False,owner_model_signals=False,continuation_id=context['id'])
-    child=None;deadline=time.monotonic()+7200
+    child=None
     try:
         if context['version']==2:
             from repair_app_release import cutover
             write_state(root,state,'repairing-stopped-artifacts')
-            cutover(bundle,context,m,session,lambda:load_context(bundle,root,context_sha256))
+            cutover(bundle,context,m,session,lambda:load_context(bundle,root,context_sha256,deadline=deadline),deadline=deadline)
         write_state(root,state,'starting-installed-sidecar')
-        desktop_safe(session);load_context(bundle,root,context_sha256)
+        desktop_safe(session,deadline=deadline);load_context(bundle,root,context_sha256,deadline=deadline)
         if context['version']==2:
             from repair_app_release import verify_replacements
             verify_replacements(context,m,deadline)
-        subprocess.run(['systemctl','--user','start','hyprneuro.service'],check=True,timeout=15)
+        subprocess.run(['systemctl','--user','start','hyprneuro.service'],check=True,timeout=command_timeout(deadline,15))
         write_state(root,state,'waiting-sidecar-control-listener')
         readiness_deadline=min(deadline,time.monotonic()+8)  # ONE budget including final post-await recheck
         proof=wait_sidecar_listener(Path(m['runtime'])/'hyprharness/grant-control.sock',readiness_deadline)
         write_state(root,state,'starting-installed-UI')
-        desktop_safe(session);load_context(bundle,root,context_sha256)
+        desktop_safe(session,deadline=readiness_deadline);load_context(bundle,root,context_sha256,deadline=readiness_deadline)
         if context['version']==2:verify_replacements(context,m,readiness_deadline)
         recheck_sidecar_listener(proof,readiness_deadline)  # after context/unlock awaits, immediately before UI start
-        subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=min(15,max(.001,deadline-time.monotonic())))
+        subprocess.run(['systemctl','--user','start','hyprneuro-ui.service'],check=True,timeout=command_timeout(deadline,15))
         write_state(root,state,'verifying-installed')
-        verify_started(bundle,root,context_sha256)
+        verify_started(bundle,root,context_sha256,deadline=deadline)
         write_state(root,state,'acceptance-window')
-        observe(bundle,m,session);load_context(bundle,root,context_sha256)
-        child=subprocess.Popen(['/usr/bin/python',context['driver'],str(bundle),'--continuation',str(root),'--context-sha256',context_sha256])
+        observe(bundle,m,session,deadline=deadline);load_context(bundle,root,context_sha256,deadline=deadline)
+        child=subprocess.Popen(['/usr/bin/python',context['driver'],str(bundle),'--continuation',str(root),'--context-sha256',context_sha256,'--deadline',str(deadline)])
         while child.poll() is None:
             if time.monotonic()>=deadline:raise TimeoutError('Continuation acceptance deadline')
-            observe(bundle,m,session);load_context(bundle,root,context_sha256);time.sleep(.25)
+            observe(bundle,m,session,deadline=deadline);load_context(bundle,root,context_sha256,deadline=deadline);time.sleep(.25)
         if child.returncode:raise RuntimeError('Acceptance driver failed')
-        observe(bundle,m,session);load_context(bundle,root,context_sha256)
+        observe(bundle,m,session,deadline=deadline);load_context(bundle,root,context_sha256,deadline=deadline)
         write_state(root,state,'acceptance-command-completed-NOT-human-READY-evidence')
         return 0
     except BaseException as error:

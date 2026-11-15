@@ -24,9 +24,10 @@ def check_ui_mode(env, manifest, legacy):
         raise RuntimeError('GTK owner binding or bridge interpreter mismatch')
 
 
-def ui_status(path, pid):
+def ui_status(path, pid,deadline=None):
     with socket.socket(socket.AF_UNIX) as client:
-        client.settimeout(3);client.connect(str(path))
+        from command_budget import timeout
+        client.settimeout(timeout(deadline,3));client.connect(str(path))
         peer,uid,_=struct.unpack('3i',client.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
         if peer!=pid or uid!=os.getuid():raise RuntimeError('Wrong UI metadata peer')
         client.sendall(b'pi-status\n');raw=b''
@@ -40,14 +41,14 @@ def ui_status(path, pid):
         return value
 
 
-def check_owner_unit(unit, sha, instance):
+def check_owner_unit(unit, sha, instance,deadline=None):
     if digest(private_file(unit))!=sha:raise RuntimeError('Installed owner template mismatch')
-    effective=dict(line.split('=',1) for line in run('systemctl','--user','show',instance,'-p','FragmentPath','-p','DropInPaths').splitlines())
+    effective=dict(line.split('=',1) for line in run('systemctl','--user','show',instance,'-p','FragmentPath','-p','DropInPaths',deadline=deadline).splitlines())
     if effective!={'FragmentPath':str(unit),'DropInPaths':''}:raise RuntimeError('Unreviewed effective owner unit/drop-ins')
 
 
 
-def release_targets(bundle, manifest, unit_home):
+def release_targets(bundle, manifest, unit_home,deadline=None):
     """Replace only hash-pinned current app overrides; add an inert template."""
     baseline={str(Path(entry['path']).resolve()):entry['sha256'] for entry in manifest['units']}
     targets=[]
@@ -64,7 +65,7 @@ def release_targets(bundle, manifest, unit_home):
             if not entry or manifest['units'].count(entry)!=1:
                 raise RuntimeError('Existing owner template unreviewed/unbacked; no adoption')
             check_unit_backups(bundle,[entry])
-            check_owner_baseline(dest,entry)
+            check_owner_baseline(dest,entry,deadline=deadline)
         elif entry:
             raise RuntimeError('Reviewed previous owner template missing; no cutover')
         targets.append((bundle/'staged'/dest.name,dest))

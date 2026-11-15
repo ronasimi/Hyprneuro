@@ -58,11 +58,13 @@ def prepare(dest,oldroot):
     prepare_trusted_launch(source,python,binary,staged,m['runtime'])
     for name in m['staged_files']:
         if (staged/name).exists():continue
-        src=source/'scripts'/name if name.endswith('.py') and (source/'scripts'/name).exists() else old/'staged'/name
+        src=repo/'scripts'/name if name.endswith('.py') and (repo/'scripts'/name).exists() else old/'staged'/name
         body=src.read_bytes()
         if name in ['ui.conf','sidecar.conf']:
             body=body.replace(str(old).encode(),str(dest).encode()).replace(digest(old/'staged/trusted-launch.json').encode(),digest(staged/'trusted-launch.json').encode())
+        if name in ['ui.conf','sidecar.conf']:body+=b'\nRestart=no\n'
         (staged/name).write_bytes(body);(staged/name).chmod(0o500 if name.endswith('.py') else 0o400)
+    shutil.copyfile(repo/'scripts/command_budget.py',staged/'command_budget.py');(staged/'command_budget.py').chmod(0o400)
     origins=dict(m['import_origins']);origins['modules']={n:p.replace(str(old),str(dest)) for n,p in origins['modules'].items()}
     m.update(commit=COMMIT,prepared_only=True,repair_from=dict(bundle=str(old),manifest_sha256=MANIFEST),
         historical_app_identities=True,installed_sha256=digest(backup/'hyprneuro-ui'),binary=str(binary),binary_sha256=digest(binary),units=units,

@@ -5,7 +5,7 @@ import json,os,stat,time
 from pathlib import Path
 from continuation_context import digest,MANIFEST
 
-def stopped_baseline(bundle,context,m):
+def stopped_baseline(bundle,context,m,deadline=None):
     from guard_app_release import unit_state
     from prepare_app_release import private_file,run
     from verify_app_release import check_unit_backups
@@ -22,8 +22,8 @@ def stopped_baseline(bundle,context,m):
         for name,sha in previous[key].items():
             if digest(old/folder/name)!=sha:raise RuntimeError('Previous release changed')
     for unit in ['hyprneuro.service','hyprneuro-ui.service']:
-        if unit_state(unit)!=dict(ActiveState='inactive',SubState='dead',MainPID='0',Job='',ControlGroup=''):raise RuntimeError('Repair requires stopped apps')
-        if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Unreviewed app reload')
+        if unit_state(unit,deadline=deadline)!=dict(ActiveState='inactive',SubState='dead',MainPID='0',Job='',ControlGroup=''):raise RuntimeError('Repair requires stopped apps')
+        if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',timeout=5,deadline=deadline)!='no':raise RuntimeError('Unreviewed app reload')
     check_unit_backups(old,previous['units'])
     if digest(old/'backup/hyprneuro-ui')!=previous['installed_sha256'] or digest(previous['database']['backup'])!=previous['database']['backup_sha256']:raise RuntimeError('Previous immutable archive drift')
     check_unit_backups(bundle,m['units'])
@@ -36,18 +36,18 @@ def stopped_baseline(bundle,context,m):
     expected={str(home/'hyprneuro.service.d/95-reviewed-readonly-release.conf'),str(home/'hyprneuro-ui.service.d/95-reviewed-readonly-release.conf'),str(home/'hyprneuro-pi-owner@.service'),str(Path.home()/'.local/bin/hyprneuro-ui')}
     if set(context['replacement_files'])!=expected:raise RuntimeError('Wrong repair target set')
     for identity in [m['ui'],m['sidecar']]:
-        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
+        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5,deadline=deadline).splitlines())
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Effective stopped units drift')
     for entry in m['units']:
         if digest(private_file(entry['path']))!=entry['sha256']:raise RuntimeError('Stopped unit hash drift')
     if digest(bundle/'backup/hyprneuro-ui')!=previous['binary_sha256']:raise RuntimeError('Stopped UI backup drift')
 
-def cutover(bundle,context,m,session,check_context):
+def cutover(bundle,context,m,session,check_context,deadline=None):
     from apply_app_release import atomic_copy,desktop_safe
     from prepare_app_release import run,private_file
     from verify_app_release import release_targets
-    stopped_baseline(bundle,context,m)
-    targets=release_targets(bundle,m,(Path.home()/'.config/systemd/user').resolve())
+    stopped_baseline(bundle,context,m,deadline=deadline)
+    targets=release_targets(bundle,m,(Path.home()/'.config/systemd/user').resolve(),deadline=deadline)
     targets.append((Path(m['binary']),Path(m['installed_ui'])))
     if {str(dst) for _,dst in targets}!=set(context['replacement_files']):raise RuntimeError('Repair target mismatch')
     # Validate EVERY source/destination before first mutation; no backup restoration.
@@ -55,16 +55,16 @@ def cutover(bundle,context,m,session,check_context):
         src=private_file(src);private_file(dst)
         if dst!=dst.resolve() or digest(src)!=context['replacement_files'][str(dst)]['sha256']:raise RuntimeError('Repair source/canonical target drift')
     for src,dst in targets:
-        desktop_safe(session);check_context()
+        desktop_safe(session,deadline=deadline);check_context()
         if digest(private_file(dst))!=context['installed_files'][str(dst)]:raise RuntimeError('Replacement baseline changed')
         atomic_copy(src,dst,context['replacement_files'][str(dst)]['mode'])
         if digest(dst)!=context['replacement_files'][str(dst)]['sha256']:raise RuntimeError('Replacement verification failed')
-    desktop_safe(session);check_context()
-    run('systemctl','--user','daemon-reload',timeout=15)
+    desktop_safe(session,deadline=deadline);check_context()
+    run('systemctl','--user','daemon-reload',timeout=15,deadline=deadline)
     for identity in [m['ui'],m['sidecar']]:
-        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5).splitlines())
+        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=5,deadline=deadline).splitlines())
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Replacement effective units changed')
-        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5)!='no':raise RuntimeError('Replacement not loaded')
+        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=5,deadline=deadline)!='no':raise RuntimeError('Replacement not loaded')
 
 def verify_replacements(context,m,deadline=None):
     """Fresh closed-set artifact/mode checks before EACH reviewed app start."""
@@ -80,6 +80,7 @@ def verify_replacements(context,m,deadline=None):
         expected=context['replacement_files'].get(entry['path'],entry)['sha256']
         if digest(private_file(entry['path']))!=expected:raise RuntimeError('Repaired/base unit drift before start')
     for identity in [m['ui'],m['sidecar']]:
-        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=timeout()).splitlines())
+        effective=dict(x.split('=',1) for x in run('systemctl','--user','show',identity['unit'],'-p','FragmentPath','-p','DropInPaths',timeout=timeout(),deadline=deadline).splitlines())
         if effective!={'FragmentPath':identity['fragment'],'DropInPaths':' '.join(identity['dropins'])}:raise RuntimeError('Repaired effective units drift before start')
-        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=timeout())!='no':raise RuntimeError('Repaired unit reload drift before start')
+        if run('systemctl','--user','show',identity['unit'],'-p','Restart','--value',deadline=deadline)!='no':raise RuntimeError('Unreviewed automatic app restart policy')
+        if run('systemctl','--user','show',identity['unit'],'-p','NeedDaemonReload','--value',timeout=timeout(),deadline=deadline)!='no':raise RuntimeError('Repaired unit reload drift before start')

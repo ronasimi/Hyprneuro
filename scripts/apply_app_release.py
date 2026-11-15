@@ -12,11 +12,12 @@ from prepare_app_release import digest, private_file, run
 from verify_app_release import verify, release_targets
 
 
-def desktop_safe(session):
-    fields=dict(x.split('=',1) for x in run('loginctl','show-session',session,'-p','User','-p','Remote','-p','Type','-p','Active','-p','LockedHint').splitlines())
+def desktop_safe(session,deadline=None):
+    fields=dict(x.split('=',1) for x in run('loginctl','show-session',session,'-p','User','-p','Remote','-p','Type','-p','Active','-p','LockedHint',deadline=deadline).splitlines())
     if fields!=dict(User=str(os.getuid()),Remote='no',Type='wayland',Active='yes',LockedHint='no'):
         raise RuntimeError('Active same-user local unlocked Wayland session required')
-    if subprocess.run(['pgrep','-x','hyprlock|swaylock|swaylock-effects|waylock|gtklock|i3lock|i3lock-color|betterlockscreen'],stdout=subprocess.DEVNULL).returncode!=1:
+    from command_budget import timeout
+    if subprocess.run(['pgrep','-x','hyprlock|swaylock|swaylock-effects|waylock|gtklock|i3lock|i3lock-color|betterlockscreen'],stdout=subprocess.DEVNULL,timeout=timeout(deadline)).returncode!=1:
         raise RuntimeError('Locker present/unknown')
 
 

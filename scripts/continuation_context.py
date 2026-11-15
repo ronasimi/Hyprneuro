@@ -12,7 +12,7 @@ MANIFEST='44bf0c8d3a41aa402253e5a8548b1b834d1062b0635343c0f271ba854da3a857'
 def digest(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def load_context(bundle,root,expected_sha):
+def load_context(bundle,root,expected_sha,deadline=None):
     if not bundle.is_absolute() or bundle!=bundle.resolve():raise PermissionError('Canonical bundle required')
     info=root.lstat()
     if root!=root.resolve() or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o700:
@@ -46,13 +46,13 @@ def load_context(bundle,root,expected_sha):
         for name,sha in json.loads((bundle/'manifest.json').read_text())['staged_files'].items():
             if digest(bundle/'staged'/name)!=sha:raise RuntimeError('Pinned runtime helper/staged source changed')
         sys.path.insert(0,str(bundle/'staged'))
-    validate(data)
+    validate(data,deadline=deadline)
     if digest(file)!=expected_sha:raise RuntimeError('Approved context changed during runtime observation')
     return data
 
 
-def require_parent(bundle,root,argv,pid,start,expected_sha):
-    context=load_context(bundle,root,expected_sha)
+def require_parent(bundle,root,argv,pid,start,expected_sha,deadline=None):
+    context=load_context(bundle,root,expected_sha,deadline=deadline)
     expected=[context['entry'],str(bundle),'--continuation',str(root),'--session']
     if argv[1:6]!=expected:raise RuntimeError('Wrong continuation guard ancestry')
     if '--context-sha256' not in argv or argv[argv.index('--context-sha256')+1]!=expected_sha:

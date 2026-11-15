@@ -35,30 +35,31 @@ def private_read(path,bound=32768):
 
 
 def watch(bundle,after,timeout=7200,expected_manifest=MANIFEST,continuation=None,context_sha256=None):
+    deadline=time.monotonic()+timeout
     if type(after) is not int or after<0:raise ValueError('Invalid sequence cursor')
     info=bundle.lstat()
     if bundle!=bundle.resolve() or not stat.S_ISDIR(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
         raise PermissionError('Unsafe private event directory')
     if continuation:
         from continuation_context import load_context
-        expected_manifest=load_context(bundle,continuation,context_sha256)['manifest_sha256']
+        expected_manifest=load_context(bundle,continuation,context_sha256,deadline=deadline)['manifest_sha256']
     raw=private_read(bundle/'manifest.json',1024*1024)
     if hashlib.sha256(raw).hexdigest()!=expected_manifest:raise ValueError('Wrong immutable manifest')
     descriptor=json.loads(raw)['owner_descriptor_sha256']
     event_root=continuation or bundle
     if continuation:
         from continuation_context import load_context
-        load_context(bundle,continuation,context_sha256)
+        load_context(bundle,continuation,context_sha256,deadline=deadline)
     libc=ctypes.CDLL(None,use_errno=True)
     fd=libc.inotify_init1(os.O_NONBLOCK|os.O_CLOEXEC)
     if fd<0:raise OSError(ctypes.get_errno(),'inotify_init1')
-    deadline=time.monotonic()+timeout;operation=None
+    operation=None
     try:
         # Watch FIRST, then read/recheck state: no check→subscribe lost-wake gap.
         wd=libc.inotify_add_watch(fd,os.fsencode(event_root),0x100|0x80|0x8|0x400|0x800)
         if wd<0:raise OSError(ctypes.get_errno(),'inotify_add_watch')
         while True:
-            if continuation:load_context(bundle,continuation,context_sha256)
+            if continuation:load_context(bundle,continuation,context_sha256,deadline=deadline)
             try:token=hashlib.sha256(private_read(event_root/'operation.started')).hexdigest()
             except FileNotFoundError:token=None
             if operation is not None and token!=operation:raise RuntimeError('Operation changed/disappeared')

@@ -26,9 +26,10 @@ def check_ui_mode(env, manifest, legacy):
         raise RuntimeError('GTK owner binding or bridge interpreter mismatch')
 
 
-def ui_status(path, pid):
+def ui_status(path, pid,deadline=None):
     with socket.socket(socket.AF_UNIX) as client:
-        client.settimeout(3);client.connect(str(path))
+        from command_budget import timeout
+        client.settimeout(timeout(deadline,3));client.connect(str(path))
         peer,uid,_=struct.unpack('3i',client.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
         if peer!=pid or uid!=os.getuid():raise RuntimeError('Wrong UI metadata peer')
         client.sendall(b'pi-status\n');raw=b''
@@ -42,14 +43,14 @@ def ui_status(path, pid):
         return value
 
 
-def check_owner_unit(unit, sha, instance):
+def check_owner_unit(unit, sha, instance,deadline=None):
     if digest(private_file(unit))!=sha:raise RuntimeError('Installed owner template mismatch')
-    effective=dict(line.split('=',1) for line in run('systemctl','--user','show',instance,'-p','FragmentPath','-p','DropInPaths').splitlines())
+    effective=dict(line.split('=',1) for line in run('systemctl','--user','show',instance,'-p','FragmentPath','-p','DropInPaths',deadline=deadline).splitlines())
     if effective!={'FragmentPath':str(unit),'DropInPaths':''}:raise RuntimeError('Unreviewed effective owner unit/drop-ins')
 
 
 
-def release_targets(bundle, manifest, unit_home):
+def release_targets(bundle, manifest, unit_home,deadline=None):
     """Replace only hash-pinned current app overrides; add an inert template."""
     baseline={str(Path(entry['path']).resolve()):entry['sha256'] for entry in manifest['units']}
     targets=[]
@@ -66,7 +67,7 @@ def release_targets(bundle, manifest, unit_home):
             if not entry or manifest['units'].count(entry)!=1:
                 raise RuntimeError('Existing owner template unreviewed/unbacked; no adoption')
             check_unit_backups(bundle,[entry])
-            check_owner_baseline(dest,entry)
+            check_owner_baseline(dest,entry,deadline=deadline)
         elif entry:
             raise RuntimeError('Reviewed previous owner template missing; no cutover')
         targets.append((bundle/'staged'/dest.name,dest))
@@ -99,11 +100,11 @@ def check_unit_backups(bundle, units):
         raise RuntimeError('Unit rollback backup missing, unsafe or changed; no cutover') from error
 
 
-def verify(bundle, root, context_sha256):
+def verify(bundle, root, context_sha256,deadline=None):
     from continuation_context import load_context
     from runtime_attestation import validate
-    context=load_context(bundle,root,context_sha256)
-    runtime=validate(context)
+    context=load_context(bundle,root,context_sha256,deadline=deadline)
+    runtime=validate(context,deadline=deadline)
     installed=True;legacy=True
     if legacy and not installed:raise ValueError('--legacy requires installed phase')
     m=json.loads(private_file(bundle/'manifest.json').read_text())
@@ -125,13 +126,13 @@ def verify(bundle, root, context_sha256):
     for name,sha in m.get('staged_files',{}).items():
         if digest(private_file(bundle/'staged'/name))!=sha:raise RuntimeError('Staged operations changed')
     for identity in [entry['identity'] for entry in runtime['models']]:
-        if unit_identity(identity['unit'])!=identity:raise RuntimeError('Model identity changed')
+        if unit_identity(identity['unit'],deadline=deadline)!=identity:raise RuntimeError('Model identity changed')
     for unit in ['hyprneuro.service','hyprneuro-ui.service','lfm@text.service','lfm@omni.service','lfm@decision.service','lfm@moe.service']:
-        if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value')!='no':raise RuntimeError('Pending unit configuration change: '+unit)
-    check_moe_inert()
+        if run('systemctl','--user','show',unit,'-p','NeedDaemonReload','--value',deadline=deadline)!='no':raise RuntimeError('Pending unit configuration change: '+unit)
+    check_moe_inert(deadline=deadline)
     if not installed:
         for identity in (m['ui'],m['sidecar']):
-            if unit_identity(identity['unit'])!=identity:raise RuntimeError('App baseline changed; no stale overwrite/restore')
+            if unit_identity(identity['unit'],deadline=deadline)!=identity:raise RuntimeError('App baseline changed; no stale overwrite/restore')
         if digest(private_file(m['installed_ui']))!=m['installed_sha256']:raise RuntimeError('Installed UI changed')
         for unit in m['units']:
             if digest(private_file(unit['path']))!=unit['sha256']:raise RuntimeError('Unit configuration changed')
@@ -139,21 +140,21 @@ def verify(bundle, root, context_sha256):
     else:
         if m.get('persistent_owner'):
             unit=Path.home()/'.config/systemd/user/hyprneuro-pi-owner@.service'
-            check_owner_unit(unit,m['staged_files'][unit.name],m['owner_unit'])
-        if unit_identity('hyprneuro-ui.service')['exe_sha256']!=m['binary_sha256'] or digest(m['installed_ui'])!=m['binary_sha256']:raise RuntimeError('Running/installed UI mismatch')
+            check_owner_unit(unit,m['staged_files'][unit.name],m['owner_unit'],deadline=deadline)
+        if unit_identity('hyprneuro-ui.service',deadline=deadline)['exe_sha256']!=m['binary_sha256'] or digest(m['installed_ui'])!=m['binary_sha256']:raise RuntimeError('Running/installed UI mismatch')
         for unit in ['hyprneuro-ui.service','hyprneuro.service']:
-            process=Path('/proc')/str(unit_identity(unit)['pid'])
+            process=Path('/proc')/str(unit_identity(unit,deadline=deadline)['pid'])
             env=dict(x.split(b'=',1) for x in (process/'environ').read_bytes().split(b'\0') if b'=' in x)
             if env.get(b'PYTHONPATH')!=str(source/'python/src').encode() or b'HYPRNEURO_RESIDENCY_DIR' in env:raise RuntimeError('Loaded app environment/source mismatch')
             if unit=='hyprneuro-ui.service':
                 check_ui_mode(env,m,legacy)
                 if m.get('explicit_ui'):
-                    mode=ui_status(env.get(b'HYPRNEURO_UI_SOCKET',str(Path(m['runtime'])/'hyprneuro/ui.sock').encode()).decode(),int(process.name))
+                    mode=ui_status(env.get(b'HYPRNEURO_UI_SOCKET',str(Path(m['runtime'])/'hyprneuro/ui.sock').encode()).decode(),int(process.name),deadline=deadline)
                     if legacy and (mode['mode']!='legacy' or mode['connected'] or mode['read_callable']):raise RuntimeError('Running UI is not disconnected legacy; no auto-disconnect')
-        pid=unit_identity('hyprneuro.service')['pid']
+        pid=unit_identity('hyprneuro.service',deadline=deadline)['pid']
         origin=json.loads(private_file(bundle/'sidecar-origin.json').read_text())
         if origin['pid']!=pid or origin['modules']!=m['import_origins']['modules']:raise RuntimeError('Loaded sidecar origin not attested')
-    load_context(bundle,root,context_sha256)
+    load_context(bundle,root,context_sha256,deadline=deadline)
     print(json.dumps(dict(verified=str(bundle),commit=m['commit'],phase='installed-legacy' if legacy else 'installed' if installed else 'staged',changed_services=False)))
 
 

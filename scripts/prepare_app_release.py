@@ -17,7 +17,9 @@ import tarfile
 import time
 
 
-def run(*args, **kw):
+def run(*args, deadline=None, **kw):
+    from command_budget import timeout
+    kw['timeout']=timeout(deadline,kw.get('timeout',5))
     return subprocess.check_output(args, text=True, **kw).strip()
 
 
@@ -36,20 +38,20 @@ def private_file(path):
 MOE_UNITS = ('lfm@littlemoe.service', 'lfm@bigmoe.service', 'lfm@moe.service')
 
 
-def check_moe_inert():
+def check_moe_inert(deadline=None):
     for unit in MOE_UNITS:
         fields = dict(line.split('=', 1) for line in run('systemctl','--user','show',unit,
-            '-p','ActiveState','-p','SubState','-p','MainPID','-p','Job','-p','NeedDaemonReload',timeout=5).splitlines())
+            '-p','ActiveState','-p','SubState','-p','MainPID','-p','Job','-p','NeedDaemonReload',timeout=5,deadline=deadline).splitlines())
         if fields != dict(ActiveState='inactive',SubState='dead',MainPID='0',Job='',NeedDaemonReload='no'):
             raise RuntimeError('MoE profile active/pending/unknown: '+unit)
 
 
-def check_owner_inert(template, previous_instance):
+def check_owner_inert(template, previous_instance,deadline=None):
     """Read-only global gate: no enabled template/instances, jobs or live owners."""
     pattern='hyprneuro-pi-owner@*.service'
     try:
-        files=json.loads(run('systemctl','--user','list-unit-files','--no-pager','--output=json',pattern,timeout=10))
-        loaded=json.loads(run('systemctl','--user','list-units','--all','--no-pager','--output=json',pattern,timeout=10))
+        files=json.loads(run('systemctl','--user','list-unit-files','--no-pager','--output=json',pattern,timeout=10,deadline=deadline))
+        loaded=json.loads(run('systemctl','--user','list-units','--all','--no-pager','--output=json',pattern,timeout=10,deadline=deadline))
         if (not isinstance(files,list) or len(files)!=1 or not isinstance(files[0],dict) or
                 files[0].get('unit_file')!=template.name or files[0].get('state')!='static'):
             raise ValueError('Owner template/instance enabled or unknown')
@@ -63,7 +65,7 @@ def check_owner_inert(template, previous_instance):
         for name in sorted(instances):
             fields=dict(line.split('=',1) for line in run('systemctl','--user','show',name,
                 '-p','LoadState','-p','ActiveState','-p','SubState','-p','MainPID','-p','UnitFileState',
-                '-p','FragmentPath','-p','DropInPaths','-p','NeedDaemonReload','-p','Job',timeout=10).splitlines())
+                '-p','FragmentPath','-p','DropInPaths','-p','NeedDaemonReload','-p','Job',timeout=10,deadline=deadline).splitlines())
             fields['FragmentPath']=str(private_file(fields['FragmentPath']).resolve())
             if fields!={'LoadState':'loaded','ActiveState':'inactive','SubState':'dead','MainPID':'0',
                         'UnitFileState':'static','FragmentPath':str(template.resolve()),'DropInPaths':'','NeedDaemonReload':'no','Job':''}:
@@ -72,7 +74,7 @@ def check_owner_inert(template, previous_instance):
         raise RuntimeError('Owner template/instances not verifiably inert; no cutover') from error
 
 
-def check_owner_baseline(template, entry):
+def check_owner_baseline(template, entry,deadline=None):
     """A previous exact applied manifest pins ownership; never adopt ambient units."""
     try:
         previous=Path(entry['previous_bundle'])
@@ -90,7 +92,7 @@ def check_owner_baseline(template, entry):
                 old['staged_files'][template.name]!=entry['sha256'] or digest(file)!=entry['sha256'] or
                 not re.fullmatch(r'hyprneuro-pi-owner@.+\.service',old['owner_unit'])):
             raise ValueError('Unreviewed owner template/mode or previous manifest drift')
-        check_owner_inert(template,old['owner_unit'])
+        check_owner_inert(template,old['owner_unit'],deadline=deadline)
     except (OSError,ValueError,KeyError,TypeError) as error:
         raise RuntimeError('Owner template baseline missing, unsafe or changed; no adoption/cutover') from error
 
@@ -114,9 +116,9 @@ def backup_owner_template(template, backup, index, previous, previous_sha):
     return entry
 
 
-def unit_identity(name):
+def unit_identity(name,deadline=None):
     fields = dict(line.split('=', 1) for line in run('systemctl', '--user', 'show', name,
-        '-p', 'MainPID', '-p', 'ActiveState', '-p', 'FragmentPath', '-p', 'DropInPaths').splitlines())
+        '-p', 'MainPID', '-p', 'ActiveState', '-p', 'FragmentPath', '-p', 'DropInPaths',deadline=deadline).splitlines())
     pid = int(fields['MainPID'])
     if not pid or fields['ActiveState'] != 'active':
         raise RuntimeError('Expected active unit: ' + name)

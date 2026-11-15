@@ -65,12 +65,13 @@ def exercise(ui, pending, deadline):
 
 
 class UI:
-    def __init__(self,bundle,continuation=None,context_sha256=None):
+    def __init__(self,bundle,continuation=None,context_sha256=None,deadline=None):
+        self.deadline=deadline
         self.bundle=bundle
         self.runtime=continuation or bundle
         self.context_sha256=context_sha256
         from continuation_context import load_context
-        expected=load_context(bundle,self.runtime,context_sha256)['manifest_sha256'] if continuation else MANIFEST
+        expected=load_context(bundle,self.runtime,context_sha256,deadline=deadline)['manifest_sha256'] if continuation else MANIFEST
         if hashlib.sha256((bundle/'manifest.json').read_bytes()).hexdigest()!=expected:
             raise RuntimeError('Wrong reviewed bundle')
         self.m=json.loads((bundle/'manifest.json').read_text())
@@ -78,14 +79,16 @@ class UI:
         from prepare_app_release import unit_identity
         from verify_app_release import ui_status
         from verify_installed_continuation import verify
-        self.identity=unit_identity;self.status_reader=ui_status
-        verify(bundle,self.runtime,context_sha256)  # post-cutover metadata, no SQL
-        self.current=unit_identity('hyprneuro-ui.service')
+        from functools import partial
+        self.identity=partial(unit_identity,deadline=deadline);self.status_reader=partial(ui_status,deadline=deadline)
+        verify(bundle,self.runtime,context_sha256,deadline=deadline)  # post-cutover metadata, no SQL
+        self.current=self.identity('hyprneuro-ui.service')
         if self.current['pid']==self.m['ui']['pid']:raise RuntimeError('Old UI still running')
         sys.path.insert(0,str(bundle/'source/ui/tests'))
         from desktop_driver import Desktop,Atspi
         self.Atspi=Atspi
-        self.desktop=Desktop(os.environ['HN_ACCEPTANCE_SESSION'],self.current['pid'])
+        from bounded_desktop import bounded_desktop
+        self.desktop=bounded_desktop(Desktop,os.environ['HN_ACCEPTANCE_SESSION'],self.current['pid'],deadline)
         self.consent_prompts=set();self.events=[];self.keys_inflight=False
         fixture=Path(self.m['workspace'])/'fixture.txt'
         self.fixture=fixture.read_text().strip()
@@ -140,13 +143,13 @@ class UI:
     def safe(self):
         if getattr(self,'context_sha256',None):
             from continuation_context import load_context
-            load_context(self.bundle,self.runtime,self.context_sha256)
+            load_context(self.bundle,self.runtime,self.context_sha256,deadline=getattr(self,'deadline',None))
         self.desktop.safe()
         if self.identity('hyprneuro-ui.service')!=self.current:raise RuntimeError('UI identity changed')
 
-    @staticmethod
-    def command(*args):
-        return subprocess.check_output(args,text=True,timeout=5)
+    def command(self,*args):
+        from command_budget import timeout
+        return subprocess.check_output(args,text=True,timeout=timeout(getattr(self,'deadline',None)))
 
     def ordinary(self):
         self.safe()
@@ -347,12 +350,12 @@ def coordinator(bundle,deadline,ready,check_context=None):
 def main():
     os.umask(0o077)
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('bundle',type=Path)
-    parser.add_argument('--continuation',type=Path);parser.add_argument('--context-sha256');args=parser.parse_args()
-    bundle=args.bundle;runtime=args.continuation or bundle;deadline=time.monotonic()+7200
+    parser.add_argument('--deadline',type=float);parser.add_argument('--continuation',type=Path);parser.add_argument('--context-sha256');args=parser.parse_args()
+    bundle=args.bundle;runtime=args.continuation or bundle;deadline=min(args.deadline,time.monotonic()+7200) if args.deadline is not None else time.monotonic()+7200
     sys.path.insert(0,str(bundle/'staged'))
     def checked_context():
         from continuation_context import load_context
-        load_context(bundle,runtime,args.context_sha256)
+        load_context(bundle,runtime,args.context_sha256,deadline=deadline)
     def pending(ready):coordinator(runtime,deadline,ready,checked_context if args.continuation else None)
     def terminate(signum,frame):raise InterruptedError('Acceptance driver terminated')
     signal.signal(signal.SIGTERM,terminate)
@@ -361,7 +364,7 @@ def main():
     if args.continuation:
         from continuation_context import require_parent
         pid=os.getppid();start=Path('/proc',str(pid),'stat').read_text().rsplit(')',1)[1].split()[19]
-        require_parent(bundle,runtime,argv,pid,start,args.context_sha256)
+        require_parent(bundle,runtime,argv,pid,start,args.context_sha256,deadline=deadline)
     else:
         if len(argv)<3 or argv[1]!=str(bundle/'staged/guard_app_release.py') or argv[2]!=str(bundle):
             raise RuntimeError('Driver must be direct child of the reviewed guard, not standalone/nested lease')
@@ -369,7 +372,7 @@ def main():
             raise RuntimeError('No current guarded applied operation')
     ui=None
     try:
-        ui=UI(bundle,args.continuation,args.context_sha256);exercise(ui,pending,deadline)
+        ui=UI(bundle,args.continuation,args.context_sha256,deadline=deadline);exercise(ui,pending,deadline)
         ui.record('coordinator-ended-not-human-or-READY-evidence')
     except BaseException as error:
         if ui:ui.record('FAILED',error=type(error).__name__)

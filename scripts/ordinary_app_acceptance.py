@@ -394,7 +394,7 @@ def main():
         ui=UI(bundle,args.continuation,args.context_sha256,deadline=deadline);exercise(ui,pending,deadline)
         ui.record('coordinator-ended-not-human-or-READY-evidence')
     except BaseException as error:
-        if ui:ui.record('FAILED',error=type(error).__name__)
+        if ui:ui.record('FAILED',error=type(error).__name__,keys_inflight=getattr(ui,'keys_inflight',False),pending_key_chain=getattr(ui,'pending_key_chain',None),key_cleanup_error=getattr(ui,'key_cleanup_error',None))
         raise
 
 

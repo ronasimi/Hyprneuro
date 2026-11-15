@@ -1,0 +1,120 @@
+{
+  "base": "4d2082398ca6452d176b7c9d04611300e8873930",
+  "status": "SOURCE correction PASS; targeted independent rereview required; no production readiness/deployment claim",
+  "review_block": "01M7EMECJRX9ZCYATCWKXD3RWA/liveness-review",
+  "defect": "A retained completed cancellationCleanup caused detach and close to await a NEW running chat queue BEFORE SDK abort, leaving its admission open until deadline.",
+  "fix": "Only the two pre-abort queue waits now require cancellationCleanup && !cancellationCleanup.settled. Unfinished-cleanup refusal immediately afterward remains unchanged. No other product changes.",
+  "regressions": "Actual installed SDK/loopback known cancel -> separate new streaming chat -> detach AND close. Both fail against archived4d208239 with delayed-abort error; both pass after fix. Assert SDK idle/new scope sealed/requests exactly2/failed guard retained/no closed checkpoint; original cleanup object remains same, settled and proven. This is not clean-shutdown acceptance for the interrupted new request.",
+  "before": {
+    "base": "4d2082398ca6452d176b7c9d04611300e8873930",
+    "fixture": "/home/ron/Workspace/b-det-70c3_d6u",
+    "exit": 1,
+    "both_before_failed": true,
+    "log_sha256": "d940ff0e1f4a29a1efe694904285f7d2ca101b616b85f92f5619deaec1f77479"
+  },
+  "before_run": "01M7ENF0WG218T15510P3D8127",
+  "full_run": "01M7ENGTS8HN1KGYCWP4B74PG2",
+  "validation": {
+    "focused_Node": 36,
+    "focused_bridge_Python": 33,
+    "full_Python": 478,
+    "Python_subtests": 138,
+    "optional_Pillow_skip": 1,
+    "full_Node": 102,
+    "C": {
+      "C": {
+        "cases": 24,
+        "log_sha256": "c988ea62ac4121152d22411b36d50c8baf93fac01029e6ccd4b6e2c691682bec"
+      },
+      "C-sanitized": {
+        "cases": 24,
+        "log_sha256": "c11e94a553855f623ce2c1a844e4a35e6b0481f5d9ea38626b8e2b7541a82134"
+      }
+    },
+    "fresh_GTK_builds": "normal + ASan/UBSan",
+    "phase_results": {
+      "focused-node": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "aedcedd453161fc18fb5b416d7bc69fe0f34254d0c4eea7a93b5ed4366de0119"
+      },
+      "focused-bridge": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "d7762caef79dec0d631144d5906d3f708c0c435d7368e36bdae3938e5c314489"
+      },
+      "python": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "50fddcbf7477d44702ccb689ee9892640a46b0aa24d1de04c343fcfc2993429a"
+      },
+      "node": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "d9be7ae7387623c66cf84fa535d567dd4ba6f2eb9a403821b440d726b347e93c"
+      },
+      "C-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "d8939a1b4a8f2d75e2da55e73275fb320971cfbc22d283ae928b38823f3b0c81"
+      },
+      "C-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "ec71d0f74f4b9c91e6a2c9a1d17014cd7215a630fe304b747c8d21b4cb1bca36"
+      },
+      "C-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "4f3b8276cfea48a97962101a517c7fdcaa07e4e794a8182bfa370e9cf25f4399"
+      },
+      "C-sanitized-setup": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "aaea7da05cc104440a8bbeeb481133c38bb5146de9c12e1ed64c6126acd12c65"
+      },
+      "C-sanitized-build": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "346e9ae479d3309eabac49a3d24eb8943a5a78f0f2230ae45d34f04b71e77503"
+      },
+      "C-sanitized-tests": {
+        "exit": 0,
+        "locker_failure": [],
+        "log_sha256": "475bb899ba2fa874411f794fdedf24958d65e681218b359f52fecbf14885aa24"
+      }
+    },
+    "focused_bridge_complete": {
+      "exit": 0,
+      "log_sha256": "306827223fe1d825e768ab25f3ce0eac11f694f8d1a0e9af5542c6e8138f3519"
+    }
+  },
+  "tested_source_sha256": {
+    "extensions/pi-owner/owner.mjs": "c9b14f106d148333d30d8a6d10944d92633f7885479fe5c149c5d849564179db",
+    "extensions/pi-owner/cancellation.mjs": "0b1246125edd3001dd73dffec249219b2245e194e794a0047ac0bc9fc53aa50e",
+    "tests/pi-owner-cancellation.mjs": "2be5331779a62afa1504c41d539686a9f6ed0a086f2faae649c810eef5b10d08"
+  },
+  "retained_private_evidence": [
+    {
+      "path": "/home/ron/Workspace/review-4d208239-dqwgjjzh/independent-detach.log",
+      "sha256": "e06fbf6c2f49f1a3d28774829ce11c8339810fc29075c8801d0b0efae4957665"
+    },
+    {
+      "path": "/home/ron/Workspace/review-4d208239-dqwgjjzh/base-detach.log",
+      "sha256": "9a7b970985fde3bf97d20f3ba326d5f4a8db943a42accf498e5752cb199798b2"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/lifecycle-followup/before-regressions.log",
+      "sha256": "d940ff0e1f4a29a1efe694904285f7d2ca101b616b85f92f5619deaec1f77479"
+    },
+    {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/final-production-06fc2b4/source-cancel-bound/lifecycle-followup/final/focused-bridge-complete.log",
+      "sha256": "306827223fe1d825e768ab25f3ce0eac11f694f8d1a0e9af5542c6e8138f3519"
+    }
+  ],
+  "prior_full": "01M7EN19R39CVDZ7SYB4H5P11G also passed478Python/138subtests/1skip,102Node,24+24C before extra unchanged-cleanup assertions. Same two-condition product fix; all source/test hashes for final run verified.",
+  "warnings": "Meson setup-log ResourceWarnings and GdkPixbuf deprecations retained; not warning-free.",
+  "scope": "No trusted grant implementation, authority/memory merge, model/config change, production inference/capture/grant, signal/reset/flock probe, bundle preparation or deployment. Proposal revision2 remains separate untracked doc under design rereview.",
+  "operational_identity": "No fresh live inventory asserted by this source test receipt. Prior PID3356764/start45955087 is historical and MUST NOT be signalled if replaced. Recovery remains blocked on source/bundle gates and a fresh exact identity/authority check; do not inherit stale recovery identity after user lifecycle changes.",
+  "next": "Parent targeted rereview of exact correction commit. Grant design revision2 separately pending01M7EMYKGSV2FYW58E07M8GJRT/grant-design@2; no grant code until approved. Authority pair remains integration-blocked; memory migration separate."
+}

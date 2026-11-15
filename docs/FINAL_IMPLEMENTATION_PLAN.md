@@ -1200,3 +1200,34 @@ new bundle preparation, deploy, model restart or production inference/capture
 performed. Original conditional retirement authority still requires fresh exact
 identity/no-work/Legacy/locker/flock gates after source/release-plan review.
 Overall **NOT READY**.
+
+## 32. Minimal liveness-review correction: completed cleanup must not delay new abort
+
+Independent `01M7EMECJRX9ZCYATCWKXD3RWA/liveness-review` **BLOCKED4d208239**:
+a retained settled cancellation record made detach/close await a NEW running
+chat before aborting it. The correction changes **only both pre-abort wait
+conditions** to require unfinished cleanup. The following unfinished-cleanup
+refusal and all cancellation proof/admission policy remain unchanged.
+
+[Exact correction receipt](evidence/final-cancellation-lifecycle-correction.json).
+Actual-SDK known cancel→new streaming turn→detach AND close regressions fail on
+archived4d208239 and pass after the fix. They verify prompt SDK abort/idle,
+sealed new scope, exactly2 HTTP admissions, retained failed guard/no closed
+checkpoint and unchanged original completed cleanup identity/proof. Interrupting
+the new request does NOT count as clean-shutdown production acceptance.
+
+Final `01M7ENGTS8HN1KGYCWP4B74PG2`: **36 focused Node,33 focused bridge Python;
+478 full Python+138subtests/one optionalPillow skip;102 full Node;24 normal C+
+24 ASan/UBSan C**, fresh GTK builds. Source/log hashes verified. Both before
+failures retained under `01M7ENF0WG218T15510P3D8127`; prior full102 PASS retained.
+Existing ResourceWarnings/deprecations remain. No further feature work in delta.
+
+**Next:** exact source correction rereview before any release/recovery operation.
+Trusted consent proposal revision2 is separate documentation, queued under
+`01M7EMYKGSV2FYW58E07M8GJRT/grant-design@2`; NO grant implementation or partial
+authority enablement. Source-approved authority pair6c9e25e+38b2edd remains
+integration-blocked, memory/schema4 remains separately gated. No deployment,
+model/config change, production request/capture/grant, signal/reset or lock
+probe. Historical PID3356764/start45955087 is NOT a current attestation: after
+user quit/reboot/owner replacement, freshly verify exact identity and authority
+before proposing any once-signal; never signal the stale PID. Overall NOT READY.

@@ -36,7 +36,7 @@ export class PiOwner {
     this.disconnectControl();
     this.detaching=(async()=>{
       try {
-        if(this.cancellationCleanup)await this.queue;
+        if(this.cancellationCleanup&&!this.cancellationCleanup.settled)await this.queue;
         if(this.cancellationCleanup&&!this.cancellationCleanup.settled)throw new Error('Cancellation cleanup pending; guard retained');
         this.session.clearQueue?.();await this.session.abort();await this.queue;
         await this.detach?.();await this.checkpoint(this.phase);
@@ -204,7 +204,7 @@ export class PiOwner {
     return this.shutdown??=(async()=>{
       this.closing=true;this.disconnectControl();
       try {
-        if(this.cancellationCleanup)await this.queue;
+        if(this.cancellationCleanup&&!this.cancellationCleanup.settled)await this.queue;
         if(this.cancellationCleanup&&!this.cancellationCleanup.settled)throw new Error('Cancellation cleanup pending; guard retained');
         await this.detaching;
         if(this.transitionKind==='on'){this.cancelOn=true;await this.cancelTransition?.().catch(()=>{});}

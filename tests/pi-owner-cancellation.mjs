@@ -351,3 +351,27 @@ test('actual SDK deadline, without explicit cancel, releases serialized request 
     await f.host.owner.queue;assert.equal(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'chat-unknown');
   } finally {release();await f.host.owner.cancellationCleanup?.completion;}
 },(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial before deadline'}));}));
+
+for(const operation of ['detach','close'])test(`known cancel then new streaming chat: ${operation} aborts new work before waiting its queue`,{timeout:15000},()=>fixture(async f=>{
+  f.host.owner.callTimeoutMs=1000;
+  f.chat.send({op:'chat',id:'first',text:'Synthetic first cancellation before lifecycle follow-up'});
+  const first=await f.chat.next();let event;
+  do{event=await f.chat.next();}while(event.event?.type!=='delta');
+  cancel(f.chat,first);assert.ok((await terminal(f.chat)).every(p=>p.result?.outcome==='cancelled-known'));
+  const completedCleanup=f.host.owner.cancellationCleanup;
+  assert.equal(completedCleanup.settled,true);assert.equal(completedCleanup.proven,true);
+  f.chat.send({op:'chat',id:'second',text:'Separate synthetic new streaming turn, explicitly stop via lifecycle'});
+  await f.chat.next();do{event=await f.chat.next();}while(event.event?.type!=='delta');
+  assert.equal(f.requests(),2);const secondScope=f.host.owner.currentChat;
+  let aborts=0,timer;const abort=f.host.session.abort.bind(f.host.session);
+  f.host.session.abort=async()=>{aborts++;return abort();};
+  try {
+    const action=operation==='detach'?f.host.owner.detachControl():f.host.close();
+    await Promise.race([action,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Stale cleanup record delayed new SDK abort')),500);})]);
+    assert.ok(aborts>=1);assert.equal(f.host.session.isIdle,true);assert.equal(f.host.owner.phase,'failed');
+    assert.equal(secondScope.closed,true);assert.equal(f.host.owner.cancellationCleanup,completedCleanup);
+    assert.equal(completedCleanup.settled,true);assert.equal(completedCleanup.proven,true);
+    assert.equal(f.requests(),2);assert.ok(await readFile(join(f.ownerRoot,'owner.guard')));
+    assert.notEqual(JSON.parse(await readFile(join(f.ownerRoot,'checkpoint.json'),'utf8')).phase,'closed');
+  } finally {clearTimeout(timer);}
+},(_req,res)=>{res.writeHead(200,{'content-type':'text/event-stream'});res.write(chunk({content:'partial synthetic turn'}));}));

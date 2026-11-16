@@ -66,7 +66,7 @@ def install_broker(root,case,state):
         if case=='idle150' and kwargs.get('session') is not None and value.get('op')=='prepare_owner' and (root/'idle150-start.json').exists():
             began=json.loads((root/'idle150-start.json').read_text())['boottime_ns']
             if boottime_ns()-began<150*1_000_000_000:raise AssertionError('No early idle verification')
-            client=state['temporal_client'];roles=await client.snapshot('register')
+            client=state['temporal_client'];roles=await client.snapshot('authorize')  # observe all roles, NEVER replay registration
             client.gate.require_current(ALL_ROLES)
             (root/'idle-live-roles.json').write_text(json.dumps(dict(boottime_ns=boottime_ns(),roles=sorted(roles),
                 current=True,deadline_ns=client.gate.deadline_ns,generation=client.gate.generation)))

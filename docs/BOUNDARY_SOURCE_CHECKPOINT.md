@@ -421,3 +421,25 @@ is proved separately by idle150 only AFTER known normal cleanup. This respects
 helper active duration/setup gap reported separately, not invented as7200s.
 No real suspend test/host suspend command. Durable completion wake, no controller
 status polling.54focused and GTK5/5 pass; actual matrix and real soak pending.
+
+## Temporal workflow30 STOPPED: private verification hook replayed registration
+
+`01M7JF31W53JS104XBB4Y30DP4` exit1, idle150 only;
+`sdk-9b77c64f2cb44ed98c2aa80f72634225`. Partial/trickle/real7200 NOT RUN.
+After150 real seconds, private full-role verification hook incorrectly invoked
+snapshot('register') after native attach had already registered. Production
+helper explicitly forbids duplicate register and rejected it (terminal permission
+retained). No source bug/idle-timeout recurrence demonstrated: error observed
+150.257672272s after idle start, precisely on the invalid verification hook.
+Rows[]/live0/published0, failures2/cleanup-confirmedFALSE, no model requests;
+producer-failure marker preserved, no false PASS. All owned units PID0/no jobs/
+cgroups after fixture cleanup; no confirmed source-reap claim for failed run.
+
+One-line TEST-ONLY correction: use existing observe-only full-role 'authorize'
+snapshot for private role verification, then real current(ALL_ROLES), not a
+second registration. This is NOT a core authorization/grant or consent action.
+The ordinary prepare_owner request/descriptor fences follow; no renewal/deadline
+extension. Duplicate registration remains rejected by unchanged production code.
+Original30 and original29 remain exit1/UNKNOWN, no consumed root reused. Fresh
+workflow is still stop-first-error and gated before ONE real7200 soak. No product
+correction or new source approval needed; source remains approved730dd9a.

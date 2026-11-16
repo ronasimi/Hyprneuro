@@ -230,3 +230,23 @@ actual source-denial record, not inferred from process death alone.
 These prove process loss, NOT a live substituted replacement or post-publication
 idle loss. Persistence/blocking-fsync/clockjump, physical endpoint substitution,
 fresh Connect and real7200-second soak remain pending. Product source unchanged.
+
+### Blocked persistence with EXPLICIT clock injection (not real lifetime)
+
+Batch22 `01M7JBGHKD90CS5680020NDEQX` PASS2cases24.876s:
+intent `sdk-baaf3284b4474801a1e515fae2e99d39`, result
+`sdk-763e79b12f494aa7a51e855e8593e1be`. Actual journal fsync runs; its private
+wrapper blocks BEFORE append returns. A probe thread shifts ONLY private session
+clock +7201s and calls the actual synchronous current() fence while the loop is
+blocked. No manual seal/SQL/hostclock/suspend change. current/live/published and
+eligible(with exact owned row if present) all FALSE inside the blocked boundary.
+Intent creates NO authorization row; result remains unpublished then exact owned
+CAS revokes the unapproved/created0 historical row. No fake-model calls. Expected
+UNKNOWN, child normal exit1, no clean cleanup receipt or fresh Connect.
+
+Row-only oracle is now explicit require_revoked_rows: assertions no longer
+normalize a copied unknown receipt to clean fields merely to reuse row checking.
+This is an equivalent test-only oracle clarification; original raw failures and
+cleanup-confirmed FALSE remain unchanged. Offline test proves UNKNOWN is not
+modified and cannot pass require_clean_result. Production source unchanged.
+Real two-hour, suspend, idle loss, replacement and fresh Connect still pending.

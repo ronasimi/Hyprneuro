@@ -92,4 +92,8 @@ def install_broker(root,case,helper):
         from identity_role_fixture import install
         install(root,case,state)
 
+    if case.startswith('persistence-'):
+        from identity_persistence_fixture import install
+        install(root,case,state)
+
     return lambda core:state.update(core=core)

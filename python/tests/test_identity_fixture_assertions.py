@@ -21,3 +21,11 @@ class CleanupOracleTests(unittest.TestCase):
                             ('published',1),('observer_cleanup_confirmed',False),('failures',1)]:
             result=copy.deepcopy(self.result);result[field]=value
             with self.subTest(field=field),self.assertRaises(AssertionError):require_clean_result(result,self.root)
+
+    def test_row_only_assertion_does_not_relabel_unknown_receipt(self):
+        from identity_fixture_assertions import require_revoked_rows
+        result=copy.deepcopy(self.result);result.update(observer_cleanup_confirmed=False,failures=2)
+        before=copy.deepcopy(result)
+        require_revoked_rows(result['rows'],self.root)
+        self.assertEqual(result,before)
+        with self.assertRaises(AssertionError):require_clean_result(result,self.root)

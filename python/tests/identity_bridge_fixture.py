@@ -44,7 +44,12 @@ def install_broker(root,case,helper):
         result=await original_sleep(delay,*args,**kwargs)
         task=asyncio.current_task()
         if delay==.05 and task and task.get_coro().__qualname__.endswith('watch_boundary'):
-            ticks+=1;(root/'monitor-ticks').write_text(str(ticks))
+            ticks+=1
+            if case=='soak7200':
+                from identity_soak_fixture import heartbeat
+                heartbeat(root,state,ticks)
+                if ticks%20:return result  # persist1Hz, actual watcher remains50ms
+            (root/'monitor-ticks').write_text(str(ticks))
             core=state['core']
             if core is not None:
                 import json
@@ -144,5 +149,9 @@ def install_broker(root,case,helper):
                     stream.write(json.dumps(dict(generation=client.gate.generation,helper=client.helper,broker=client.broker,ui=roles['ui']['process'],child=roles['child']['process']))+'\n')
             return roles
         identity_transport.ObserverClient.snapshot=snapshot
+
+    if case=='soak7200':
+        from identity_soak_fixture import install
+        install(root,state)
 
     return lambda core:state.update(core=core)

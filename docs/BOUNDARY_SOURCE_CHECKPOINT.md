@@ -359,3 +359,30 @@ no automatic new Connect. Exact source/fixture pins, real start/deadline/expiry,
 idle monitor counts and owned helper cleanup must be recorded; setup time and
 helper observed duration must not be falsely called7200s active-helper coverage.
 Not passed/started by this documentation increment; production/packaging blocked.
+
+## STOP: real idle29 confirmed premature control timeout; source rereview REQUIRED
+
+`01M7JDXNWCRWE5XVMZWAJXVYMW` exit1 (138.642s whole fixture), evidence
+`sdk-e5e8485ec430477fa8ffda804c28e3ca`. Error observed133.503632590 real
+BOOTTIME seconds after earliest Connect start, with7066.496367410 seconds of
+fixed budget remaining. This is observation time, NOT an asserted exact125s
+closure timestamp. Source idle private-operation read used read_frame's125s
+whole-line timeout; no broker keepalive/renewal, only ordinary native status.
+Explicit130s disconnect observed failed control channel; actual private rows[],
+live0/published0, cleanup-confirmed FALSE/failures2. Model requests0. All owned
+units PID0/no jobs/cgroups AFTER fixture cleanup; backend cleanup UNKNOWN, not
+claimed confirmed source reap. Original failed UI/markers/receipt preserved.
+No real7200 soak started, no inferred suspend/2h/fullQA acceptance.
+
+Minimal product correction pending independent source rereview: finite operation
+read waits FIRST BYTE only until fixed BOOTTIME deadline, then bounds COMPLETE
+FRAME with existing125s budget capped by remaining absolute time. No per-byte
+reset, no indefinite partial/slowloris, EOF/malformed/cancellation/time/loss seals
+eligibility before caller diagnostics/I/O. Post-await negative transport/deadline
+fences; independent50ms BOOTTIME watcher still handles suspend and EOF; partial
+asyncio timers are NOT a real suspend acceptance claim. Legacy125s and explicit
+launch3s/cleanupACK4s contracts unchanged. No heartbeat/chat/consent/proofrefresh
+workaround or renewal. Production source not deployed. Rereview BEFORE any fresh
+idle130 activation or real7200 soak. Concrete future soak harness prepared but
+NOT RUN/accepted, no model residency/inference, source/clock pins and event-driven
+owned-unit wait; no automatic new Connect or host suspend.

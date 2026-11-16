@@ -5,6 +5,7 @@
  */
 #define main hyprneuro_ui_main
 #include "../src/hyprneuro.c"
+#include <time.h>
 #undef main
 /* Real D-Bus, only the closed private UNIT NAME differs from production.
  * Async connection has a 1000ms cancellation budget; every method retains the
@@ -82,8 +83,8 @@ int main(int argc,char **argv) {
     GOutputStream *out=g_subprocess_get_stdin_pipe(child);
     GDataInputStream *in=g_data_input_stream_new(g_subprocess_get_stdout_pipe(child));
     char *packets_path=g_build_filename(root,"gtk-packets.jsonl",NULL);FILE *packets=fopen(packets_path,"a");g_free(packets_path);g_assert_nonnull(packets);
-    gboolean connected=FALSE,submitted=FALSE,settled=FALSE,disconnected=FALSE;guint consents=0;
-    for(guint count=0;count<400 && !disconnected;count++) {
+    gboolean connected=FALSE,submitted=FALSE,settled=FALSE,disconnected=FALSE;guint consents=0;gint64 finite_deadline=0;
+    for(guint count=0;count<(g_getenv("HN_FIXTURE_SOAK")?15000:400) && !disconnected;count++) {
         gsize length=0;char *line=g_data_input_stream_read_line(in,&length,NULL,NULL);g_assert_nonnull(line);g_assert_cmpuint(length,<,PI_FRAME_MAX);
         fprintf(packets,"%s\n",line);fflush(packets);
         JsonParser *parser=json_parser_new();g_assert_true(json_parser_load_from_data(parser,line,length,NULL));g_free(line);
@@ -109,8 +110,30 @@ int main(int argc,char **argv) {
             g_assert_true(g_file_set_contents(done,"NEGATIVE lost/failed cleanup receipt retained UNKNOWN\n",-1,NULL));g_free(done);
             fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
         }
-        if((!g_strcmp0(type,"error") || (g_getenv("HN_FIXTURE_IDLE") && !g_strcmp0(type,"unavailable"))) && g_getenv("HN_FIXTURE_PROOF_DENIAL")) {
-            char *fault=g_build_filename(root,"fault-injected",NULL);g_assert_true(g_file_test(fault,G_FILE_TEST_EXISTS));g_free(fault);
+        if(g_getenv("HN_FIXTURE_IDLE_PROBE") && (!g_strcmp0(type,"error") || !g_strcmp0(type,"unavailable") || !g_strcmp0(type,"bootstrap_failure"))) {
+            struct timespec clock;g_assert_cmpint(clock_gettime(CLOCK_BOOTTIME,&clock),==,0);
+            gint64 now=(gint64)clock.tv_sec*G_GINT64_CONSTANT(1000000000)+clock.tv_nsec;
+            char *path=g_build_filename(root,"premature-control-close.json",NULL);
+            char *text=g_strdup_printf("{\"observed_ns\":%"G_GINT64_FORMAT",\"deadline_ns\":%"G_GINT64_FORMAT",\"clock_injected\":false}\n",now,finite_deadline);
+            g_assert_true(g_file_set_contents(path,text,-1,NULL));g_free(path);g_free(text);
+            g_assert_not_reached(); /* source failed real idle before explicit130s disconnect */
+        }
+        if(g_getenv("HN_FIXTURE_IDLE_PROBE") && !g_strcmp0(type,"status") && !disconnected) {
+            char *finish=g_build_filename(root,"idle-probe-finished",NULL);
+            if(g_file_test(finish,G_FILE_TEST_EXISTS))send_fixture(out,"disconnect",NULL,FALSE);
+            g_free(finish);
+        }
+        if((!g_strcmp0(type,"error") || ((g_getenv("HN_FIXTURE_IDLE") || g_getenv("HN_FIXTURE_SOAK")) && !g_strcmp0(type,"unavailable"))) && g_getenv("HN_FIXTURE_PROOF_DENIAL")) {
+            if(g_getenv("HN_FIXTURE_SOAK")) {
+                struct timespec clock;g_assert_cmpint(clock_gettime(CLOCK_BOOTTIME,&clock),==,0);
+                gint64 now=(gint64)clock.tv_sec*G_GINT64_CONSTANT(1000000000)+clock.tv_nsec;
+                g_assert_true(connected && finite_deadline>0 && now>=finite_deadline);g_assert_cmpuint(consents,==,0);
+                char *path=g_build_filename(root,"natural-expiry.json",NULL);
+                char *text=g_strdup_printf("{\"deadline_ns\":%"G_GINT64_FORMAT",\"observed_ns\":%"G_GINT64_FORMAT",\"clock_injected\":false}\n",finite_deadline,now);
+                g_assert_true(g_file_set_contents(path,text,-1,NULL));g_free(path);g_free(text);
+            } else {
+                char *fault=g_build_filename(root,"fault-injected",NULL);g_assert_true(g_file_test(fault,G_FILE_TEST_EXISTS));g_free(fault);
+            }
             g_object_unref(parser);g_output_stream_close(out,NULL,NULL);
             g_assert_true(g_subprocess_wait(child,NULL,NULL));g_assert_true(g_subprocess_get_if_exited(child));
             int status=g_subprocess_get_exit_status(child);
@@ -130,6 +153,7 @@ int main(int argc,char **argv) {
         }
         g_assert_cmpstr(type,!=,"error");g_assert_cmpstr(type,!=,"unavailable");g_assert_cmpstr(type,!=,"bootstrap_failure");
         if(!g_strcmp0(type,"bridge_ready")) {
+            if(g_getenv("HN_FIXTURE_SOAK") || g_getenv("HN_FIXTURE_IDLE_PROBE"))finite_deadline=json_node_get_int(jmember(packet,"deadline_ns"));
             char *ready=g_build_filename(root,"ui-child-host-proof.ready",NULL);g_assert_true(g_file_set_contents(ready,"NONAUTHORITATIVE fixture sequencing\n",-1,NULL));g_free(ready);
             const char *bad_root=g_getenv("HN_FIXTURE_BAD_ROOT");
             if(bad_root){send_fixture(out,"connect",bad_root,FALSE);g_object_unref(parser);continue;}
@@ -137,10 +161,15 @@ int main(int argc,char **argv) {
             while(!g_file_test(socket,G_FILE_TEST_EXISTS) && g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
             g_assert_true(g_file_test(socket,G_FILE_TEST_EXISTS));g_free(socket);
             char *owner=g_build_filename(root,"owner",NULL);send_fixture(out,"connect",owner,FALSE);g_free(owner);
-        } else if(!g_strcmp0(type,"connected")) {connected=TRUE;submitted=TRUE;send_fixture(out,"chat","SYNTHETIC_GTK_SDK_READ_FIXTURE",FALSE);}
+        } else if(!g_strcmp0(type,"connected")) {connected=TRUE;
+            if(g_getenv("HN_FIXTURE_SOAK") || g_getenv("HN_FIXTURE_IDLE_PROBE")) {
+                char *ready=g_build_filename(root,"soak-connected",NULL);
+                g_assert_true(g_file_set_contents(ready,"ONE explicit idle Connect; NO chat/inference/consent/renewal\n",-1,NULL));g_free(ready);
+            } else {submitted=TRUE;send_fixture(out,"chat","SYNTHETIC_GTK_SDK_READ_FIXTURE",FALSE);}}
         else if(!g_strcmp0(type,"host_event")) {
             JsonNode *event=jmember(packet,"event");
             if(!g_strcmp0(jstr(jmember(event,"type")),"consent")) {
+                g_assert_null(g_getenv("HN_FIXTURE_SOAK"));g_assert_null(g_getenv("HN_FIXTURE_IDLE_PROBE"));
                 const char *kind=jstr(jmember(jmember(event,"audit"),"kind"));
                 g_assert_true(!g_strcmp0(kind,"grant_create") || !g_strcmp0(kind,"read_decision"));
                 g_assert_cmpuint(++consents,<=,2);
@@ -155,7 +184,9 @@ int main(int argc,char **argv) {
         else if(!g_strcmp0(type,"disconnected")) disconnected=TRUE;
         g_object_unref(parser);while(g_main_context_iteration(NULL,FALSE));
     }
-    fclose(packets);g_assert_true(connected && submitted && settled && disconnected);g_assert_cmpuint(consents,==,2);
+    fclose(packets);
+    if(g_getenv("HN_FIXTURE_IDLE_PROBE")){g_assert_true(connected && disconnected && !submitted && !settled);g_assert_cmpuint(consents,==,0);}
+    else {g_assert_true(connected && submitted && settled && disconnected);g_assert_cmpuint(consents,==,2);}
     g_output_stream_close(out,NULL,NULL);g_assert_true(g_subprocess_wait_check(child,NULL,NULL));
     g_object_unref(in);g_object_unref(child);g_free(start);
     if(g_getenv("HN_FIXTURE_RECONNECT") && round==0) {

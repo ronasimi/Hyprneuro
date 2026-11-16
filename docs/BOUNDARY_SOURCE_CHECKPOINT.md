@@ -187,3 +187,25 @@ endpoint substitution, replay/idle/blocked-fsync intent/result, real fresh
 Connect and7200s soak have NOT passed by this increment. No host suspend; future
 clock injection cannot establish real suspend. No bundle/OPS/cutover until QA
 and independent operational review; overall NOT READY.
+
+### Completed proof negatives (test-only continuation; product source unchanged)
+
+Corrected nonce-only case19 `01M7JAQYVS5TS6QHQMQXXMVZD3` PASS13.714s:
+`sdk-5abe52b4783a4e63aa2ef8e404f5b52d`. Raw child exit1 expected UNKNOWN,
+rows[]/live0/published0/modelcalls0; failures2 expected. Original18exit1 retained.
+
+Batch20 `01M7JAX25VMZ4J0V679MF7YXS1` PASS4cases53.710s, actual policy-enabled
+production helper/GTK/fixed child/Node SDK, post-await before authority action:
+- wrong generation: `sdk-7b368207addd442383de8710d98f37eb`;
+- stale sequence: `sdk-b08a76d5361446ae9e716f9594d58b63`;
+- actual same-proof double use: `sdk-52a5cb544f5a48eaa5b5b61d1be3f08f` (real gate
+  accepts once in private fault hook; ordinary caller second acceptance seals
+  and denies before core decision/publication; first acceptance is NOT consent);
+- broker-envelope invocation binding mismatch:
+  `sdk-b628b2550b354983b6f241e84bbcc8be`.
+
+Every case requires injected-fault marker, exact normal child exit1, no rows,
+no live registrations/published grants/model calls and UNKNOWN consumed cell.
+All units reaped; failed original states/roots remain preserved. This last case
+is envelope peer binding, NOT physical socket/FD substitution. No host suspend,
+clockjump/real7200soak or remaining role/persistence/reconnect acceptance inferred.

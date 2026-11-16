@@ -64,7 +64,7 @@ def install_broker(root,case,helper):
             return await original_send(writer,value)
         trusted_control.send_frame=send
 
-    if case in {'proof-nonce','proof-generation','proof-duplicate'}:
+    if case in {'proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding'}:
         original_validate=identity_transport.ObserverClient._validate_snapshot
         injected=False
         def validate(client,packet,operation,expected):
@@ -76,7 +76,14 @@ def install_broker(root,case,helper):
                 injected=True
                 if case=='proof-nonce':packet['nonce']='0'*64 if packet['nonce']!='0'*64 else '1'*64
                 elif case=='proof-generation':packet['generation']='0'*32 if packet['generation']!='0'*32 else '1'*32
-                else:packet['seq']-=1
+                elif case=='proof-duplicate':packet['seq']-=1
+                elif case=='proof-peer-binding':
+                    packet['broker']=dict(packet['broker'],invocation='0'*32 if packet['broker']['invocation']!='0'*32 else '1'*32)
+                else:
+                    # Consume the ACTUAL helper proof once on the real gate;
+                    # the caller's ordinary second acceptance MUST seal/deny.
+                    client.gate._accept_checked_snapshot(packet)
+                    (root/'proof-first-accept').write_text('oneuse consumed; NOT consent')
                 (root/'fault-injected').write_text(case)
             return original_validate(client,packet,operation,expected)
         identity_transport.ObserverClient._validate_snapshot=validate

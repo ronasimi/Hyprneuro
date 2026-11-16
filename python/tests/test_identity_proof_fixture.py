@@ -23,3 +23,13 @@ class ProofPerturbationTests(unittest.TestCase):
                     packet2=dict(nonce='c'*64,generation='d'*32,seq=8);expected=dict(packet2)
                     identity_transport.ObserverClient._validate_snapshot(Mock(),packet2,'decision',{})
                     self.assertEqual(packet2,expected)
+
+    def test_true_reuse_consumes_real_gate_interface_not_just_sequence_mutation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);client=Mock();packet=dict(nonce='a'*64,generation='b'*32,seq=7)
+            with patch.object(identity_transport.ObserverClient,'_validate_snapshot',Mock()),patch.object(identity_transport,'_metadata',AsyncMock()),patch.object(asyncio,'sleep',asyncio.sleep):
+                install_broker(root,'proof-reuse','hyprneuro-test-boundary-fixture-helper.service')
+                identity_transport.ObserverClient._validate_snapshot(client,packet,'decision',{})
+                client.gate._accept_checked_snapshot.assert_called_once_with(packet)
+                self.assertEqual(packet['seq'],7)
+                self.assertTrue((root/'proof-first-accept').exists())

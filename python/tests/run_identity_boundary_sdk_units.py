@@ -6,7 +6,7 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
 case=os.environ.get('HN_BOUNDARY_CASE','positive')
-if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate'}:raise ValueError('Closed fixture case required')
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding'}:raise ValueError('Closed fixture case required')
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -131,6 +131,7 @@ try:
  if case.startswith('proof-'):
   assert (R/'fault-injected').read_text()==case
   assert (R/'negative-child-exit').read_text()=='1\n'
+  if case=='proof-reuse':assert (R/'proof-first-accept').exists()
   assert result['rows']==[] and result['live_registrations']==0 and result['published']==0 and result['failures']>0,result
   assert model_calls==[],model_calls
  elif case=='wrong-root':

@@ -159,3 +159,31 @@ an identity denial. All human packets are SYNTHETIC, SSE localFAKE; no productio
 SQL/unit/model/config/start changes. Root-alias/replay/descriptor substitution/
 mode tests are component negatives, not separate actual SDK profile acceptance.
 Full negative/idle/suspend/7200s/GUI/human/production blocks above remain.
+
+## Remaining QA: first post-await proof batch (NOT COMPLETE)
+
+Source00d87967 independently approved boundary-source@3. Product code unchanged
+by this QA increment. Actual production-helper decision envelope is validated,
+then private instrumentation changes its nonce/generation/sequence IN PLACE
+before gate acceptance; this is explicit transport-fault injection, not fake
+role metadata or synthetic identity evidence. Offline instrumentation sanity
+checks preserve delegation and prove mutation occurs once on the received object.
+
+Original batch18 `01M7JAFF9NW2HCVP032MQZT3ZK` STOPPED at proof-nonce, exit1;
+generation and duplicate cases NOT RUN. Evidence `sdk-7d8a7ef9ff824756a7008bdf02eaf59f`:
+fault marker present, consent refused, fake model calls0, read-only PRIVATE DB
+forensics finds authorization rows[]. Runtime registry counts were not captured
+and are NOT inferred. All units PID0/jobs/cgroups empty, failed UI retained.
+The negative fixture erroneously required child exit0 on fail-closed teardown;
+its wait_check assertion aborted. It now records raw child status and requires
+normal EXIT1 (never signal/arbitrary nonzero/clean receipt) for this fault.
+Original result/evidence unchanged. No production-source relaxation.
+
+GTK5/5 and6 offline fixture/oracle/diagnostic tests pass. Fresh bounded nonce-only
+case19 `01M7JAQYVS5TS6QHQMQXXMVZD3` pending with the corrected exit oracle;
+not counted PASS until completion. All packets remain synthetic human fixtures,
+model endpoints localFAKE only. The remaining requested role loss/replacement,
+endpoint substitution, replay/idle/blocked-fsync intent/result, real fresh
+Connect and7200s soak have NOT passed by this increment. No host suspend; future
+clock injection cannot establish real suspend. No bundle/OPS/cutover until QA
+and independent operational review; overall NOT READY.

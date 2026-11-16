@@ -64,4 +64,21 @@ def install_broker(root,case,helper):
             return await original_send(writer,value)
         trusted_control.send_frame=send
 
+    if case in {'proof-nonce','proof-generation','proof-duplicate'}:
+        original_validate=identity_transport.ObserverClient._validate_snapshot
+        injected=False
+        def validate(client,packet,operation,expected):
+            nonlocal injected
+            # First authenticate the REAL production-helper cohort. Perturb
+            # only the final received envelope, before gate acceptance/core I/O.
+            original_validate(client,packet,operation,expected)
+            if operation=='decision' and not injected:
+                injected=True
+                if case=='proof-nonce':packet['nonce']='0'*64 if packet['nonce']!='0'*64 else '1'*64
+                elif case=='proof-generation':packet['generation']='0'*32 if packet['generation']!='0'*32 else '1'*32
+                else:packet['seq']-=1
+                (root/'fault-injected').write_text(case)
+            return original_validate(client,packet,operation,expected)
+        identity_transport.ObserverClient._validate_snapshot=validate
+
     return lambda core:state.update(core=core)

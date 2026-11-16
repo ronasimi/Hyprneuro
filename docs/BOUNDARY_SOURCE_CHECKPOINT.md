@@ -302,3 +302,25 @@ This is intentionally before helper/SDK startup, not an SDK-canary acceptance.
 Original socket/failure markers retained, only owned rogue FD closed. GTK5/5
 PASS. No production source/unit/property change or hostile FD-transfer claim.
 Post-await descriptor replacement/loss and role replacement still pending.
+
+### Descriptor post-await QA: original26 FAIL, corrected oracle pending27
+
+Original `01M7JCVWYSDFQ71KRZ408G5NWS` exit1 retained,
+`sdk-188130937d1942c087b2ee12b3d540a6`. Same-byte descriptor replacement after
+actual owner nonce await was refused BEFORE CONTROL-MAC; no FORBIDDEN-mac,
+rows[]/live0/published0/modelcalls0. Child NORMAL EXIT0, broker cleanup-confirmed
+FALSE/failures1: correct backend UNKNOWN, NOT a cleanup receipt. Test incorrectly
+asserted exit0 implies confirmed cleanup; this was an oracle defect, not evidence
+of a product authority bypass. Loss case NOT RUN. No source-boundary correction.
+
+Oracle now treats child status and backend receipt independently: normal0/1
+permitted but actual UNKNOWN retained, no signal/other status/clean relabel.
+Additional deliberate fresh Connect must be rejected BEFORE ObserverClient.start
+(count remains1), even after exit0. Saved original result passes UNKNOWN-only
+classification offline; original activation is NOT relabelled PASS.41 focused
+fixture/oracle/session tests PASS0.339s; GTK5/5 after fixture rebuild. New unique
+case27 `01M7JD0V2E01EE6GFD6K67SR2G` pending replace+loss, stop first failure.
+Only private owned config file is replaced/lost (not consent/replay marker),
+original bytes archived; no keys/nonces logged. Production source unchanged.
+Physical role replacement and actual7200-second soak still pending, no suspend,
+human acceptance, packaging or production action implied.

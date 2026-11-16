@@ -23,6 +23,9 @@ async def wait_release(root,name):
 
 def install_bridge(root,case):
     if case=='wrong-root':return install_negative(root)
+    if case.startswith('descriptor-'):
+        from identity_descriptor_fixture import install
+        return install(root,case)
     if case!='delayed-cleanup':return
     root=Path(root)
     from hyprneuro.pi_owner_client import PiOwnerClient
@@ -106,6 +109,15 @@ def install_broker(root,case,helper):
     if case.startswith('persistence-'):
         from identity_persistence_fixture import install
         install(root,case,state)
+
+    if case.startswith('descriptor-'):
+        original_start=identity_transport.ObserverClient.start
+        attempts=0
+        async def start(client):
+            nonlocal attempts
+            attempts+=1;(root/'observer-start-attempts').write_text(str(attempts))
+            return await original_start(client)
+        identity_transport.ObserverClient.start=start
 
     if case=='endpoint-substitution':
         original_contract=identity_transport._socket_contract

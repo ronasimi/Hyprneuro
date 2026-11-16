@@ -109,9 +109,16 @@ int main(int argc,char **argv) {
             int status=g_subprocess_get_exit_status(child);
             char *exit_path=g_build_filename(root,"negative-child-exit",NULL),*exit_text=g_strdup_printf("%d\n",status);
             g_assert_true(g_file_set_contents(exit_path,exit_text,-1,NULL));g_free(exit_path);g_free(exit_text);
-            g_assert_cmpint(status,==,1); /* fail-closed teardown, NEVER a clean receipt */
+            if(g_getenv("HN_FIXTURE_DESCRIPTOR_DENIAL")) {
+                g_assert_true(status==0 || status==1); /* exit0 is NOT a backend receipt */
+                const char *retry_stage=NULL,*retry_category=NULL;char *retry_start=NULL;
+                GSubprocess *retry=pi_fixed_bridge(&retry_stage,&retry_category,&retry_start);
+                g_assert_null(retry);g_assert_null(retry_start);
+                char *denied=g_build_filename(root,"reconnect-denied",NULL);
+                g_assert_true(g_file_set_contents(denied,"UNKNOWN backend denies fresh Connect even after child exit0\n",-1,NULL));g_free(denied);
+            } else g_assert_cmpint(status,==,1); /* exact expected UNKNOWN teardown */
             char *done=g_build_filename(root,"gtk-sdk-complete",NULL);
-            g_assert_true(g_file_set_contents(done,"NEGATIVE actual boundary denied; child exit1/UNKNOWN\n",-1,NULL));g_free(done);
+            g_assert_true(g_file_set_contents(done,g_getenv("HN_FIXTURE_DESCRIPTOR_DENIAL")?"NEGATIVE descriptor refused; exact child status recorded, cleanup classified by broker\n":"NEGATIVE actual boundary denied; child exit1/UNKNOWN\n",-1,NULL));g_free(done);
             fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
         }
         g_assert_cmpstr(type,!=,"error");g_assert_cmpstr(type,!=,"unavailable");g_assert_cmpstr(type,!=,"bootstrap_failure");

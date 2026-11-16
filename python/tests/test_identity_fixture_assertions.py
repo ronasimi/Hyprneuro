@@ -29,3 +29,14 @@ class CleanupOracleTests(unittest.TestCase):
         require_revoked_rows(result['rows'],self.root)
         self.assertEqual(result,before)
         with self.assertRaises(AssertionError):require_clean_result(result,self.root)
+
+
+    def test_clean_child_exit_is_not_a_backend_cleanup_receipt(self):
+        from identity_fixture_assertions import require_unknown_channel
+        result=copy.deepcopy(self.result);result.update(observer_cleanup_confirmed=False,failures=1)
+        for status in (0,1):require_unknown_channel(result,status)
+        for status in (-9,2,True):
+            with self.subTest(status=status),self.assertRaises(AssertionError):require_unknown_channel(result,status)
+        for field,value in [('observer_cleanup_confirmed',True),('live_registrations',1),('published',1),('failures',0)]:
+            changed=dict(result,**{field:value})
+            with self.subTest(field=field),self.assertRaises(AssertionError):require_unknown_channel(changed,0)

@@ -12,6 +12,7 @@ import os
 import pathlib
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT=pathlib.Path(__file__).resolve().parents[2]
@@ -148,6 +149,82 @@ class BrokerListenerGate(unittest.TestCase):
         third=ops.broker_listener_snapshot(self.path,repl.pid)
         self.assertIsNotNone(third)
         self.assertNotEqual(first['kernel_socket_inode'],third['kernel_socket_inode'])
+
+class WatchDecision(unittest.TestCase):
+    """Exercises the ACTUAL watch-cycle decision logic (receipt vs live on ALL four
+    origin fields, None/dead, screen lock, transient window) - not a standalone
+    identity helper. No manager, model, SQL, or UI start.
+    """
+    def _receipt(self,**over):
+        r=dict(schema='hyprneuro.boundary-start-receipt/1',operation_sha256='L',generation='G',
+            broker=dict(pid=100,start='s1',invocation='i1',cgroup='user@100.service'),
+            ui=dict(pid=200,start='s2',invocation='i2',cgroup='user@200.service'))
+        r.update(over);return r
+    def _live(self,r,**over):
+        live={b.APP_UNITS[0]:dict(r['broker']),b.APP_UNITS[1]:dict(r['ui'])}
+        for k,v in over.items():live[k]=v
+        return live
+    def test_prestart_stopped_allowed(self):
+        self.assertEqual(ops.watch_decision(None,{},'UNLOCKED',False,False,None,1000.0),'continue')
+    def test_poststart_stable_continue(self):
+        r=self._receipt();self.assertEqual(ops.watch_decision(r,self._live(r),'UNLOCKED',True,True,1000.0,1001.0),'continue')
+    def test_poststart_broker_dead_none_contain(self):
+        r=self._receipt();live=self._live(r);live[b.APP_UNITS[0]]=None
+        with self.assertRaises(ValueError):ops.watch_decision(r,live,'UNLOCKED',True,True,1000.0,1001.0)
+    def test_poststart_ui_dead_none_contain(self):
+        r=self._receipt();live=self._live(r);live[b.APP_UNITS[1]]=None
+        with self.assertRaises(ValueError):ops.watch_decision(r,live,'UNLOCKED',True,True,1000.0,1001.0)
+    def test_poststart_pid_drift_contain(self):
+        r=self._receipt();live=self._live(r);live[b.APP_UNITS[0]]['pid']=999
+        with self.assertRaises(ValueError):ops.watch_decision(r,live,'UNLOCKED',True,True,1000.0,1001.0)
+    def test_poststart_start_time_drift_contain(self):
+        r=self._receipt();live=self._live(r);live[b.APP_UNITS[1]]['start']='NEW'
+        with self.assertRaises(ValueError):ops.watch_decision(r,live,'UNLOCKED',True,True,1000.0,1001.0)
+    def test_poststart_invocation_drift_contain(self):
+        r=self._receipt();live=self._live(r);live[b.APP_UNITS[0]]['invocation']='CHANGED'
+        with self.assertRaises(ValueError):ops.watch_decision(r,live,'UNLOCKED',True,True,1000.0,1001.0)
+    def test_poststart_cgroup_drift_contain(self):
+        r=self._receipt();live=self._live(r);live[b.APP_UNITS[1]]['cgroup']='OTHER'
+        with self.assertRaises(ValueError):ops.watch_decision(r,live,'UNLOCKED',True,True,1000.0,1001.0)
+    def test_lock_appears_prestart_contain(self):
+        with self.assertRaises(ValueError):ops.watch_decision(None,{},'LOCKED',False,False,None,1000.0)
+    def test_lock_appears_poststart_contain(self):
+        r=self._receipt()
+        with self.assertRaises(ValueError):ops.watch_decision(r,self._live(r),'LOCKED',True,True,1000.0,1001.0)
+    def test_transient_start_window_exceeded_contain(self):
+        with self.assertRaises(ValueError):ops.watch_decision(None,{},'UNLOCKED',True,False,1000.0,1000.0+201.0)
+    def test_transient_start_within_budget_continue(self):
+        self.assertEqual(ops.watch_decision(None,{},'UNLOCKED',True,False,1000.0,1000.0+10.0),'continue')
+    def test_completed_without_valid_receipt_contain(self):
+        with self.assertRaises(ValueError):ops.watch_decision(None,{},'UNLOCKED',True,True,1000.0,1001.0)
+
+class StartReceiptValidation(unittest.TestCase):
+    def _receipt(self,**over):
+        r=dict(schema='hyprneuro.boundary-start-receipt/1',operation_sha256='L',generation='G',
+            broker=dict(pid=100,start='s1',invocation='i1',cgroup='user@100.service'),
+            ui=dict(pid=200,start='s2',invocation='i2',cgroup='user@200.service'))
+        r.update(over);return r
+    def test_valid(self):
+        self.assertEqual(ops.validate_start_receipt(self._receipt(),'L','G')['broker']['pid'],100)
+    def test_wrong_operation_denied(self):
+        with self.assertRaises(ValueError):ops.validate_start_receipt(self._receipt(operation_sha256='OTHER'),'L','G')
+    def test_wrong_generation_denied(self):
+        with self.assertRaises(ValueError):ops.validate_start_receipt(self._receipt(generation='OTHER'),'L','G')
+    def test_partial_field_denied(self):
+        r=self._receipt();del r['ui']['cgroup']
+        with self.assertRaises(ValueError):ops.validate_start_receipt(r,'L','G')
+    def test_wrong_type_denied(self):
+        r=self._receipt();r['broker']['pid']='100'
+        with self.assertRaises(ValueError):ops.validate_start_receipt(r,'L','G')
+
+class ScreenLockGate(unittest.TestCase):
+    def test_running_hyprlock_contain(self):
+        # A process named hyprlock (fake, private) -> RUNNING -> fail closed.
+        tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
+        fake=pathlib.Path(tmp.name)/'hyprlock';fake.write_text('#!/bin/sh\nsleep 20\n');fake.chmod(0o755)
+        proc=__import__('subprocess').Popen([str(fake)])
+        self.addCleanup(lambda:(proc.terminate(),proc.wait(timeout=5)) if proc.poll() is None else None)
+        with self.assertRaises(ValueError):ops.screen_lock_state(time.monotonic()+10)
 
 class PhaseOrder(unittest.TestCase):
     def test_runbook_splits_install_provision_vs_start_with_watcher_outside(self):

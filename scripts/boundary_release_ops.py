@@ -202,8 +202,10 @@ def recheck_broker_listener(unit,proof,deadline):
     if broker_identity(unit,deadline)!=proof['identity'] or broker_listener_snapshot(Path(proof['path']),proof['identity']['pid'])!=proof['snapshot'] or broker_identity(unit,deadline)!=proof['identity']:
         raise ValueError('Broker listener changed before UI start')
 
-def app_identity(unit,deadline):
-    """Running app identity or None when verifiably stopped; raises on death/UNKNOWN."""
+def full_identity(unit,deadline):
+    """Full running identity {pid,start,invocation,cgroup} or None when verifiably
+    stopped; raises on death/UNKNOWN. ALL four origin fields are required for the
+    post-completion receipt comparison (never PID/start alone)."""
     value=b.show(unit,('MainPID','ActiveState','SubState','Job','ControlGroup','NeedDaemonReload','InvocationID'),deadline)
     if value['Job'] or value['NeedDaemonReload']!='no':raise ValueError('App job/reload UNKNOWN')
     pid=int(value['MainPID'])
@@ -214,16 +216,78 @@ def app_identity(unit,deadline):
     if proc.stat().st_uid!=os.getuid():raise ValueError('App PID UID UNKNOWN')
     start=proc.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19]
     if proc.joinpath('cgroup').read_text().strip()!='0::'+value['ControlGroup']:raise ValueError('App cgroup ownership UNKNOWN')
-    return dict(pid=pid,start=start,invocation=value['InvocationID'])
+    return dict(pid=pid,start=start,invocation=value['InvocationID'],cgroup=value['ControlGroup'])
 
 def wait_app_active(unit,deadline):
     end=min(deadline,time.monotonic()+5)
     while time.monotonic()<end:
-        value=app_identity(unit,deadline)
+        value=full_identity(unit,deadline)
         if value is not None:return value
         if time.monotonic()>=end:break
         time.sleep(.1)
     raise TimeoutError('App not active after start')
+
+def screen_lock_state(deadline):
+    """Bounded fresh own-session logind + independent hyprlock classification.
+    Only ABSENT (unlocked) is allowed. RUNNING (pgrep exit 0) or ambiguous
+    (exit other than 0/1) fail closed to containment. No screen bypass."""
+    r=b.command(['/usr/bin/pgrep','-x','hyprlock'],deadline,check=False)
+    if r.returncode==0:raise ValueError('Screen locker hyprlock RUNNING; screen locked -> containment')
+    if r.returncode!=1:raise ValueError('Screen locker observation ambiguous (pgrep non-0/1) -> fail closed')
+    s=b.command(['/usr/bin/loginctl','--no-legend','list-sessions'],deadline,check=False)
+    if s.returncode!=0:raise ValueError('logind session observation UNKNOWN -> containment')
+    own=str(os.getuid())
+    active=False
+    for line in s.stdout.splitlines():
+        cols=line.split()
+        if len(cols)>=4 and cols[1]==own and cols[3] in ('online','active'):
+            if len(cols)>=7 and cols[6] in ('yes','1'):
+                raise ValueError('logind session locked -> containment')
+            active=True
+    if not active:raise ValueError('Own logind session not active -> containment')
+    return 'UNLOCKED'
+
+def validate_start_receipt(receipt,literal,generation):
+    """Pure structural validation of the pinned start.completed receipt: exact
+    schema, OP/generation binding, both roles present, and all four origin fields
+    with exact types. Raises on any deviation (wrong op/partial/invalid)."""
+    if not isinstance(receipt,dict) or receipt.get('schema')!='hyprneuro.boundary-start-receipt/1':raise ValueError('Start receipt schema invalid')
+    if receipt.get('operation_sha256')!=literal:raise ValueError('Start receipt bound to wrong operation')
+    if receipt.get('generation')!=generation:raise ValueError('Start receipt bound to wrong generation')
+    for role in ('broker','ui'):
+        rec=receipt.get(role)
+        if not isinstance(rec,dict):raise ValueError('Start receipt missing role '+role)
+        if set(rec)!={'pid','start','invocation','cgroup'}:raise ValueError('Start receipt incomplete role fields '+role)
+        if not isinstance(rec['pid'],int) or not isinstance(rec['start'],str) or not isinstance(rec['invocation'],str) or not isinstance(rec['cgroup'],str):
+            raise ValueError('Start receipt field type invalid '+role)
+    return receipt
+
+def watch_decision(receipt,live,lock,started,completed,transient_started_at,now,transient_budget=200):
+    """Core watch-cycle decision (the actual logic, isolated for testing). Returns
+    'continue' or raises (-> bounded containment immediately).
+      lock: 'UNLOCKED' allowed; any other value -> raise (contain).
+      receipt: op/generation-bound validated start.completed dict, or None pre-completion.
+      live: {unit: full_identity record or None} observed this cycle.
+      started/completed: start.started / start.completed marker presence.
+      transient_started_at: monotonic when start.started first observed (or None).
+    Post-completion: compare the PINNED receipt to LIVE on ALL four origin fields
+    (pid/start/invocation/cgroup); None (clean dead) OR any drift -> contain.
+    Pre-completion: STOPPED/transient allowed, but a start that began and never
+    completed within the bounded transient window is failed (do not wait the full
+    deadline). Never keys off the transient start.started marker for identity."""
+    if lock!='UNLOCKED':raise ValueError('Screen lock state not unlocked -> containment')
+    if completed:
+        if receipt is None:raise ValueError('start.completed present but receipt invalid -> containment')
+        for role in ('broker','ui'):
+            unit=b.APP_UNITS[0] if role=='broker' else b.APP_UNITS[1]
+            live_rec=live.get(unit)
+            if live_rec is None:raise ValueError('Role '+role+' verifiably dead post-completion -> containment')
+            for field in ('pid','start','invocation','cgroup'):
+                if live_rec.get(field)!=receipt[role].get(field):raise ValueError('Role '+role+' field '+field+' drift post-completion -> containment')
+        return 'continue'
+    if started and transient_started_at is not None and (now-transient_started_at)>transient_budget:
+        raise ValueError('Start began but never completed within bounded transient window -> containment')
+    return 'continue'
 
 def contain(op):
     """Independent app-stop/reap budgets, not an exhausted operation deadline."""
@@ -290,24 +354,37 @@ def run(op,literal,phase,deadline):
         proof=wait_broker_listener(b.APP_UNITS[0],path,deadline)
         recheck_broker_listener(b.APP_UNITS[0],proof,deadline)  # immediately before UI start
         b.command(['/usr/bin/systemctl','--user','start',b.APP_UNITS[1]],deadline)
-        # start.completed pins the identity receipt state at completion, not a bare marker.
-        b.write_new(directory/'start.completed',b.encoded(dict(literal=literal,broker=proof['identity'],ui=wait_app_active(b.APP_UNITS[1],deadline))))
+        # start.completed pins the op/generation-bound FULL identity receipt (all four
+        # origin fields for BOTH roles); the watcher compares it to LIVE each cycle.
+        broker_full=full_identity(b.APP_UNITS[0],deadline)
+        ui_full=wait_app_active(b.APP_UNITS[1],deadline)
+        if broker_full is None:raise ValueError('Broker not verifiably active at start completion')
+        b.write_new(directory/'start.completed',b.encoded(dict(schema='hyprneuro.boundary-start-receipt/1',operation_sha256=literal,generation=op['generation'],broker=broker_full,ui=ui_full)))
     elif phase=='watch':
-        # BEFORE start the reviewed STOPPED baseline is the expected state: allow it,
-        # never fail prematurely. The watcher runs OUTSIDE (concurrent, same guarded
+        # BEFORE any start: the reviewed STOPPED baseline is the expected state (allow,
+        # never fail prematurely). The watcher runs OUTSIDE (concurrent, same guarded
         # lease); it writes watch.ready so the start phase can proceed, then monitors.
+        # Screen lock is checked fresh BEFORE the first replacement/start and every cycle.
         check_material(op,True);preserve(op,deadline)
         for unit in b.APP_UNITS:b.stopped(unit,deadline)
+        screen_lock_state(deadline)
         proc=Path('/proc/self');b.write_new(directory/'watch.ready',b.encoded(dict(operation_sha256=literal,pid=os.getpid(),start=proc.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19])))
+        transient_started_at=None
         while time.monotonic()<deadline:
             check_material(op,True);preserve(op,deadline,full=False)
             for unit in b.APP_UNITS:
                 if b.show(unit,('Restart',),deadline)['Restart']!='no':return contain(op) # policy changed -> bounded containment now
-            if (directory/'start.started').exists():
-                # AFTER start: broker/UI must stay running with stable identity/origin
-                # PID/start/cgroup. app_identity raises on death/UNKNOWN -> the outer
-                # handler invokes bounded containment IMMEDIATELY, not at the deadline.
-                for unit in b.APP_UNITS:app_identity(unit,deadline)
+            lock=screen_lock_state(deadline)
+            started=(directory/'start.started').exists();completed=(directory/'start.completed').exists()
+            if started and transient_started_at is None:transient_started_at=time.monotonic()
+            live={};receipt=None
+            if completed:
+                receipt=validate_start_receipt(json.loads(b.file_bytes(directory/'start.completed')),literal,op['generation'])
+                for unit in b.APP_UNITS:live[unit]=full_identity(unit,deadline)
+            # Pinned-receipt decision: post-completion compares ALL four origin fields
+            # to LIVE (None/dead OR drift -> raise -> immediate containment); pre-start
+            # STOPPED/transient allowed; never keyed off the transient start.started.
+            watch_decision(receipt,live,lock,started,completed,transient_started_at,time.monotonic())
             time.sleep(min(1,max(0,deadline-time.monotonic())))
         return contain(op) # bounded window closes; never leave a keepalive job
     else:raise ValueError('Closed phase required')

@@ -121,8 +121,8 @@ class BrokerListenerGate(unittest.TestCase):
         self.assertIsNotNone(snap)
         self.assertEqual(snap['filesystem_inode'],self.path.lstat().st_ino)
         self.assertEqual(snap['filesystem_device'],self.path.lstat().st_dev)
-        owned={os.readlink(f) for f in (pathlib.Path('/proc')/str(self.child.pid)/'fd').iterdir() if f.name!='.'} 
-        owned={t[8:-1] for t in owned if t.startswith('socket:[') and t.endswith(']')}
+        raw={os.readlink(f) for f in (pathlib.Path('/proc')/str(self.child.pid)/'fd').iterdir() if f.name!='.'}
+        owned={t[8:-1] for t in raw if t.startswith('socket:[') and t.endswith(']')}
         self.assertIn(snap['kernel_socket_inode'],owned)
     def test_wrong_mode_refused(self):
         self.path.chmod(0o644)

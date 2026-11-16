@@ -14,6 +14,7 @@ from types import MappingProxyType
 
 from .identity_bootstrap import MANIFEST_SCHEMA, VerifiedBootstrap, _json, _path, _digest, read_unit_environment
 from .identity_session import REQUIRED_ROLES
+from .identity_unit_path import UnitPathBinding, SCHEMA as UNIT_PATH_SCHEMA
 from .pi_owner_service import load_config
 
 MAX_CODE_BYTES = 128 * 1024 * 1024
@@ -129,7 +130,7 @@ class UnitContract:
     property_hashes: object
 
     @classmethod
-    def load(cls, value, catalog, *, socket_unit=False):
+    def load(cls, value, catalog, *, socket_unit=False, bindings=None):
         if not isinstance(value, dict) or set(value) != {'name', 'fragments', 'argv', 'property_hashes'}:
             raise PermissionError('Exact reviewed unit contract required')
         name = value['name']
@@ -139,7 +140,7 @@ class UnitContract:
             raise PermissionError('Invalid closed unit name')
         files = value['fragments']
         if (not isinstance(files, list) or not 1 <= len(files) <= 16 or len(set(files)) != len(files)
-                or any(path not in catalog for path in files)):
+                or any((path not in catalog if bindings is None else path not in bindings) for path in files)):
             raise PermissionError('Exact catalogued fragment and drop-ins required')
         argv = value['argv']
         if not isinstance(argv, list) or len(argv) > 32 or bool(argv) == socket_unit:
@@ -160,8 +161,10 @@ class ObserverPolicy:
             raise PermissionError('Reviewed bootstrap observation required')
         bootstrap.revalidate()
         value = _json(bootstrap.manifest_bytes)
-        if (set(value) != {'schema', 'files', 'launch', 'owner_root', 'units', 'host_user_namespace', 'endpoint', 'node'}
-                or value['schema'] != MANIFEST_SCHEMA):
+        keys={'schema', 'files', 'launch', 'owner_root', 'units', 'host_user_namespace', 'endpoint', 'node'}
+        has_bindings=value.get('schema')==UNIT_PATH_SCHEMA
+        if has_bindings:keys.add('unit_path_bindings')
+        if set(value)!=keys or value.get('schema') not in {MANIFEST_SCHEMA,UNIT_PATH_SCHEMA}:
             raise PermissionError('Exact closed observer manifest required')
         from .trusted_control import LaunchPolicy
         launch = value['launch']
@@ -203,7 +206,25 @@ class ObserverPolicy:
         units = value['units']
         if not isinstance(units, dict) or set(units) != {'ui', 'broker', 'helper', 'socket', 'owner'}:
             raise PermissionError('Closed unit role table required')
-        self.units = MappingProxyType({role: UnitContract.load(spec, self.catalog, socket_unit=role == 'socket')
+        self.unit_path_bindings={}
+        if has_bindings:
+            table=value['unit_path_bindings']
+            if not isinstance(table,dict) or set(table)!=set(units):raise PermissionError('Exact role binding table required')
+            objects=set()
+            for role,spec in units.items():
+                entries=table[role]
+                if not isinstance(entries,list) or not entries or len(entries)>16:raise PermissionError('Exact ordered bindings required')
+                loaded=[UnitPathBinding.load(entry,spec['name'],self.catalog) for entry in entries]
+                if [b.logical for b in loaded]!=spec['fragments']:raise PermissionError('Unit binding order/spelling mismatch')
+                for binding in loaded:
+                    if binding.logical in self.unit_path_bindings or binding.canonical in {b.canonical for b in self.unit_path_bindings.values()}:
+                        raise PermissionError('Duplicate unit binding target')
+                    target=__import__('json').loads(binding.target_bytes);object_id=(target['dev'],target['inode'])
+                    if object_id in objects:raise PermissionError('Aliased unit binding object')
+                    objects.add(object_id);self.unit_path_bindings[binding.logical]=binding
+        self.unit_path_bindings=MappingProxyType(self.unit_path_bindings)
+        self.units = MappingProxyType({role: UnitContract.load(spec, self.catalog, socket_unit=role == 'socket',
+                                       bindings=self.unit_path_bindings if has_bindings else None)
                                        for role, spec in units.items()})
         if len({spec.name for spec in self.units.values()}) != 5:
             raise PermissionError('Duplicate unit roles')
@@ -219,7 +240,7 @@ class ObserverPolicy:
         if any(self.units['helper'].property_hashes[key] != digest(value.encode()) for key, value in helper_values.items()):
             raise PermissionError('Unsupported observer namespace/privilege profile')
         required += [Path(__file__).with_name(name) for name in
-                     ['identity_root.py','identity_credentials.py','identity_entry.py','identity_guard.py','sidecar.py']]
+                     ['identity_root.py','identity_credentials.py','identity_entry.py','identity_guard.py','identity_unit_path.py','sidecar.py']]
         required += [self.launch.python.resolve(), self.launch.entry, Path(config['node']).resolve(),
                     self.host_entry, self.owner_root/'owner.json', Path(__file__).resolve(),
                     Path(self.units['ui'].argv[0]).resolve()]
@@ -232,12 +253,19 @@ class ObserverPolicy:
         self._parents = None
         self.check_files()
 
+    def check_unit_paths(self):
+        for binding in self.unit_path_bindings.values():binding.check()
+
     def check_files(self):
+        self.check_unit_paths()
         if getattr(self, '_launch_root', None) is not None:
             self._launch_root.revalidate()
         self.bootstrap.revalidate()
-        current = {path: read_catalog_file(path, sha, node=self.node if path == self.node['path'] else None,
-                                          pending=self.node_pending) for path, sha in self.catalog.items()}
+        by_target={b.canonical:b for b in self.unit_path_bindings.values()}
+        current = {path: (by_target[path].read(sha) if path in by_target else
+                         read_catalog_file(path, sha, node=self.node if path == self.node['path'] else None,
+                                           pending=self.node_pending)) for path, sha in self.catalog.items()}
+        self.check_unit_paths()
         if sum(identity[2] for identity in current.values()) > MAX_CATALOG_BYTES:
             raise PermissionError('Reviewed catalog exceeds total bound')
         if self._files is not None and current != self._files:
@@ -260,6 +288,7 @@ class ObserverPolicy:
         Full same-FD digest checks occur on every requested combined snapshot.
         Between them, ANY cold-file identity/ctime/mode or root change denies.
         """
+        self.check_unit_paths()
         if getattr(self, '_launch_root', None) is not None:
             self._launch_root.revalidate()
         self.bootstrap.revalidate()
@@ -275,6 +304,7 @@ class ObserverPolicy:
             current = (s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns,s.st_uid,s.st_gid,s.st_mode,s.st_nlink)
             if current != expected:
                 raise PermissionError('Cold code/config changed after snapshot')
+        self.check_unit_paths()
 
     def check_namespace(self):
         if os.readlink('/proc/self/ns/user') != self.host_namespace:
@@ -285,6 +315,7 @@ async def read_service(policy, role, *, live=True):
     """Exact manager unit lookup; not a caller-selected unit/PID API."""
     from .trusted_control import metadata
     spec = policy.units[role]
+    policy.check_unit_paths()
     if role == 'owner':
         instance = await metadata('/usr/bin/systemd-escape', '--path', str(policy.owner_root))
         if (not re.fullmatch(r'[A-Za-z0-9_.\\-]+', instance)
@@ -313,6 +344,7 @@ async def read_service(policy, role, *, live=True):
         raise PermissionError('Wrong service PID')
     if not re.fullmatch('[0-9a-f]{32}', value['InvocationID']) and (live or value['InvocationID']):
         raise PermissionError('Wrong service invocation')
+    policy.check_unit_paths()
     fragments = (value['FragmentPath'], *value['DropInPaths'].split())
     if fragments != spec.fragments:
         raise PermissionError('Wrong exact unit fragment/drop-ins')
@@ -333,7 +365,7 @@ async def read_service(policy, role, *, live=True):
         policy._launch_root.revalidate()
     # No raw Environment value crosses the private proof or diagnostic boundary.
     return dict(pid=int(value['MainPID']), cgroup=value['ControlGroup'], invocation=value['InvocationID'],
-                unit=spec.name, fragments={p: policy.catalog[p] for p in fragments},
+                unit=spec.name, fragments={p: policy.catalog[policy.unit_path_bindings[p].canonical if p in policy.unit_path_bindings else p] for p in fragments},
                 properties_sha256=actual_hashes)
 
 

@@ -88,7 +88,7 @@ stop()
             files[str(path)]=sha(path)
         for path in [Path(sys.executable).resolve(),Path('/usr/bin/node').resolve(),self.entry,self.ui_entry,self.host,self.descriptor,
                      *[Path(m.__file__).resolve() for m in [observer,identity_bootstrap,identity_session,identity_transport,pi_owner_service,trusted_control,trusted_consent]]]:files[str(path)]=sha(path)
-        for name in ['identity_root.py','identity_credentials.py','identity_entry.py','identity_guard.py','sidecar.py']:
+        for name in ['identity_root.py','identity_credentials.py','identity_entry.py','identity_guard.py','identity_unit_path.py','sidecar.py']:
             path=Path(observer.__file__).with_name(name);files[str(path)]=sha(path)
         self.document=dict(schema=MANIFEST_SCHEMA,files=files,
             launch=dict(python=sys.executable,entry=str(self.entry),source=str(self.source),

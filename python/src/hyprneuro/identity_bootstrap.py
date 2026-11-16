@@ -176,7 +176,8 @@ def load_reviewed_bootstrap(context_path, literal_context_sha256, *, context_mod
     if env_raw != expected:
         raise PermissionError('Exact fixed bootstrap digest line required')
     document = _json(manifest_raw)
-    if document.get('schema') != MANIFEST_SCHEMA:
+    from .identity_unit_path import SCHEMA as UNIT_PATH_SCHEMA
+    if document.get('schema') not in {MANIFEST_SCHEMA, UNIT_PATH_SCHEMA}:
         raise PermissionError('Unsupported boundary manifest')
     # Other manifest fields are validated by the closed role/config consumer;
     # this loader establishes bytes, not policy or caller approval.

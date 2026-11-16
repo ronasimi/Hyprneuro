@@ -54,3 +54,28 @@ No lifetime-source change, real suspend, human acceptance, two-hour reactivation
 source review approval or working-bundle freeze follows these checks. The current
 model preservation snapshot remains separately proposed, execution blocked pending
 standalone contract review. Exact new source must be independently reviewed.
+
+## P1 correction after independent unit-path-review BLOCK
+
+Review `01M7JWRFCC2QQ0TMZ195Z81ZG8/unit-path-review` identified an early
+private-anchor return: a0700 unit/drop-in directory could omit the mandatory
+logical alias, accepting replacement by a same-text symlink with a new inode.
+This was reproduced in TWO real private-filesystem regressions before changing
+source (both failed, exit1). No bypass of current saved host bindings or actual
+compromise is claimed: their unit directory is0755.
+
+Minimal correction: `_parents` cannot return at a private anchor until it has
+traversed the reviewed logical alias/root parent (or canonical root parent).
+All existing UID/mode/readlink/root restrictions and canonical file checks remain.
+Both0700 unit-root and0700 drop-in cases now record the alias and reject its
+same-text replacement; retained original links prevent inode-recycling ambiguity.
+Additional synthetic-manager fixtures cover ordered multiple drop-ins/reversal
+and alias mutation across the cold helper prestart metadata await. No activation
+or grants occur; this is not actual private-unit activation evidence.
+
+Exact requested suite: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=python/src
+python -B -m unittest discover -s python/tests -p 'test_identity*.py' -q:
+132 tests,131 passed,1 private-unit opt-in skipped,7.546s. Logs and before-failure
+are retained under `boundary-unit-path-correction-01/`. Source rereview required;
+bundle/OPS freeze HELD. Model snapshot03 is independently eligible for NEW packaging
+comparison ONLY, not execution/binary trust; its separate evidence limits remain.

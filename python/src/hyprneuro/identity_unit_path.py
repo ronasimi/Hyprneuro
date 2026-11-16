@@ -18,6 +18,8 @@ def _stamp(path):
     return dict(dev=s.st_dev,inode=s.st_ino,uid=s.st_uid,gid=s.st_gid,mode=s.st_mode,nlink=s.st_nlink)
 
 def _parents(path):
+    # Private descendants must not truncate the mandatory reviewed root/alias.
+    mandatory=LOGICAL_ROOT.parent if path.is_relative_to(LOGICAL_ROOT) else CANONICAL_ROOT.parent
     result=[]
     for parent in path.parents:
         value=_stamp(parent)
@@ -30,7 +32,8 @@ def _parents(path):
             if not stat.S_ISDIR(value['mode']) or value['mode']&0o022:raise PermissionError('Unsafe unit parent')
             link=None
         result.append(dict(path=str(parent),identity=value,readlink=link))
-        if stat.S_ISDIR(value['mode']) and value['uid']==os.getuid() and stat.S_IMODE(value['mode'])==0o700:
+        if (parent in mandatory.parents and stat.S_ISDIR(value['mode'])
+                and value['uid']==os.getuid() and stat.S_IMODE(value['mode'])==0o700):
             return result
     raise PermissionError('No private unit parent anchor')
 

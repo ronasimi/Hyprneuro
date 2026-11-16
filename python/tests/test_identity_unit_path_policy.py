@@ -26,6 +26,36 @@ class BindingPolicy(unittest.IsolatedAsyncioTestCase):
             del self.document['files'][str(previous)];self.document['files'][str(target)]=sha(target)
             table[role]=[dict(logical=str(raw),canonical=str(target),target=paths._stamp(target),chain=[paths._parents(raw),paths._parents(target)])]
         self.document['unit_path_bindings']=table;self.freeze()
+    async def test_ordered_multiple_dropins_and_reversal_denial(self):
+        spec=self.specs['ui'];directory=self.canonical/(spec['name']+'.d');directory.mkdir(mode=0o700)
+        for name in ('10-first.conf','20-second.conf'):
+            target=directory/name;target.write_text('[Service]\nRestart=no\n');target.chmod(0o600)
+            raw=self.logical/(spec['name']+'.d')/name;spec['fragments'].append(str(raw));self.document['files'][str(target)]=sha(target)
+            self.document['unit_path_bindings']['ui'].append(dict(logical=str(raw),canonical=str(target),target=paths._stamp(target),chain=[]))
+        # Directory creation changes parent nlink; freeze every chain only now.
+        for entries in self.document['unit_path_bindings'].values():
+            for entry in entries:entry['chain']=[paths._parents(Path(entry['logical'])),paths._parents(Path(entry['canonical']))]
+        self.freeze();policy=observer.ObserverPolicy(self.bootstrap)
+        async def ordered(*args):
+            value=await self.metadata(*args)
+            return value.replace('DropInPaths=','DropInPaths='+' '.join(spec['fragments'][1:]))
+        with patch.object(trusted_control,'metadata',side_effect=ordered):
+            result=await observer.read_service(policy,'ui')
+        self.assertEqual(list(result['fragments']),spec['fragments'])
+        async def reversed_order(*args):
+            value=await self.metadata(*args)
+            return value.replace('DropInPaths=','DropInPaths='+' '.join(reversed(spec['fragments'][1:])))
+        with patch.object(trusted_control,'metadata',side_effect=reversed_order):
+            with self.assertRaises(PermissionError):await observer.read_service(policy,'ui')
+    async def test_cold_helper_prestart_alias_mutation_denied(self):
+        policy=observer.ObserverPolicy(self.bootstrap)
+        async def changed(*args):
+            value=await self.metadata(*args)
+            alias=self.logical.parent;alias.rename(alias.with_name('retained-link'));alias.symlink_to(self.canonical.parent)
+            return value
+        with patch.object(trusted_control,'metadata',side_effect=changed):
+            with self.assertRaises(PermissionError):await observer.read_service(policy,'helper',live=False)
+        self.assertTrue(all('start' not in call for call in self.calls))
     async def test_positive_combined_actual_processes(self):
         policy=observer.ObserverPolicy(self.bootstrap)
         with patch.object(trusted_control,'metadata',side_effect=self.metadata):

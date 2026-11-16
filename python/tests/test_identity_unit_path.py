@@ -23,6 +23,23 @@ class UnitPaths(unittest.TestCase):
         self.catalog={str(self.target):self.sha}
         self.value=dict(logical=str(self.raw),canonical=str(self.target),chain=[paths._parents(self.raw),paths._parents(self.target)],target=paths._stamp(self.target))
     def load(self,value=None):return paths.UnitPathBinding.load(value or self.value,'hyprneuro-ui.service',self.catalog)
+    def private_directory_alias_replacement(self,dropin):
+        self.canonical.chmod(0o700)
+        if dropin:
+            directory=self.canonical/'hyprneuro-ui.service.d';directory.mkdir(mode=0o700)
+            target=directory/'10-private.conf';target.write_bytes(b'private dropin');target.chmod(0o600)
+        else:target=self.target
+        logical=self.logical/target.relative_to(self.canonical)
+        value=dict(logical=str(logical),canonical=str(target),chain=[paths._parents(logical),paths._parents(target)],target=paths._stamp(target))
+        binding=paths.UnitPathBinding.load(value,'hyprneuro-ui.service',{str(target):hashlib.sha256(target.read_bytes()).hexdigest()})
+        # Retain the original link inode so the filesystem cannot recycle it.
+        alias=self.logical.parent;old_inode=alias.lstat().st_ino
+        alias.rename(alias.with_name('retained-original-link'));alias.symlink_to(self.canonical.parent)
+        self.assertNotEqual(alias.lstat().st_ino,old_inode)
+        with self.assertRaises(PermissionError):binding.check()
+        self.assertIn(str(alias),[entry['path'] for entry in json.loads(binding.chain_bytes)[0]])
+    def test_private_unit_directory_records_and_fences_alias(self):self.private_directory_alias_replacement(False)
+    def test_private_dropin_directory_records_and_fences_alias(self):self.private_directory_alias_replacement(True)
     def test_positive_logical_same_fd(self):self.assertEqual(self.load().read(self.sha)[1],self.target.stat().st_ino)
     def test_positive_canonical(self):
         v=copy.deepcopy(self.value);v['logical']=str(self.target);v['chain']=[paths._parents(self.target)]*2

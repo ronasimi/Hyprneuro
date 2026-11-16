@@ -156,6 +156,75 @@ def owned_helper(op,deadline):
     return dict(pid=pid,start=start,invocation=value['InvocationID'],pidfd=fd)
 
 
+def broker_identity(unit,deadline):
+    value=b.show(unit,('MainPID','ActiveState','SubState','Job','NeedDaemonReload'),deadline)
+    if (value['ActiveState'],value['SubState'],value['Job'],value['NeedDaemonReload'])!=('active','running','','no'):
+        raise ValueError('Broker state/job/reload invalid')
+    pid=int(value['MainPID']);proc=Path('/proc')/str(pid)
+    if pid<=0 or proc.stat().st_uid!=os.getuid():raise ValueError('Broker PID/UID invalid')
+    return dict(pid=pid,start=proc.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19])
+
+def broker_listener_snapshot(path,pid):
+    # Exact f2b03b2 passive listener proof: socket path/type/UID/mode + filesystem
+    # inode vs /proc/net/unix STREAM LISTEN FD kernel inode owned by the broker PID.
+    try:info=path.lstat()
+    except FileNotFoundError:return None
+    if path!=path.resolve() or not stat.S_ISSOCK(info.st_mode) or info.st_uid!=os.getuid() or stat.S_IMODE(info.st_mode)!=0o600:
+        raise ValueError('Broker listener path/type/UID/mode invalid')
+    owned=set()
+    for fd in (Path('/proc')/str(pid)/'fd').iterdir():
+        try:target=os.readlink(fd)
+        except FileNotFoundError:continue
+        if target.startswith('socket:[') and target.endswith(']'):owned.add(target[8:-1])
+    rows=[]
+    for line in (Path('/proc')/str(pid)/'net/unix').read_text().splitlines()[1:]:
+        row=line.split()
+        if len(row)==8 and row[7]==str(path):rows.append(row)
+    if len(rows)>1:raise ValueError('Ambiguous broker socket pathname')
+    valid=[r for r in rows if r[6] in owned and int(r[3],16)&0x10000 and r[4]=='0001' and r[5]=='01']
+    if len(valid)>1:raise ValueError('Ambiguous broker listener')
+    if not valid:return None
+    return dict(filesystem_device=info.st_dev,filesystem_inode=info.st_ino,kernel_socket_inode=valid[0][6])
+
+def wait_broker_listener(unit,path,deadline):
+    expected=broker_identity(unit,deadline)
+    while time.monotonic()<deadline:
+        if broker_identity(unit,deadline)!=expected:raise ValueError('Broker PID/start replaced')
+        snapshot=broker_listener_snapshot(path,expected['pid'])
+        if snapshot:
+            if broker_identity(unit,deadline)!=expected:raise ValueError('Broker changed during readiness')
+            return dict(identity=expected,path=str(path),snapshot=snapshot)
+        time.sleep(min(.05,max(0,deadline-time.monotonic())))
+    raise TimeoutError('Broker listener readiness deadline; UI NOT started')
+
+def recheck_broker_listener(unit,proof,deadline):
+    # Final fresh recheck immediately before UI start (after any intervening await).
+    if broker_identity(unit,deadline)!=proof['identity'] or broker_listener_snapshot(Path(proof['path']),proof['identity']['pid'])!=proof['snapshot'] or broker_identity(unit,deadline)!=proof['identity']:
+        raise ValueError('Broker listener changed before UI start')
+
+def app_identity(unit,deadline):
+    """Running app identity or None when verifiably stopped; raises on death/UNKNOWN."""
+    value=b.show(unit,('MainPID','ActiveState','SubState','Job','ControlGroup','NeedDaemonReload','InvocationID'),deadline)
+    if value['Job'] or value['NeedDaemonReload']!='no':raise ValueError('App job/reload UNKNOWN')
+    pid=int(value['MainPID'])
+    if pid==0 and (value['ActiveState'],value['SubState'])==('inactive','dead') and value['ControlGroup']=='':
+        return None
+    if pid==0 or value['ActiveState']!='active' or value['SubState']!='running':raise ValueError('App death/UNKNOWN state')
+    proc=Path('/proc')/str(pid)
+    if proc.stat().st_uid!=os.getuid():raise ValueError('App PID UID UNKNOWN')
+    start=proc.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19]
+    if proc.joinpath('cgroup').read_text().strip()!='0::'+value['ControlGroup']:raise ValueError('App cgroup ownership UNKNOWN')
+    return dict(pid=pid,start=start,invocation=value['InvocationID'])
+
+def wait_app_active(unit,deadline):
+    end=min(deadline,time.monotonic()+5)
+    while time.monotonic()<end:
+        value=app_identity(unit,deadline)
+        if value is not None:return value
+        if time.monotonic()>=end:break
+        time.sleep(.1)
+    raise TimeoutError('App not active after start')
+
 def contain(op):
     """Independent app-stop/reap budgets, not an exhausted operation deadline."""
     result=dict(backend_cleanup='NOT_ATTESTED',key_injection_performed=False,owned_key_release_required=False)
@@ -212,22 +281,33 @@ def run(op,literal,phase,deadline):
         for unit in b.APP_UNITS:
             if b.stopped(unit,deadline)['Restart']!='no':raise ValueError('BOTH app Restart=no required before EITHER start')
         path=Path('/run/user/1000/hyprharness/grant-control.sock')
-        prior_socket=(path.stat().st_dev,path.stat().st_ino) if path.exists() else None
         b.write_new(directory/'start.started',literal+'\n')
         b.command(['/usr/bin/systemctl','--user','start',b.APP_UNITS[0]],deadline)
-        # No startup sockets guessed from PID0: exact broker control endpoint.
-        while (not path.is_socket() or (path.stat().st_dev,path.stat().st_ino)==prior_socket):
-            if time.monotonic()>=deadline:raise TimeoutError('Broker control readiness UNKNOWN')
-            time.sleep(.05)
+        # Exact f2b03b2 passive broker listener gate: Type=simple start returns before
+        # a later broker reject, so actual listener state is watched, not a socket
+        # inode guess. PID/start/state/jobs/reload + socket uid/mode/type + filesystem
+        # inode vs /proc/net/unix STREAM LISTEN FD kernel inode owned by the broker.
+        proof=wait_broker_listener(b.APP_UNITS[0],path,deadline)
+        recheck_broker_listener(b.APP_UNITS[0],proof,deadline)  # immediately before UI start
         b.command(['/usr/bin/systemctl','--user','start',b.APP_UNITS[1]],deadline)
-        b.write_new(directory/'start.completed',literal+'\n')
+        # start.completed pins the identity receipt state at completion, not a bare marker.
+        b.write_new(directory/'start.completed',b.encoded(dict(literal=literal,broker=proof['identity'],ui=wait_app_active(b.APP_UNITS[1],deadline))))
     elif phase=='watch':
+        # BEFORE start the reviewed STOPPED baseline is the expected state: allow it,
+        # never fail prematurely. The watcher runs OUTSIDE (concurrent, same guarded
+        # lease); it writes watch.ready so the start phase can proceed, then monitors.
         check_material(op,True);preserve(op,deadline)
+        for unit in b.APP_UNITS:b.stopped(unit,deadline)
         proc=Path('/proc/self');b.write_new(directory/'watch.ready',b.encoded(dict(operation_sha256=literal,pid=os.getpid(),start=proc.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19])))
         while time.monotonic()<deadline:
             check_material(op,True);preserve(op,deadline,full=False)
             for unit in b.APP_UNITS:
-                if b.show(unit,('Restart',),deadline)['Restart']!='no':raise ValueError('App restart policy changed')
+                if b.show(unit,('Restart',),deadline)['Restart']!='no':return contain(op) # policy changed -> bounded containment now
+            if (directory/'start.started').exists():
+                # AFTER start: broker/UI must stay running with stable identity/origin
+                # PID/start/cgroup. app_identity raises on death/UNKNOWN -> the outer
+                # handler invokes bounded containment IMMEDIATELY, not at the deadline.
+                for unit in b.APP_UNITS:app_identity(unit,deadline)
             time.sleep(min(1,max(0,deadline-time.monotonic())))
         return contain(op) # bounded window closes; never leave a keepalive job
     else:raise ValueError('Closed phase required')

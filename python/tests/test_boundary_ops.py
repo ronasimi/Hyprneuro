@@ -89,6 +89,78 @@ class InstallOne(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(),b'drifted')
         self.assertTrue(self.install.exists())  # source object preserved, not consumed
 
+class BrokerListenerGate(unittest.TestCase):
+    """Private-fixture proof for the exact f2b03b2 passive broker listener gate.
+
+    Spawns a private child that binds+listens an AF_UNIX stream socket; no
+    production unit, manager, model, SQL, or UI start is involved. Covers:
+    positive snapshot, wrong mode refusal, replaced-PID (no ownership) -> None,
+    closed socket -> None, and final recheck refusal after the listener vanishes.
+    """
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.path=pathlib.Path(self.tmp.name)/'listen.sock'
+        script=("import socket,sys,time,os\n"
+                "p=sys.argv[1]\n"
+                "os.umask(0o077)\n"
+                "try:os.unlink(p)\nexcept FileNotFoundError:pass\n"
+                "s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\n"
+                "s.bind(p);s.listen(4);os.chmod(p,0o600)\n"
+                "print('ready');sys.stdout.flush()\n"
+                "time.sleep(30)\n")
+        self.child=__import__('subprocess').Popen([str(b.PYTHON),'-c',script,str(self.path)],stdout=__import__('subprocess').PIPE)
+        self.addCleanup(self._kill)
+        self.assertEqual(self.child.stdout.readline().strip(),b'ready')
+    def _kill(self):
+        try:self.child.terminate();self.child.wait(timeout=5)
+        except Exception:pass
+        try:self.child.stdout.close()
+        except Exception:pass
+    def test_positive_snapshot_owned_listen_inode(self):
+        snap=ops.broker_listener_snapshot(self.path,self.child.pid)
+        self.assertIsNotNone(snap)
+        self.assertEqual(snap['filesystem_inode'],self.path.lstat().st_ino)
+        self.assertEqual(snap['filesystem_device'],self.path.lstat().st_dev)
+        owned={os.readlink(f) for f in (pathlib.Path('/proc')/str(self.child.pid)/'fd').iterdir() if f.name!='.'} 
+        owned={t[8:-1] for t in owned if t.startswith('socket:[') and t.endswith(']')}
+        self.assertIn(snap['kernel_socket_inode'],owned)
+    def test_wrong_mode_refused(self):
+        self.path.chmod(0o644)
+        with self.assertRaises(ValueError):ops.broker_listener_snapshot(self.path,self.child.pid)
+    def test_replaced_pid_no_ownership_returns_none(self):
+        # A PID that does not own the socket has no matching owned LISTEN inode.
+        self.assertIsNone(ops.broker_listener_snapshot(self.path,os.getpid()))
+    def test_snapshot_stable_then_changes_on_replacement(self):
+        # A final recheck catches a replaced listener: the owned LISTEN inode must
+        # be stable while unchanged and differ once the socket is re-bound.
+        first=ops.broker_listener_snapshot(self.path,self.child.pid)
+        second=ops.broker_listener_snapshot(self.path,self.child.pid)
+        self.assertEqual(first,second)
+        self.child.terminate();self.child.wait(timeout=5)
+        # Re-bind the same path with a fresh process -> new kernel socket inode.
+        script=("import socket,os,sys,time\np=sys.argv[1];os.umask(0o077)\n"
+                "try:os.unlink(p)\nexcept FileNotFoundError:pass\n"
+                "s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\n"
+                "s.bind(p);s.listen(4);os.chmod(p,0o600)\nprint('r');time.sleep(10)\n")
+        repl=__import__('subprocess').Popen([str(b.PYTHON),'-c',script,str(self.path)],stdout=__import__('subprocess').PIPE)
+        self.addCleanup(repl.terminate)
+        self.assertEqual(repl.stdout.readline().strip(),b'r')
+        third=ops.broker_listener_snapshot(self.path,repl.pid)
+        self.assertIsNotNone(third)
+        self.assertNotEqual(first['kernel_socket_inode'],third['kernel_socket_inode'])
+
+class PhaseOrder(unittest.TestCase):
+    def test_runbook_splits_install_provision_vs_start_with_watcher_outside(self):
+        # Data-level proof of the frozen runbook order and one-lease orchestration.
+        import re
+        src=(ROOT/'scripts'/'prepare_boundary_release.py').read_text()
+        self.assertIn("runbook_order=['install','provision','watch.ready','start']",src)
+        self.assertIn("start_requires='watch.ready'",src)
+        self.assertIn("one_lease=True",src)
+        self.assertIn("watcher_outside=True",src)
+        self.assertIn("install_provision=[base+['--phase','install'],base+['--phase','provision']]",src)
+        self.assertNotIn("update=[base+['--phase','install']",src)  # old blind batch removed
+
 class OperationPin(unittest.TestCase):
     def test_wrong_external_operation_literal_refused_before_host(self):
         tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)

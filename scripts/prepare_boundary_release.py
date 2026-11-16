@@ -149,7 +149,15 @@ def prepare(output,infrastructure,deadline):
     b.write_new(output/'operation.json',b.encoded(operation));op_sha=b.digest(output/'operation.json')
     base=[str(b.PYTHON),'-I',str(output/'ops/boundary_release_ops.py'),'--operation',str(output/'operation.json'),'--operation-sha256',op_sha]
     arrays=dict(status='NOT_AUTHORIZED_TO_RUN_PENDING_SOURCE_AND_BUNDLE_OPS_REVIEW',operation_sha256=op_sha,root_record_literal_sha256=root_sha,
-        external_to_identity_catalog=True,code_pins=operation['code'],update=[base+['--phase','install'],base+['--phase','provision'],base+['--phase','start']],watcher=base+['--phase','watch'],containment=base+['--phase','contain'])
+        external_to_identity_catalog=True,code_pins=operation['code'],
+        install_provision=[base+['--phase','install'],base+['--phase','provision']],
+        watcher=base+['--phase','watch'],
+        start=base+['--phase','start'],
+        containment=base+['--phase','contain'],
+        runbook_order=['install','provision','watch.ready','start'],
+        orchestration=dict(one_lease=True,watcher_outside=True,watcher_writes='watch.ready',start_requires='watch.ready',
+            scoped_readonly_containment_allowed=True,no_parallel_competing_gui_job=True,no_unreviewed_shell_substitute=True,
+            on_death_or_identity_loss='invoke existing bounded containment immediately (not at deadline)'))
     b.write_new(output/'MAIN-command-arrays.json',b.encoded(arrays))
     return dict(bundle=str(output),operation_sha256=op_sha,root_literal_sha256=root_sha,MAIN_arrays=b.pin(output/'MAIN-command-arrays.json'),status=operation['status'])
 

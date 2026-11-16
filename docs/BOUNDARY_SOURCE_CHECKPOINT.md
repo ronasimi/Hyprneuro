@@ -287,3 +287,18 @@ chooser/Allow/reconnect acceptance or session renewal/adoption.
 Physical endpoint substitution, post-await descriptor substitution/loss and
 live role replacement remain bounded QA gaps before real7200 soak. Production
 source remains approved00d87967; no package/OPS/deployment authorization inferred.
+
+### Physical endpoint substitution25 PASS (cold-admission negative)
+
+`01M7JCJTKKPSMFEA3KNF0WGRE4` PASS4.949s,
+`sdk-bf3b291edd624449981a4be10f63c00f`. After actual manager socket-contract
+validation await, outer harness retains original socket under a new owned name
+and binds a same-UID/private700/mode600 rogue listener at the exact old path.
+Actual SO_PEERCRED manager identity check rejects it; rogue receives ZERO bytes,
+no hello/credential/proof. Static source rejection ui-identity/identity observed.
+No fixed child, helper, SDK/native owner launch; no rows/live/published/model
+calls. Broker remains consumed UNKNOWN, not a successful eligible cohort.
+This is intentionally before helper/SDK startup, not an SDK-canary acceptance.
+Original socket/failure markers retained, only owned rogue FD closed. GTK5/5
+PASS. No production source/unit/property change or hostile FD-transfer claim.
+Post-await descriptor replacement/loss and role replacement still pending.

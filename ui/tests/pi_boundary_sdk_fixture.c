@@ -62,7 +62,16 @@ int main(int argc,char **argv) {
     for(guint round=0;round<(g_getenv("HN_FIXTURE_RECONNECT")?2:1);round++) {
     const char *stage=NULL,*category=NULL;char *start=NULL;
     GSubprocess *child=pi_fixed_bridge(&stage,&category,&start);
-    if(!child){g_printerr("FIXTURE fixed bridge failed %s/%s\n",stage,category);return 2;}
+    if(!child){
+        if(g_getenv("HN_FIXTURE_ENDPOINT_NEGATIVE")) {
+            char *release=g_build_filename(root,"endpoint-substitution-release",NULL);g_assert_true(g_file_test(release,G_FILE_TEST_EXISTS));g_free(release);
+            g_assert_cmpstr(category,==,"identity");
+            char *done=g_build_filename(root,"gtk-sdk-complete",NULL);
+            g_assert_true(g_file_set_contents(done,"NEGATIVE endpoint refused before fixed-child/helper/SDK launch\n",-1,NULL));g_free(done);
+            gtk_window_destroy(GTK_WINDOW(window));return 0;
+        }
+        g_printerr("FIXTURE fixed bridge failed %s/%s\n",stage,category);return 2;
+    }
     GOutputStream *out=g_subprocess_get_stdin_pipe(child);
     GDataInputStream *in=g_data_input_stream_new(g_subprocess_get_stdout_pipe(child));
     char *packets_path=g_build_filename(root,"gtk-packets.jsonl",NULL);FILE *packets=fopen(packets_path,"a");g_free(packets_path);g_assert_nonnull(packets);

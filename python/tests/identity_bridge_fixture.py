@@ -107,6 +107,21 @@ def install_broker(root,case,helper):
         from identity_persistence_fixture import install
         install(root,case,state)
 
+    if case=='endpoint-substitution':
+        original_contract=identity_transport._socket_contract
+        async def contract(policy,*,active):
+            result=await original_contract(policy,active=active)
+            if active:await wait_release(root,'endpoint-substitution')
+            return result
+        identity_transport._socket_contract=contract
+        original_send=trusted_control.send_frame
+        async def observed_send(writer,value):
+            if set(value)=={'error'}:
+                import json
+                (root/'endpoint-source-rejection.json').write_text(json.dumps(value))
+            return await original_send(writer,value)
+        trusted_control.send_frame=observed_send
+
     if case=='fresh-connect':
         original_snapshot=identity_transport.ObserverClient.snapshot
         async def snapshot(client,operation):

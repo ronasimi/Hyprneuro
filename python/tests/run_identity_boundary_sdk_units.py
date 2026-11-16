@@ -6,7 +6,7 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
 case=os.environ.get('HN_BOUNDARY_CASE','positive')
-if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock','fresh-connect'}:raise ValueError('Closed fixture case required')
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock','fresh-connect','endpoint-substitution'}:raise ValueError('Closed fixture case required')
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -65,13 +65,13 @@ driver.write_text('import sys\nsys.dont_write_bytecode=True\nimport asyncio,json
 helper_entry=R/'helper-entry.py'
 helper_instrumentation=Path(__file__).with_name('identity_helper_fixture.py').resolve()
 helper_entry.write_text('import sys\nsys.dont_write_bytecode=True\nsys.path.insert(0,'+repr(str(SOURCE))+')\nsys.path.insert(0,'+repr(str(helper_instrumentation.parent))+')\nfrom identity_helper_fixture import main\nraise SystemExit(main())\n')
-sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest();created=[];commands=[]
+sha=lambda p:hashlib.sha256(Path(p).read_bytes()).hexdigest();created=[];commands=[];rogue=None
 def run(a,check=True):
  commands.append(a);return subprocess.run(a,text=True,capture_output=True,timeout=5,check=check).stdout.strip()
 try:
  launch=R/'gtk-launch.json';launch.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry))));launch.chmod(0o400)
  bodies={}
- bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_RECONNECT=1' if case=='fresh-connect' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if case.startswith(('proof-','persistence-','idle-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
+ bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_ENDPOINT_NEGATIVE=1' if case=='endpoint-substitution' else '')+(' HN_FIXTURE_RECONNECT=1' if case=='fresh-connect' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if case.startswith(('proof-','persistence-','idle-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
  for role in ['broker','helper']:
   bodies[role]='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=2\nNoNewPrivileges=yes\nPrivateUsers=no\nPrivateTmp='+('yes' if role=='broker' else 'no')+'\nEnvironment=PYTHONDONTWRITEBYTECODE=1\nEnvironmentFile='+str(env)+'\nLoadCredential=main-root-sha:'+str(R/'MAIN-root.sha256')+'\nExecStart='+PYTHON+' -I '+str(driver)+' '+role+'\n'
  bodies['owner']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=3\nExecStart='+PYTHON+' -I '+str(owner_entry)+'\n'
@@ -107,10 +107,26 @@ try:
  while not (R/'broker-ready').exists() and time.monotonic()<end:time.sleep(.02)
  assert (R/'broker-ready').exists(),'Broker startup failed'
  run(['/usr/bin/systemctl','--user','start',names['ui']])
- end=time.monotonic()+5
- while not (R/'ui-child-host-proof.ready').exists() and time.monotonic()<end:time.sleep(.02)
- assert (R/'ui-child-host-proof.ready').exists(),'No UI/child host-positive proof before Node'
- if case!='wrong-root':run(['/usr/bin/systemctl','--user','start',names['owner']])
+ if case=='endpoint-substitution':
+  end=time.monotonic()+5
+  while not (R/'endpoint-substitution-entered').exists() and time.monotonic()<end:time.sleep(.002)
+  assert (R/'endpoint-substitution-entered').exists(),'No real manager endpoint post-await barrier'
+  import socket,stat
+  before=endpoint.lstat();assert stat.S_ISSOCK(before.st_mode) and before.st_uid==os.getuid()
+  assert endpoint.parent==private and private.name==prefix and private.stat().st_uid==os.getuid()
+  endpoint.rename(private/'manager-original.sock')  # retain original inode; NEVER adopt/delete marker
+  rogue=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM);rogue.bind(str(endpoint));endpoint.chmod(0o600);rogue.listen(1);rogue.settimeout(2)
+  (R/'endpoint-swap.json').write_text(json.dumps(dict(original_inode=before.st_ino,substituted_inode=endpoint.lstat().st_ino,rogue_pid=os.getpid(),scope='owned private AF_UNIX listener; no FD transfer/hello fabrication')))
+  (R/'endpoint-substitution-release').write_text('actual same-path socket replacement after manager validation')
+  accepted,_=rogue.accept();accepted.settimeout(2)
+  try:assert accepted.recv(1)==b'','Observer leaked hello/data to non-manager endpoint'
+  finally:accepted.close()
+  (R/'rogue-received-zero-bytes').write_text('no hello/credential/proof disclosed')
+ else:
+  end=time.monotonic()+5
+  while not (R/'ui-child-host-proof.ready').exists() and time.monotonic()<end:time.sleep(.02)
+  assert (R/'ui-child-host-proof.ready').exists(),'No UI/child host-positive proof before Node'
+  if case!='wrong-root':run(['/usr/bin/systemctl','--user','start',names['owner']])
  if case=='fresh-connect':
   end=time.monotonic()+12
   while not (R/'reconnect-ready').exists() and time.monotonic()<end:time.sleep(.005)
@@ -194,7 +210,14 @@ try:
  assert (R/'core-result.json').exists(),'Missing core result'
  from identity_fixture_assertions import require_clean_result,require_revoked_rows
  result=json.loads((R/'core-result.json').read_text())
- if case=='fresh-connect':
+ if case=='endpoint-substitution':
+  assert result['rows']==[] and result['live_registrations']==0 and result['published']==0 and result['failures']>0,result
+  rejection=json.loads((R/'endpoint-source-rejection.json').read_text())
+  assert rejection=={'error':{'diagnostic':'NONAUTHORITATIVE','stage':'ui-identity','category':'identity'}},rejection
+  assert (R/'rogue-received-zero-bytes').exists() and not (R/'ui-child-host-proof.ready').exists()
+  for role in ['helper','owner']:assert int(run(['/usr/bin/systemctl','--user','show',names[role],'--value','-p','MainPID']))==0
+  assert model_calls==[],model_calls
+ elif case=='fresh-connect':
   require_clean_result(result,R)
   cohorts=[json.loads(line) for line in (R/'connect-cohorts.jsonl').read_text().splitlines()]
   assert len(cohorts)==2 and cohorts[0]['generation']!=cohorts[1]['generation'],cohorts
@@ -245,6 +268,7 @@ try:
  print('PRIVATE CASE PASS (SYNTHETIC CONSENT ONLY)',case,R)
 
 finally:
+ if rogue is not None:rogue.close()
  model.shutdown();thread.join(timeout=2);model.server_close();(R/'model-calls.json').write_text(json.dumps(model_calls,indent=2))
  states={}
  for role in ['socket','helper','broker','ui','owner']:

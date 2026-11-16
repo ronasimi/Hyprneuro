@@ -36,6 +36,29 @@ def process_identity(pid):
     return identity
 
 
+REJECTION_STAGES = frozenset({
+    'peer', 'peer-uid', 'ui-identity', 'unit-command', 'unit-metadata',
+    'unit-state', 'unit-job', 'unit-pid', 'ui-process', 'ui-peer-pid',
+    'ui-uid', 'ui-cgroup', 'ui-exe-hash', 'launch-frame', 'child-identity',
+    'launch-ready', 'private-operation', 'unknown',
+})
+
+
+class LaunchRejected(PermissionError):
+    """Static diagnostic location only; never eligibility or a public capability."""
+    def __init__(self, stage):
+        super().__init__('Private launch rejected')
+        self.stage = stage if stage in REJECTION_STAGES else 'unknown'
+
+
+def rejection_record(stage, error):
+    stage = error.stage if isinstance(error, LaunchRejected) else stage
+    return {'diagnostic': 'NONAUTHORITATIVE',
+            'stage': stage if stage in REJECTION_STAGES else 'unknown',
+            'category': 'timeout' if isinstance(error, TimeoutError) else
+                        'identity' if isinstance(error, PermissionError) else 'failure'}
+
+
 async def metadata(*args):
     process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE,
                                                   stderr=asyncio.subprocess.DEVNULL)
@@ -44,7 +67,7 @@ async def metadata(*args):
             out = await process.stdout.read(16385)
             await process.wait()
         if process.returncode or len(out) > 16384:
-            raise PermissionError('Uncertain unit metadata')
+            raise LaunchRejected('unit-command')
         return out.decode().strip()
     finally:
         if process.returncode is None:
@@ -53,12 +76,19 @@ async def metadata(*args):
 
 
 async def unit_metadata(unit):
-    out = await metadata('/usr/bin/systemctl', '--user', 'show', unit,
-                         '-p', 'MainPID', '-p', 'ControlGroup', '-p', 'ActiveState', '-p', 'Job')
-    value = dict(line.split('=', 1) for line in out.splitlines())
-    if value['ActiveState'] != 'active' or value['Job'] or int(value['MainPID']) <= 0:
-        raise PermissionError('Expected exact active unit without pending job')
-    return int(value['MainPID']), value['ControlGroup']
+    try:
+        out = await metadata('/usr/bin/systemctl', '--user', 'show', unit,
+                             '-p', 'MainPID', '-p', 'ControlGroup', '-p', 'ActiveState', '-p', 'Job')
+        value = dict(line.split('=', 1) for line in out.splitlines())
+        if value['ActiveState'] != 'active':
+            raise LaunchRejected('unit-state')
+        if value['Job']:
+            raise LaunchRejected('unit-job')
+        if int(value['MainPID']) <= 0:
+            raise LaunchRejected('unit-pid')
+        return int(value['MainPID']), value['ControlGroup']
+    except (KeyError, ValueError):
+        raise LaunchRejected('unit-metadata') from None
 
 
 @dataclass(frozen=True)
@@ -84,11 +114,18 @@ class LaunchVerifier:
 
     async def ui(self, peer_pid):
         pid, cgroup = await self.units('hyprneuro-ui.service')
-        identity = process_identity(pid)
-        if (pid != peer_pid or identity['uid'] != os.getuid()
-                or identity['cgroup'] != '0::' + cgroup
-                or hashlib.sha256(Path(f'/proc/{pid}/exe').read_bytes()).hexdigest() != self.policy.ui_sha256):
-            raise PermissionError('Wrong reviewed GTK peer')
+        try:
+            identity = process_identity(pid)
+        except (OSError, ValueError):
+            raise LaunchRejected('ui-process') from None
+        if pid != peer_pid:
+            raise LaunchRejected('ui-peer-pid')
+        if identity['uid'] != os.getuid():
+            raise LaunchRejected('ui-uid')
+        if identity['cgroup'] != '0::' + cgroup:
+            raise LaunchRejected('ui-cgroup')
+        if hashlib.sha256(Path(f'/proc/{pid}/exe').read_bytes()).hexdigest() != self.policy.ui_sha256:
+            raise LaunchRejected('ui-exe-hash')
         return identity
 
     def child(self, ui, pid, start):
@@ -174,13 +211,9 @@ def diagnostic_rejection(stage, error, counter):
     """Best-effort Linux FIFO only; no buffered I/O, shared flag change or fallback."""
     if counter >= 16 or sys.stderr is None or sys.platform != 'linux':
         return
-    stages = {'peer', 'ui-identity', 'launch-frame', 'child-identity', 'launch-ready', 'private-operation'}
-    category = 'timeout' if isinstance(error, TimeoutError) else 'identity' if isinstance(error, PermissionError) else 'failure'
     pinned = owned = None
     try:
-        payload = (json.dumps({'diagnostic': 'NONAUTHORITATIVE',
-                              'stage': stage if stage in stages else 'unknown',
-                              'category': category}, ensure_ascii=True) + '\n').encode('ascii')
+        payload = (json.dumps(rejection_record(stage, error), ensure_ascii=True) + '\n').encode('ascii')
         if len(payload) > 512:  # <= Linux minimum PIPE_BUF; atomic or EAGAIN
             return
         pinned = os.dup(2)  # pin destination; NEVER change this shared description's flags
@@ -227,7 +260,7 @@ class GrantControlServer:
             sock = writer.get_extra_info('socket')
             peer, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
             if uid != os.getuid():
-                raise PermissionError('Wrong private peer UID')
+                raise LaunchRejected('peer-uid')
             async with asyncio.timeout(3):
                 stage = 'ui-identity'
                 ui = await self.verifier.ui(peer)
@@ -303,7 +336,7 @@ class GrantControlServer:
             diagnostic_rejection(stage, error, self.diagnostic_count)
             self.diagnostic_count = min(16, self.diagnostic_count + 1)
             try:
-                await send_frame(writer, {'error': str(error)[:300]})
+                await send_frame(writer, {'error': rejection_record(stage, error)})
             except (OSError, ConnectionError, TimeoutError):
                 pass
         finally:

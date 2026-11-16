@@ -33,3 +33,7 @@ test('ui-pi-cancel', cancel_test)
 
 diag_test = executable('test-ui-pi-diagnostics', 'tests/pi_diagnostics.c', dependencies: deps, link_args: ['-lm'])
 test('ui-pi-diagnostics', diag_test)
+
+# Invoked only by private Python broker tests under an isolated X11/session bus.
+executable('test-ui-pi-challenge-probe', 'tests/pi_challenge_probe.c', dependencies: deps,
+  link_args: ['-lm', '-Wl,--wrap=g_bus_get_sync', '-Wl,--wrap=g_dbus_connection_call_sync'])

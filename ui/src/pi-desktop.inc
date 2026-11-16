@@ -125,10 +125,15 @@ static void pi_unavailable(App *a) {
 
 /* Diagnostics are never readiness, consent or authority. GTK main-context only. */
 static guint pi_diagnostic_count;
+static const char *pi_diagnostic_category(const char *category) {
+    const char *known[]={"failure","exit","signal","unknown","timeout","identity","eof","framing","json","schema","io",NULL};
+    for (int i=0;known[i];i++)if (!g_strcmp0(category,known[i]))return known[i];
+    return "unknown";
+}
 static const char *pi_diagnostic_stage(const char *stage) {
     const char *known[]={"policy-read","policy-hash","policy-schema","entry-read","entry-hash",
         "broker-connect","broker-peer","sidecar-identity","challenge","spawn","child-start","attest-write",
-        "broker-inherited","stdio-setup","managed-import","managed-init","bridge-eof","child-exit",NULL};
+        "broker-peer-check","broker-peer-uid","broker-ui-identity","broker-unit-command","broker-unit-metadata","broker-unit-state","broker-unit-job","broker-unit-pid","broker-ui-process","broker-ui-peer-pid","broker-ui-uid","broker-ui-cgroup","broker-ui-exe-hash","broker-launch-frame","broker-child-identity","broker-launch-ready","broker-private-operation","broker-unknown","broker-inherited","stdio-setup","managed-import","managed-init","bridge-eof","child-exit",NULL};
     if (stage && strlen(stage)<=32 && g_utf8_validate(stage,-1,NULL))
         for (int i=0;known[i];i++)if (!strcmp(stage,known[i]))return known[i];
     return "unknown";
@@ -136,7 +141,7 @@ static const char *pi_diagnostic_stage(const char *stage) {
 static void pi_diagnostic_emit(const char *stage,const char *category,int status) {
     if (pi_diagnostic_count>=16)return;
     pi_diagnostic_count++;
-    if (strcmp(category,"failure") && strcmp(category,"exit") && strcmp(category,"signal") && strcmp(category,"unknown"))category="unknown";
+    category=pi_diagnostic_category(category);
     g_printerr("{\"diagnostic\":\"NONAUTHORITATIVE\",\"stage\":\"%s\",\"category\":\"%s\",\"status\":%d}\n",
         pi_diagnostic_stage(stage),category,status);
 }
@@ -148,11 +153,18 @@ static const char *pi_diagnostic_frame_stage(JsonNode *packet) {
     if (!g_strcmp0(stage,"broker-inherited") || !g_strcmp0(stage,"stdio-setup") || !g_strcmp0(stage,"managed-import") || !g_strcmp0(stage,"managed-init"))return pi_diagnostic_stage(stage);
     return "unknown";
 }
-static void pi_diagnostic_fail(App *a,const char *stage) {
+static char *pi_diagnostic_status(const char *stage,const char *category) {
+    return g_strdup_printf("Pi bridge unavailable · diagnostic %s/%s · no authority/retry",
+        pi_diagnostic_stage(stage),pi_diagnostic_category(category));
+}
+static void pi_diagnostic_fail_category(App *a,const char *stage,const char *category) {
     pi_unavailable(a);
     g_free(a->pi_connect_error);
-    a->pi_connect_error=g_strdup_printf("Pi bridge unavailable · diagnostic %s · no authority/retry",pi_diagnostic_stage(stage));
-    pi_route_update(a);pi_diagnostic_emit(stage,"failure",0);
+    a->pi_connect_error=pi_diagnostic_status(stage,category);
+    pi_route_update(a);pi_diagnostic_emit(stage,category,0);
+}
+static void pi_diagnostic_fail(App *a,const char *stage) {
+    pi_diagnostic_fail_category(a,stage,"failure");
 }
 static void pi_owned_exit(GObject *object,GAsyncResult *result,gpointer data) {
     GError *error=NULL;
@@ -509,22 +521,58 @@ static guint pi_sidecar_main_pid(void) {
     }
     g_object_unref(bus); return pid;
 }
-static JsonNode *pi_broker_challenge(GSocket *socket) {
+/* Diagnostics classify ONLY failure. No diagnostic frame can become a challenge. */
+static const char *pi_broker_reject_stage(const char *stage) {
+    const char *known[]={"peer","peer-uid","ui-identity","unit-command","unit-metadata","unit-state","unit-job","unit-pid","ui-process","ui-peer-pid","ui-uid","ui-cgroup","ui-exe-hash","launch-frame","child-identity","launch-ready","private-operation","unknown" ,NULL};
+    const char *mapped[]={"broker-peer-check","broker-peer-uid","broker-ui-identity","broker-unit-command","broker-unit-metadata","broker-unit-state","broker-unit-job","broker-unit-pid","broker-ui-process","broker-ui-peer-pid","broker-ui-uid","broker-ui-cgroup","broker-ui-exe-hash","broker-launch-frame","broker-child-identity","broker-launch-ready","broker-private-operation","broker-unknown" ,NULL};
+    for (int i=0;known[i];i++)if (!g_strcmp0(stage,known[i]))return mapped[i];
+    return "broker-unknown";
+}
+static JsonNode *pi_broker_challenge(GSocket *socket,const char **stage,const char **category) {
     char frame[4097]; gsize length = 0;
     gint64 deadline = g_get_monotonic_time() + 3000000;
+    *stage="challenge";*category="io";
     while (length < sizeof frame - 1) {
         gint64 left = deadline - g_get_monotonic_time();
-        if (left <= 0 || !g_socket_condition_timed_wait(socket, G_IO_IN, left, NULL, NULL)) return NULL;
-        gssize n = g_socket_receive(socket, frame + length, 1, NULL, NULL);
-        if (n != 1) return NULL;
+        if (left <= 0) { *category="timeout";return NULL; }
+        GError *error=NULL;
+        if (!g_socket_condition_timed_wait(socket,G_IO_IN,left,NULL,&error)) {
+            if (g_error_matches(error,G_IO_ERROR,G_IO_ERROR_TIMED_OUT))*category="timeout";
+            g_clear_error(&error);return NULL;
+        }
+        gssize n = g_socket_receive(socket,frame+length,1,NULL,NULL);
+        if (n==0) { *category=length?"framing":"eof";return NULL; }
+        if (n!=1)return NULL;
         if (frame[length++] == '\n') {
-            JsonParser *parser = json_parser_new(); JsonNode *result = NULL;
-            if (json_parser_load_from_data(parser, frame, length, NULL) && JSON_NODE_HOLDS_OBJECT(json_parser_get_root(parser)))
-                result = json_node_copy(json_parser_get_root(parser));
-            g_object_unref(parser); return result;
+            JsonParser *parser=json_parser_new();JsonNode *result=NULL;
+            *category="json";
+            if (json_parser_load_from_data(parser,frame,length,NULL)) {
+                JsonNode *root=json_parser_get_root(parser);*category="schema";
+                if (JSON_NODE_HOLDS_OBJECT(root)) {
+                    JsonNode *reject=jmember(root,"error");
+                    if (reject) {
+                        /* Exact static envelope; no raw message, key, path or nonce projection. */
+                        if (json_object_get_size(json_node_get_object(root))==1 && JSON_NODE_HOLDS_OBJECT(reject) &&
+                            json_object_get_size(json_node_get_object(reject))==3 &&
+                            !g_strcmp0(jstr(jmember(reject,"diagnostic")),"NONAUTHORITATIVE")) {
+                            *stage=pi_broker_reject_stage(jstr(jmember(reject,"stage")));
+                            const char *c=jstr(jmember(reject,"category"));
+                            if (!strcmp(*stage,"broker-unknown") || (g_strcmp0(c,"timeout") && g_strcmp0(c,"identity") && g_strcmp0(c,"failure"))) {
+                                *stage="broker-unknown";*category="unknown";
+                            } else *category=pi_diagnostic_category(c);
+                        }
+                    } else {
+                        const char *nonce=jstr(jmember(root,"nonce"));
+                        gboolean valid=!g_strcmp0(jstr(jmember(root,"type")),"launch_challenge") && nonce && strlen(nonce)==64;
+                        if (valid)for(const char *p=nonce;*p;p++)if(!g_ascii_isxdigit(*p)||g_ascii_isupper(*p))valid=FALSE;
+                        if (valid)result=json_node_copy(root);
+                    }
+                }
+            }
+            g_object_unref(parser);return result;
         }
     }
-    return NULL;
+    *category="framing";return NULL;
 }
 static gboolean pi_broker_attest(GSocket *socket, const char *packet) {
     gsize length = strlen(packet), sent = 0;
@@ -539,8 +587,8 @@ static gboolean pi_broker_attest(GSocket *socket, const char *packet) {
     }
     return TRUE;
 }
-static GSubprocess *pi_fixed_bridge(const char **stage,char **verified_start) {
-    *verified_start=NULL;
+static GSubprocess *pi_fixed_bridge(const char **stage,const char **category,char **verified_start) {
+    *verified_start=NULL;*category="failure";
     *stage="policy-read";
     const char *policy_path = g_getenv("HYPRNEURO_PI_TRUSTED_POLICY");
     const char *policy_sha = g_getenv("HYPRNEURO_PI_TRUSTED_POLICY_SHA256");
@@ -588,7 +636,9 @@ static GSubprocess *pi_fixed_bridge(const char **stage,char **verified_start) {
         !(after = pi_start_ticks(peer_pid)) || g_strcmp0(before, after)) goto done;
     g_socket_set_blocking(socket, FALSE);
     *stage="challenge";
-    challenge = pi_broker_challenge(socket);
+    challenge = pi_broker_challenge(socket,stage,category);
+    if (!challenge)goto done;
+    *category="failure";
     const char *nonce = jstr(jmember(challenge, "nonce"));
     if (g_strcmp0(jstr(jmember(challenge, "type")), "launch_challenge") || !nonce || strlen(nonce) != 64) goto done;
     for (const char *p = nonce; *p; p++) if (!g_ascii_isxdigit(*p) || g_ascii_isupper(*p)) goto done;
@@ -627,10 +677,10 @@ done:
     g_free(child_start); g_free(packet); return process;
 }
 static void pi_start(App *a) {
-    const char *stage=NULL;
+    const char *stage=NULL,*category=NULL;
     char *verified_start=NULL;
-    a->pi_process = pi_fixed_bridge(&stage,&verified_start);
-    if (!a->pi_process) { pi_diagnostic_fail(a,stage); return; }
+    a->pi_process = pi_fixed_bridge(&stage,&category,&verified_start);
+    if (!a->pi_process) { pi_diagnostic_fail_category(a,stage,category); return; }
     const char *identifier=g_subprocess_get_identifier(a->pi_process);
     guint64 pid=identifier?g_ascii_strtoull(identifier,NULL,10):0;
     char *start=pid && pid<=G_MAXUINT?pi_start_ticks(pid):NULL;
@@ -679,6 +729,7 @@ static void pi_build(App *a) {
     gtk_box_append(GTK_BOX(a->chat_page), row);
     gtk_widget_set_visible(row, a->pi_optin);
     a->pi_route = gtk_label_new(a->pi_optin ? "Text → Pi owner · attachments → legacy/tool-free (ordinary owner only)" : "Legacy sidecar · tool-free chat/media");
+    gtk_accessible_update_property(GTK_ACCESSIBLE(a->pi_route),GTK_ACCESSIBLE_PROPERTY_DESCRIPTION,"hyprneuro-bootstrap-status",-1);
     gtk_label_set_wrap(GTK_LABEL(a->pi_route), TRUE);
     gtk_widget_add_css_class(a->pi_route, "dim-label");
     gtk_box_append(GTK_BOX(a->chat_page), a->pi_route);

@@ -266,6 +266,38 @@ class UI:
             other='Restore transcript: Expanded → Normal' if name.startswith('Expand') else 'Expand transcript: Normal → Expanded'
             self.desktop.wait(lambda:self.size()==other,timeout=3)
 
+    def bootstrap_diagnostic(self):
+        # Failure-only snapshot BEFORE guard containment; never raw GUI text.
+        unknown={'diagnostic':'NONAUTHORITATIVE','stage':'unknown','category':'unknown'}
+        try:
+            self.safe()
+            stages={
+                'attest-write','bridge-eof','broker-child-identity','broker-connect','broker-inherited',
+                'broker-launch-frame','broker-launch-ready','broker-peer','broker-peer-check','broker-peer-uid','broker-private-operation',
+                'broker-ui-cgroup','broker-ui-exe-hash','broker-ui-identity','broker-ui-peer-pid','broker-ui-process',
+                'broker-ui-uid','broker-unit-command','broker-unit-job','broker-unit-metadata','broker-unit-pid',
+                'broker-unit-state','broker-unknown','challenge','child-exit','child-start',
+                'entry-hash','entry-read','managed-import','managed-init','policy-hash',
+                'policy-read','policy-schema','sidecar-identity','spawn','stdio-setup',
+                'unknown',
+            }
+            categories={'failure','exit','signal','unknown','timeout','identity','eof','framing','json','schema','io'}
+            found=[]
+            for node in self.nodes()[:512]:
+                if node.get_process_id()!=self.current['pid'] or node.get_role_name()!='label' or not node.get_state_set().contains(self.Atspi.StateType.SHOWING):continue
+                if node.get_description()!='hyprneuro-bootstrap-status':continue
+                text=node.get_name()
+                if not isinstance(text,str) or len(text)>160:continue
+                prefix='Pi bridge unavailable · diagnostic ';suffix=' · no authority/retry'
+                if not text.startswith(prefix) or not text.endswith(suffix):continue
+                pair=text[len(prefix):-len(suffix)].split('/')
+                if len(pair)!=2 or pair[0] not in stages or pair[1] not in categories:return unknown
+                found.append({'diagnostic':'NONAUTHORITATIVE','stage':pair[0],'category':pair[1]})
+            self.safe()
+            return found[0] if len(found)==1 else unknown
+        except Exception:
+            return unknown  # never mask the original failure or bypass identity/deadline fences
+
     def button_diagnostic(self,name):
         self.safe()
         nodes=[n for n in self.nodes() if n.get_role_name()=='button' and n.get_name()==name]
@@ -273,7 +305,7 @@ class UI:
         eligible=[n for n in visible if n.get_state_set().contains(self.Atspi.StateType.SENSITIVE)]
         state='absent' if not nodes else 'hidden' if not visible else 'ambiguous' if len(visible)>1 else 'insensitive' if not eligible else 'eligible-but-view/action-unproved'
         # Literal widget/owned PID only: no ambient captions, stderr or secrets.
-        return f'Own button pid={self.current["pid"]} label={name!r} state={state}; bootstrap-stage=unobserved (not a cause claim)'
+        return f'Own button pid={self.current["pid"]} label={name!r} state={state}; bootstrap={self.bootstrap_diagnostic()!r} (NONAUTHORITATIVE)'
 
     def reload_once(self,node,selected):
         from gi.repository import GLib
@@ -396,7 +428,7 @@ def main():
         ui=UI(bundle,args.continuation,args.context_sha256,deadline=deadline);exercise(ui,pending,deadline)
         ui.record('coordinator-ended-not-human-or-READY-evidence')
     except BaseException as error:
-        if ui:ui.record('FAILED',error=type(error).__name__,keys_inflight=getattr(ui,'keys_inflight',False),pending_key_chain=getattr(ui,'pending_key_chain',None),key_cleanup_error=getattr(ui,'key_cleanup_error',None))
+        if ui:ui.record('FAILED',bootstrap=ui.bootstrap_diagnostic(),error=type(error).__name__,keys_inflight=getattr(ui,'keys_inflight',False),pending_key_chain=getattr(ui,'pending_key_chain',None),key_cleanup_error=getattr(ui,'key_cleanup_error',None))
         raise
 
 

@@ -86,3 +86,23 @@ class KeyCleanupFences(unittest.TestCase):
    with self.assertRaises(TimeoutError):ui.key('ctrl+Return')
    command.assert_not_called()
   self.assertFalse(ui.keys_inflight)
+
+class BootstrapSnapshot(unittest.TestCase):
+ def ui(self,text,pid=123,role='label',showing=True):
+  import types
+  ui=m.UI.__new__(m.UI);ui.current={'pid':123};ui.safe=lambda:None
+  ui.Atspi=types.SimpleNamespace(StateType=types.SimpleNamespace(SHOWING=1))
+  node=types.SimpleNamespace(get_process_id=lambda:pid,get_role_name=lambda:role,get_name=lambda:text,get_description=lambda:'hyprneuro-bootstrap-status',get_state_set=lambda:types.SimpleNamespace(contains=lambda state:showing))
+  ui.nodes=lambda:[node];return ui
+ def test_owned_exact_status_only_no_raw_projection(self):
+  good='Pi bridge unavailable · diagnostic broker-unit-job/identity · no authority/retry'
+  ui=self.ui(good);self.assertEqual(ui.bootstrap_diagnostic(),{'diagnostic':'NONAUTHORITATIVE','stage':'broker-unit-job','category':'identity'})
+  for text in [good.replace('broker-unit-job','SECRET_NONCE'),good.replace('identity','/private/credential'),good+'SECRET','x'*10000]:
+   result=self.ui(text).bootstrap_diagnostic();self.assertEqual(result['stage'],'unknown');self.assertNotIn('SECRET',str(result));self.assertLess(len(str(result)),100)
+  for options in [dict(pid=999),dict(role='button'),dict(showing=False)]:self.assertEqual(self.ui(good,**options).bootstrap_diagnostic()['stage'],'unknown')
+  ui.nodes=lambda:[];self.assertEqual(ui.bootstrap_diagnostic()['stage'],'unknown')
+ def test_ambiguous_drift_and_failure_preserve_original(self):
+  ui=self.ui('Pi bridge unavailable · diagnostic challenge/eof · no authority/retry');node=ui.nodes()[0];ui.nodes=lambda:[node,node]
+  self.assertEqual(ui.bootstrap_diagnostic()['stage'],'unknown')
+  ui.safe=lambda:(_ for _ in ()).throw(RuntimeError('identity drift SECRET'))
+  self.assertEqual(ui.bootstrap_diagnostic()['stage'],'unknown')

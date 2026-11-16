@@ -28,4 +28,16 @@ static void child_exit(void) {
   g_object_unref(p);
  }
 }
-int main(int argc,char**argv){g_test_init(&argc,&argv,NULL);g_test_add_func("/pi/diagnostic-decoder",decode);g_test_add_func("/pi/diagnostic-cap",cap);g_test_add_func("/pi/owned-exit",child_exit);return g_test_run();}
+static void challenge_failure(void) {
+ const char *wire[]={"", "{", "not-json\n", "[]\n", "{\"error\":{\"diagnostic\":\"NONAUTHORITATIVE\",\"stage\":\"unit-job\",\"category\":\"identity\"}}\n", "{\"error\":\"SECRET\"}\n"};
+ const char *categories[]={"eof","framing","json","schema","identity","schema"};
+ for(guint i=0;i<G_N_ELEMENTS(wire);i++) {
+  int pair[2];g_assert_cmpint(socketpair(AF_UNIX,SOCK_STREAM,0,pair),==,0);
+  g_assert_cmpint(write(pair[0],wire[i],strlen(wire[i])),==,(int)strlen(wire[i]));close(pair[0]);
+  GSocket *socket=g_socket_new_from_fd(pair[1],NULL);g_assert_nonnull(socket);g_socket_set_blocking(socket,FALSE);
+  const char *stage=NULL,*category=NULL;g_assert_null(pi_broker_challenge(socket,&stage,&category));
+  g_assert_cmpstr(stage,==,i==4?"broker-unit-job":"challenge");g_assert_cmpstr(category,==,categories[i]);
+  char *status=pi_diagnostic_status(stage,category);g_assert_null(strstr(status,"SECRET"));g_assert_cmpuint(strlen(status),<,180);g_free(status);g_object_unref(socket);
+ }
+}
+int main(int argc,char**argv){g_test_init(&argc,&argv,NULL);g_test_add_func("/pi/challenge-failure",challenge_failure);g_test_add_func("/pi/diagnostic-decoder",decode);g_test_add_func("/pi/diagnostic-cap",cap);g_test_add_func("/pi/owned-exit",child_exit);return g_test_run();}

@@ -443,3 +443,27 @@ extension. Duplicate registration remains rejected by unchanged production code.
 Original30 and original29 remain exit1/UNKNOWN, no consumed root reused. Fresh
 workflow is still stop-first-error and gated before ONE real7200 soak. No product
 correction or new source approval needed; source remains approved730dd9a.
+
+## Workflow31: idle150 PASS, partial cleanup-observer FAIL; STOP preserved
+
+`01M7JFBQ4YR3T6HT37ZRG5Z0X7` exit1,299.043s. Idle150 actual PASS:
+`sdk-5870255bc8034148a6b4b453bc27f6e0`, no broker frame for150 real seconds,
+full live UI/child/owner verified, normal receipt after reap, explicit fresh
+helper/generation after known cleanup, final failures0/live0/published0/model0.
+This closed result is retained, not rerun to inflate counts.
+
+Partial case `sdk-436728a7e91b46bf90d7381786fb38cb` failed fixture cleanup observation:
+GetUnit returned NoSuchUnit because completed inactive helper was garbage-collected
+from manager memory. Raw source decoder timeout125.001481836s after first byte,
+sealedTRUE/liveFALSE/publishedFALSE BEFORE source error I/O; timeout packet, EOF,
+normal childexit1, zero rows/model, backend UNKNOWN/failures2 retained. Unit states
+PID0/no jobs/cgroups AFTER fixture cleanup; do not relabel original partial exit1
+as activation PASS. Trickle/real7200 NOT RUN.
+
+Minimal TEST-ONLY correction: event-driven wait uses metadata-only LoadUnit for
+exact owned name instead of GetUnit, then observes state and separately asserts
+MainPID0. Loading metadata does NOT start/restart/adopt a service; handles normal
+cold-unit GC without accepting arbitrary manager errors or fake PID. Production
+source approved730dd9a unchanged. Fresh partial+trickle only, then ONE real7200
+soak iff both pass and prior closed idle150 pinned receipt valid. No repeat of
+idle150, no consumed-root retry, no production or source approval change.

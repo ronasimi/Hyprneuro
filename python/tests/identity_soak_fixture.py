@@ -70,7 +70,7 @@ def wait_ui_exit(unit,timeout_seconds=7330):
     if not cancel.is_cancelled():GLib.source_remove(timer)
     if errors or not connection:raise AssertionError('Private soak bus unavailable')
     bus=connection[0];service='org.freedesktop.systemd1'
-    path=bus.call_sync(service,'/org/freedesktop/systemd1',service+'.Manager','GetUnit',
+    path=bus.call_sync(service,'/org/freedesktop/systemd1',service+'.Manager','LoadUnit',  # metadata-only: cold completed units may be GC-unloaded
         GLib.Variant('(s)',(unit,)),GLib.VariantType.new('(o)'),Gio.DBusCallFlags.NONE,1000,None).unpack()[0]
     def changed(bus,sender,path,interface,signal,parameters,data):
         iface,values,invalidated=parameters.unpack()

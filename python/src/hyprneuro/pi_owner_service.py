@@ -117,6 +117,11 @@ def main():
         args.root.mkdir(mode=0o700)
         (args.root / 'home').mkdir(mode=0o700)
         (args.root / 'home/workspace').mkdir(mode=0o700)
+        # Reserve native SDK/Durable directories BEFORE identity/catalog freeze.
+        # Later runtime file writes must not rebaseline the pinned root parent.
+        (args.root / 'agent').mkdir(mode=0o700)
+        (args.root / 'durable').mkdir(mode=0o700)
+        (args.root / 'sessions').mkdir(mode=0o700)
         config = {k: getattr(args, k) for k in ['source', 'node', 'sdk', 'durable', 'pi']}
         config.update(schema=SCHEMA, root=str(args.root), read_paths=args.read_path, task_id='hn-service-' + secrets.token_hex(12))
         with (args.root / 'owner.json').open('x') as file:

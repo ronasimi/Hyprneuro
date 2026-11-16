@@ -324,3 +324,16 @@ Only private owned config file is replaced/lost (not consent/replay marker),
 original bytes archived; no keys/nonces logged. Production source unchanged.
 Physical role replacement and actual7200-second soak still pending, no suspend,
 human acceptance, packaging or production action implied.
+
+### Corrected descriptor cases27 PASS, original26 remains FAIL
+
+`01M7JD0V2E01EE6GFD6K67SR2G` PASS2cases16.329s: same-byte/new-inode replacement
+`sdk-20c69b850a5f437b973dfd947223696d`, loss
+`sdk-624385d8f9b04673ab55986ac337befa`. Both actual owner-nonce awaits complete
+before private config fault; no CONTROL-MAC attempted (FORBIDDEN-mac absent),
+no rows/live/published/model calls. Exact normal child status captured separately
+from actual broker UNKNOWN. Deliberate new Connect is denied and real
+ObserverClient.start attempt count stays1: no new child/helper/adoption even
+when first child exited0. No source-product change; original26 exit1 NOT
+relabelled. Descriptor bytes archived, no consent/replay marker reset/restoration.
+Physical UI replacement test and final real7200-second idle soak remain pending.

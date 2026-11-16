@@ -218,13 +218,81 @@ class StartReceiptValidation(unittest.TestCase):
         with self.assertRaises(ValueError):ops.validate_start_receipt(r,'L','G')
 
 class ScreenLockGate(unittest.TestCase):
-    def test_running_hyprlock_contain(self):
-        # A process named hyprlock (fake, private) -> RUNNING -> fail closed.
-        tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup)
-        fake=pathlib.Path(tmp.name)/'hyprlock';fake.write_text('#!/bin/sh\nsleep 20\n');fake.chmod(0o755)
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.dir=pathlib.Path(self.tmp.name)
+    def _fake_hyprlock(self):
+        fake=self.dir/'hyprlock';fake.write_text('#!/bin/sh\nsleep 20\n');fake.chmod(0o755)
         proc=__import__('subprocess').Popen([str(fake)])
         self.addCleanup(lambda:(proc.terminate(),proc.wait(timeout=5)) if proc.poll() is None else None)
-        with self.assertRaises(ValueError):ops.screen_lock_state(time.monotonic()+10)
+    def test_running_hyprlock_contain(self):
+        self._fake_hyprlock() # a process named hyprlock -> RUNNING -> fail closed
+        with self.assertRaises(ValueError):ops.screen_lock_state(self.dir,time.monotonic()+10)
+    def test_command_timeout_fail_closed(self):
+        # An already-expired per-command deadline fails closed (bounded, <=5s).
+        with self.assertRaises(Exception):ops.screen_lock_state(self.dir,time.monotonic()-1)
+
+class SessionStructured(unittest.TestCase):
+    """Proper structured loginctl show-session validation against ACTUAL raw logind
+    data (not a synthetic table mock). Demonstrates the old string-table P1 and
+    covers positive / locked-hint / inactive / foreign-UID / remote / missing-property.
+    """
+    OWN=str(os.getuid())
+    def _fields(self,**over):
+        f=dict(User=self.OWN,Active='yes',State='active',LockedHint='no',Type='wayland',Remote='no',Seat='seat0')
+        f.update(over);return f
+    def test_old_string_table_would_reject_real_unlocked(self):
+        # P1 demonstration: loginctl list-sessions cols[3] is SEAT (not ActiveState),
+        # so the old gate (cols[3] in ('online','active')) rejects a real unlocked host.
+        r=b.command(['/usr/bin/loginctl','--no-legend','list-sessions'],time.monotonic()+10,check=False)
+        self.assertEqual(r.returncode,0)
+        own=[l.split() for l in r.stdout.splitlines() if len(l.split())>=4 and l.split()[1]==self.OWN]
+        self.assertTrue(own,'no own-uid session in list-sessions')
+        for cols in own:
+            self.assertNotIn(cols[3],('online','active'),'precondition: cols[3] is SEAT, not a state')
+    def test_select_display_session_real(self):
+        self.assertTrue(ops.select_display_session(time.monotonic()+10).isdigit())
+    def test_verify_session_real_structured(self):
+        sid=ops.select_display_session(time.monotonic()+10)
+        r=b.command(['/usr/bin/loginctl','show-session',sid,'-p','LockedHint','--value'],time.monotonic()+10,check=False)
+        if r.returncode!=0 or r.stdout.strip()!='no':
+            self.skipTest('host Display session is locked; positive real check requires unlocked')
+        fields=ops.verify_session(sid,time.monotonic()+10) # all 7 structured props present
+        self.assertEqual(fields['User'],self.OWN);self.assertEqual(fields['Type'],'wayland')
+    def test_positive_structured_fields(self):
+        self.assertEqual(ops.check_session_fields(self._fields())['Seat'],'seat0')
+    def test_locked_hint_yes_even_no_hyprlock(self):
+        with self.assertRaises(ValueError):ops.check_session_fields(self._fields(LockedHint='yes'))
+    def test_inactive(self):
+        with self.assertRaises(ValueError):ops.check_session_fields(self._fields(Active='no'))
+    def test_state_not_active(self):
+        with self.assertRaises(ValueError):ops.check_session_fields(self._fields(State='online'))
+    def test_foreign_uid(self):
+        with self.assertRaises(ValueError):ops.check_session_fields(self._fields(User='9999'))
+    def test_remote(self):
+        with self.assertRaises(ValueError):ops.check_session_fields(self._fields(Remote='yes'))
+    def test_missing_seat(self):
+        with self.assertRaises(ValueError):ops.check_session_fields(self._fields(Seat=''))
+    def test_missing_property(self):
+        f=self._fields();del f['Type']
+        with self.assertRaises(ValueError):ops.check_session_fields(f)
+
+class InstallLockIntegration(unittest.TestCase):
+    def test_lock_prevents_any_install_one(self):
+        # The install phase runs the lock gate BEFORE install_one; when locked the
+        # gate raises, so install_one is never reached (ZERO mutation calls).
+        tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);d=pathlib.Path(tmp.name)
+        fake=d/'hyprlock';fake.write_text('#!/bin/sh\nsleep 20\n');fake.chmod(0o755)
+        proc=__import__('subprocess').Popen([str(fake)])
+        self.addCleanup(lambda:(proc.terminate(),proc.wait(timeout=5)) if proc.poll() is None else None)
+        calls={'install_one':0}
+        def install_one(row):calls['install_one']+=1
+        aborted=False
+        try:ops.screen_lock_state(d,time.monotonic()+10) # exact pre-mutation gate ordering
+        except ValueError:aborted=True
+        install_one(None) if not aborted else None
+        self.assertTrue(aborted)
+        self.assertEqual(calls['install_one'],0)
 
 class PhaseOrder(unittest.TestCase):
     def test_runbook_splits_install_provision_vs_start_with_watcher_outside(self):

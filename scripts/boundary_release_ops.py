@@ -227,24 +227,54 @@ def wait_app_active(unit,deadline):
         time.sleep(.1)
     raise TimeoutError('App not active after start')
 
-def screen_lock_state(deadline):
-    """Bounded fresh own-session logind + independent hyprlock classification.
-    Only ABSENT (unlocked) is allowed. RUNNING (pgrep exit 0) or ambiguous
-    (exit other than 0/1) fail closed to containment. No screen bypass."""
-    r=b.command(['/usr/bin/pgrep','-x','hyprlock'],deadline,check=False)
-    if r.returncode==0:raise ValueError('Screen locker hyprlock RUNNING; screen locked -> containment')
+def _lock_deadline(deadline):
+    # Per-command bound: never exceed 5s even if the operation deadline is larger.
+    return min(deadline,time.monotonic()+5)
+
+def check_session_fields(fields):
+    """Pure property validation of structured loginctl show-session output. The
+    authoritative unlocked wayland graphical session is: own UID, Active=yes,
+    State=active, LockedHint=no, Type=wayland, Remote=no, non-empty Seat. Any
+    deviation (locked hint, inactive, foreign UID, remote, missing property) fails
+    closed. This is the approved LoginSessionGuard logic - NOT a string table."""
+    required=dict(User=str(os.getuid()),Active='yes',State='active',LockedHint='no',Type='wayland',Remote='no')
+    for key,expected in required.items():
+        if fields.get(key)!=expected:raise ValueError('Session property %s invalid (got %r) -> containment'%(key,fields.get(key)))
+    if not fields.get('Seat') or fields.get('Seat')=='-':raise ValueError('Session Seat missing -> containment')
+    return fields
+
+def select_display_session(deadline):
+    # Select the graphical/Display session for own uid (approved guard logic).
+    r=b.command(['/usr/bin/loginctl','show-user',str(os.getuid()),'-p','Display','--value'],_lock_deadline(deadline),check=False)
+    if r.returncode!=0:raise ValueError('loginctl show-user Display UNKNOWN -> containment')
+    sid=r.stdout.strip()
+    if not sid.isdigit():raise ValueError('Display session ID missing/non-numeric -> containment')
+    return sid
+
+def verify_session(sid,deadline):
+    r=b.command(['/usr/bin/loginctl','show-session',sid,'-p','User','-p','Active','-p','State','-p','LockedHint','-p','Type','-p','Remote','-p','Seat'],_lock_deadline(deadline),check=False)
+    if r.returncode!=0:raise ValueError('loginctl show-session UNKNOWN -> containment')
+    fields={}
+    for line in r.stdout.splitlines():
+        if '=' not in line:raise ValueError('loginctl show-session parse fail -> containment')
+        key,value=line.split('=',1);fields[key]=value
+    return check_session_fields(fields)
+
+def screen_lock_state(directory,deadline):
+    """Bounded fresh own-session logind (structured show-session) + independent
+    hyprlock classification. Only UNLOCKED is allowed. The Display session ID is
+    selected ONCE (pinned to the op dir) before the first mutation and re-verified
+    (never re-selected / choose-first) on every recheck. pgrep hyprlock: 0=locking
+    -> contain, 1=absent, other=ambiguous -> fail closed. No screen bypass."""
+    r=b.command(['/usr/bin/pgrep','-x','hyprlock'],_lock_deadline(deadline),check=False)
+    if r.returncode==0:raise ValueError('Screen locker hyprlock RUNNING -> containment')
     if r.returncode!=1:raise ValueError('Screen locker observation ambiguous (pgrep non-0/1) -> fail closed')
-    s=b.command(['/usr/bin/loginctl','--no-legend','list-sessions'],deadline,check=False)
-    if s.returncode!=0:raise ValueError('logind session observation UNKNOWN -> containment')
-    own=str(os.getuid())
-    active=False
-    for line in s.stdout.splitlines():
-        cols=line.split()
-        if len(cols)>=4 and cols[1]==own and cols[3] in ('online','active'):
-            if len(cols)>=7 and cols[6] in ('yes','1'):
-                raise ValueError('logind session locked -> containment')
-            active=True
-    if not active:raise ValueError('Own logind session not active -> containment')
+    pin=directory/'session.pin'
+    if pin.exists():
+        sid=b.file_bytes(pin).decode().strip()
+    else:
+        sid=select_display_session(deadline);b.write_new(pin,sid+'\n')
+    verify_session(sid,deadline)
     return 'UNLOCKED'
 
 def validate_start_receipt(receipt,literal,generation):
@@ -323,9 +353,11 @@ def run(op,literal,phase,deadline):
         baseline=b.baseline(deadline)
         if b.encoded(baseline)!=b.file_bytes(op['baseline']['path']):raise ValueError('Fresh stopped baseline differs')
         preserve(op,deadline,before_start=True);check_material(op,False)
+        screen_lock_state(directory,deadline) # mandatory after baseline, before first replacement
         b.write_new(directory/'install.started',literal+'\n')
         for row in op['targets']:
             if time.monotonic()>=deadline:raise TimeoutError('Install deadline')
+            screen_lock_state(directory,deadline) # safety recheck immediately before each mutation
             install_one(row)
         check_material(op,True) # validates all ROOT BYTES before any reload
         b.command(['/usr/bin/systemctl','--user','daemon-reload'],deadline)
@@ -333,6 +365,7 @@ def run(op,literal,phase,deadline):
     elif phase=='provision':
         if b.file_bytes(directory/'install.completed')!=(literal+'\n').encode():raise ValueError('Install not confirmed')
         preserve(op,deadline,before_start=True);check_material(op,True);effective(op,deadline)
+        screen_lock_state(directory,deadline) # mandatory before provision
         b.write_new(directory/'provision.started',literal+'\n')
         guard=Path(op['bundle'])/'source/python/src/hyprneuro/identity_guard.py'
         b.command([str(b.PYTHON),'-I',str(guard),'--record',op['root_record']['path'],'--root-sha256',op['root_sha256'],'--generation',op['generation']],deadline)
@@ -344,6 +377,7 @@ def run(op,literal,phase,deadline):
         preserve(op,deadline,before_start=True);check_material(op,True);effective(op,deadline)
         for unit in b.APP_UNITS:
             if b.stopped(unit,deadline)['Restart']!='no':raise ValueError('BOTH app Restart=no required before EITHER start')
+        screen_lock_state(directory,deadline) # mandatory before start
         path=Path('/run/user/1000/hyprharness/grant-control.sock')
         b.write_new(directory/'start.started',literal+'\n')
         b.command(['/usr/bin/systemctl','--user','start',b.APP_UNITS[0]],deadline)
@@ -367,14 +401,14 @@ def run(op,literal,phase,deadline):
         # Screen lock is checked fresh BEFORE the first replacement/start and every cycle.
         check_material(op,True);preserve(op,deadline)
         for unit in b.APP_UNITS:b.stopped(unit,deadline)
-        screen_lock_state(deadline)
+        screen_lock_state(directory,deadline) # mandatory before watch.ready
         proc=Path('/proc/self');b.write_new(directory/'watch.ready',b.encoded(dict(operation_sha256=literal,pid=os.getpid(),start=proc.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19])))
         transient_started_at=None
         while time.monotonic()<deadline:
             check_material(op,True);preserve(op,deadline,full=False)
             for unit in b.APP_UNITS:
                 if b.show(unit,('Restart',),deadline)['Restart']!='no':return contain(op) # policy changed -> bounded containment now
-            lock=screen_lock_state(deadline)
+            lock=screen_lock_state(directory,deadline)
             started=(directory/'start.started').exists();completed=(directory/'start.completed').exists()
             if started and transient_started_at is None:transient_started_at=time.monotonic()
             live={};receipt=None

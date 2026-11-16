@@ -86,14 +86,19 @@ def prepare(output,infrastructure,deadline):
         targets.append(row);by_destination[str(destination)]=row
     # Probe cold effective properties in new uniquely owned RUNTIME units. No
     # production files/daemon-reload/activation, and no unit starts, even valid.
+    # Cold effective-property probe in the user-manager RUNTIME unit dir (private,
+    # per-boot). On-demand LoadUnit is read-only: no daemon-reload, no config-dir
+    # write, and no unit start. Probe files are deleted immediately after.
+    runtime_dir=Path('/run/user/1000/systemd/user');runtime_dir.mkdir(mode=0o700,exist_ok=True)
     props={};probe_records={};probe_paths=[];prefix='hyprneuro-package-probe-'+generation[:12]
     probe_bodies=dict(ui=ui_service,broker=broker_service,helper=helper_service,owner=service.unit_template(str(b.PYTHON),str(source)).replace('%f',str(owner)))
     try:
         for role,text in probe_bodies.items():
-            path=b.UNITDIR/(prefix+'-'+role+'.service');b.write_new(path,text,0o600);probe_paths.append(path)
+            path=runtime_dir/(prefix+'-'+role+'.service');b.write_new(path,text,0o600);probe_paths.append(path)
+            b.command(['/usr/bin/busctl','--address=unix:path=/run/user/1000/bus','call','org.freedesktop.systemd1','/org/freedesktop/systemd1','org.freedesktop.systemd1.Manager','LoadUnit','s',path.name],deadline)
             value=b.show(path.name,(*b.CRITICAL,*EXTRA),deadline)
             state=b.stopped(path.name,deadline)
-            if state['FragmentPath']!=str(b.HOME/'.config/systemd/user'/path.name) or state['UnitFileState'] not in ('static','disabled'):raise ValueError('Private probe ownership/config failure')
+            if state['FragmentPath']!=str(path) or state['UnitFileState'] not in ('static','disabled'):raise ValueError('Private probe ownership/config failure')
             props[role]={k:value[k] for k in b.CRITICAL};probe_records[role]=dict(file=b.pin(path),state=state,properties=value)
     finally:
         # Only exact created inert probe files; no stop/start or reload command.

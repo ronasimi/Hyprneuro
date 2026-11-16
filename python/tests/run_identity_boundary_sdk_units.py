@@ -6,7 +6,7 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
 case=os.environ.get('HN_BOUNDARY_CASE','positive')
-if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result'}:raise ValueError('Closed fixture case required')
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock'}:raise ValueError('Closed fixture case required')
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -71,7 +71,7 @@ def run(a,check=True):
 try:
  launch=R/'gtk-launch.json';launch.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry))));launch.chmod(0o400)
  bodies={}
- bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if case.startswith(('proof-','persistence-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
+ bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if case.startswith(('proof-','persistence-','idle-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
  for role in ['broker','helper']:
   bodies[role]='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=2\nNoNewPrivileges=yes\nPrivateUsers=no\nPrivateTmp='+('yes' if role=='broker' else 'no')+'\nEnvironment=PYTHONDONTWRITEBYTECODE=1\nEnvironmentFile='+str(env)+'\nLoadCredential=main-root-sha:'+str(R/'MAIN-root.sha256')+'\nExecStart='+PYTHON+' -I '+str(driver)+' '+role+'\n'
  bodies['owner']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=3\nExecStart='+PYTHON+' -I '+str(owner_entry)+'\n'
@@ -111,6 +111,30 @@ try:
  while not (R/'ui-child-host-proof.ready').exists() and time.monotonic()<end:time.sleep(.02)
  assert (R/'ui-child-host-proof.ready').exists(),'No UI/child host-positive proof before Node'
  if case!='wrong-root':run(['/usr/bin/systemctl','--user','start',names['owner']])
+ if case.startswith('idle-'):
+  end=time.monotonic()+10
+  while not (R/'idle-ready').exists() and time.monotonic()<end:time.sleep(.005)
+  assert (R/'idle-ready').exists(),'SDK chat must settle before idle fault'
+  before=json.loads((R/'monitor-state.json').read_text())
+  assert before['live'] is True and before['published'] is True,before
+  (R/'idle-before.json').write_text(json.dumps(before))
+  if case=='idle-clock':(R/'idle-clock-jump').write_text('EXPLICIT7201s BOOTTIME simulation, NOTreal2h/suspend')
+  else:
+   import signal,select
+   helper_name=names['helper'];assert helper_name.startswith(prefix)
+   pid=int(run(['/usr/bin/systemctl','--user','show',helper_name,'--value','-p','MainPID']))
+   assert pid>1 and pid!=os.getpid()
+   path=Path('/proc',str(pid));start=path.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19]
+   cgroup=run(['/usr/bin/systemctl','--user','show',helper_name,'--value','-p','ControlGroup'])
+   assert path.joinpath('cgroup').read_text().strip()=='0::'+cgroup
+   fd=os.pidfd_open(pid)
+   try:
+    assert path.joinpath('stat').read_text().rsplit(') ',1)[1].split()[19]==start
+    (R/'fault-injected').write_text('exact owned helper pidfd death -> idle EOF')
+    signal.pidfd_send_signal(fd,signal.SIGKILL)
+    assert select.select([fd],[],[],2)[0],'Owned helper did not die'
+   finally:os.close(fd)
+   (R/'idle-victim-dead').write_text(json.dumps(dict(unit=helper_name,pid=pid,start=start,cgroup=cgroup)))
  if case.startswith('role-loss-'):
   end=time.monotonic()+8
   while not (R/'role-await.json').exists() and time.monotonic()<end:time.sleep(.002)
@@ -157,7 +181,14 @@ try:
  assert (R/'core-result.json').exists(),'Missing core result'
  from identity_fixture_assertions import require_clean_result,require_revoked_rows
  result=json.loads((R/'core-result.json').read_text())
- if case.startswith('persistence-'):
+ if case.startswith('idle-'):
+  assert result['live_registrations']==0 and result['published']==0 and result['failures']>0,result
+  assert result['observer_cleanup_confirmed'] is False,result
+  require_revoked_rows(result['rows'],R)
+  assert (R/'negative-child-exit').read_text()=='1\n'
+  if case=='idle-helper-death':assert (R/'idle-victim-dead').exists()
+  assert len(model_calls)==2 and 'PRIVATE_BOUNDARY_SDK_CANARY' in json.dumps(model_calls[1]),model_calls
+ elif case.startswith('persistence-'):
   blocked=json.loads((R/'blocked-fsync-denied.json').read_text())
   assert blocked['clock_injection_seconds']==7201 and blocked['event_loop_blocked'] is True and blocked['real_suspend'] is False
   assert not any(blocked[k] for k in ['current','live','published','eligible']),blocked

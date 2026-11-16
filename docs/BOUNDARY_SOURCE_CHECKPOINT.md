@@ -250,3 +250,21 @@ This is an equivalent test-only oracle clarification; original raw failures and
 cleanup-confirmed FALSE remain unchanged. Offline test proves UNKNOWN is not
 modified and cannot pass require_clean_result. Production source unchanged.
 Real two-hour, suspend, idle loss, replacement and fresh Connect still pending.
+
+### Post-publication idle negatives23 (not real lifetime)
+
+`01M7JBYSB6D90425T31CY07C33` PASS2cases28.552s:
+helper death/EOF `sdk-571e4b02eb1648e4acfdc082dfea7f48`, injected expiry
+`sdk-69ffc446641c4b8da931ad03d5734ebc`. Actual SDK read settles with two
+localFAKE model requests, published slot/live registration verified BEFORE idle
+fault. No new operation or automatic Connect follows. Owned helper pidfd death
+or explicit private +7201s clock offset is detected by actual idle watcher;
+telemetry does NOT call gate.current() on a live published slot, so cannot
+supply detection on its behalf. GUI receives unavailable, child normal exit1,
+UNKNOWN retained, exact revoked/unapproved/created0 row, live0/published0,
+cleanup-confirmed FALSE/failures positive. No clean reconnect receipt implied.
+
+Clock test is INJECTED, not two-hour or suspend. Model calls were loopbackFAKE
+only; no production inference/residency/config/unit change. GTK5/5 pass after
+fixture rebuild. Physical replacement/endpoint/fresh Connect and real soak
+remain pending; all original failed roots/results preserved.

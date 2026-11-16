@@ -92,7 +92,7 @@ int main(int argc,char **argv) {
             g_assert_true(g_file_set_contents(done,"NEGATIVE lost/failed cleanup receipt retained UNKNOWN\n",-1,NULL));g_free(done);
             fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
         }
-        if(!g_strcmp0(type,"error") && g_getenv("HN_FIXTURE_PROOF_DENIAL")) {
+        if((!g_strcmp0(type,"error") || (g_getenv("HN_FIXTURE_IDLE") && !g_strcmp0(type,"unavailable"))) && g_getenv("HN_FIXTURE_PROOF_DENIAL")) {
             char *fault=g_build_filename(root,"fault-injected",NULL);g_assert_true(g_file_test(fault,G_FILE_TEST_EXISTS));g_free(fault);
             g_object_unref(parser);g_output_stream_close(out,NULL,NULL);
             g_assert_true(g_subprocess_wait(child,NULL,NULL));g_assert_true(g_subprocess_get_if_exited(child));
@@ -101,7 +101,7 @@ int main(int argc,char **argv) {
             g_assert_true(g_file_set_contents(exit_path,exit_text,-1,NULL));g_free(exit_path);g_free(exit_text);
             g_assert_cmpint(status,==,1); /* fail-closed teardown, NEVER a clean receipt */
             char *done=g_build_filename(root,"gtk-sdk-complete",NULL);
-            g_assert_true(g_file_set_contents(done,"NEGATIVE actual-helper proof denied; child exit1/UNKNOWN\n",-1,NULL));g_free(done);
+            g_assert_true(g_file_set_contents(done,"NEGATIVE actual boundary denied; child exit1/UNKNOWN\n",-1,NULL));g_free(done);
             fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
         }
         g_assert_cmpstr(type,!=,"error");g_assert_cmpstr(type,!=,"unavailable");g_assert_cmpstr(type,!=,"bootstrap_failure");
@@ -123,7 +123,11 @@ int main(int argc,char **argv) {
                 /* Explicit synthetic packet, NOT a Gtk security-button action. */
                 send_fixture(out,"consent",jstr(jmember(event,"id")),!g_strcmp0(kind,"grant_create") || g_strcmp0(g_getenv("HN_FIXTURE_DENY_READ"),"1"));
             }
-        } else if(!g_strcmp0(type,"result") && !g_strcmp0(op,"chat")) {settled=TRUE;send_fixture(out,"disconnect",NULL,FALSE);}
+        } else if(!g_strcmp0(type,"result") && !g_strcmp0(op,"chat")) {settled=TRUE;
+            if(g_getenv("HN_FIXTURE_IDLE")) {
+                char *idle=g_build_filename(root,"idle-ready",NULL);
+                g_assert_true(g_file_set_contents(idle,"settled; no new requests or automatic Connect\n",-1,NULL));g_free(idle);
+            } else send_fixture(out,"disconnect",NULL,FALSE);}
         else if(!g_strcmp0(type,"disconnected")) disconnected=TRUE;
         g_object_unref(parser);while(g_main_context_iteration(NULL,FALSE));
     }

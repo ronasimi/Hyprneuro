@@ -45,7 +45,18 @@ def install_broker(root,case,helper):
             core=state['core']
             if core is not None:
                 import json
-                (root/'monitor-state.json').write_text(json.dumps(dict(ticks=ticks,eligible=core.eligible('source-observer-private'),live=any(r.live for r in core.registrations.values()))))
+                if case=='idle-clock' and (root/'idle-clock-jump').exists() and not (root/'fault-injected').exists():
+                    registrations=list(core.registrations.values())
+                    if len(registrations)!=1:raise AssertionError('Exact idle registration required')
+                    gate=registrations[0].verification;clock=gate._clock
+                    (root/'fault-injected').write_text('EXPLICIT7201s private clockjump; NOTreal2h/suspend')
+                    gate._clock=lambda:clock()+7201*1_000_000_000
+                live=any(r.live for r in core.registrations.values());published=any(s.published for s in core.slots.values())
+                # Do NOT invoke a negative gate as telemetry before the actual
+                # idle watcher. It must detect EOF/deadline without our help.
+                temporary=root/'monitor-state.tmp'
+                temporary.write_text(json.dumps(dict(ticks=ticks,eligible=False if not live or not published else None,live=live,published=published)))
+                temporary.replace(root/'monitor-state.json')
         return result
     asyncio.sleep=sleep
     original_metadata=identity_transport._metadata

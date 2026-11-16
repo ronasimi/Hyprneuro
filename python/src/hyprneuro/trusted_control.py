@@ -609,10 +609,17 @@ class GrantControlClient:
             current=root.lstat()
             if (current.st_dev,current.st_ino,current.st_uid,current.st_mode)!=root_identity:
                 raise PermissionError('Owner root replaced')
-            if not self.connected or self.generation!=result['generation'] or boottime_ns()>=result['expires_ns']:
+            if (not self.finite_session or not self.connected or self.generation!=result['generation']
+                    or type(self.deadline_ns) is not int
+                    or boottime_ns()>=min(result['expires_ns'],self.deadline_ns)):
                 raise PermissionError('Owner binding expired/lost')
             raw,identity=pin.read(limit=16384)
             if identity!=initial_identity:raise PermissionError('Owner descriptor replaced after binding')
+            # Last negative gate AFTER blocking hash/read; no I/O/await follows.
+            if (not self.finite_session or not self.connected or self.generation!=result['generation']
+                    or type(self.deadline_ns) is not int
+                    or boottime_ns()>=min(result['expires_ns'],self.deadline_ns)):
+                raise PermissionError('Owner binding expired/lost')
             return raw
         raw=check()
         from .pi_owner_service import load_config

@@ -19,6 +19,7 @@ class BindingTests(unittest.IsolatedAsyncioTestCase):
         self.path=self.root/'owner.json';self.path.write_text(json.dumps(self.config));self.path.chmod(0o600)
         self.client=GrantControlClient(asyncio.StreamReader(),Mock(is_closing=lambda:False))
         self.client.finite_session=True;self.client.generation='a'*32
+        self.client.deadline_ns=boottime_ns()+30_000_000_000
         async def call(op,**fields):
             self.assertEqual(op,'prepare_owner')
             return dict(request_id=fields['request_id'],generation=self.client.generation,expires_ns=boottime_ns()+MAX_PROOF_NS,
@@ -53,3 +54,53 @@ class BindingTests(unittest.IsolatedAsyncioTestCase):
         self.client.call=AsyncMock(side_effect=self.reply)
         os.link(self.path,self.root/'descriptor-alias')
         with self.assertRaises(PermissionError):await self.client.prepare_owner(str(self.root))
+
+    async def test_last_read_expiry_blocks_actual_start_dispatcher_and_control_mac(self):
+        from hyprneuro.identity_bootstrap import FilePin
+        from hyprneuro.pi_managed_bridge import command
+        from hyprneuro.pi_owner_client import PiOwnerClient
+        from unittest.mock import patch
+        original_read=FilePin.read
+        for consumer in ['startup','control-mac']:
+            for expiry in ['proof','connect','closed','generation','failed']:
+                with self.subTest(consumer=consumer,expiry=expiry):
+                    now=[boottime_ns()]
+                    self.client.failed=False;self.client.generation='a'*32;self.client.writer.is_closing=lambda:False
+                    self.client.deadline_ns=now[0]+(500 if expiry=='connect' else 2000)
+                    async def response(op,**fields):
+                        return dict(request_id=fields['request_id'],generation=self.client.generation,
+                                    expires_ns=now[0]+1000,descriptor_mode=0o600,
+                                    descriptor_sha256=hashlib.sha256(self.path.read_bytes()).hexdigest())
+                    self.client.call=AsyncMock(side_effect=response)
+                    with patch('hyprneuro.identity_session.boottime_ns',side_effect=lambda:now[0]):
+                        _,check=await self.client.prepare_owner(str(self.root))
+                        def last_read(pin,**fields):
+                            result=original_read(pin,**fields)
+                            if expiry=='generation':self.client.generation='b'*32
+                            elif expiry=='failed':self.client.failed=True
+                            elif expiry=='closed':self.client.writer.is_closing=lambda:True
+                            else:now[0]+=1000 if expiry=='proof' else 500
+                            return result
+                        process=Mock(returncode=0,communicate=AsyncMock(return_value=(b'',b'')))
+                        spawn=AsyncMock(return_value=process)
+                        if consumer=='startup':
+                            with patch.object(FilePin,'read',last_read),patch('asyncio.create_subprocess_exec',spawn):
+                                with self.assertRaises(PermissionError):await command('/fixture/start',preflight=AsyncMock(return_value=check))
+                            spawn.assert_not_awaited()
+                        else:
+                            # Reach the REAL production CONTROL-MAC consumer:
+                            # the third preflight is after the awaited nonce.
+                            (self.root/'control.key').write_bytes(b'k'*32);(self.root/'control.key').chmod(0o600)
+                            reader=Mock(readexactly=AsyncMock(return_value=b'n'*32),readline=AsyncMock(side_effect=ConnectionError('Fixture stops after forbidden MAC')))
+                            writer=Mock(drain=AsyncMock(),wait_closed=AsyncMock())
+                            calls=0
+                            async def preflight():
+                                nonlocal calls
+                                calls+=1
+                                return check if calls==3 else lambda:None
+                            with patch.object(FilePin,'read',last_read),patch('asyncio.open_unix_connection',AsyncMock(return_value=(reader,writer))):
+                                error=None
+                                try:await PiOwnerClient.connect(self.root,trusted=True,preflight=preflight)
+                                except Exception as failure:error=failure
+                            writer.write.assert_not_called();self.assertIsInstance(error,PermissionError);self.assertEqual(calls,3)
+                        self.client.writer.is_closing=lambda:False

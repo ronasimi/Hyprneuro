@@ -6,7 +6,7 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
 case=os.environ.get('HN_BOUNDARY_CASE','positive')
-if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding'}:raise ValueError('Closed fixture case required')
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner'}:raise ValueError('Closed fixture case required')
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -25,6 +25,7 @@ for directory in ['agent','durable','sessions']:(owner/directory).mkdir(mode=0o7
 descriptor=owner/'owner.json';descriptor.write_text(json.dumps(dict(schema=pi_owner_service.SCHEMA,root=str(owner),source=str(code),node='/usr/bin/node',sdk=os.environ['PI_HARNESS_SDK'],durable=os.environ['PI_HARNESS_DURABLE'],pi='/home/ron/.pi/agent/bin/pi',read_paths=['fixture.txt'],task_id='source-observer-private')));descriptor.chmod(0o600)
 entry=SOURCE/'hyprneuro/identity_bridge_entry.py'
 bridge_instrumentation=Path(__file__).with_name('identity_bridge_fixture.py').resolve()
+role_instrumentation=Path(__file__).with_name('identity_role_fixture.py').resolve()
 wrong_root=R/'other-owner'
 if case=='wrong-root':
  for directory in ['home/workspace','agent','durable','sessions']:(wrong_root/directory).mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -91,7 +92,7 @@ try:
    props={k:ob.digest(v.encode()) for k,v in props.items()}
   if role=='helper':argv=[PYTHON,'-I',str(helper_entry),'helper','--root-record',str(record),'--generation',generation]
   specs[role]=dict(name=name,fragments=[str(p)],argv=argv,property_hashes=props)
- for p in [Path(PYTHON).resolve(),Path('/usr/bin/node').resolve(),probe,entry,host,descriptor,driver,owner_entry,helper_entry,helper_instrumentation,bridge_instrumentation,launch,*[Path(m.__file__).resolve() for m in [ob,identity_bootstrap,identity_session,identity_transport,identity_root,identity_credentials,identity_entry,identity_guard,sidecar,pi_owner_service,trusted_control,trusted_consent]]]:catalog[str(p)]=sha(p)
+ for p in [Path(PYTHON).resolve(),Path('/usr/bin/node').resolve(),probe,entry,host,descriptor,driver,owner_entry,helper_entry,helper_instrumentation,bridge_instrumentation,role_instrumentation,launch,*[Path(m.__file__).resolve() for m in [ob,identity_bootstrap,identity_session,identity_transport,identity_root,identity_credentials,identity_entry,identity_guard,sidecar,pi_owner_service,trusted_control,trusted_consent]]]:catalog[str(p)]=sha(p)
  manifest.write_text(json.dumps(dict(schema=identity_bootstrap.MANIFEST_SCHEMA,files=catalog,
   launch=dict(python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry)),
   node=ob.node_pin(Path('/usr/bin/node')),owner_root=str(owner),endpoint=str(endpoint),units=specs,host_user_namespace=os.readlink('/proc/self/ns/user'))));manifest.chmod(0o400)
@@ -109,6 +110,33 @@ try:
  while not (R/'ui-child-host-proof.ready').exists() and time.monotonic()<end:time.sleep(.02)
  assert (R/'ui-child-host-proof.ready').exists(),'No UI/child host-positive proof before Node'
  if case!='wrong-root':run(['/usr/bin/systemctl','--user','start',names['owner']])
+ if case.startswith('role-loss-'):
+  end=time.monotonic()+8
+  while not (R/'role-await.json').exists() and time.monotonic()<end:time.sleep(.002)
+  assert (R/'role-await.json').exists(),'Missing actual post-await role barrier'
+  victim=json.loads((R/'role-await.json').read_text());role=case.removeprefix('role-loss-')
+  expected_unit=names['ui' if role=='child' else role]
+  assert victim['role']==role and victim['unit']==expected_unit and expected_unit.startswith(prefix)
+  pid=victim['pid'];assert type(pid) is int and pid>1 and pid!=os.getpid()
+  def start_ticks():return Path('/proc',str(pid),'stat').read_text().rsplit(') ',1)[1].split()[19]
+  assert start_ticks()==victim['start']
+  assert Path('/proc',str(pid),'cgroup').read_text().strip()==victim['cgroup']
+  current=run(['/usr/bin/systemctl','--user','show',expected_unit,'--value','-p','MainPID'])
+  if role!='child':assert int(current)==pid
+  else:assert Path('/proc',str(pid),'stat').read_text().rsplit(') ',1)[1].split()[1]==current
+  import signal,select
+  fd=os.pidfd_open(pid)
+  try:
+   assert start_ticks()==victim['start']
+   signal.pidfd_send_signal(fd,signal.SIGKILL)  # exact owned private identity, no stale PID
+   assert select.select([fd],[],[],2)[0],'Owned victim did not die'
+  finally:os.close(fd)
+  (R/'role-released').write_text('owned pidfd death confirmed')
+  end=time.monotonic()+4
+  while not (R/'authority-denied.json').exists() and time.monotonic()<end:time.sleep(.002)
+  denied=json.loads((R/'authority-denied.json').read_text())
+  assert denied['eligible'] is False and denied['live'] is False and denied['published'] is False,denied
+  (R/'gtk-sdk-complete').write_text('NEGATIVE actual role loss; source snapshot sealed before authority action')
  if case=='delayed-cleanup':
   for phase in ['native-invalidation','helper-reap']:
    end=time.monotonic()+8
@@ -128,7 +156,10 @@ try:
  assert (R/'core-result.json').exists(),'Missing core result'
  from identity_fixture_assertions import require_clean_result
  result=json.loads((R/'core-result.json').read_text())
- if case.startswith('proof-'):
+ if case.startswith('role-loss-'):
+  assert result['rows']==[] and result['live_registrations']==0 and result['published']==0 and result['failures']>0,result
+  assert model_calls==[],model_calls
+ elif case.startswith('proof-'):
   assert (R/'fault-injected').read_text()==case
   assert (R/'negative-child-exit').read_text()=='1\n'
   if case=='proof-reuse':assert (R/'proof-first-accept').exists()

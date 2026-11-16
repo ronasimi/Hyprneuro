@@ -209,3 +209,24 @@ no live registrations/published grants/model calls and UNKNOWN consumed cell.
 All units reaped; failed original states/roots remain preserved. This last case
 is envelope peer binding, NOT physical socket/FD substitution. No host suspend,
 clockjump/real7200soak or remaining role/persistence/reconnect acceptance inferred.
+
+### Actual role-loss batch21 (bounded subset PASS; replacement still pending)
+
+`01M7JB5D61XCYD8ZET2RGVTNPJ` passed3cases40.993s:
+UI `sdk-dc9a11358ea647a7b93aebb1c0d5258e`, fixed child
+`sdk-4aa308e7860248daaea37ed9ace96611`, owner
+`sdk-a541ea6ea3264fb9920a8976a32b9517`.
+
+Private barrier occurs AFTER actual production-helper await/cohort validation,
+BEFORE ordinary final process validation and authority decision. Only outer
+harness sends SIGKILL, using pidfd after exact private unit/PID/start/cgroup and
+child PPID checks; helper remains observe-only. Actual source snapshot rejection
+seals first; observation wrapper then records live/eligible/published FALSE,
+never manually grants/seals or substitutes role metadata. Every case has rows[],
+no model calls or publication; owned units reaped. UI/child death can terminate
+the fixture window; negative completion is recorded externally only after the
+actual source-denial record, not inferred from process death alone.
+
+These prove process loss, NOT a live substituted replacement or post-publication
+idle loss. Persistence/blocking-fsync/clockjump, physical endpoint substitution,
+fresh Connect and real7200-second soak remain pending. Product source unchanged.

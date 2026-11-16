@@ -88,4 +88,8 @@ def install_broker(root,case,helper):
             return original_validate(client,packet,operation,expected)
         identity_transport.ObserverClient._validate_snapshot=validate
 
+    if case.startswith('role-loss-'):
+        from identity_role_fixture import install
+        install(root,case,state)
+
     return lambda core:state.update(core=core)

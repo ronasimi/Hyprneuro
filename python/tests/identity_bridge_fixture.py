@@ -22,6 +22,9 @@ async def wait_release(root,name):
         while not (root/(name+'-release')).exists():await asyncio.sleep(.005)
 
 def install_bridge(root,case):
+    if case in {'idle150','frame-partial','frame-trickle'}:
+        from identity_temporal_fixture import install_bridge as temporal
+        return temporal(root,case)
     if case=='wrong-root':return install_negative(root)
     if case.startswith('descriptor-'):
         from identity_descriptor_fixture import install
@@ -153,5 +156,9 @@ def install_broker(root,case,helper):
     if case=='soak7200':
         from identity_soak_fixture import install
         install(root,state)
+
+    if case in {'idle150','frame-partial','frame-trickle'}:
+        from identity_temporal_fixture import install_broker as temporal
+        temporal(root,case,state)
 
     return lambda core:state.update(core=core)

@@ -83,7 +83,7 @@ int main(int argc,char **argv) {
     GOutputStream *out=g_subprocess_get_stdin_pipe(child);
     GDataInputStream *in=g_data_input_stream_new(g_subprocess_get_stdout_pipe(child));
     char *packets_path=g_build_filename(root,"gtk-packets.jsonl",NULL);FILE *packets=fopen(packets_path,"a");g_free(packets_path);g_assert_nonnull(packets);
-    gboolean connected=FALSE,submitted=FALSE,settled=FALSE,disconnected=FALSE;guint consents=0;gint64 finite_deadline=0;
+    gboolean connected=FALSE,submitted=FALSE,settled=FALSE,disconnected=FALSE;guint consents=0;gint64 finite_deadline=0;gboolean expiry_requested=FALSE;
     for(guint count=0;count<(g_getenv("HN_FIXTURE_SOAK")?15000:400) && !disconnected;count++) {
         gsize length=0;char *line=g_data_input_stream_read_line(in,&length,NULL,NULL);g_assert_nonnull(line);g_assert_cmpuint(length,<,PI_FRAME_MAX);
         fprintf(packets,"%s\n",line);fflush(packets);
@@ -110,6 +110,15 @@ int main(int argc,char **argv) {
             g_assert_true(g_file_set_contents(done,"NEGATIVE lost/failed cleanup receipt retained UNKNOWN\n",-1,NULL));g_free(done);
             fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
         }
+        if(g_getenv("HN_FIXTURE_SOAK") && !expiry_requested && !g_strcmp0(type,"status")) {
+            struct timespec clock;g_assert_cmpint(clock_gettime(CLOCK_BOOTTIME,&clock),==,0);
+            gint64 now=(gint64)clock.tv_sec*G_GINT64_CONSTANT(1000000000)+clock.tv_nsec;
+            if(finite_deadline>0 && now>=finite_deadline) {
+                char *sealed=g_build_filename(root,"source-natural-seal.json",NULL);
+                if(g_file_test(sealed,G_FILE_TEST_EXISTS)) {expiry_requested=TRUE;send_fixture(out,"disconnect",NULL,FALSE);}
+                g_free(sealed); /* no traffic before cap; source seal precedes UI expiry cleanup */
+            }
+        }
         if(g_getenv("HN_FIXTURE_IDLE_PROBE") && (!g_strcmp0(type,"error") || !g_strcmp0(type,"unavailable") || !g_strcmp0(type,"bootstrap_failure"))) {
             struct timespec clock;g_assert_cmpint(clock_gettime(CLOCK_BOOTTIME,&clock),==,0);
             gint64 now=(gint64)clock.tv_sec*G_GINT64_CONSTANT(1000000000)+clock.tv_nsec;
@@ -120,10 +129,10 @@ int main(int argc,char **argv) {
         }
         if(g_getenv("HN_FIXTURE_IDLE_PROBE") && !g_strcmp0(type,"status") && !disconnected) {
             char *finish=g_build_filename(root,"idle-probe-finished",NULL);
-            if(g_file_test(finish,G_FILE_TEST_EXISTS))send_fixture(out,"disconnect",NULL,FALSE);
+            if(g_file_test(finish,G_FILE_TEST_EXISTS) && !expiry_requested){expiry_requested=TRUE;send_fixture(out,"disconnect",NULL,FALSE);}
             g_free(finish);
         }
-        if((!g_strcmp0(type,"error") || ((g_getenv("HN_FIXTURE_IDLE") || g_getenv("HN_FIXTURE_SOAK")) && !g_strcmp0(type,"unavailable"))) && g_getenv("HN_FIXTURE_PROOF_DENIAL")) {
+        if((!g_strcmp0(type,"error") || ((g_getenv("HN_FIXTURE_IDLE") || g_getenv("HN_FIXTURE_SOAK") || g_getenv("HN_FIXTURE_PARTIAL")) && !g_strcmp0(type,"unavailable"))) && g_getenv("HN_FIXTURE_PROOF_DENIAL")) {
             if(g_getenv("HN_FIXTURE_SOAK")) {
                 struct timespec clock;g_assert_cmpint(clock_gettime(CLOCK_BOOTTIME,&clock),==,0);
                 gint64 now=(gint64)clock.tv_sec*G_GINT64_CONSTANT(1000000000)+clock.tv_nsec;
@@ -147,6 +156,12 @@ int main(int argc,char **argv) {
                 char *denied=g_build_filename(root,"reconnect-denied",NULL);
                 g_assert_true(g_file_set_contents(denied,"UNKNOWN backend denies fresh Connect even after child exit0\n",-1,NULL));g_free(denied);
             } else g_assert_cmpint(status,==,1); /* exact expected UNKNOWN teardown */
+            if(g_getenv("HN_FIXTURE_SOAK")) {
+                const char *rs=NULL,*rc=NULL;char *rstart=NULL;GSubprocess *retry=pi_fixed_bridge(&rs,&rc,&rstart);
+                g_assert_null(retry);g_assert_null(rstart);
+                char *denied=g_build_filename(root,"reconnect-denied",NULL);
+                g_assert_true(g_file_set_contents(denied,"natural expiry UNKNOWN: no unauthorized new Connect/generation\n",-1,NULL));g_free(denied);
+            }
             char *done=g_build_filename(root,"gtk-sdk-complete",NULL);
             g_assert_true(g_file_set_contents(done,g_getenv("HN_FIXTURE_DESCRIPTOR_DENIAL")?"NEGATIVE descriptor refused; exact child status recorded, cleanup classified by broker\n":"NEGATIVE actual boundary denied; child exit1/UNKNOWN\n",-1,NULL));g_free(done);
             fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
@@ -162,7 +177,7 @@ int main(int argc,char **argv) {
             g_assert_true(g_file_test(socket,G_FILE_TEST_EXISTS));g_free(socket);
             char *owner=g_build_filename(root,"owner",NULL);send_fixture(out,"connect",owner,FALSE);g_free(owner);
         } else if(!g_strcmp0(type,"connected")) {connected=TRUE;
-            if(g_getenv("HN_FIXTURE_SOAK") || g_getenv("HN_FIXTURE_IDLE_PROBE")) {
+            if(g_getenv("HN_FIXTURE_SOAK") || g_getenv("HN_FIXTURE_IDLE_PROBE") || g_getenv("HN_FIXTURE_PARTIAL")) {
                 char *ready=g_build_filename(root,"soak-connected",NULL);
                 g_assert_true(g_file_set_contents(ready,"ONE explicit idle Connect; NO chat/inference/consent/renewal\n",-1,NULL));g_free(ready);
             } else {submitted=TRUE;send_fixture(out,"chat","SYNTHETIC_GTK_SDK_READ_FIXTURE",FALSE);}}
@@ -188,6 +203,19 @@ int main(int argc,char **argv) {
     if(g_getenv("HN_FIXTURE_IDLE_PROBE")){g_assert_true(connected && disconnected && !submitted && !settled);g_assert_cmpuint(consents,==,0);}
     else {g_assert_true(connected && submitted && settled && disconnected);g_assert_cmpuint(consents,==,2);}
     g_output_stream_close(out,NULL,NULL);g_assert_true(g_subprocess_wait_check(child,NULL,NULL));
+    if(g_getenv("HN_FIXTURE_IDLE150")) {
+        const char *s2=NULL,*c2=NULL;char *start2=NULL;GSubprocess *next=pi_fixed_bridge(&s2,&c2,&start2);g_assert_nonnull(next);
+        GDataInputStream *input=g_data_input_stream_new(g_subprocess_get_stdout_pipe(next));
+        gsize size=0;char *line=g_data_input_stream_read_line(input,&size,NULL,NULL);g_assert_nonnull(line);
+        JsonParser *p=json_parser_new();g_assert_true(json_parser_load_from_data(p,line,size,NULL));g_free(line);
+        g_assert_cmpstr(jstr(jmember(json_parser_get_root(p),"type")),==,"bridge_ready");g_object_unref(p);
+        send_fixture(g_subprocess_get_stdin_pipe(next),"disconnect",NULL,FALSE);
+        line=g_data_input_stream_read_line(input,&size,NULL,NULL);g_assert_nonnull(line);p=json_parser_new();
+        g_assert_true(json_parser_load_from_data(p,line,size,NULL));g_free(line);
+        g_assert_cmpstr(jstr(jmember(json_parser_get_root(p),"type")),==,"disconnected");g_object_unref(p);
+        g_output_stream_close(g_subprocess_get_stdin_pipe(next),NULL,NULL);g_assert_true(g_subprocess_wait_check(next,NULL,NULL));
+        g_object_unref(input);g_object_unref(next);g_free(start2);
+    }
     g_object_unref(in);g_object_unref(child);g_free(start);
     if(g_getenv("HN_FIXTURE_RECONNECT") && round==0) {
         char *ready=g_build_filename(root,"reconnect-ready",NULL),*release=g_build_filename(root,"reconnect-release",NULL);

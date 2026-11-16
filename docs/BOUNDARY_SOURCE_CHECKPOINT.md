@@ -386,3 +386,38 @@ workaround or renewal. Production source not deployed. Rereview BEFORE any fresh
 idle130 activation or real7200 soak. Concrete future soak harness prepared but
 NOT RUN/accepted, no model residency/inference, source/clock pins and event-driven
 owned-unit wait; no automatic new Connect or host suspend.
+
+## Approved730dd9a: closed real-time QA/soak workflow prepared (NOT PASS yet)
+
+Independent source approval boundary-source@4 received. Source unchanged; only
+private test fixtures extended. Sequence is exactly ONE fresh idle150, ONE fresh
+partial frame, ONE fresh trickle frame; stop first error. Only if all three PASS,
+launch ONE real7200 BOOTTIME idle lifetime, no automatic redo. Unique root/unit/
+MAIN claim/helper session per case, serialized machine lease. No production ops.
+
+Idle150: actual registered fixed-role session sends NO broker frame/chat/consent
+for150 real seconds; only native owner's normal status stream continues. After
+silence, real full helper cohort UI/child/owner is checked by existing snapshot/
+current() primitives, then exact descriptor preflight finishes; no deadline
+renewal. Normal explicit disconnect/ACK after helper reap and exact child exit,
+then new explicit fixture Connect must obtain different helper/session generation
+and close normally. No model requests/authorization rows/old consent to restore.
+
+Partial/trickle: first '{' starts unchanged125s TOTAL real completion budget.
+Separate trickle session sends four spaces at30/60/90/120s, never completes or
+resets timer. Actual source decoder timeout hook observes sealed/liveFALSE/
+publishedFALSE BEFORE source error/cleanup I/O. Source timeout frame OR terminal
+EOF after that actual timeout is accepted, never a forged positive. Owned helper
+must exit within separate6s event-driven cleanup observation, zero model/grant.
+
+Real soak: no injected clock/heartbeat/chat/consent/proofrefresh; hard7200 cap
+includes admission. Source negative-frame-read hook records actual natural seal
+before caller I/O. UI performs expiry cleanup only AFTER source seal and its own
+real BOOTTIME deadline (not a pre-cap producer keepalive). Helper reaped; UNKNOWN
+expiry never becomes a fake clean receipt. Attempted fresh Connect after UNKNOWN
+must be denied before observer.start, count1. Fresh-generation ALLOWED reconnect
+is proved separately by idle150 only AFTER known normal cleanup. This respects
+"new Connect only if cleanup known"; no automatic renewal/adoption. Natural
+helper active duration/setup gap reported separately, not invented as7200s.
+No real suspend test/host suspend command. Durable completion wake, no controller
+status polling.54focused and GTK5/5 pass; actual matrix and real soak pending.

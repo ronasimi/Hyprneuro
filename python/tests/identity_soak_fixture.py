@@ -9,9 +9,11 @@ from pathlib import Path
 CAP_NS=7200*1_000_000_000
 
 def install(root,state):
-    from hyprneuro import identity_transport,identity_session
+    from hyprneuro import identity_transport,identity_session,trusted_control
     root=Path(root);start=identity_transport.ObserverClient.start
     async def observed_start(client):
+        state['soak_start_attempts']=state.get('soak_start_attempts',0)+1
+        (root/'soak-start-attempts').write_text(str(state['soak_start_attempts']))
         result=await start(client)
         gate=client.gate
         if gate._clock is not identity_session.boottime_ns or identity_session.MAX_CONNECT_SECONDS!=7200:
@@ -25,6 +27,18 @@ def install(root,state):
             boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip())))
         return result
     identity_transport.ObserverClient.start=observed_start
+    read=trusted_control.read_frame
+    async def observed_read(reader,**kwargs):
+        try:return await read(reader,**kwargs)
+        except BaseException:
+            gate=kwargs.get('session')
+            if gate is not None and identity_session.boottime_ns()>=gate.deadline_ns:
+                core=state['core']
+                (root/'source-natural-seal.json').write_text(json.dumps(dict(boottime_ns=identity_session.boottime_ns(),
+                    deadline_ns=gate.deadline_ns,sealed=gate._sealed,live=any(r.live for r in core.registrations.values()),
+                    published=any(s.published for s in core.slots.values()))))
+            raise
+    trusted_control.read_frame=observed_read
 
 def heartbeat(root,state,ticks):
     # Called AFTER an actual50ms watch sleep, no authority/negative fence calls.

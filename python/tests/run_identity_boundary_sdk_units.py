@@ -6,8 +6,8 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
 case=os.environ.get('HN_BOUNDARY_CASE','positive')
-if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock','fresh-connect','endpoint-substitution','descriptor-replace','descriptor-loss','ui-replacement','soak7200','idle130'}:raise ValueError('Closed fixture case required')
-runtime_limit=7300 if case=='soak7200' else 180 if case=='idle130' else 35
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock','fresh-connect','endpoint-substitution','descriptor-replace','descriptor-loss','ui-replacement','soak7200','idle130','idle150','frame-partial','frame-trickle'}:raise ValueError('Closed fixture case required')
+runtime_limit=7300 if case=='soak7200' else 215 if case in {'idle150','frame-partial','frame-trickle'} else 180 if case=='idle130' else 35
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -30,6 +30,7 @@ role_instrumentation=Path(__file__).with_name('identity_role_fixture.py').resolv
 persistence_instrumentation=Path(__file__).with_name('identity_persistence_fixture.py').resolve()
 descriptor_instrumentation=Path(__file__).with_name('identity_descriptor_fixture.py').resolve()
 soak_instrumentation=Path(__file__).with_name('identity_soak_fixture.py').resolve()
+temporal_instrumentation=Path(__file__).with_name('identity_temporal_fixture.py').resolve()
 wrong_root=R/'other-owner'
 if case=='wrong-root':
  for directory in ['home/workspace','agent','durable','sessions']:(wrong_root/directory).mkdir(mode=0o700,parents=True,exist_ok=True)
@@ -74,7 +75,7 @@ def run(a,check=True):
 try:
  launch=R/'gtk-launch.json';launch.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry))));launch.chmod(0o400)
  bodies={}
- bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec='+str(runtime_limit)+'\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_IDLE_PROBE=1' if case=='idle130' else '')+(' HN_FIXTURE_SOAK=1' if case=='soak7200' else '')+(' HN_FIXTURE_UI_REPLACEMENT=1' if case=='ui-replacement' else '')+(' HN_FIXTURE_DESCRIPTOR_DENIAL=1' if case.startswith('descriptor-') else '')+(' HN_FIXTURE_ENDPOINT_NEGATIVE=1' if case=='endpoint-substitution' else '')+(' HN_FIXTURE_RECONNECT=1' if case=='fresh-connect' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if (case.startswith(('proof-','persistence-','idle-','descriptor-')) or case=='soak7200') else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
+ bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec='+str(runtime_limit)+'\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_IDLE_PROBE=1' if case in {'idle130','idle150'} else '')+(' HN_FIXTURE_IDLE150=1' if case=='idle150' else '')+(' HN_FIXTURE_PARTIAL=1' if case.startswith('frame-') else '')+(' HN_FIXTURE_SOAK=1' if case=='soak7200' else '')+(' HN_FIXTURE_UI_REPLACEMENT=1' if case=='ui-replacement' else '')+(' HN_FIXTURE_DESCRIPTOR_DENIAL=1' if case.startswith('descriptor-') else '')+(' HN_FIXTURE_ENDPOINT_NEGATIVE=1' if case=='endpoint-substitution' else '')+(' HN_FIXTURE_RECONNECT=1' if case=='fresh-connect' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if (case.startswith(('proof-','persistence-','idle-','descriptor-')) or case=='soak7200' or case.startswith('frame-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
  for role in ['broker','helper']:
   bodies[role]='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec='+str(runtime_limit)+'\nTimeoutStopSec=2\nNoNewPrivileges=yes\nPrivateUsers=no\nPrivateTmp='+('yes' if role=='broker' else 'no')+'\nEnvironment=PYTHONDONTWRITEBYTECODE=1\nEnvironmentFile='+str(env)+'\nLoadCredential=main-root-sha:'+str(R/'MAIN-root.sha256')+'\nExecStart='+PYTHON+' -I '+str(driver)+' '+role+'\n'
  bodies['owner']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec='+str(runtime_limit)+'\nTimeoutStopSec=3\nExecStart='+PYTHON+' -I '+str(owner_entry)+'\n'
@@ -96,7 +97,7 @@ try:
    props={k:ob.digest(v.encode()) for k,v in props.items()}
   if role=='helper':argv=[PYTHON,'-I',str(helper_entry),'helper','--root-record',str(record),'--generation',generation]
   specs[role]=dict(name=name,fragments=[str(p)],argv=argv,property_hashes=props)
- for p in [Path(PYTHON).resolve(),Path('/usr/bin/node').resolve(),probe,entry,host,descriptor,driver,owner_entry,helper_entry,helper_instrumentation,bridge_instrumentation,role_instrumentation,persistence_instrumentation,descriptor_instrumentation,soak_instrumentation,launch,*[Path(m.__file__).resolve() for m in [ob,identity_bootstrap,identity_session,identity_transport,identity_root,identity_credentials,identity_entry,identity_guard,sidecar,pi_owner_service,trusted_control,trusted_consent]]]:catalog[str(p)]=sha(p)
+ for p in [Path(PYTHON).resolve(),Path('/usr/bin/node').resolve(),probe,entry,host,descriptor,driver,owner_entry,helper_entry,helper_instrumentation,bridge_instrumentation,role_instrumentation,persistence_instrumentation,descriptor_instrumentation,soak_instrumentation,temporal_instrumentation,launch,*[Path(m.__file__).resolve() for m in [ob,identity_bootstrap,identity_session,identity_transport,identity_root,identity_credentials,identity_entry,identity_guard,sidecar,pi_owner_service,trusted_control,trusted_consent]]]:catalog[str(p)]=sha(p)
  manifest.write_text(json.dumps(dict(schema=identity_bootstrap.MANIFEST_SCHEMA,files=catalog,
   launch=dict(python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry)),
   node=ob.node_pin(Path('/usr/bin/node')),owner_root=str(owner),endpoint=str(endpoint),units=specs,host_user_namespace=os.readlink('/proc/self/ns/user'))));manifest.chmod(0o400)
@@ -216,12 +217,12 @@ try:
    sealed=json.loads((R/'monitor-state.json').read_text())
    assert sealed['eligible'] is False and sealed['live'] is False,sealed
    (R/(phase+'-release')).write_text('release')
- if case in {'soak7200','idle130'}:
+ if case in {'soak7200','idle130','idle150','frame-partial','frame-trickle'}:
   from identity_soak_fixture import wait_ui_exit
   if case=='idle130':
    idle_timer=threading.Timer(130,lambda:(R/'idle-probe-finished').write_text('explicit finite disconnect after real130s; no clock change/renewal'))
    idle_timer.daemon=True;idle_timer.start()
-  wait_ui_exit(names['ui'],195 if case=='idle130' else 7330)
+  wait_ui_exit(names['ui'],230 if case in {'idle150','frame-partial','frame-trickle'} else 195 if case=='idle130' else 7330)
   if not (R/'gtk-sdk-complete').exists():(R/'fixture-stop').write_text('UI exited without success; preserve source failure, NOT completion')  # event-driven, no polling or artificial time
  end=time.monotonic()+25
  while not (R/'core-result.json').exists() and time.monotonic()<end:time.sleep(.02)
@@ -229,7 +230,24 @@ try:
  assert (R/'core-result.json').exists(),'Missing core result'
  from identity_fixture_assertions import require_clean_result,require_revoked_rows,require_unknown_channel
  result=json.loads((R/'core-result.json').read_text())
- if case=='idle130':
+ if case=='idle150':
+  assert result==dict(rows=[],live_registrations=0,published=0,observer_cleanup_confirmed=True,failures=0),result
+  began=json.loads((R/'idle150-start.json').read_text())['boottime_ns'];verified=json.loads((R/'idle-live-roles.json').read_text())
+  assert verified['boottime_ns']-began>=150*1_000_000_000 and verified['roles']==['child','owner','ui'] and verified['current'] is True
+  sessions=[json.loads(line) for line in (R/'temporal-sessions.jsonl').read_text().splitlines()]
+  assert len(sessions)==2 and sessions[0]['generation']!=sessions[1]['generation'] and sessions[0]['helper']['pid']!=sessions[1]['helper']['pid']
+  assert model_calls==[] and not (R/'TEMPORAL-PRODUCER-FAIL').exists()
+ elif case.startswith('frame-'):
+  from identity_soak_fixture import wait_ui_exit
+  wait_ui_exit(names['helper'],6)  # separate owned cleanup budget, event driven
+  assert int(run(['/usr/bin/systemctl','--user','show',names['helper'],'--value','-p','MainPID']))==0
+  require_unknown_channel(result,int((R/'negative-child-exit').read_text()));assert result['rows']==[]
+  observed=json.loads((R/'partial-timeout.json').read_text());began=json.loads((R/'partial-start.json').read_text())['boottime_ns']
+  assert 125*1_000_000_000<=observed['boottime_ns']-began<135*1_000_000_000,observed
+  assert observed['sealed'] is True and observed['live'] is False and observed['published'] is False
+  assert (R/'partial-response.json').exists() and not (R/'TEMPORAL-PRODUCER-FAIL').exists() and model_calls==[]
+  if case=='frame-trickle':assert len((R/'trickle-times.jsonl').read_text().splitlines())==4
+ elif case=='idle130':
   assert result==dict(rows=[],live_registrations=0,published=0,observer_cleanup_confirmed=True,failures=0),result
   assert model_calls==[] and not (R/'premature-control-close.json').exists()
  elif case=='soak7200':
@@ -238,6 +256,9 @@ try:
   assert session['deadline_ns']-session['started_ns']==7200*1_000_000_000
   assert expiry['deadline_ns']==session['deadline_ns'] and expiry['observed_ns']>=session['deadline_ns']
   assert (R/'soak-connected').exists() and not (R/'fault-injected').exists() and model_calls==[]
+  seal=json.loads((R/'source-natural-seal.json').read_text())
+  assert seal['boottime_ns']>=session['deadline_ns'] and seal['sealed'] is True and seal['live'] is False and seal['published'] is False
+  assert (R/'reconnect-denied').exists() and (R/'soak-start-attempts').read_text()=='1'
   assert result['rows']==[];require_unknown_channel(result,int((R/'negative-child-exit').read_text()))
   heartbeats=[json.loads(line) for line in (R/'soak-heartbeats.jsonl').read_text().splitlines()]
   assert len(heartbeats)>=120 and heartbeats[-1]['ticks']>=100000,heartbeats[-1:]

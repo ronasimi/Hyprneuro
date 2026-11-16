@@ -205,15 +205,37 @@ class LaunchVerifier:
         return {k: v for k, v in body.items() if k != 'nonce'}
 
 
-async def read_frame(reader, *, timeout=125):
-    async with asyncio.timeout(timeout):
-        raw = await reader.readline()
-    if not raw.endswith(b'\n') or len(raw) > MAX_FRAME:
-        raise ValueError('Bounded private control frame required')
-    value = json.loads(raw)
-    if not isinstance(value, dict):
-        raise ValueError('Private control object required')
-    return value
+async def read_frame(reader, *, timeout=125, session=None):
+    try:
+        if session is None:
+            async with asyncio.timeout(timeout):
+                raw = await reader.readline()
+        else:
+            from .identity_session import boottime_ns
+            def remaining():
+                if not session.transport_alive():
+                    raise PermissionError('Finite control session ended')
+                return max(0, (session.deadline_ns-boottime_ns())/1e9)
+            # No frame is not a stalled frame. Idle waits only until the fixed
+            # BOOTTIME deadline; the independent watcher handles suspend/EOF.
+            async with asyncio.timeout(remaining()):
+                first = await reader.read(1)
+            remaining()  # resume/EOF/deadline fence AFTER the await
+            if not first:
+                raise ValueError('Private control EOF')
+            async with asyncio.timeout(min(timeout, remaining())):
+                raw = first if first == b'\n' else first + await reader.readline()
+            remaining()  # no late completed frame after absolute expiry/loss
+        if not raw.endswith(b'\n') or len(raw) > MAX_FRAME:
+            raise ValueError('Bounded private control frame required')
+        value = json.loads(raw)
+        if not isinstance(value, dict):
+            raise ValueError('Private control object required')
+        return value
+    except BaseException:
+        if session is not None:
+            session.seal()  # eligibility FIRST, before caller diagnostics/I/O
+        raise
 
 
 async def send_frame(writer, value):
@@ -367,7 +389,7 @@ class GrantControlServer:
             stage = 'private-operation'
             challenge = None
             while True:
-                value = await read_frame(reader)
+                value = await read_frame(reader, session=boundary.gate if boundary is not None else None)
                 op = value.get('op')
                 if boundary is None and op not in {'release', 'invalidate', 'disconnect'}:
                     self.verifier.child(ui, child['pid'], child['start'])

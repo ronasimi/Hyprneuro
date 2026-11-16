@@ -180,3 +180,29 @@ fact against current committed code and was not acted on.
 No deployment, activation, human acceptance, or readiness claim follows this
 commit. Bundle/OPS freeze and independent source+exact-bundle review remain the
 next gate; overall NOT READY.
+
+## Bundle freeze (pre-review; NOT approval)
+
+A NEW distinct immutable bundle was prepared at
+`/home/ron/Workspace/hn-boundary-18aef68-01` (product 18aef68e, infrastructure
+commits 5a077a7 + e8dd619). It is **pre-review only**; `operation.json` status is
+`PREREVIEW_NOT_APPROVED_FOR_EXECUTION`. Receipt:
+`/home/ron/Workspace/hyprneuro-production-audit/boundary-bundle-freeze-18aef68-01/receipt.json`
+SHA256 `d17b8d2e7cf606089fe7b4a4ee42335f66de46fe8853071f9bb9827de8dafd68`.
+
+Frozen and verified read-only:
+- Managed source export = 76 files from `git archive 18aef68`; NO tests/fixtures/pyc.
+- Build binary SHA `d9d7fb39…fb4e12` (BUILD_AND_FIVE_UI_TESTS_PASS).
+- Acyclic launch-root DAG: record path AND record SHA both absent from the identity
+  catalog; literal record SHA `d2f7c3a4…44d6ed` lives only in operation artifacts.
+- schema3 manifest, all 5 roles + unit-path bindings; 6 closed destination/install-
+  object rows; MAIN command arrays (update/install/provision/start, watcher,
+  containment) are outside the identity catalog and NOT authorized to run.
+- Read-only `ops.load()` and `check_material(pre-install)` both PASS (root DAG, 5
+  binding chains vs current host aliases, staged digests vs frozen future inodes).
+- Model preservation pins (snapshot03 + aux03) carried as PROPOSED comparison-only.
+
+No production install, daemon-reload, socket activation, app/helper start, model,
+SQL, DB/settings write, or second soak was performed. Independent SOURCE + exact
+BUNDLE/OPS review is the next gate; deployment and human acceptance remain
+BLOCKED and overall NOT READY.

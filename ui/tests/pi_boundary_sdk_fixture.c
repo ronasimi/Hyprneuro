@@ -63,6 +63,13 @@ int main(int argc,char **argv) {
     const char *stage=NULL,*category=NULL;char *start=NULL;
     GSubprocess *child=pi_fixed_bridge(&stage,&category,&start);
     if(!child){
+        if(g_getenv("HN_FIXTURE_UI_REPLACEMENT")) {
+            char *released=g_build_filename(root,"role-released",NULL);g_assert_true(g_file_test(released,G_FILE_TEST_EXISTS));g_free(released);
+            g_assert_cmpstr(category,==,"identity");
+            char *denied=g_build_filename(root,"replacement-rejected",NULL);
+            g_assert_true(g_file_set_contents(denied,"new UI process denied before new fixed child/helper; consumed UNKNOWN\n",-1,NULL));g_free(denied);
+            gtk_window_destroy(GTK_WINDOW(window));return 0;
+        }
         if(g_getenv("HN_FIXTURE_ENDPOINT_NEGATIVE")) {
             char *release=g_build_filename(root,"endpoint-substitution-release",NULL);g_assert_true(g_file_test(release,G_FILE_TEST_EXISTS));g_free(release);
             g_assert_cmpstr(category,==,"identity");

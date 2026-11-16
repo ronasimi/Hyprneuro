@@ -337,3 +337,25 @@ ObserverClient.start attempt count stays1: no new child/helper/adoption even
 when first child exited0. No source-product change; original26 exit1 NOT
 relabelled. Descriptor bytes archived, no consent/replay marker reset/restoration.
 Physical UI replacement test and final real7200-second idle soak remain pending.
+
+### Physical UI replacement28 PASS
+
+`01M7JDA56TFGH6497DQE5BK3SW` PASS13.508s,
+`sdk-988126ec3b48452e923e9837efa19754`. One exact owned UI service restart after
+real helper cohort await/before final validation replaces MainPID. Old PID/start/
+cgroup/unit verified and old pidfd death confirmed; original cohort denied by
+actual source negative fence before decision. New UI is refused before another
+ObserverClient.start (count1), child/helper not adopted/relaunched. Rows[],
+live0/published0/modelcalls0. Native owner/checkpoint/guard never restarted,
+rewound or adopted. Replacement and authority-denial records both required
+before external completion. GTK5/5 after rebuild. Together with physical
+UI/child/owner losses21, this is bounded process loss/replacement evidence,
+not hostile same-UID FD-transfer/same-PID-exec/loaded-code attestation.
+
+Bounded negative matrix/source remains coherent, production code unchanged.
+Next is ONE final real7200 CLOCK_BOOTTIME private idle session/helper soak,
+no chat/inference/consent/model residency, no clock injection or host suspend,
+no automatic new Connect. Exact source/fixture pins, real start/deadline/expiry,
+idle monitor counts and owned helper cleanup must be recorded; setup time and
+helper observed duration must not be falsely called7200s active-helper coverage.
+Not passed/started by this documentation increment; production/packaging blocked.

@@ -5,7 +5,7 @@ from pathlib import Path
 
 def install(root,case,state):
     from hyprneuro import identity_transport
-    root=Path(root);role=case.removeprefix('role-loss-');fired=False
+    root=Path(root);role='ui' if case=='ui-replacement' else case.removeprefix('role-loss-');fired=False
     validate=identity_transport.ObserverClient._validate_snapshot
     snapshot=identity_transport.ObserverClient.snapshot
     def after_await(client,packet,operation,expected):

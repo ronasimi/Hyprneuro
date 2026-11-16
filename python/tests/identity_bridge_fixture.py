@@ -102,7 +102,7 @@ def install_broker(root,case,helper):
             return original_validate(client,packet,operation,expected)
         identity_transport.ObserverClient._validate_snapshot=validate
 
-    if case.startswith('role-loss-'):
+    if case.startswith('role-loss-') or case=='ui-replacement':
         from identity_role_fixture import install
         install(root,case,state)
 
@@ -110,7 +110,7 @@ def install_broker(root,case,helper):
         from identity_persistence_fixture import install
         install(root,case,state)
 
-    if case.startswith('descriptor-'):
+    if case.startswith('descriptor-') or case=='ui-replacement':
         original_start=identity_transport.ObserverClient.start
         attempts=0
         async def start(client):

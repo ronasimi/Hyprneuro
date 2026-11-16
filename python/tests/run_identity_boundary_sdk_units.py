@@ -6,7 +6,7 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
 case=os.environ.get('HN_BOUNDARY_CASE','positive')
-if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock','fresh-connect','endpoint-substitution','descriptor-replace','descriptor-loss'}:raise ValueError('Closed fixture case required')
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure','proof-nonce','proof-generation','proof-duplicate','proof-reuse','proof-peer-binding','role-loss-ui','role-loss-child','role-loss-owner','persistence-intent','persistence-result','idle-helper-death','idle-clock','fresh-connect','endpoint-substitution','descriptor-replace','descriptor-loss','ui-replacement'}:raise ValueError('Closed fixture case required')
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -72,7 +72,7 @@ def run(a,check=True):
 try:
  launch=R/'gtk-launch.json';launch.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry))));launch.chmod(0o400)
  bodies={}
- bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_DESCRIPTOR_DENIAL=1' if case.startswith('descriptor-') else '')+(' HN_FIXTURE_ENDPOINT_NEGATIVE=1' if case=='endpoint-substitution' else '')+(' HN_FIXTURE_RECONNECT=1' if case=='fresh-connect' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if case.startswith(('proof-','persistence-','idle-','descriptor-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
+ bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_UI_REPLACEMENT=1' if case=='ui-replacement' else '')+(' HN_FIXTURE_DESCRIPTOR_DENIAL=1' if case.startswith('descriptor-') else '')+(' HN_FIXTURE_ENDPOINT_NEGATIVE=1' if case=='endpoint-substitution' else '')+(' HN_FIXTURE_RECONNECT=1' if case=='fresh-connect' else '')+(' HN_FIXTURE_IDLE=1' if case.startswith('idle-') else '')+(' HN_FIXTURE_PROOF_DENIAL=1' if case.startswith(('proof-','persistence-','idle-','descriptor-')) else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
  for role in ['broker','helper']:
   bodies[role]='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=2\nNoNewPrivileges=yes\nPrivateUsers=no\nPrivateTmp='+('yes' if role=='broker' else 'no')+'\nEnvironment=PYTHONDONTWRITEBYTECODE=1\nEnvironmentFile='+str(env)+'\nLoadCredential=main-root-sha:'+str(R/'MAIN-root.sha256')+'\nExecStart='+PYTHON+' -I '+str(driver)+' '+role+'\n'
  bodies['owner']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=3\nExecStart='+PYTHON+' -I '+str(owner_entry)+'\n'
@@ -165,11 +165,11 @@ try:
     assert select.select([fd],[],[],2)[0],'Owned helper did not die'
    finally:os.close(fd)
    (R/'idle-victim-dead').write_text(json.dumps(dict(unit=helper_name,pid=pid,start=start,cgroup=cgroup)))
- if case.startswith('role-loss-'):
+ if case.startswith('role-loss-') or case=='ui-replacement':
   end=time.monotonic()+8
   while not (R/'role-await.json').exists() and time.monotonic()<end:time.sleep(.002)
   assert (R/'role-await.json').exists(),'Missing actual post-await role barrier'
-  victim=json.loads((R/'role-await.json').read_text());role=case.removeprefix('role-loss-')
+  victim=json.loads((R/'role-await.json').read_text());role='ui' if case=='ui-replacement' else case.removeprefix('role-loss-')
   expected_unit=names['ui' if role=='child' else role]
   assert victim['role']==role and victim['unit']==expected_unit and expected_unit.startswith(prefix)
   pid=victim['pid'];assert type(pid) is int and pid>1 and pid!=os.getpid()
@@ -183,7 +183,12 @@ try:
   fd=os.pidfd_open(pid)
   try:
    assert start_ticks()==victim['start']
-   signal.pidfd_send_signal(fd,signal.SIGKILL)  # exact owned private identity, no stale PID
+   if case=='ui-replacement':
+    run(['/usr/bin/systemctl','--user','restart',expected_unit])  # ONE owned UI replacement, never native adoption
+    replacement=int(run(['/usr/bin/systemctl','--user','show',expected_unit,'--value','-p','MainPID']))
+    assert replacement>1 and replacement!=pid
+    (R/'replacement-pids.json').write_text(json.dumps(dict(unit=expected_unit,old_pid=pid,new_pid=replacement)))
+   else:signal.pidfd_send_signal(fd,signal.SIGKILL)  # exact owned private identity, no stale PID
    assert select.select([fd],[],[],2)[0],'Owned victim did not die'
   finally:os.close(fd)
   (R/'role-released').write_text('owned pidfd death confirmed')
@@ -191,7 +196,11 @@ try:
   while not (R/'authority-denied.json').exists() and time.monotonic()<end:time.sleep(.002)
   denied=json.loads((R/'authority-denied.json').read_text())
   assert denied['eligible'] is False and denied['live'] is False and denied['published'] is False,denied
-  (R/'gtk-sdk-complete').write_text('NEGATIVE actual role loss; source snapshot sealed before authority action')
+  if case=='ui-replacement':
+   end=time.monotonic()+4
+   while not (R/'replacement-rejected').exists() and time.monotonic()<end:time.sleep(.005)
+   assert (R/'replacement-rejected').exists(),'New UI must be refused before new child/helper'
+  (R/'gtk-sdk-complete').write_text('NEGATIVE actual role loss/replacement; source snapshot sealed before authority action')
  if case=='delayed-cleanup':
   for phase in ['native-invalidation','helper-reap']:
    end=time.monotonic()+8
@@ -255,7 +264,8 @@ try:
   if case=='persistence-intent':assert result['rows']==[],result
   else:require_revoked_rows(result['rows'],R)
   assert model_calls==[] and (R/'negative-child-exit').read_text()=='1\n'
- elif case.startswith('role-loss-'):
+ elif case.startswith('role-loss-') or case=='ui-replacement':
+  if case=='ui-replacement':assert (R/'replacement-rejected').exists() and (R/'observer-start-attempts').read_text()=='1'
   assert result['rows']==[] and result['live_registrations']==0 and result['published']==0 and result['failures']>0,result
   assert model_calls==[],model_calls
  elif case.startswith('proof-'):

@@ -77,3 +77,23 @@ Other dirty OPS scripts/tests and historical evidence are intentionally excluded
 Validation receipts carry exact base/end, owned-file source hashes and actual
 commands/results. Pending regression runs remain pending until their result;
 failed integration evidence is not converted to PASS by a source commit.
+
+## Post-checkpoint diagnostic case (original run remains FAILED)
+
+`01M7HY2GSJRTARBWJNH3FZW83H`, evidence `sdk-b3ca1428bc9144198ca39f8ebdcd4642`:
+actual finite Connect, UI/fixed-child/Node cohorts, two synthetic consent packets,
+real SDK canary read (two local fake SSE requests, canary in second), settled
+chat, clean disconnect receipt and exact child exit completed. Helper terminal
+`entry/terminal/none` survived INFO exhaustion. Zero live registrations/published
+slots, observer cleanup confirmed, broker failures0; all units inactive/PID0,
+no jobs/cgroups. No genuine human or production acceptance.
+
+The command exited1 at its LAST oracle: it incorrectly required `rows==[]`.
+`sidecar_store.auth_revoke` intentionally retains a revoked historical row;
+captured row is exact-owned, revoked, unapproved, created_ms0. Private oracle now
+requires that EXACT row plus all cleanup fields, rejects active/approved/foreign/
+extra rows or uncertainty. Corrected oracle is evaluated offline against the
+preserved result, NOT a rerun or rewriting the original exit status. This moves
+scope evidence beyond the earlier generic Connect error but does not satisfy
+full negative/lifetime/human/production blocks above. Independent review must
+include this small fixture-only correction delta; product authority unchanged.

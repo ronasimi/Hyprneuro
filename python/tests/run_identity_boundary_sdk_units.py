@@ -99,7 +99,8 @@ try:
  while not (R/'core-result.json').exists() and time.monotonic()<end:time.sleep(.02)
  assert (R/'gtk-sdk-complete').exists(),'GTK/SDK fixture did not complete'
  assert (R/'core-result.json').exists(),'Missing core result'
- result=json.loads((R/'core-result.json').read_text());assert result['rows']==[] and result['live_registrations']==0 and result['published']==0 and result['observer_cleanup_confirmed'],result
+ from identity_fixture_assertions import require_clean_result
+ result=json.loads((R/'core-result.json').read_text());require_clean_result(result,R)
  assert len(model_calls)==2 and 'PRIVATE_BOUNDARY_SDK_CANARY' in json.dumps(model_calls[1]),model_calls
  print('ACTUAL GTK/FIXED CHILD/NODE SDK/CORE GRANTS + CONFIRMED CLEANUP PASS (SYNTHETIC CONSENT ONLY)',R)
 

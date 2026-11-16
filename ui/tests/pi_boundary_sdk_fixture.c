@@ -59,12 +59,13 @@ int main(int argc,char **argv) {
     gtk_init();const char *root=g_getenv("HN_FIXTURE_ROOT");g_assert_nonnull(root);
     GtkWidget *window=gtk_window_new();gtk_window_set_child(GTK_WINDOW(window),gtk_label_new("SYNTHETIC fixture packets — NOT human chooser/Allow acceptance"));gtk_window_present(GTK_WINDOW(window));
     while(g_main_context_iteration(NULL,FALSE));
+    for(guint round=0;round<(g_getenv("HN_FIXTURE_RECONNECT")?2:1);round++) {
     const char *stage=NULL,*category=NULL;char *start=NULL;
     GSubprocess *child=pi_fixed_bridge(&stage,&category,&start);
     if(!child){g_printerr("FIXTURE fixed bridge failed %s/%s\n",stage,category);return 2;}
     GOutputStream *out=g_subprocess_get_stdin_pipe(child);
     GDataInputStream *in=g_data_input_stream_new(g_subprocess_get_stdout_pipe(child));
-    char *packets_path=g_build_filename(root,"gtk-packets.jsonl",NULL);FILE *packets=fopen(packets_path,"w");g_free(packets_path);g_assert_nonnull(packets);
+    char *packets_path=g_build_filename(root,"gtk-packets.jsonl",NULL);FILE *packets=fopen(packets_path,"a");g_free(packets_path);g_assert_nonnull(packets);
     gboolean connected=FALSE,submitted=FALSE,settled=FALSE,disconnected=FALSE;guint consents=0;
     for(guint count=0;count<400 && !disconnected;count++) {
         gsize length=0;char *line=g_data_input_stream_read_line(in,&length,NULL,NULL);g_assert_nonnull(line);g_assert_cmpuint(length,<,PI_FRAME_MAX);
@@ -133,6 +134,16 @@ int main(int argc,char **argv) {
     }
     fclose(packets);g_assert_true(connected && submitted && settled && disconnected);g_assert_cmpuint(consents,==,2);
     g_output_stream_close(out,NULL,NULL);g_assert_true(g_subprocess_wait_check(child,NULL,NULL));
-    char *done=g_build_filename(root,"gtk-sdk-complete",NULL);g_assert_true(g_file_set_contents(done,"SYNTHETIC fixture; cleanup receipt and exact child exit confirmed\n",-1,NULL));g_free(done);
-    gtk_window_destroy(GTK_WINDOW(window));g_object_unref(in);g_object_unref(child);g_free(start);return 0;
+    g_object_unref(in);g_object_unref(child);g_free(start);
+    if(g_getenv("HN_FIXTURE_RECONNECT") && round==0) {
+        char *ready=g_build_filename(root,"reconnect-ready",NULL),*release=g_build_filename(root,"reconnect-release",NULL);
+        g_assert_true(g_file_set_contents(ready,"first cleanup receipt plus exact child exit; same UI stays alive\n",-1,NULL));
+        gint64 end=g_get_monotonic_time()+5000000;
+        while(!g_file_test(release,G_FILE_TEST_EXISTS) && g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(1000);}
+        g_assert_true(g_file_test(release,G_FILE_TEST_EXISTS));g_free(ready);g_free(release);
+    } else {
+        char *done=g_build_filename(root,"gtk-sdk-complete",NULL);g_assert_true(g_file_set_contents(done,"SYNTHETIC fixture; cleanup receipt and exact child exit confirmed\n",-1,NULL));g_free(done);
+    }
+    }
+    gtk_window_destroy(GTK_WINDOW(window));return 0;
 }

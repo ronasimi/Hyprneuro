@@ -107,4 +107,15 @@ def install_broker(root,case,helper):
         from identity_persistence_fixture import install
         install(root,case,state)
 
+    if case=='fresh-connect':
+        original_snapshot=identity_transport.ObserverClient.snapshot
+        async def snapshot(client,operation):
+            roles=await original_snapshot(client,operation)
+            if operation=='child':
+                import json
+                with (root/'connect-cohorts.jsonl').open('a') as stream:
+                    stream.write(json.dumps(dict(generation=client.gate.generation,helper=client.helper,broker=client.broker,ui=roles['ui']['process'],child=roles['child']['process']))+'\n')
+            return roles
+        identity_transport.ObserverClient.snapshot=snapshot
+
     return lambda core:state.update(core=core)

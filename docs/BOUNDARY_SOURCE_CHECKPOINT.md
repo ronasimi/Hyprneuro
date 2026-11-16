@@ -268,3 +268,22 @@ Clock test is INJECTED, not two-hour or suspend. Model calls were loopbackFAKE
 only; no production inference/residency/config/unit change. GTK5/5 pass after
 fixture rebuild. Physical replacement/endpoint/fresh Connect and real soak
 remain pending; all original failed roots/results preserved.
+
+### Fresh explicit synthetic Connect24 PASS (not human acceptance)
+
+`01M7JC7N36PV12ZRZRMAEA0CY0` PASS23.122s,
+`sdk-252a635b925442159b4ca0ab949b1ed8`. Same actual GTK window/process, persistent
+broker and native owner process; first confirmed cleanup/ACK plus exact child
+exit precede second explicit fixture Connect. Gap verifies helperPID0 and
+read-only PRIVATE SQL exact revoked/unapproved task row. Second fixed child
+and helper are new processes, helper session generation differs, UI/broker
+identity unchanged. Four distinct synthetic consent IDs, grant_create and
+read_decision AGAIN per round, differing native consent generations; four
+loopbackFAKE model requests with canary, no restored consent. Final confirmed
+cleanup, rows exact revoked/unapproved/created0, live0/published0/failures0.
+GTK5/5 after rebuild. Explicit fixture reconnect is NOT genuine human GTK
+chooser/Allow/reconnect acceptance or session renewal/adoption.
+
+Physical endpoint substitution, post-await descriptor substitution/loss and
+live role replacement remain bounded QA gaps before real7200 soak. Production
+source remains approved00d87967; no package/OPS/deployment authorization inferred.

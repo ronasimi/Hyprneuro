@@ -23,7 +23,8 @@ def install(root,state):
         (root/'soak-session.json').write_text(json.dumps(dict(
             generation=gate.generation,started_ns=gate.deadline_ns-CAP_NS,deadline_ns=gate.deadline_ns,
             observed_ns=identity_session.boottime_ns(),monotonic_ns=time.monotonic_ns(),
-            helper=client.helper,broker=client.broker,clock_injected=False,
+            helper=client.helper,helper_start_ticks=int((Path('/proc')/str(client.helper['pid'])/'stat').read_text().rsplit(') ',1)[1].split()[19]),
+            broker=client.broker,clock_injected=False,
             boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip())))
         return result
     identity_transport.ObserverClient.start=observed_start
@@ -89,3 +90,20 @@ def wait_ui_exit(unit,timeout_seconds=7330):
     finally:
         if not expired:GLib.source_remove(timer)
         bus.signal_unsubscribe(subscription);bus.close_sync(None)
+
+
+def soak_metrics(session,expiry,seal,heartbeats,clock_ticks):
+    """Pure report only; absent historical process-start data stays UNKNOWN.
+    Called only AFTER runtime assertions; never creates eligibility/reap proof.
+    """
+    helper_start=session.get('helper_start_ticks')
+    return dict(real_session_elapsed_ns=expiry['observed_ns']-session['started_ns'],
+        source_seal_elapsed_ns=seal['boottime_ns']-session['started_ns'],
+        source_seal_delay_ns=seal['boottime_ns']-session['deadline_ns'],
+        helper_process_start_recorded=helper_start is not None,
+        active_helper_startup_gap_ns=None if helper_start is None else helper_start*1_000_000_000//clock_ticks-session['started_ns'],
+        helper_verified_observation_span_ns=seal['boottime_ns']-session['observed_ns'],
+        monitor_ticks_at_last_heartbeat=heartbeats[-1]['ticks'],heartbeat_count=len(heartbeats),
+        max_heartbeat_gap_ns=max(b['boottime_ns']-a['boottime_ns'] for a,b in zip(heartbeats,heartbeats[1:])),
+        observed_boottime_minus_monotonic_drift_ns=(heartbeats[-1]['boottime_ns']-heartbeats[-1]['monotonic_ns'])-(session['observed_ns']-session['monotonic_ns']),
+        real_suspend_acceptance=False,no_automatic_connect=True,no_clock_injection=True,no_model_calls=True)

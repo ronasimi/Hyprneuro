@@ -467,3 +467,43 @@ cold-unit GC without accepting arbitrary manager errors or fake PID. Production
 source approved730dd9a unchanged. Fresh partial+trickle only, then ONE real7200
 soak iff both pass and prior closed idle150 pinned receipt valid. No repeat of
 idle150, no consumed-root retry, no production or source approval change.
+
+## Closed actual temporal results32; real lifetime behavior verified, reporter exit1 retained
+
+Workflow `01M7JFQYTGY2S917JH56K8VSPS` originalexit1,7476.559s overall.
+Prerequisite idle150 from31 stays ACTUALPASS:150.432338440s silence then full-role
+verification, normal receipt/reap, known-clean fresh helper/session generation.
+Actual32 frame-partial PASS125.001959664s, `sdk-82ce0185e36c4802887d457871a39df0`;
+frame-trickle PASS125.000438264s, `sdk-241b53fa8c9d40b2aa5c07bb218adacf`:
+four bytes30/60/90/120s do NOT reset completion timer, source seals/live0/pub0
+before error I/O, helper event-driven cleanup/PID0 assertions pass, no model/grant.
+
+ONE real7200 run `sdk-61197fb5ec994d9fb233b1ea5249137d` reached source natural
+seal at7200.000624161 real BOOTTIME seconds from Connect (624161ns after cap).
+UI expiry/cleanup observed7201.715146166s.120 heartbeats, maxgap60.051336627s,
+last heartbeat tick140270, final1Hz persisted monitor tick141360. Same generation,
+no clock injection/chat/consent/producer heartbeat/model request. Source seal/live0/
+published0 recorded before error I/O. HelperMainPID0 assertion BEFORE fixture
+cleanup passed (control flow reaches next report expression); raw final unit
+states allPID0/no jobs/cgroups after fixturecleanup. Backend remains UNKNOWN/
+failures3, not a clean receipt. Fresh Connect denied before observer.start,
+attemptcount1, no restored consent/rows. Known-clean freshgeneration already
+proved by idle150; UNKNOWN cannot be relabelled to allow renewal/adoption.
+
+Original run then failed ONLY in final metrics writer: service metadata has no
+'helper.start' key. All preceding runtime assertions passed. Reporter now uses
+explicit optional top-level helper_start_ticks for FUTURE captures, missing old
+start stays UNKNOWN/null. Saved packet proves7199.055462105s helper-observed
+continuity from authenticated hello observation to seal, NOT7200s exact helper
+process duration; admission/setup included in7200 cap. Do not reconstruct start
+from a possibly reused PID or invent active-helper startup time. Distinguish last
+heartbeat counter from final persisted counter.55focused report/protocol tests
+PASS; saved original packet offline oracle PASS. Neither is a rerun or relabel of
+original exit1; original artifacts immutable. NO second2h run/auto retry.
+
+Production730dd9a source remains approved and UNCHANGED. No real suspend exercise
+or acceptance (observed BOOTTIME/monotonic endpoint drift -76153ns includes call
+skew, not a suspend test), no real models/productionSQL/config/units/install or
+packaging/cutover. Independent QA/evidence review must decide acceptance of saved
+actual lifetime packet + reporter-only correction BEFORE boundary bundle/OPS
+preparation. Overall NOT READY for production/human acceptance.

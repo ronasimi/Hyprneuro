@@ -264,11 +264,11 @@ try:
   assert len(heartbeats)>=120 and heartbeats[-1]['ticks']>=100000,heartbeats[-1:]
   assert max(b['boottime_ns']-a['boottime_ns'] for a,b in zip(heartbeats,heartbeats[1:]))<=65*1_000_000_000
   assert int(run(['/usr/bin/systemctl','--user','show',names['helper'],'--value','-p','MainPID']))==0
-  (R/'soak-final.json').write_text(json.dumps(dict(real_session_elapsed_ns=expiry['observed_ns']-session['started_ns'],
-    active_helper_startup_gap_ns=int(session['helper']['start'])*1_000_000_000//os.sysconf('SC_CLK_TCK')-session['started_ns'],
-    helper_termination_confirmed_before_fixture_cleanup=True,monitor_ticks=heartbeats[-1]['ticks'],heartbeat_count=len(heartbeats),
-    observed_boottime_minus_monotonic_drift_ns=(heartbeats[-1]['boottime_ns']-heartbeats[-1]['monotonic_ns'])-(session['observed_ns']-session['monotonic_ns']),
-    real_suspend_acceptance=False,no_automatic_connect=True,no_clock_injection=True,no_model_calls=True),indent=2))
+  from identity_soak_fixture import soak_metrics
+  summary=soak_metrics(session,expiry,seal,heartbeats,os.sysconf('SC_CLK_TCK'))
+  summary['persisted_monitor_ticks']=int((R/'monitor-ticks').read_text())
+  summary['helper_termination_confirmed_before_fixture_cleanup']=True  # preceding runtime MainPID0 assertion
+  (R/'soak-final.json').write_text(json.dumps(summary,indent=2))
  elif case.startswith('descriptor-'):
   fault=json.loads((R/'descriptor-fault.json').read_text())
   assert fault['after_actual_nonce_await'] is True and fault['before_control_mac'] is True

@@ -14,6 +14,7 @@ import uuid
 from dataclasses import dataclass
 
 from .authorization import PermissionBroker
+from .identity_session import IdentitySession
 
 
 def canonical(value):
@@ -111,6 +112,7 @@ class ConsentJournal:
 class Registration:
     binding: dict
     live: bool = True
+    verification: IdentitySession | None = None
 
 
 @dataclass(frozen=True)
@@ -200,7 +202,11 @@ class TrustedConsent:
             return self.broker.expand(**scope, grant_capability=cap)
         self._finalize = finalize
 
-    def register(self, binding):
+    def register(self, binding, *, verification=None):
+        if verification is not None:
+            if not isinstance(verification, IdentitySession):
+                raise PermissionError("Private observer session required")
+            verification.enter_operation('register')
         if (set(binding) != self.BINDING_FIELDS or len(canonical(binding)) > 2048
                 or len(self.registrations) >= self.MAX_REGISTRATIONS):
             raise ValueError("Invalid or excessive trusted registrations")
@@ -210,23 +216,33 @@ class TrustedConsent:
         identifier = str(uuid.uuid4())
         self.journal.append({"kind": "registration", "registration": identifier,
                              "binding_hash": fingerprint(copied)})
-        self.registrations[identifier] = Registration(copied)
+        registration = Registration(copied, verification=verification)
+        if verification is not None:
+            # Registration persistence may cross proof/session expiry or EOF.
+            verification.attach(registration)
+        self.registrations[identifier] = registration
         return identifier
 
     def eligible(self, task_id, row=None):
         slot = self.slots.get(task_id)
         registration = self.registrations.get(slot.registration) if slot else None
         return bool(self.journal.fd is not None and not self.journal.broken and slot and slot.published and registration
-                    and registration.live and row is not None and row == slot.row)
+                    and registration.live and (registration.verification is None or registration.verification.current())
+                    and row is not None and row == slot.row)
 
     def _registration(self, identifier):
         registration = self.registrations.get(identifier)
         if self.journal.fd is None or self.journal.broken or not registration or not registration.live:
             raise PermissionError("No live trusted registration")
+        if registration.verification is not None:
+            registration.verification.require_current()
         return registration
 
     def request(self, registration, kind, scope, *, generation, native_call_id, deadline=None, consent_id=None, arguments_sha256=None):
-        binding = self._registration(registration).binding
+        current_registration = self._registration(registration)
+        if current_registration.verification is not None:
+            current_registration.verification.enter_operation('request')
+        binding = current_registration.binding
         if (kind not in {"grant_create", "grant_expand", "read_decision"}
                 or set(scope) != {"task_id", "app_id", "file_prefix", "ops"}
                 or scope["task_id"] != binding["task_id"] or scope["app_id"] != binding["app_id"]
@@ -262,11 +278,18 @@ class TrustedConsent:
         self.journal.append({"kind": "request", "request": identifier,
                              "registration": registration, "body_hash": digest,
                              "native_call_id": native_call_id, "consent_id": consent_id, "issued_ms": int(time.time() * 1000)})
+        # A successful fsync is not a liveness/expiry fence. Do not publish a
+        # pending consent after invalidation or a deadline crossed during I/O.
+        self._registration(registration)
+        if time.monotonic() >= expires:
+            raise PermissionError("Consent expired during request persistence")
         self.pending[identifier] = Pending(registration, kind, canonical(scope), digest, nonce, expires)
         return {"request": identifier, "nonce": nonce, "body_hash": digest}
 
     def decide(self, registration, request, nonce, body_hash, allowed):
-        self._registration(registration)
+        current_registration = self._registration(registration)
+        if current_registration.verification is not None:
+            current_registration.verification.enter_operation('decision')
         pending = self.pending.get(request)
         if (pending is None or pending.registration != registration or pending.nonce != nonce
                 or pending.body_hash != body_hash or type(allowed) is not bool):
@@ -286,6 +309,9 @@ class TrustedConsent:
             current = self.store.auth_get(scope["task_id"])
             if not self.eligible(scope["task_id"], current) or self.slots[scope["task_id"]].registration != registration:
                 raise PermissionError('Read provenance changed before decision')
+            self._registration(registration)
+            if time.monotonic() >= pending.expires:
+                raise PermissionError('Consent expired during read provenance lookup')
             return {"accepted": True, "request": request}
         row = self.store.auth_get(scope["task_id"])
         if pending.kind == "grant_create" and row and row["status"] == "active":
@@ -300,7 +326,17 @@ class TrustedConsent:
                 raise PermissionError("Uncertain broker write; no replay")
             self.journal.append({"kind": "result", "request": request,
                                  "registration": registration, "row_hash": fingerprint(slot.row)})
-            slot.published = True  # no publication until successful result fsync
+            # Result fsync and the final store read can both block. Recheck the
+            # exact owned row, registration and deadline AFTER those operations.
+            # Keep an uncertain committed slot unpublished for owned CAS cleanup;
+            # never restore an earlier row or retry the consumed decision.
+            current = self.store.auth_get(scope["task_id"])
+            self._registration(registration)
+            if time.monotonic() >= pending.expires:
+                raise PermissionError("Consent expired during result persistence")
+            if current != slot.row:
+                raise PermissionError("Owned row changed during result persistence")
+            slot.published = True  # no I/O/await between final fence and publication
             return {"accepted": True, "request": request}
         finally:
             self._writing = None
@@ -310,6 +346,8 @@ class TrustedConsent:
         if current is None:
             raise PermissionError('No owned registration to invalidate')
         current.live = False  # BEFORE cleanup or I/O, even when audit is broken
+        if current.verification is not None:
+            current.verification.seal()
         for identifier, pending in list(self.pending.items()):
             if pending.registration == registration:
                 del self.pending[identifier]

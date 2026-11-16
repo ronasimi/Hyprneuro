@@ -297,7 +297,10 @@ async def _run(startup):
     workers = []
     try:
         if explicit:
-            await send({'type': 'disconnected'})
+            ready = {'type': 'bridge_ready'}
+            if broker is not None and broker.finite_session:
+                ready.update(deadline_ns=broker.deadline_ns,cap_seconds=7200)
+            await send(ready)
             workers = [asyncio.create_task(bridge.read(reader))]
         else:
             await bridge.start()

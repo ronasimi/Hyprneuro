@@ -69,6 +69,7 @@ class SidecarServer:
                  skills_dir=None, trusted_consent=None):
         self.store = store
         self.trusted_consent = trusted_consent
+        self.authority_refresh = None  # host-owned, never accepted in public request data
         self.allow_ingest = allow_ingest
         self.capture_enabled = capture_enabled
         self.on_demand = on_demand
@@ -377,6 +378,15 @@ class SidecarServer:
     async def dispatch_async(self, request):
         if not isinstance(request, dict):
             raise ValueError("Expected JSON object")
+        if self.authority_refresh is not None and request.get('action') in {'auth_check','auth_list','auth_create','auth_expand'}:
+            # LAST await before synchronous permission dispatch. Release/revoke
+            # remains helper-independent. This refresh NEVER creates approval.
+            task_id = request.get('task_id')
+            if request.get('action') == 'auth_list' and self.trusted_consent is not None:
+                for task_id in tuple(self.trusted_consent.slots):
+                    await self.authority_refresh(task_id)
+            else:
+                await self.authority_refresh(task_id)
         if request.get("action") == "search" and request.get("semantic"):
             if self.embeddings is None:
                 raise PermissionError("Semantic search disabled; explicitly configure a local embeddings service")
@@ -625,7 +635,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                 session_lock_producer=None,
                 excluded_apps=(), excluded_origins=(), browser_token_file=None,
                 assistant_enabled=False, assistant_recent_apps=5, assistant_focus_debounce_ms=250,
-                skills_dir=None, trusted_launch_policy=None, consent_journal_path=None):
+                skills_dir=None, trusted_launch_policy=None, consent_journal_path=None, identity_policy=None):
     if session_lock_producer is not None and (not callable(session_lock_producer)
             or not (allow_capture or allow_on_demand) or unlock_guard is not None):
         raise ValueError("Trusted lock producer requires an enabled observation guard")
@@ -667,6 +677,11 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             raise RuntimeError("Sidecar already running")
         finally:
             probe.close()
+    if identity_policy is not None:
+        identity_policy.check_files()  # root/credential fences BEFORE persistent app work
+        if trusted_launch_policy is not None and trusted_launch_policy != identity_policy.launch:
+            raise PermissionError('Ambiguous trusted launch roots')
+        trusted_launch_policy = identity_policy.launch
     store = SidecarStore(db_path)
     trusted_core = trusted_server = trusted_socket = trusted_socket_inode = None
     consent_journal = None
@@ -686,7 +701,7 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
             trusted_socket = socket_path.parent / 'grant-control.sock'
             if trusted_socket.exists() or trusted_socket.is_symlink():
                 raise RuntimeError('Existing private control socket; no takeover')
-            trusted_handler = GrantControlServer(trusted_core, LaunchVerifier(trusted_launch_policy))
+            trusted_handler = GrantControlServer(trusted_core, LaunchVerifier(trusted_launch_policy), identity_policy=identity_policy)
         except BaseException:
             if consent_journal:
                 consent_journal.close()
@@ -698,6 +713,8 @@ async def serve(*, allow_ingest=False, watch_hyprland=False, allow_capture=False
                            assistant_enabled=assistant_enabled, assistant_recent_apps=assistant_recent_apps,
                            assistant_focus_debounce_ms=assistant_focus_debounce_ms, skills_dir=skills_dir,
                            trusted_consent=trusted_core)
+    if identity_policy is not None:
+        worker.authority_refresh = trusted_handler.refresh_authority
     from .settings import Settings
     worker.active_settings = active_settings or asdict(Settings(
         allow_ingest=allow_ingest, watch_hyprland=watch_hyprland, allow_capture=allow_capture,
@@ -963,7 +980,7 @@ def resolve_settings(args):
     return Settings(**values).validate(prerequisites=True)
 
 
-def main():
+def main(*, identity_policy=None):
     parser = build_parser()
     args = parser.parse_args()
     if args.command == "tui":
@@ -985,11 +1002,13 @@ def main():
             values["retention_days"] = 0
         from .settings import settings_path
         policy = None
+        if identity_policy is not None and os.environ.get('HYPRNEURO_PI_TRUSTED_POLICY'):
+            raise PermissionError('Legacy environment root conflicts with MAIN manager root')
         if os.environ.get('HYPRNEURO_PI_TRUSTED_POLICY'):
             from .trusted_control import load_launch_policy
             policy = load_launch_policy(os.environ['HYPRNEURO_PI_TRUSTED_POLICY'],
                                         os.environ.get('HYPRNEURO_PI_TRUSTED_POLICY_SHA256', ''))
-        asyncio.run(serve(**values, active_settings=active, trusted_launch_policy=policy,
+        asyncio.run(serve(**values, active_settings=active, trusted_launch_policy=policy, identity_policy=identity_policy,
                           skills_dir=args.skills_dir,
                           settings_file=None if args.no_settings else args.config or settings_path()))
         return

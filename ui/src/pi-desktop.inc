@@ -42,7 +42,7 @@ static void pi_route_update(App *a) {
     if (!a->pi_route) return;
     if (a->pi_connect) {
         gtk_button_set_label(GTK_BUTTON(a->pi_connect), a->pi_optin ? "Disconnect Pi → Legacy" : "Connect Pi owner…");
-        gtk_widget_set_sensitive(a->pi_connect, !a->pi_dead && !a->pi_selecting);
+        gtk_widget_set_sensitive(a->pi_connect, !a->pi_dead && !a->pi_selecting && (!a->pi_process || a->pi_optin));
     }
     if (a->pi_row) gtk_widget_set_visible(a->pi_row, a->pi_optin);
     if (!a->pi_optin) {
@@ -166,21 +166,47 @@ static void pi_diagnostic_fail_category(App *a,const char *stage,const char *cat
 static void pi_diagnostic_fail(App *a,const char *stage) {
     pi_diagnostic_fail_category(a,stage,"failure");
 }
+static void pi_runtime_maybe_reset(App *a) {
+    if (!a->pi_child_exited || a->pi_active_io || !a->pi_clean_disconnect || a->closing) return;
+    /* Both backend reap receipt AND exact owned child exit are required. */
+    a->pi_in=NULL; a->pi_out=NULL;
+    g_clear_object(&a->pi_io); g_clear_object(&a->pi_process);
+    g_queue_clear_full(&a->pi_writes,(GDestroyNotify)g_bytes_unref);
+    if (a->pi_frame) g_string_truncate(a->pi_frame,0);
+    a->pi_writing=FALSE; a->pi_dead=FALSE;
+    a->pi_child_exited=FALSE; a->pi_clean_disconnect=FALSE; a->pi_expiring=FALSE;
+    pi_route_update(a);
+}
+typedef struct { App *app; char *start; } PiOwnedExit;
 static void pi_owned_exit(GObject *object,GAsyncResult *result,gpointer data) {
+    PiOwnedExit *owned=data; g_autoptr(App) a=owned->app;
     GError *error=NULL;
     if (g_subprocess_wait_finish(G_SUBPROCESS(object),result,&error)) {
         if (g_subprocess_get_if_exited(G_SUBPROCESS(object)))pi_diagnostic_emit("child-exit","exit",g_subprocess_get_exit_status(G_SUBPROCESS(object)));
         else if (g_subprocess_get_if_signaled(G_SUBPROCESS(object)))pi_diagnostic_emit("child-exit","signal",g_subprocess_get_term_sig(G_SUBPROCESS(object)));
     } else pi_diagnostic_emit("child-exit","unknown",0);
-    g_clear_error(&error);g_free(data); /* immutable pre-wait start, never App */
+    if (a->pi_process==G_SUBPROCESS(object)) {
+        a->pi_child_exited=TRUE;
+        if (a->pi_io) g_cancellable_cancel(a->pi_io);
+        if (!a->closing && !a->pi_clean_disconnect) pi_unavailable(a); /* UNKNOWN, never rebind */
+        pi_runtime_maybe_reset(a);
+    }
+    g_clear_error(&error);g_free(owned->start);g_free(owned);
 }
 
 static void pi_write_next(App *a);
 static void pi_written(GObject *object, GAsyncResult *result, gpointer data) {
-    App *a = data;
+    g_autoptr(App) a = data;
     gboolean ok = g_output_stream_write_all_finish(G_OUTPUT_STREAM(object), result, NULL, NULL);
+    a->pi_active_io--;
     g_bytes_unref(g_queue_pop_head(&a->pi_writes));
     a->pi_writing = FALSE;
+    if (a->closing) return;
+    if (a->pi_clean_disconnect) {
+        if (a->pi_out) g_output_stream_close(a->pi_out,NULL,NULL);
+        g_queue_clear_full(&a->pi_writes,(GDestroyNotify)g_bytes_unref);
+        pi_runtime_maybe_reset(a); return;
+    }
     if (!ok) pi_unavailable(a);
     if (a->pi_dead) {
         /* close() during an outstanding write may return PENDING. Now the
@@ -195,9 +221,9 @@ static void pi_write_next(App *a) {
     if (a->pi_writing || g_queue_is_empty(&a->pi_writes) || a->pi_dead || !a->pi_out) return;
     GBytes *bytes = g_queue_peek_head(&a->pi_writes);
     gsize size; const void *data = g_bytes_get_data(bytes, &size);
-    a->pi_writing = TRUE;
+    a->pi_writing = TRUE; a->pi_active_io++;
     g_output_stream_write_all_async(a->pi_out, data, size, G_PRIORITY_DEFAULT,
-        a->pi_io, pi_written, a);
+        a->pi_io, pi_written, app_ref(a));
 }
 /* The pipe frame uses this same encoder for preflight and submission. */
 static char *pi_encode_frame(const char *op, const char *text, gboolean allowed) {
@@ -373,15 +399,56 @@ static void pi_consent(App *a, JsonNode *event) {
     gtk_window_present(a->pi_dialog);
 }
 
+static guint64 pi_boottime_ns(void) {
+    struct timespec now;
+    return clock_gettime(CLOCK_BOOTTIME,&now)==0 ? (guint64)now.tv_sec*1000000000ULL+now.tv_nsec : 0;
+}
+static gboolean pi_lifetime_tick(gpointer data) {
+    App *a=data; guint64 now=pi_boottime_ns();
+    if (a->closing || !a->pi_deadline_ns) { a->pi_session_timer=0; return G_SOURCE_REMOVE; }
+    if (!now || now>=a->pi_deadline_ns) {
+        a->pi_deadline_ns=0; a->pi_session_timer=0; a->pi_expiring=TRUE;
+        pi_owner_unavailable(a); /* no tools BEFORE cleanup request */
+        g_free(a->pi_connect_error);
+        a->pi_connect_error=g_strdup("Pi verification expired · DISCONNECTED/ineligible · cleanup required; no renewal or fallback");
+        pi_route_update(a);set_status(a,a->pi_connect_error);
+        pi_send(a,"disconnect",NULL,FALSE);
+        return G_SOURCE_REMOVE;
+    }
+    if (!a->pi_expiry_warned && a->pi_deadline_ns-now<=60000000000ULL) {
+        a->pi_expiry_warned=TRUE;
+        set_status(a,"Pi verification expires within one minute · no renewal; fresh Connect only after confirmed cleanup");
+    }
+    return G_SOURCE_CONTINUE;
+}
+
 static void pi_packet(App *a, JsonNode *packet) {
     if (a->pi_dead) return; /* Late buffered status/events cannot resurrect a disconnect. */
     const char *type = jstr(jmember(packet, "type"));
     const char *op = jstr(jmember(packet, "op"));
+    if (a->pi_expiring && g_strcmp0(type,"disconnected") && g_strcmp0(type,"error") && g_strcmp0(type,"unavailable")) return;
     if (!g_strcmp0(type,"bootstrap_failure")) {
         pi_diagnostic_fail(a,pi_diagnostic_frame_stage(packet));
         return; /* NEVER any ready/consent interpretation */
     }
+    if (!g_strcmp0(type,"bridge_ready")) {
+        JsonNode *deadline=jmember(packet,"deadline_ns"), *cap=jmember(packet,"cap_seconds");
+        if (deadline || cap) {
+            guint64 now=pi_boottime_ns();
+            if (!deadline || !cap || json_node_get_value_type(deadline)!=G_TYPE_INT64 ||
+                json_node_get_value_type(cap)!=G_TYPE_INT64 || json_node_get_int(cap)!=7200 ||
+                json_object_get_size(json_node_get_object(packet))!=3 || !now ||
+                json_node_get_int(deadline)<=0 || (guint64)json_node_get_int(deadline)<=now ||
+                (guint64)json_node_get_int(deadline)>now+7200000000000ULL) { pi_unavailable(a); return; }
+            a->pi_deadline_ns=json_node_get_int(deadline); a->pi_expiry_warned=FALSE;
+            if (!a->pi_session_timer) a->pi_session_timer=g_timeout_add_full(G_PRIORITY_DEFAULT,1000,pi_lifetime_tick,app_ref(a),(GDestroyNotify)app_unref);
+        }
+        return; /* startup is NOT a disconnect and cannot clear explicit intent */
+    }
     if (!g_strcmp0(type, "disconnected")) {
+        a->pi_clean_disconnect=TRUE; a->pi_deadline_ns=0;
+        if (a->pi_session_timer) {g_source_remove(a->pi_session_timer);a->pi_session_timer=0;}
+        if (a->pi_out) g_output_stream_close(a->pi_out,NULL,NULL); /* terminate only owned fixed child via EOF */
         pi_owner_unavailable(a); a->pi_optin = FALSE;
         g_clear_pointer(&a->pi_connect_error, g_free); pi_render(a);
         set_status(a, "Legacy mode explicitly selected · Pi tools unavailable");
@@ -449,8 +516,11 @@ static void pi_packet(App *a, JsonNode *packet) {
 
 static void pi_read_next(App *a);
 static void pi_read(GObject *object, GAsyncResult *result, gpointer data) {
-    App *a = data;
+    g_autoptr(App) a = data;
     gssize n = g_input_stream_read_finish(G_INPUT_STREAM(object), result, NULL);
+    a->pi_active_io--;
+    if (a->closing) return;
+    if (a->pi_clean_disconnect || a->pi_child_exited) {pi_runtime_maybe_reset(a);return;}
     if (n <= 0) { if (!a->pi_dead)pi_diagnostic_fail(a,"bridge-eof"); return; }
     for (gssize i=0; i<n; i++) {
         char c = a->pi_buffer[i];
@@ -461,6 +531,7 @@ static void pi_read(GObject *object, GAsyncResult *result, gpointer data) {
             if (valid) pi_packet(a, json_parser_get_root(p));
             g_object_unref(p); g_string_truncate(a->pi_frame, 0);
             if (!valid) { pi_unavailable(a); return; }
+            if (a->pi_clean_disconnect) {pi_runtime_maybe_reset(a);return;}
             if (a->pi_dead) return;
         } else {
             if (!c || a->pi_frame->len >= PI_FRAME_MAX - 1) { pi_unavailable(a); return; }
@@ -470,8 +541,10 @@ static void pi_read(GObject *object, GAsyncResult *result, gpointer data) {
     pi_read_next(a);
 }
 static void pi_read_next(App *a) {
+    if (a->closing || a->pi_child_exited || a->pi_clean_disconnect) return;
+    a->pi_active_io++;
     g_input_stream_read_async(a->pi_in, a->pi_buffer, sizeof a->pi_buffer,
-        G_PRIORITY_DEFAULT, a->pi_io, pi_read, a);
+        G_PRIORITY_DEFAULT, a->pi_io, pi_read, app_ref(a));
 }
 /* Fixed launch/handoff only. Peer credentials describe establishment;
  * fd3 is intentionally inherited. This is NOT FD-transfer/code attestation. */
@@ -684,15 +757,20 @@ static void pi_start(App *a) {
     const char *identifier=g_subprocess_get_identifier(a->pi_process);
     guint64 pid=identifier?g_ascii_strtoull(identifier,NULL,10):0;
     char *start=pid && pid<=G_MAXUINT?pi_start_ticks(pid):NULL;
-    if (start && verified_start && !strcmp(start,verified_start))g_subprocess_wait_async(a->pi_process,NULL,pi_owned_exit,verified_start);
+    if (start && verified_start && !strcmp(start,verified_start)) {
+        PiOwnedExit *owned=g_new0(PiOwnedExit,1);owned->app=app_ref(a);owned->start=verified_start;
+        g_subprocess_wait_async(a->pi_process,NULL,pi_owned_exit,owned);
+    }
     else {pi_diagnostic_emit("child-start","unknown",0);g_free(verified_start);}
     g_free(start);
     a->pi_in = g_subprocess_get_stdout_pipe(a->pi_process);
     a->pi_out = g_subprocess_get_stdin_pipe(a->pi_process);
-    a->pi_io = g_cancellable_new(); a->pi_frame = g_string_new("");
+    a->pi_io = g_cancellable_new();
+    if (a->pi_frame) g_string_truncate(a->pi_frame,0); else a->pi_frame=g_string_new("");
     pi_read_next(a);
 }
 static void pi_stop(App *a) {
+    if (a->pi_session_timer) {g_source_remove(a->pi_session_timer);a->pi_session_timer=0;}
     if (a->pi_selecting && a->picker_cancel) g_cancellable_cancel(a->picker_cancel);
     pi_close_dialog(a);
     if (a->pi_io) g_cancellable_cancel(a->pi_io);

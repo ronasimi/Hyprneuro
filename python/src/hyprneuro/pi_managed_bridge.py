@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 
 from .pi_desktop_bridge import DesktopBridge
+from .trusted_control import connect_failure,OwnerRegistrationRejected
 from .pi_owner_service import load_config
 from .session_lock import LoginSessionGuard
 
@@ -23,9 +24,11 @@ async def command(*args):
 
 
 class OwnerConnectError(RuntimeError):
-    def __init__(self, stage):
+    def __init__(self, stage, cause):
         super().__init__("Owner connect refused; no replay")
         self.stage = stage
+        self.connect_diagnostic = (dict(cause.connect_diagnostic) if isinstance(cause,OwnerRegistrationRejected)
+                                   else connect_failure(stage,cause))
 
 
 CLEANUP_TIMEOUT = 5
@@ -106,13 +109,15 @@ class ManagedDesktopBridge(DesktopBridge):
                 await self.send({'type': 'connected'})
                 await self.send({'type': 'status', 'result': status})
             except Exception as error:
-                raise OwnerConnectError(stage) from error
+                raise OwnerConnectError(stage,error) from error
 
     async def monitor_connection(self):
         # No whole-service600s timer: verify only while this UI is connected.
         try:
             while True:
                 await self.ensure_unlocked()
+                if self.broker is not None and not self.broker.connected:
+                    raise ConnectionError('Private verification channel lost')
                 if any(task.done() for task in self.workers):
                     raise ConnectionError('Owner connection ended; outcomes may be unknown')
                 await asyncio.sleep(.25)
@@ -168,6 +173,8 @@ class ManagedDesktopBridge(DesktopBridge):
                 return
             if op == 'disconnect' and set(packet) == {'op'}:
                 await self.detach()
+                if self.broker is not None and self.broker.finite_session:
+                    await self.broker.disconnect_session()  # no GUI clean claim before reap receipt
                 self.failed = False
                 await self.send({'type': 'disconnected'})
                 return
@@ -188,7 +195,8 @@ class ManagedDesktopBridge(DesktopBridge):
                 'profile': 'Pi connect refused: owner is not the exact normal-only parent READ-ONLY profile.',
             }
             error = stages.get(failure.stage) if op == 'connect' and isinstance(failure, OwnerConnectError) else None
-            await self.send({'type': 'error', 'op': op, 'error':
+            diagnostic = (failure.connect_diagnostic if isinstance(failure,OwnerConnectError) else connect_failure('unknown',failure))
+            await self.send({'type': 'error', 'op': op, 'connect_diagnostic': diagnostic, 'error':
                              (error + ' No retry/fallback; Disconnect returns to Legacy.') if error else
                              'Owner connect/request refused. Review service/checkpoint; no retry or fallback. Explicit disconnect returns to legacy.'})
 

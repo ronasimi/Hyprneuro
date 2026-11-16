@@ -208,3 +208,114 @@ class ConsentCoreTests(unittest.TestCase):
                             self.assertNotIn(request['request'],host.pending)
                             with self.assertRaises(PermissionError):host.decide(reg,**request,allowed=True)
                     finally:journal.close();store.close()
+
+    def test_result_fsync_drift_never_publishes_and_keeps_exact_cleanup_pin(self):
+        # Core fixture inputs are NOT evidence of genuine human approval.
+        for drift in ['expiry', 'registration', 'foreign-row']:
+            with self.subTest(drift=drift), tempfile.TemporaryDirectory() as directory:
+                store = SidecarStore(':memory:')
+                journal = ConsentJournal(Path(directory) / 'audit.jsonl')
+                host = TrustedConsent(store, journal)
+                reg = host.register(self.binding)
+                clock = [100.0]
+                append = journal.append
+                foreign = dict(self.scope, app_id='legacy-other', status='active', approved=True)
+                def result_drift(event):
+                    append(event)  # real successful private-file fsync
+                    if event['kind'] == 'result':
+                        if drift == 'expiry':
+                            clock[0] = 221.0
+                        elif drift == 'registration':
+                            host.invalidate(reg)
+                        else:
+                            store.auth_upsert(foreign)
+                try:
+                    with patch('hyprneuro.trusted_consent.time.monotonic', side_effect=lambda: clock[0]):
+                        request = host.request(reg, 'grant_create', self.scope,
+                                               generation='test', native_call_id='test')
+                        with patch.object(journal, 'append', side_effect=result_drift):
+                            with self.assertRaises(PermissionError):
+                                host.decide(reg, **request, allowed=True)
+                        self.assertNotIn(request['request'], host.pending)
+                        self.assertFalse(host.slots['test'].published)
+                        self.assertFalse(host.eligible('test', store.auth_get('test')))
+                        with self.assertRaises(PermissionError):
+                            host.decide(reg, **request, allowed=True)
+                        if drift == 'foreign-row':
+                            before = store.auth_get('test')
+                            with self.assertRaisesRegex(PermissionError, 'Owned row changed'):
+                                host.release(reg, request['request'])
+                            self.assertEqual(store.auth_get('test'), before)
+                        else:
+                            self.assertTrue(host.release(reg, request['request'])['revoked'])
+                finally:
+                    journal.close()
+                    store.close()
+
+    def test_request_fsync_invalidation_or_expiry_does_not_publish_pending(self):
+        for drift in ['expiry', 'registration']:
+            with self.subTest(drift=drift), tempfile.TemporaryDirectory() as directory:
+                store = SidecarStore(':memory:')
+                journal = ConsentJournal(Path(directory) / 'audit.jsonl')
+                host = TrustedConsent(store, journal)
+                reg = host.register(self.binding)
+                append = journal.append
+                clock = [100.0]
+                def request_drift(event):
+                    append(event)
+                    if event['kind'] == 'request':
+                        if drift == 'expiry':
+                            clock[0] = 221.0
+                        else:
+                            host.invalidate(reg)
+                try:
+                    with patch('hyprneuro.trusted_consent.time.monotonic', side_effect=lambda: clock[0]):
+                        with patch.object(journal, 'append', side_effect=request_drift):
+                            with self.assertRaises(PermissionError):
+                                host.request(reg, 'grant_create', self.scope,
+                                             generation='test', native_call_id='test')
+                    self.assertEqual(host.pending, {})
+                    self.assertEqual(host.slots, {})
+                    self.assertEqual(store.auth_list(), [])
+                finally:
+                    journal.close()
+                    store.close()
+
+    def test_final_store_lookup_expiry_cannot_publish_after_successful_result_fsync(self):
+        clock = [100.0]
+        append = self.journal.append
+        lookup = self.store.auth_get
+        result_persisted = [False]
+        def result(event):
+            append(event)
+            if event['kind'] == 'result':
+                result_persisted[0] = True
+        def delayed_lookup(task):
+            row = lookup(task)
+            if result_persisted[0]:
+                clock[0] = 221.0
+            return row
+        with patch('hyprneuro.trusted_consent.time.monotonic', side_effect=lambda: clock[0]):
+            request = self.request()
+            with patch.object(self.journal, 'append', side_effect=result), patch.object(self.store, 'auth_get', side_effect=delayed_lookup):
+                with self.assertRaisesRegex(PermissionError, 'result persistence'):
+                    self.host.decide(self.registration, **request, allowed=True)
+            self.assertFalse(self.host.slots['test'].published)
+            self.assertFalse(self.check()['allowed'])
+            self.assertTrue(self.host.release(self.registration, request['request'])['revoked'])
+
+    def test_read_decision_lookup_expiry_is_fenced_after_private_store_read(self):
+        self.grant()
+        clock = [100.0]
+        lookup = self.store.auth_get
+        def delayed_lookup(task):
+            row = lookup(task)
+            clock[0] = 221.0
+            return row
+        with patch('hyprneuro.trusted_consent.time.monotonic', side_effect=lambda: clock[0]):
+            request = self.host.request(self.registration, 'read_decision', self.scope,
+                                        generation='test', native_call_id='test')
+            with patch.object(self.store, 'auth_get', side_effect=delayed_lookup):
+                with self.assertRaisesRegex(PermissionError, 'read provenance lookup'):
+                    self.host.decide(self.registration, **request, allowed=True)
+            self.assertNotIn(request['request'], self.host.pending)

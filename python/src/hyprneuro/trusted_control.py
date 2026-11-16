@@ -37,7 +37,7 @@ def process_identity(pid):
 
 
 REJECTION_STAGES = frozenset({
-    'peer', 'peer-uid', 'ui-identity', 'unit-command', 'unit-metadata',
+    'identity-root', 'peer', 'peer-uid', 'ui-identity', 'unit-command', 'unit-metadata',
     'unit-state', 'unit-job', 'unit-pid', 'ui-process', 'ui-peer-pid',
     'ui-uid', 'ui-cgroup', 'ui-exe-hash', 'launch-frame', 'child-identity',
     'launch-ready', 'private-operation', 'unknown',
@@ -57,6 +57,24 @@ def rejection_record(stage, error):
             'stage': stage if stage in REJECTION_STAGES else 'unknown',
             'category': 'timeout' if isinstance(error, TimeoutError) else
                         'identity' if isinstance(error, PermissionError) else 'failure'}
+
+
+CONNECT_SITES=frozenset({'connection','trusted-broker','unlock','descriptor','service','authentication','profile',
+                         'owner-challenge','challenge-frame','native-proof','registration-rpc','registration-frame'})
+
+def connect_failure(site,error):
+    error_class=next((kind.__name__ for kind in [LaunchRejected,TimeoutError,ConnectionError,PermissionError,ValueError,OSError,RuntimeError] if isinstance(error,kind)),'Other')
+    return {'diagnostic':'NONAUTHORITATIVE','site':site if site in CONNECT_SITES else 'unknown','error_class':error_class,
+            'category':'permission' if isinstance(error,PermissionError) else
+                       'timeout' if isinstance(error,TimeoutError) else
+                       'connection' if isinstance(error,ConnectionError) else
+                       'value' if isinstance(error,ValueError) else
+                       'os' if isinstance(error,OSError) else 'other'}
+
+class OwnerRegistrationRejected(PermissionError):
+    def __init__(self,site,error):
+        super().__init__('Owner registration rejected; no replay')
+        self.connect_diagnostic=connect_failure(site,error)
 
 
 async def metadata(*args):
@@ -240,11 +258,30 @@ def diagnostic_rejection(stage, error, counter):
 
 class GrantControlServer:
     """No public socket dispatch; endpoint is bound only by its trusted host."""
-    def __init__(self, core, verifier):
+    def __init__(self, core, verifier, *, identity_policy=None):
         self.core, self.verifier = core, verifier
+        self.identity_policy = identity_policy
+        self.identity_client = None  # single writer/CAS before any Connect await
         self.handlers = set()
         self.failures = 0
         self.diagnostic_count = 0
+
+    async def refresh_authority(self, task_id):
+        """Host-only authorization dispatch fence, never a consent operation.
+
+        Refresh only an already PUBLISHED exact owned slot; no pending grant,
+        caller task or raw SQL row can create eligibility through this hook.
+        """
+        boundary = self.identity_client
+        if boundary is None or boundary.state != 'connected':
+            return
+        slot = self.core.slots.get(task_id)
+        registration = self.core.registrations.get(slot.registration) if slot else None
+        if (not slot or not slot.published or registration is None or not registration.live
+                or registration.verification is not boundary.gate):
+            return
+        await boundary.snapshot('authorize')
+        boundary.gate.enter_operation('authorize')
 
     async def handle(self, reader, writer):
         task = asyncio.current_task()
@@ -256,6 +293,7 @@ class GrantControlServer:
         registration = None
         cleanup_started = False
         stage = 'peer'
+        boundary = monitor = None
         try:
             sock = writer.get_extra_info('socket')
             peer, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
@@ -263,7 +301,25 @@ class GrantControlServer:
                 raise LaunchRejected('peer-uid')
             async with asyncio.timeout(3):
                 stage = 'ui-identity'
-                ui = await self.verifier.ui(peer)
+                if self.identity_policy is not None:
+                    from .identity_transport import ObserverClient
+                    if self.identity_client is not None:
+                        raise PermissionError('Previous observer cleanup not confirmed')
+                    boundary = ObserverClient(self.identity_policy)
+                    self.identity_client = boundary  # explicit Connect CAS BEFORE await
+                    await boundary.start()
+                    ui = (await boundary.snapshot('ui'))['ui']['process']
+                    if ui['pid'] != peer:
+                        raise LaunchRejected('ui-peer-pid')
+                    boundary.gate.enter_operation('ui')  # Node host positive BEFORE launch challenge
+                    async def watch_boundary():
+                        while boundary.gate._alive():
+                            await asyncio.sleep(.05)
+                        boundary.gate.seal()
+                        writer.close()  # notification only AFTER synchronous authority seal
+                    monitor = asyncio.create_task(watch_boundary())
+                else:
+                    ui = await self.verifier.ui(peer)
                 nonce = os.urandom(32).hex()
                 await send_frame(writer, {'type': 'launch_challenge', 'nonce': nonce})
                 stage = 'launch-frame'
@@ -272,39 +328,67 @@ class GrantControlServer:
                         or launch['nonce'] != nonce or type(launch['child_pid']) is not int):
                     raise PermissionError('Wrong trusted launch attestation')
                 stage = 'child-identity'
-                child = self.verifier.child(ui, launch['child_pid'], launch['child_start'])
+                if boundary is not None:
+                    roles = await boundary.snapshot('child')
+                    child = roles['child']['process']  # independently discovered, not request-selected
+                    if child['pid'] != launch['child_pid'] or child['start'] != launch['child_start']:
+                        raise PermissionError('Launch report differs from discovered fixed child')
+                    boundary.gate.enter_operation('child')
+                else:
+                    child = self.verifier.child(ui, launch['child_pid'], launch['child_start'])
                 stage = 'launch-ready'
-                await send_frame(writer, {'type': 'launch_ready'})
+                ready = {'type': 'launch_ready'}
+                if boundary is not None:
+                    ready.update(finite_session=True,deadline_ns=boundary.gate.deadline_ns)
+                await send_frame(writer, ready)
             stage = 'private-operation'
             challenge = None
             while True:
                 value = await read_frame(reader)
-                self.verifier.child(ui, child['pid'], child['start'])
                 op = value.get('op')
+                if boundary is None and op not in {'release', 'invalidate', 'disconnect'}:
+                    self.verifier.child(ui, child['pid'], child['start'])
                 if op == 'owner_challenge' and set(value) == {'op', 'root'} and registration is None:
-                    config, owner = await self.verifier.owner(value['root'])
+                    if boundary is not None:
+                        if value['root'] != str(self.identity_policy.owner_root):
+                            raise PermissionError('Owner root differs from closed role policy')
+                        roles = await boundary.snapshot('owner_challenge')
+                        config, owner = dict(self.identity_policy.config), roles['owner']['process']
+                        boundary.gate.enter_operation('owner_challenge')
+                    else:
+                        config, owner = await self.verifier.owner(value['root'])
                     challenge = config, owner, os.urandom(32).hex()
                     await send_frame(writer, {'nonce': challenge[2]})
                 elif op == 'register' and set(value) == {'op', 'proof'} and registration is None and challenge:
                     config, owner, nonce = challenge
                     challenge = None  # consumed, including failed proof
-                    current_config, current_owner = await self.verifier.owner(config['root'])
+                    if boundary is not None:
+                        roles = await boundary.snapshot('register')
+                        current_config, current_owner = dict(self.identity_policy.config), roles['owner']['process']
+                    else:
+                        current_config, current_owner = await self.verifier.owner(config['root'])
                     if current_config != config or current_owner != owner:
                         raise PermissionError('Owner changed during registration')
                     binding = self.verifier.registration(config, owner, nonce, value['proof'])
-                    registration = self.core.register(binding)
+                    registration = self.core.register(binding, verification=boundary.gate) if boundary is not None else self.core.register(binding)
                     cleanup_started = False
                     await send_frame(writer, {'registration': registration})
                 elif op == 'request' and registration and set(value) == {'op', 'kind', 'scope', 'generation', 'native_call_id', 'consent_id', 'arguments_sha256'}:
+                    if boundary is not None:
+                        await boundary.snapshot('request')
                     result = self.core.request(registration, value['kind'], value['scope'],
                                                generation=value['generation'], native_call_id=value['native_call_id'],
                                                consent_id=value['consent_id'], arguments_sha256=value['arguments_sha256'])
                     await send_frame(writer, result)
                 elif op == 'decision' and registration and set(value) == {'op', 'request', 'nonce', 'body_hash', 'allowed'}:
-                    current_config, current_owner = await self.verifier.owner(config['root'])
+                    if boundary is not None:
+                        roles = await boundary.snapshot('decision')
+                        current_config, current_owner = dict(self.identity_policy.config), roles['owner']['process']
+                    else:
+                        current_config, current_owner = await self.verifier.owner(config['root'])
+                        self.verifier.child(ui, child['pid'], child['start'])
                     if current_config != config or current_owner != owner:
                         raise PermissionError('Registered owner changed before decision')
-                    self.verifier.child(ui, child['pid'], child['start'])
                     # No await between final child/owner snapshot fence and the
                     # one-use core decision; the core rechecks its own gates.
                     try:
@@ -312,6 +396,19 @@ class GrantControlServer:
                     except ConsentDenied:
                         result = {'accepted': False, 'request': value['request'], 'decision': 'denied'}
                     await send_frame(writer, result)
+                elif op == 'disconnect' and set(value) == {'op'} and boundary is not None:
+                    boundary.gate.seal()  # seal before audit/CAS/manager I/O
+                    if registration is not None:
+                        self.core.invalidate(registration)
+                        for slot in list(self.core.slots.values()):
+                            if slot.registration == registration:
+                                self.core.release(registration, slot.request)
+                        registration = None
+                    await boundary.close()
+                    if self.identity_client is boundary:
+                        self.identity_client = None
+                    await send_frame(writer, {'disconnected': True})  # only AFTER confirmed reap
+                    break
                 elif op == 'release' and registration and set(value) == {'op', 'request'}:
                     await send_frame(writer, self.core.release(registration, value['request']))
                 elif op == 'invalidate' and registration and set(value) == {'op'}:
@@ -325,8 +422,12 @@ class GrantControlServer:
                 else:
                     raise PermissionError('Unsupported private operation/state')
         except asyncio.CancelledError:
+            if boundary is not None and boundary.gate is not None:
+                boundary.gate.seal()
             raise
         except Exception as error:
+            if boundary is not None and boundary.gate is not None:
+                boundary.gate.seal()  # before diagnostics, persistence or response I/O
             self.failures += 1
             if registration:
                 try:
@@ -341,6 +442,10 @@ class GrantControlServer:
                 pass
         finally:
             # Eligibility drops before any potentially blocking cleanup/audit.
+            if boundary is not None and boundary.gate is not None:
+                boundary.gate.seal()
+            if monitor is not None:
+                monitor.cancel()
             if registration and not cleanup_started:
                 try:
                     self.core.invalidate(registration)
@@ -352,6 +457,14 @@ class GrantControlServer:
                             self.core.release(registration, slot.request)
                         except Exception:
                             self.failures += 1  # unknown; never retry or broaden cleanup
+            if boundary is not None:
+                try:
+                    await boundary.close()
+                except BaseException:
+                    self.failures += 1  # retain ownership cell, no retry/adoption
+                else:
+                    if self.identity_client is boundary:
+                        self.identity_client = None  # exact ownership CAS; never clear a newer cell
             self.handlers.discard(task)
             writer.close()
             try:
@@ -372,6 +485,12 @@ class GrantControlClient:
         self.lock = asyncio.Lock()
         self.registration = None
         self.failed = False
+        self.finite_session = False
+        self.deadline_ns = None
+
+    @property
+    def connected(self):
+        return not self.failed and not self.reader.at_eof() and not self.writer.is_closing()
 
     @classmethod
     async def inherited(cls, fd):
@@ -383,9 +502,17 @@ class GrantControlClient:
             raise PermissionError('Private Unix broker connection required')
         reader, writer = await asyncio.open_unix_connection(sock=sock, limit=MAX_FRAME + 1)
         try:
-            if await read_frame(reader, timeout=3) != {'type': 'launch_ready'}:
-                raise PermissionError('No reviewed launch handoff')
-            return cls(reader, writer)
+            ready = await read_frame(reader, timeout=3)
+            client = cls(reader, writer)
+            if ready != {'type': 'launch_ready'}:
+                from .identity_session import boottime_ns, MAX_CONNECT_SECONDS
+                if (set(ready) != {'type','finite_session','deadline_ns'} or ready['type'] != 'launch_ready'
+                        or ready['finite_session'] is not True or type(ready['deadline_ns']) is not int
+                        or not boottime_ns() < ready['deadline_ns'] <= boottime_ns()+MAX_CONNECT_SECONDS*1_000_000_000):
+                    raise PermissionError('No reviewed finite launch handoff')
+                client.finite_session = True
+                client.deadline_ns = ready['deadline_ns']
+            return client
         except BaseException:
             writer.close()
             await writer.wait_closed()
@@ -409,14 +536,22 @@ class GrantControlClient:
     async def register(self, root, control):
         if self.registration is not None:
             raise PermissionError('Disconnect old broker registration first')
-        challenge = await self.call('owner_challenge', root=str(root))
-        if set(challenge) != {'nonce'} or not re.fullmatch('[0-9a-f]{64}', challenge['nonce']):
-            raise PermissionError('Invalid server owner challenge')
-        proof = await control.call('broker_proof', nonce=challenge['nonce'])
-        result = await self.call('register', proof=proof)
-        if set(result) != {'registration'} or not isinstance(result['registration'], str):
-            raise PermissionError('No exact broker registration')
-        self.registration = result['registration']
+        site='owner-challenge'
+        try:
+            challenge = await self.call('owner_challenge', root=str(root))
+            site='challenge-frame'
+            if set(challenge) != {'nonce'} or not re.fullmatch('[0-9a-f]{64}', challenge['nonce']):
+                raise PermissionError('Invalid server owner challenge')
+            site='native-proof'
+            proof = await control.call('broker_proof', nonce=challenge['nonce'])
+            site='registration-rpc'
+            result = await self.call('register', proof=proof)
+            site='registration-frame'
+            if set(result) != {'registration'} or not isinstance(result['registration'], str):
+                raise PermissionError('No exact broker registration')
+            self.registration = result['registration']
+        except Exception as error:
+            raise OwnerRegistrationRejected(site,error) from error
 
     async def invalidate(self):
         if self.registration is not None:
@@ -426,6 +561,13 @@ class GrantControlClient:
             self.registration = None
             return True
         return False
+
+    async def disconnect_session(self):
+        if not self.finite_session:
+            raise PermissionError('No finite observer session')
+        if await self.call('disconnect') != {'disconnected': True}:
+            raise PermissionError('Observer cleanup unconfirmed; no replay')
+        self.writer.close()
 
     async def close(self):
         self.writer.close()  # eligibility drops on EOF even if later cleanup fails

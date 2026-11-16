@@ -20,7 +20,10 @@ static void child_exit(void) {
   pi_diagnostic_count=0;
   GSubprocess*p=g_subprocess_new(G_SUBPROCESS_FLAGS_NONE,NULL,"/bin/sh","-c",signal?"kill -TERM $$":"exit 7",NULL);
   g_assert_nonnull(p);const char*id=g_subprocess_get_identifier(p);char*start=pi_start_ticks((guint)g_ascii_strtoull(id,NULL,10));
-  g_assert_nonnull(start);g_subprocess_wait_async(p,NULL,pi_owned_exit,start);
+  g_assert_nonnull(start);
+  App *app=g_new0(App,1);app->references=1;app->closing=TRUE;
+  PiOwnedExit *owned=g_new0(PiOwnedExit,1);owned->app=app_ref(app);owned->start=start;
+  g_subprocess_wait_async(p,NULL,pi_owned_exit,owned);app_unref(app);
   gint64 end=g_get_monotonic_time()+2000000;
   while(!pi_diagnostic_count && g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(1000);}
   g_assert_cmpuint(pi_diagnostic_count,==,1);

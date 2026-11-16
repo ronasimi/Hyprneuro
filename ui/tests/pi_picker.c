@@ -5,10 +5,16 @@
 #include <string.h>
 typedef struct {
     GtkWindow *win;
+    gboolean closing;
+    gpointer pi_process;
     gboolean shown, busy, pi_optin, pi_dead, pi_selecting;
     GCancellable *picker_cancel;
     char *pi_connect_error;
 } App;
+static App *app_ref(App *a) { return a; } /* stack fixture, no actual async lifetime */
+static void app_unref(App *a) { (void)a; }
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(App, app_unref)
+static void pi_start(App *a) { a->pi_process=(gpointer)1; }
 static GtkFileDialog *pending;
 static GAsyncReadyCallback callback;
 static gpointer callback_data;

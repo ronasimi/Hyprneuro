@@ -37,3 +37,10 @@ test('ui-pi-diagnostics', diag_test)
 # Invoked only by private Python broker tests under an isolated X11/session bus.
 executable('test-ui-pi-challenge-probe', 'tests/pi_challenge_probe.c', dependencies: deps,
   link_args: ['-lm', '-Wl,--wrap=g_bus_get_sync', '-Wl,--wrap=g_dbus_connection_call_sync'])
+
+lifetime_test = executable('test-ui-pi-lifetime', 'tests/pi_lifetime.c', dependencies: deps, link_args: ['-lm'])
+test('ui-pi-lifetime', lifetime_test)
+
+# Explicit private-unit integration fixture. Never launched by ordinary meson test.
+executable('test-ui-boundary-sdk-fixture', 'tests/pi_boundary_sdk_fixture.c', dependencies: deps,
+  link_args: ['-lm', '-Wl,--wrap=g_bus_get_sync', '-Wl,--wrap=g_dbus_connection_call_sync'])

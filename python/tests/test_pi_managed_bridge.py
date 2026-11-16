@@ -29,6 +29,8 @@ class Client:
 
 
 class BrokerFixture:
+    connected = True
+    finite_session = False
     """Transport-control unit double only; it grants nothing."""
     async def register(self, root, control):
         pass

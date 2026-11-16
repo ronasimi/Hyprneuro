@@ -353,7 +353,7 @@ static void pi_media_routing(void) {
     g_assert_false(pi_route_allowed(&app, TRUE)); g_assert_false(pi_route_allowed(&app, FALSE));
 }
 static void pi_async_frames(void) {
-    App app = {.pi_connected=TRUE};
+    App app = {.references=1, .pi_connected=TRUE};
     app.pi_out = g_memory_output_stream_new_resizable();
     app.pi_io = g_cancellable_new();
     pi_send(&app, "status", NULL, FALSE);
@@ -362,6 +362,7 @@ static void pi_async_frames(void) {
     pi_send(&app, "consent", "different-host-id", TRUE);
     while (app.pi_writing || !g_queue_is_empty(&app.pi_writes))
         g_main_context_iteration(NULL, TRUE);
+    g_assert_cmpint(app.references, ==, 1); /* callbacks released, stack fixture retained */
     gsize length = g_memory_output_stream_get_data_size(G_MEMORY_OUTPUT_STREAM(app.pi_out));
     char *frames = g_strndup(g_memory_output_stream_get_data(G_MEMORY_OUTPUT_STREAM(app.pi_out)), length);
     char **lines = g_strsplit(frames, "\n", -1);
@@ -384,7 +385,7 @@ static void pi_async_frames(void) {
     g_object_unref(app.pi_out); g_object_unref(app.pi_io);
 }
 static void pi_escape_denies_before_hiding_panel(void) {
-    App app = {.shown=TRUE, .pi_connected=TRUE};
+    App app = {.references=1, .shown=TRUE, .pi_connected=TRUE};
     app.pi_consent_id = g_strdup("pending-host-question");
     app.pi_out = g_memory_output_stream_new_resizable();
     app.pi_io = g_cancellable_new();
@@ -395,6 +396,7 @@ static void pi_escape_denies_before_hiding_panel(void) {
     g_assert_null(app.pi_consent_id);
     while (app.pi_writing || !g_queue_is_empty(&app.pi_writes))
         g_main_context_iteration(NULL, TRUE);
+    g_assert_cmpint(app.references, ==, 1); /* callbacks released, stack fixture retained */
     gsize length = g_memory_output_stream_get_data_size(G_MEMORY_OUTPUT_STREAM(app.pi_out));
     JsonParser *p = json_parser_new();
     g_assert_true(json_parser_load_from_data(p,

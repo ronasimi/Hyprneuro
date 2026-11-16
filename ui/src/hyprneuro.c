@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>
+#include <time.h>
 #include <errno.h>
 #include <math.h>
 #include <fcntl.h>
@@ -125,6 +126,11 @@ struct App {
 
     gboolean pi_parent_only, pi_normal_only, pi_optin, pi_connected, pi_transition, pi_chat, pi_native_error, pi_rendering;
     gboolean pi_on_pending, pi_off_pending, pi_dead, pi_selecting;
+    gint references;
+    gboolean closing;
+    gboolean pi_clean_disconnect, pi_child_exited, pi_expiry_warned, pi_expiring;
+    guint pi_active_io, pi_session_timer;
+    guint64 pi_deadline_ns;
     char *pi_connect_error;
     char *pi_state, *pi_consent_id;
     GtkSwitch *pi_switch;
@@ -172,6 +178,27 @@ struct App {
     GtkWidget *media_controls;
     GtkWidget *media_label;
 };
+
+/* Pi async callbacks own App, including their read/write buffers. Final app
+ * resources are released only after cancelled callbacks drop their references. */
+static App *app_ref(App *a) { g_atomic_int_inc(&a->references); return a; }
+static void app_unref(App *a) {
+    if (!g_atomic_int_dec_and_test(&a->references)) return;
+    g_clear_object(&a->svc); g_clear_object(&a->panel_css);
+    if (a->current_answer) g_string_free(a->current_answer, TRUE);
+    for (int i=0;i<N_MONITOR_PREFS;i++) g_free(a->monitor_prefs[i].task);
+    if (a->history) g_ptr_array_free(a->history, TRUE);
+    if (a->attachments) g_ptr_array_free(a->attachments, TRUE);
+    g_free(a->current_msg); g_free(a->attachment_b64); g_free(a->attachment_mime);
+    g_free(a->saved_size_token); g_free(a->sidecar_sock); g_free(a->control_sock);
+    g_free(a->pi_state); g_free(a->pi_connect_error); g_free(a->pi_consent_id);
+    g_clear_object(&a->pi_io); g_clear_object(&a->pi_process);
+    g_clear_object(&a->picker_cancel);
+    if (a->pi_frame) g_string_free(a->pi_frame, TRUE);
+    g_queue_clear_full(&a->pi_writes, (GDestroyNotify)g_bytes_unref);
+    g_free(a);
+}
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(App, app_unref)
 
 /* ---- utility ------------------------------------------------------------- */
 static JsonNode *jmember(JsonNode *node, const char *key) {
@@ -1824,6 +1851,7 @@ int main(int argc, char **argv) {
     (void)argc; (void)argv;
     gtk_init();
     App *a = g_new0(App, 1);
+    a->references = 1;
     a->size = SIZE_NORMAL;
     a->autoscroll_enabled = TRUE;
     a->panel_opacity = .90;
@@ -2163,26 +2191,14 @@ int main(int argc, char **argv) {
 
     GMainLoop *loop = g_main_loop_new(NULL, FALSE);
     a->loop = loop;
-    show_ui(a);
-    pi_start(a);
+    show_ui(a); /* no helper/bridge/native start until genuine Connect selection */
     g_main_loop_run(loop);
     g_main_loop_unref(loop);
 
-    /* Cleanup. */
+    /* Seal/cancel before dropping the main lifetime reference. */
+    a->closing = TRUE;
     pi_stop(a);
     g_source_remove(a->monitor_timer);
-    g_object_unref(a->svc);
-    g_string_free(a->current_answer, TRUE);
-    g_free(a->current_msg);
-    g_object_unref(a->panel_css);
-    for (int i = 0; i < N_MONITOR_PREFS; i++) g_free(a->monitor_prefs[i].task);
-    g_ptr_array_free(a->history, TRUE);
-    g_ptr_array_free(a->attachments, TRUE);
-    g_free(a->attachment_b64);
-    g_free(a->attachment_mime);
-    g_free(a->saved_size_token);
-    g_free(a->sidecar_sock);
-    g_free(a->control_sock);
-    g_free(a);
+    app_unref(a);
     return 0;
 }

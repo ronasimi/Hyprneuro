@@ -8,7 +8,13 @@ static void pi_picker_notice(App *a, const char *text, gboolean failed) {
     set_status(a, text);
 }
 static void pi_owner_selected(GObject *object, GAsyncResult *result, gpointer data) {
-    App *a = data;
+    g_autoptr(App) a = data;
+    if (a->closing) {
+        GError *error=NULL;
+        GFile *file=gtk_file_dialog_select_folder_finish(GTK_FILE_DIALOG(object),result,&error);
+        g_clear_object(&file); g_clear_error(&error);
+        return;
+    }
     gboolean accept = a->shown && a->pi_selecting && a->picker_cancel &&
         !g_cancellable_is_cancelled(a->picker_cancel) && !a->busy && !a->pi_optin && !a->pi_dead;
     a->pi_selecting = FALSE;
@@ -35,7 +41,8 @@ static void pi_owner_selected(GObject *object, GAsyncResult *result, gpointer da
         g_clear_pointer(&a->pi_connect_error, g_free);
         a->pi_optin = TRUE; pi_render(a); /* explicit intent; never fallback on failure */
         set_status(a, "Pi owner selected · validating owner.json and connecting; fresh consent still required");
-        pi_send(a, "connect", root, FALSE);
+        if (!a->pi_process) pi_start(a); /* explicit chooser intent; host proof BEFORE child/Node */
+        if (!a->pi_dead) pi_send(a, "connect", root, FALSE);
     }
     g_free(root);
 }
@@ -50,6 +57,6 @@ static void pi_connect_clicked(GtkButton *button, gpointer data) {
     GtkFileDialog *dialog = gtk_file_dialog_new();
     gtk_file_dialog_set_title(dialog, "Select prepared private Pi owner root — not personal files");
     if (a->win) gtk_layer_set_keyboard_mode(a->win, GTK_LAYER_SHELL_KEYBOARD_MODE_NONE);
-    gtk_file_dialog_select_folder(dialog, NULL, a->picker_cancel, pi_owner_selected, a);
+    gtk_file_dialog_select_folder(dialog, NULL, a->picker_cancel, pi_owner_selected, app_ref(a));
     g_object_unref(dialog);
 }

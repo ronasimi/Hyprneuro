@@ -125,7 +125,7 @@ class PrivateSDKConsentTests(unittest.IsolatedAsyncioTestCase):
                         if not allow_error:
                             self.assertNotIn(packet.get('type'),('error','unavailable'),str(packet)+' fixture '+str(root))
                         if predicate(packet): return packet
-            await until(lambda p:p.get('type')=='disconnected')
+            await until(lambda p:p.get('type')=='bridge_ready')
             # Public self-grant denial is exercised against the SAME real broker.
             with self.assertRaisesRegex(PermissionError,'Trusted grant capability required'):
                 public.dispatch(dict(action='auth_create',task_id=config['task_id'],app_id='hyprneuro-parent-read',

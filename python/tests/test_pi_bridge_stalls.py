@@ -23,6 +23,8 @@ class Guard:
 
 
 class NoGrantBrokerFixture:
+    connected = True
+    finite_session = False
     """Control/EOF unit double; no grant or provenance proof is claimed."""
     async def register(self, root, control): pass
     async def invalidate(self): pass

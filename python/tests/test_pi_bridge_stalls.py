@@ -24,8 +24,12 @@ class Guard:
 
 class NoGrantBrokerFixture:
     connected = True
-    finite_session = False
+    finite_session = True
     """Control/EOF unit double; no grant or provenance proof is claimed."""
+    async def prepare_owner(self,root):
+        from hyprneuro.pi_owner_service import load_config
+        return load_config(root),lambda:None
+    async def disconnect_session(self):pass
     async def register(self, root, control): pass
     async def invalidate(self): pass
 

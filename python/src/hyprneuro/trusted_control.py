@@ -60,7 +60,7 @@ def rejection_record(stage, error):
 
 
 CONNECT_SITES=frozenset({'connection','trusted-broker','unlock','descriptor','service','authentication','profile',
-                         'owner-challenge','challenge-frame','native-proof','registration-rpc','registration-frame'})
+                         'owner-policy','owner-challenge','challenge-frame','native-proof','registration-rpc','registration-frame'})
 
 def connect_failure(site,error):
     error_class=next((kind.__name__ for kind in [LaunchRejected,TimeoutError,ConnectionError,PermissionError,ValueError,OSError,RuntimeError] if isinstance(error,kind)),'Other')
@@ -293,7 +293,23 @@ class GrantControlServer:
         registration = None
         cleanup_started = False
         stage = 'peer'
-        boundary = monitor = None
+        boundary = monitor = revocation_timer = None
+        phase='active'
+        revoke_deadline=0
+        prepare_sequence=0
+        def unknown():
+            nonlocal phase
+            phase='unknown'
+            if boundary is not None:boundary.gate.seal()
+            writer.close()
+        def begin_revoke():
+            nonlocal phase,revocation_timer,revoke_deadline
+            if phase=='active':
+                from .identity_session import boottime_ns
+                revoke_deadline=boottime_ns()+4_000_000_000
+                phase='intentional-revoking'  # BEFORE seal/audit/cleanup awaits
+                revocation_timer=asyncio.get_running_loop().call_later(4,unknown)
+            boundary.gate.seal()
         try:
             sock = writer.get_extra_info('socket')
             peer, uid, _ = struct.unpack('3i', sock.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
@@ -313,10 +329,17 @@ class GrantControlServer:
                         raise LaunchRejected('ui-peer-pid')
                     boundary.gate.enter_operation('ui')  # Node host positive BEFORE launch challenge
                     async def watch_boundary():
-                        while boundary.gate._alive():
+                        while True:
+                            if phase=='active':
+                                live=boundary.gate._alive()
+                            elif phase=='intentional-revoking':
+                                live=boundary.gate.transport_alive()
+                            elif phase=='reaping':
+                                from .identity_session import boottime_ns
+                                live=boottime_ns()<min(boundary.gate.deadline_ns,revoke_deadline)
+                            else:return
+                            if not live:unknown();return
                             await asyncio.sleep(.05)
-                        boundary.gate.seal()
-                        writer.close()  # notification only AFTER synchronous authority seal
                     monitor = asyncio.create_task(watch_boundary())
                 else:
                     ui = await self.verifier.ui(peer)
@@ -339,7 +362,7 @@ class GrantControlServer:
                 stage = 'launch-ready'
                 ready = {'type': 'launch_ready'}
                 if boundary is not None:
-                    ready.update(finite_session=True,deadline_ns=boundary.gate.deadline_ns)
+                    ready.update(finite_session=True,deadline_ns=boundary.gate.deadline_ns,generation=boundary.gate.generation)
                 await send_frame(writer, ready)
             stage = 'private-operation'
             challenge = None
@@ -348,7 +371,23 @@ class GrantControlServer:
                 op = value.get('op')
                 if boundary is None and op not in {'release', 'invalidate', 'disconnect'}:
                     self.verifier.child(ui, child['pid'], child['start'])
-                if op == 'owner_challenge' and set(value) == {'op', 'root'} and registration is None:
+                if phase!='active' and op not in {'disconnect','release'}:
+                    raise PermissionError('Revoking session accepts cleanup only')
+                if op=='prepare_owner' and boundary is not None and set(value)=={'op','root','request_id'}:
+                    if (value['root']!=str(self.identity_policy.owner_root)
+                            or not isinstance(value['request_id'],str) or not re.fullmatch('[0-9a-f]{32}',value['request_id'])):
+                        raise PermissionError('Exact MAIN owner root required before startup')
+                    sequence=int(value['request_id'][:16],16)
+                    if sequence!=prepare_sequence+1:raise PermissionError('Owner binding request replay')
+                    prepare_sequence=sequence
+                    await boundary.snapshot('prepare_owner')
+                    boundary.gate.enter_operation('prepare_owner')
+                    descriptor=str(self.identity_policy.owner_root/'owner.json')
+                    mode=stat.S_IMODE(self.identity_policy._files[descriptor][7])
+                    if mode not in (0o400,0o600):raise PermissionError('Unsupported descriptor mode')
+                    await send_frame(writer,dict(request_id=value['request_id'],generation=boundary.gate.generation,
+                        expires_ns=boundary.gate._expires,descriptor_sha256=self.identity_policy.catalog[descriptor],descriptor_mode=mode))
+                elif op == 'owner_challenge' and set(value) == {'op', 'root'} and registration is None:
                     if boundary is not None:
                         if value['root'] != str(self.identity_policy.owner_root):
                             raise PermissionError('Owner root differs from closed role policy')
@@ -397,22 +436,33 @@ class GrantControlServer:
                         result = {'accepted': False, 'request': value['request'], 'decision': 'denied'}
                     await send_frame(writer, result)
                 elif op == 'disconnect' and set(value) == {'op'} and boundary is not None:
-                    boundary.gate.seal()  # seal before audit/CAS/manager I/O
+                    if phase not in {'active','intentional-revoking'}:raise PermissionError('Cleanup state unknown')
+                    begin_revoke()  # eligibility sealed, control retained under independent budget
                     if registration is not None:
                         self.core.invalidate(registration)
                         for slot in list(self.core.slots.values()):
                             if slot.registration == registration:
                                 self.core.release(registration, slot.request)
                         registration = None
+                    if not boundary.gate.transport_alive():raise PermissionError('Observer lost before owned cleanup')
+                    phase='reaping'
                     await boundary.close()
-                    if self.identity_client is boundary:
-                        self.identity_client = None
-                    await send_frame(writer, {'disconnected': True})  # only AFTER confirmed reap
+                    from .identity_session import boottime_ns
+                    if phase=='unknown' or boottime_ns()>=min(revoke_deadline,boundary.gate.deadline_ns):raise PermissionError('Cleanup budget expired')
+                    receipt=os.urandom(16).hex()
+                    await send_frame(writer, {'disconnected': True,'receipt':receipt})
+                    ack=await read_frame(reader,timeout=4)
+                    if (ack!={'op':'disconnect_ack','receipt':receipt} or phase=='unknown'
+                            or boottime_ns()>=min(revoke_deadline,boundary.gate.deadline_ns)):
+                        raise PermissionError('Lost cleanup receipt')
+                    phase='closed'
+                    if self.identity_client is boundary:self.identity_client=None
                     break
                 elif op == 'release' and registration and set(value) == {'op', 'request'}:
                     await send_frame(writer, self.core.release(registration, value['request']))
                 elif op == 'invalidate' and registration and set(value) == {'op'}:
                     cleanup_started = True
+                    if boundary is not None:begin_revoke()
                     self.core.invalidate(registration)
                     for slot in list(self.core.slots.values()):
                         if slot.registration == registration:
@@ -444,6 +494,7 @@ class GrantControlServer:
             # Eligibility drops before any potentially blocking cleanup/audit.
             if boundary is not None and boundary.gate is not None:
                 boundary.gate.seal()
+            if revocation_timer is not None:revocation_timer.cancel()
             if monitor is not None:
                 monitor.cancel()
             if registration and not cleanup_started:
@@ -459,12 +510,12 @@ class GrantControlServer:
                             self.failures += 1  # unknown; never retry or broaden cleanup
             if boundary is not None:
                 try:
-                    await boundary.close()
+                    async with asyncio.timeout(4):await boundary.close()
                 except BaseException:
                     self.failures += 1  # retain ownership cell, no retry/adoption
                 else:
-                    if self.identity_client is boundary:
-                        self.identity_client = None  # exact ownership CAS; never clear a newer cell
+                    if phase=='closed' and self.identity_client is boundary:
+                        self.identity_client = None  # Unknown/lost receipt retains the consumed ownership cell
             self.handlers.discard(task)
             writer.close()
             try:
@@ -487,6 +538,8 @@ class GrantControlClient:
         self.failed = False
         self.finite_session = False
         self.deadline_ns = None
+        self.generation = None
+        self._prepare_sequence=0
 
     @property
     def connected(self):
@@ -506,12 +559,13 @@ class GrantControlClient:
             client = cls(reader, writer)
             if ready != {'type': 'launch_ready'}:
                 from .identity_session import boottime_ns, MAX_CONNECT_SECONDS
-                if (set(ready) != {'type','finite_session','deadline_ns'} or ready['type'] != 'launch_ready'
-                        or ready['finite_session'] is not True or type(ready['deadline_ns']) is not int
+                if (set(ready) != {'type','finite_session','deadline_ns','generation'} or ready['type'] != 'launch_ready'
+                        or ready['finite_session'] is not True or not isinstance(ready['generation'],str) or not re.fullmatch('[0-9a-f]{32}',ready['generation']) or type(ready['deadline_ns']) is not int
                         or not boottime_ns() < ready['deadline_ns'] <= boottime_ns()+MAX_CONNECT_SECONDS*1_000_000_000):
                     raise PermissionError('No reviewed finite launch handoff')
                 client.finite_session = True
                 client.deadline_ns = ready['deadline_ns']
+                client.generation = ready['generation']
             return client
         except BaseException:
             writer.close()
@@ -532,6 +586,42 @@ class GrantControlClient:
                 self.failed = True
                 self.writer.close()
                 raise
+
+    async def prepare_owner(self,root):
+        if not self.finite_session or not self.connected:raise PermissionError('Fixed owner binding unavailable')
+        from .identity_session import boottime_ns,MAX_PROOF_NS
+        from .identity_bootstrap import FilePin
+        spelling=str(root);root=Path(root)
+        if str(root)!=spelling or not root.is_absolute() or str(root)!=str(root.resolve()):raise PermissionError('Canonical fixed owner root required')
+        self._prepare_sequence+=1
+        request=f'{self._prepare_sequence:016x}'+os.urandom(8).hex()
+        result=await self.call('prepare_owner',root=str(root),request_id=request)
+        if (set(result)!={'request_id','generation','expires_ns','descriptor_sha256','descriptor_mode'}
+                or result['request_id']!=request or result['generation']!=self.generation
+                or type(result['expires_ns']) is not int or not boottime_ns()<result['expires_ns']<=boottime_ns()+MAX_PROOF_NS
+                or result['descriptor_mode'] not in (0o400,0o600)):
+            raise PermissionError('Stale/substituted owner binding')
+        pin=FilePin.descriptor(dict(path=str(root/'owner.json'),sha256=result['descriptor_sha256'],uid=os.getuid(),mode=result['descriptor_mode']))
+        _,initial_identity=pin.read(limit=16384)
+        root_identity=root.lstat()
+        root_identity=(root_identity.st_dev,root_identity.st_ino,root_identity.st_uid,root_identity.st_mode)
+        def check():
+            current=root.lstat()
+            if (current.st_dev,current.st_ino,current.st_uid,current.st_mode)!=root_identity:
+                raise PermissionError('Owner root replaced')
+            if not self.connected or self.generation!=result['generation'] or boottime_ns()>=result['expires_ns']:
+                raise PermissionError('Owner binding expired/lost')
+            raw,identity=pin.read(limit=16384)
+            if identity!=initial_identity:raise PermissionError('Owner descriptor replaced after binding')
+            return raw
+        raw=check()
+        from .pi_owner_service import load_config
+        # Parse pinned same-FD bytes; load_config validates canonical descriptor
+        # structure and repeated current path, then repeat the exact pin fence.
+        config=json.loads(raw)
+        if load_config(root)!=config:raise PermissionError('Descriptor changed during parse')
+        check()
+        return config,check
 
     async def register(self, root, control):
         if self.registration is not None:
@@ -565,8 +655,11 @@ class GrantControlClient:
     async def disconnect_session(self):
         if not self.finite_session:
             raise PermissionError('No finite observer session')
-        if await self.call('disconnect') != {'disconnected': True}:
+        result=await self.call('disconnect')
+        if (set(result)!={'disconnected','receipt'} or result['disconnected'] is not True
+                or not isinstance(result['receipt'],str) or not re.fullmatch('[0-9a-f]{32}',result['receipt'])):
             raise PermissionError('Observer cleanup unconfirmed; no replay')
+        await send_frame(self.writer,dict(op='disconnect_ack',receipt=result['receipt']))
         self.writer.close()
 
     async def close(self):

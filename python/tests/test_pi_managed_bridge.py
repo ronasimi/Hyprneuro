@@ -30,8 +30,11 @@ class Client:
 
 class BrokerFixture:
     connected = True
-    finite_session = False
+    finite_session = True
     """Transport-control unit double only; it grants nothing."""
+    async def prepare_owner(self,root):
+        return ({'task_id':'fixture','read_paths':['fixture.txt']},lambda:None)
+    async def disconnect_session(self):pass
     async def register(self, root, control):
         pass
     async def invalidate(self):
@@ -41,7 +44,7 @@ class BrokerFixture:
 class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.packets=[];self.clients=[];self.starts=[];self.guard=Guard()
-        async def connect(root,*,trusted=False):
+        async def connect(root,*,trusted=False,preflight=None):
             self.assertTrue(trusted);c=Client(root);self.clients.append(c);return c
         async def send(packet):self.packets.append(packet)
         async def start(root):self.starts.append(str(root));(Path(root)/'owner.sock').touch()
@@ -66,6 +69,7 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(any(op in ('chat','consent','on','off') for c in self.clients for op,_ in c.calls))
 
     async def test_locked_connect_or_approval_refused_no_boot_or_grant(self):
+        await self.bridge.request({'op':'disconnect'})
         self.guard.unlocked=False
         await self.bridge.request({'op':'connect','root':str(self.root)})
         self.assertEqual(self.starts,[]);self.assertEqual(self.clients,[])
@@ -92,6 +96,7 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.clients[0].closed);self.assertIsNone(self.bridge.control)
         self.assertIn('parent READ-ONLY',self.packets[-1]['error'])
         self.assertNotIn('connected',[p['type'] for p in self.packets])
+        await self.bridge.request({'op':'disconnect'})
         (self.root/'owner.sock').unlink();self.starts.clear()
         async def fail(root):self.starts.append(str(root));raise RuntimeError('unknown start outcome')
         self.bridge.start_service=fail
@@ -104,12 +109,13 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.packets[-1]['type'],'error')
 
     async def test_connect_failure_stage_is_visible_without_exception_or_secret_reflection(self):
-        with patch('hyprneuro.pi_managed_bridge.load_config',side_effect=ValueError('SECRET_PRIVATE_PATH')):
+        with patch.object(self.bridge.broker,'prepare_owner',side_effect=ValueError('SECRET_PRIVATE_PATH')):
             await self.bridge.request({'op':'connect','root':str(self.root)})
         error=self.packets[-1]
-        self.assertEqual(error['op'],'connect');self.assertIn('owner.json',error['error'])
+        self.assertEqual(error['op'],'connect');self.assertEqual(error['connect_diagnostic']['site'],'owner-policy')
         self.assertNotIn('SECRET_PRIVATE_PATH',json.dumps(error))
         self.assertEqual(self.starts,[]);self.assertEqual(self.clients,[])
+        await self.bridge.request({'op':'disconnect'})
         self.guard.unlocked=False
         await self.bridge.request({'op':'connect','root':str(self.root)})
         self.assertIn('unlocked Wayland',self.packets[-1]['error'])
@@ -122,6 +128,7 @@ class ManagedBridgeTests(unittest.IsolatedAsyncioTestCase):
         await self.bridge.request({'op':'connect','root':str(self.root)})
         self.assertIn('starting/waiting',self.packets[-1]['error'])
         self.assertEqual(len(self.starts),1)
+        await self.bridge.request({'op':'disconnect'})
         (self.root/'owner.sock').touch()
         async def fail_auth(root,*,trusted):raise ConnectionError('SECRET_AUTH')
         self.bridge.connect=fail_auth

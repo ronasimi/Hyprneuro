@@ -25,7 +25,7 @@ class PiOwnerClient:
         self.read_task = asyncio.create_task(self._read(), name='pi-owner-ui-transport')
 
     @classmethod
-    async def connect(cls, root, *, trusted=False):
+    async def connect(cls, root, *, trusted=False, preflight=None):
         root = Path(root)
         def credential():
             st = root.lstat()
@@ -39,10 +39,13 @@ class PiOwnerClient:
                 return os.read(fd, 32)
             finally:
                 os.close(fd)
+        if preflight is not None:(await preflight())()
         key = await asyncio.to_thread(credential)
+        if preflight is not None:(await preflight())()
         reader, writer = await asyncio.wait_for(asyncio.open_unix_connection(str(root / 'owner.sock'), limit=MAX_FRAME + 1), 3)
         try:
             nonce = await asyncio.wait_for(reader.readexactly(32), 3)
+            if preflight is not None:(await preflight())()
             role = b'control' if trusted else b'chat'
             mac = hmac.new(key, nonce + role, hashlib.sha256).digest()
             writer.write((b'C' if trusted else b'T') + mac)
@@ -50,6 +53,7 @@ class PiOwnerClient:
             ready = json.loads(await asyncio.wait_for(reader.readline(), 3))
             if ready != {'type': 'ready', 'schema': 'hyprneuro.pi-owner/1'}:
                 raise ConnectionError('Pi bridge authentication failed')
+            if preflight is not None:(await preflight())()
             return cls(reader, writer, trusted)
         except BaseException:
             writer.transport.abort()

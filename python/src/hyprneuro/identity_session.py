@@ -18,6 +18,7 @@ POLL_SECONDS = .05
 REQUIRED_ROLES = {
     'ui': frozenset({'ui'}),
     'child': frozenset({'ui', 'child'}),
+    'prepare_owner': frozenset({'ui', 'child'}),
     'owner_challenge': frozenset({'ui', 'child', 'owner'}),
     'register': frozenset({'ui', 'child', 'owner'}),
     'request': frozenset({'ui', 'child', 'owner'}),
@@ -99,6 +100,11 @@ class IdentitySession:
     def _alive(self):
         if self._sealed:
             return False
+        return self.transport_alive()
+
+    def transport_alive(self):
+        # Negative transport/deadline observation even after intentional seal.
+        # Never restores proof/registration eligibility.
         if self._clock() >= self.deadline_ns or self._socket is None:
             self.seal()
             return False

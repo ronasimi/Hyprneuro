@@ -10,7 +10,8 @@ from .pi_owner_service import load_config
 from .session_lock import LoginSessionGuard
 
 
-async def command(*args):
+async def command(*args, preflight=None):
+    if preflight is not None:(await preflight())()
     process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
     try:
         out, _ = await asyncio.wait_for(process.communicate(), 15)
@@ -44,6 +45,22 @@ class ManagedDesktopBridge(DesktopBridge):
         self.monitor = None
         self.connection_lock = asyncio.Lock()
         self.failed = False
+        self._pinned_config=None
+        raw_connect=self.connect
+        async def bound_connect(root,**fields):
+            await self._owner_preflight(root)
+            return await raw_connect(root,preflight=lambda:self._owner_preflight(root),**fields)
+        self.connect=bound_connect
+
+    async def _owner_preflight(self,root):
+        if self.broker is None or not self.broker.finite_session:
+            raise PermissionError('Fixed MAIN owner binding required')
+        config,check=await self.broker.prepare_owner(root)
+        check()
+        if self._pinned_config is not None and config!=self._pinned_config:
+            raise PermissionError('Owner configuration replaced; no adoption')
+        self._pinned_config=dict(config)
+        return check
 
     async def ensure_unlocked(self):
         if self.guard is None:
@@ -59,7 +76,7 @@ class ManagedDesktopBridge(DesktopBridge):
         if not re.fullmatch(r'[A-Za-z0-9_\\.\-]+', instance):
             raise ValueError('Invalid escaped owner instance')
         await self.ensure_unlocked()
-        await command('systemctl', '--user', 'start', 'hyprneuro-pi-owner@' + instance + '.service')
+        await command('systemctl', '--user', 'start', 'hyprneuro-pi-owner@' + instance + '.service',preflight=lambda:self._owner_preflight(root))
 
     async def attach(self, root):
         async with self.connection_lock:
@@ -72,11 +89,14 @@ class ManagedDesktopBridge(DesktopBridge):
                     raise PermissionError('Unsupported legacy tool adapter; fixed private handoff required')
                 stage = "unlock"
                 await self.ensure_unlocked()
-                stage = "descriptor"
-                config = await asyncio.to_thread(load_config, root)
+                stage = "owner-policy"
+                check=await self._owner_preflight(root)
+                check()
+                config = dict(self._pinned_config)
                 self.root = str(root)
                 if not (Path(root) / 'owner.sock').exists():
                     stage = "service"
+                    (await self._owner_preflight(root))()
                     await self.start_service(root)  # once, never retry a start/mutation
                     async with asyncio.timeout(10):
                         while not (Path(root) / 'owner.sock').exists():
@@ -96,6 +116,8 @@ class ManagedDesktopBridge(DesktopBridge):
                             or status.get('read_paths') != sorted(str(Path(root) / 'home/workspace' / p) for p in config['read_paths'])):
                         raise ValueError('Wrong or unknown owner profile/session; no adoption')
                     await self.ensure_unlocked()
+                    stage = 'owner-policy'
+                    (await self._owner_preflight(root))()
                     stage = 'trusted-broker'
                     if self.broker is None:
                         raise PermissionError('Fixed trusted broker handoff required')
@@ -109,6 +131,7 @@ class ManagedDesktopBridge(DesktopBridge):
                 await self.send({'type': 'connected'})
                 await self.send({'type': 'status', 'result': status})
             except Exception as error:
+                self.failed=True
                 raise OwnerConnectError(stage,error) from error
 
     async def monitor_connection(self):

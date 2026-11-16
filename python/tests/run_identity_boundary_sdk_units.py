@@ -5,6 +5,8 @@ Run manually with HN_BOUNDARY_SDK_PROBE and reviewed PI_HARNESS paths.
 """
 import os,json,sys,subprocess,hashlib,uuid,time,shutil,asyncio
 from pathlib import Path
+case=os.environ.get('HN_BOUNDARY_CASE','positive')
+if case not in {'positive','wrong-root','delayed-cleanup','lost-receipt','cleanup-failure'}:raise ValueError('Closed fixture case required')
 token=uuid.uuid4().hex
 E=Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-source-implementation')/('sdk-'+token);E.mkdir(mode=0o700)
 R=Path('/run/user')/str(os.getuid())/('hn-sdk-'+token[:12]);R.mkdir(mode=0o700)
@@ -20,8 +22,20 @@ endpoint=runtime/(prefix+'.sock');private=runtime/prefix;private.mkdir(mode=0o70
 code=SOURCE.parents[1];host=code/'extensions/pi-owner/host.mjs'
 for directory in ['agent','durable','sessions']:(owner/directory).mkdir(mode=0o700)
 (owner/'home/workspace/fixture.txt').write_text('PRIVATE_BOUNDARY_SDK_CANARY\n')
-entry=SOURCE/'hyprneuro/identity_bridge_entry.py'
 descriptor=owner/'owner.json';descriptor.write_text(json.dumps(dict(schema=pi_owner_service.SCHEMA,root=str(owner),source=str(code),node='/usr/bin/node',sdk=os.environ['PI_HARNESS_SDK'],durable=os.environ['PI_HARNESS_DURABLE'],pi='/home/ron/.pi/agent/bin/pi',read_paths=['fixture.txt'],task_id='source-observer-private')));descriptor.chmod(0o600)
+entry=SOURCE/'hyprneuro/identity_bridge_entry.py'
+bridge_instrumentation=Path(__file__).with_name('identity_bridge_fixture.py').resolve()
+wrong_root=R/'other-owner'
+if case=='wrong-root':
+ for directory in ['home/workspace','agent','durable','sessions']:(wrong_root/directory).mkdir(mode=0o700,parents=True,exist_ok=True)
+ (wrong_root/'home').chmod(0o700);wrong_root.chmod(0o700)
+ other=dict(json.loads((owner/'owner.json').read_text()),root=str(wrong_root),source=str(R/'other-source'),node='/usr/bin/true')
+ (wrong_root/'owner.json').write_text(json.dumps(other));(wrong_root/'owner.json').chmod(0o600)
+ from hyprneuro.pi_owner_service import load_config
+ load_config(wrong_root)
+if case!='positive':
+ entry=R/'fixture-bridge.py'
+ entry.write_text('import sys\nsys.dont_write_bytecode=True\nsys.path.insert(0,'+repr(str(SOURCE))+')\nsys.path.insert(0,'+repr(str(bridge_instrumentation.parent))+')\nfrom identity_bridge_fixture import install_bridge\ninstall_bridge('+repr(str(R))+','+repr(case)+')\nfrom hyprneuro.pi_desktop_bridge import main\nraise SystemExit(main())\n')
 probe=Path(os.environ['HN_BOUNDARY_SDK_PROBE']).resolve()
 generation=uuid.uuid4().hex;record=R/'launch-root.json';
 env=R/'bootstrap.env';manifest=R/'manifest.json';context=R/'context.json';literal=R/'MAIN-literal-context-sha.txt';driver=R/'driver.py'
@@ -45,7 +59,7 @@ runtime.mkdir(mode=0o700);(runtime/'hyprharness').mkdir(mode=0o700)
 owner_entry=R/'owner-entry.py'
 owner_entry.write_text('import sys\nsys.dont_write_bytecode=True\nimport os\nfrom pathlib import Path\nsys.path.insert(0,'+repr(str(SOURCE))+')\nfrom hyprneuro.pi_owner_service import environment,load_config,service_lock\nruntime=Path('+repr(str(runtime))+')\nconfig=load_config(Path('+repr(str(owner))+'))\nfd=service_lock(runtime)\nenv=environment(config,runtime)\nenv["HYPRNEURO_PI_TEXT_BASE_URL"]='+repr(f'http://127.0.0.1:{model.server_port}/v1')+'\nos.execve(config["node"],[config["node"],'+repr(str(host))+'],env)\n')
 # This is the real root factory, core, public permission view and control server.
-driver.write_text('import sys\nsys.dont_write_bytecode=True\nimport asyncio,json,os\nfrom pathlib import Path\nsys.path.insert(0,'+repr(str(SOURCE))+')\nfrom hyprneuro.identity_root import load_manager_root\nfrom hyprneuro.trusted_control import GrantControlServer,LaunchVerifier\nfrom hyprneuro.trusted_consent import ConsentJournal,TrustedConsent\nfrom hyprneuro.sidecar_store import SidecarStore\nfrom hyprneuro.sidecar import SidecarServer\nroot=Path('+repr(str(R))+')\npolicy=asyncio.run(load_manager_root(root/"launch-root.json",'+repr(generation)+',"broker"))\nasync def main():\n store=SidecarStore(root/"broker.sqlite");journal=ConsentJournal(root/"audit.jsonl");core=TrustedConsent(store,journal)\n ctl=GrantControlServer(core,LaunchVerifier(policy.launch),identity_policy=policy)\n public=SidecarServer(store,assistant_enabled=True,trusted_consent=core);public.authority_refresh=ctl.refresh_authority\n a=await asyncio.start_unix_server(ctl.handle,path=str(root/"control.sock"),limit=4097)\n b=await asyncio.start_unix_server(public.handle,path='+repr(str(runtime/'hyprharness/sidecar.sock'))+')\n (root/"broker-ready").write_text("ready")\n try:\n  end=asyncio.get_running_loop().time()+35\n  while not (root/"gtk-sdk-complete").exists() and asyncio.get_running_loop().time()<end:await asyncio.sleep(.02)\n  (root/"core-result.json").write_text(json.dumps(dict(rows=store.auth_list(),live_registrations=sum(r.live for r in core.registrations.values()),published=sum(s.published for s in core.slots.values()),observer_cleanup_confirmed=ctl.identity_client is None,failures=ctl.failures),indent=2))\n finally:\n  a.close();b.close();await a.wait_closed();await b.wait_closed()\n  tasks=list(ctl.handlers)\n  for task in tasks:task.cancel()\n  await asyncio.gather(*tasks,return_exceptions=True);journal.close();store.close()\nasyncio.run(main())\n')
+driver.write_text('import sys\nsys.dont_write_bytecode=True\nimport asyncio,json,os\nfrom pathlib import Path\nsys.path.insert(0,'+repr(str(SOURCE))+')\nfrom hyprneuro.identity_root import load_manager_root\nfrom hyprneuro.trusted_control import GrantControlServer,LaunchVerifier\nfrom hyprneuro.trusted_consent import ConsentJournal,TrustedConsent\nfrom hyprneuro.sidecar_store import SidecarStore\nfrom hyprneuro.sidecar import SidecarServer\nroot=Path('+repr(str(R))+')\nsys.path.insert(0,'+repr(str(bridge_instrumentation.parent))+')\nfrom identity_bridge_fixture import install_broker\nattach_core=install_broker(root,'+repr(case)+','+repr(names['helper'])+')\npolicy=asyncio.run(load_manager_root(root/"launch-root.json",'+repr(generation)+',"broker"))\nasync def main():\n store=SidecarStore(root/"broker.sqlite");journal=ConsentJournal(root/"audit.jsonl");core=TrustedConsent(store,journal);attach_core(core)\n ctl=GrantControlServer(core,LaunchVerifier(policy.launch),identity_policy=policy)\n public=SidecarServer(store,assistant_enabled=True,trusted_consent=core);public.authority_refresh=ctl.refresh_authority\n a=await asyncio.start_unix_server(ctl.handle,path=str(root/"control.sock"),limit=4097)\n b=await asyncio.start_unix_server(public.handle,path='+repr(str(runtime/'hyprharness/sidecar.sock'))+')\n (root/"broker-ready").write_text("ready")\n try:\n  end=asyncio.get_running_loop().time()+35\n  while not (root/"gtk-sdk-complete").exists() and asyncio.get_running_loop().time()<end:await asyncio.sleep(.02)\n  (root/"core-result.json").write_text(json.dumps(dict(rows=store.auth_list(),live_registrations=sum(r.live for r in core.registrations.values()),published=sum(s.published for s in core.slots.values()),observer_cleanup_confirmed=ctl.identity_client is None,failures=ctl.failures),indent=2))\n finally:\n  a.close();b.close();await a.wait_closed();await b.wait_closed()\n  tasks=list(ctl.handlers)\n  for task in tasks:task.cancel()\n  await asyncio.gather(*tasks,return_exceptions=True);journal.close();store.close()\nasyncio.run(main())\n')
 helper_entry=R/'helper-entry.py'
 helper_instrumentation=Path(__file__).with_name('identity_helper_fixture.py').resolve()
 helper_entry.write_text('import sys\nsys.dont_write_bytecode=True\nsys.path.insert(0,'+repr(str(SOURCE))+')\nsys.path.insert(0,'+repr(str(helper_instrumentation.parent))+')\nfrom identity_helper_fixture import main\nraise SystemExit(main())\n')
@@ -55,7 +69,7 @@ def run(a,check=True):
 try:
  launch=R/'gtk-launch.json';launch.write_text(json.dumps(dict(schema='hyprneuro.trusted-launch/1',python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry))));launch.chmod(0o400)
  bodies={}
- bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
+ bodies['ui']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nEnvironment=DISPLAY='+os.environ['DISPLAY']+'\nEnvironment=XAUTHORITY=/dev/null GTK_A11Y=none GIO_USE_VFS=local GDK_BACKEND=x11 HN_FIXTURE_CAPTURE_ACK='+str(R/'ack')+'\nEnvironment=HN_FIXTURE_ROOT='+str(R)+' HN_FIXTURE_BROKER_UNIT='+names['broker']+(' HN_FIXTURE_BAD_ROOT='+str(wrong_root) if case=='wrong-root' else '')+(' HN_FIXTURE_UNKNOWN_CLEANUP=1' if case in {'lost-receipt','cleanup-failure'} else '')+' XDG_RUNTIME_DIR='+str(runtime)+' XDG_SESSION_ID='+os.environ.get('XDG_SESSION_ID','2')+' DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/'+str(os.getuid())+'/bus\nEnvironment=HYPRNEURO_PI_TRUSTED_POLICY='+str(R/'gtk-launch.json')+' HYPRNEURO_PI_TRUSTED_POLICY_SHA256='+sha(R/'gtk-launch.json')+' HYPRNEURO_PI_BROKER_SOCKET='+str(R/'control.sock')+'\nExecStart='+str(probe)+'\n'
  for role in ['broker','helper']:
   bodies[role]='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=2\nNoNewPrivileges=yes\nPrivateUsers=no\nPrivateTmp='+('yes' if role=='broker' else 'no')+'\nEnvironment=PYTHONDONTWRITEBYTECODE=1\nEnvironmentFile='+str(env)+'\nLoadCredential=main-root-sha:'+str(R/'MAIN-root.sha256')+'\nExecStart='+PYTHON+' -I '+str(driver)+' '+role+'\n'
  bodies['owner']='[Service]\nType=exec\nRestart=no\nRuntimeMaxSec=35\nTimeoutStopSec=3\nExecStart='+PYTHON+' -I '+str(owner_entry)+'\n'
@@ -77,7 +91,7 @@ try:
    props={k:ob.digest(v.encode()) for k,v in props.items()}
   if role=='helper':argv=[PYTHON,'-I',str(helper_entry),'helper','--root-record',str(record),'--generation',generation]
   specs[role]=dict(name=name,fragments=[str(p)],argv=argv,property_hashes=props)
- for p in [Path(PYTHON).resolve(),Path('/usr/bin/node').resolve(),probe,entry,host,descriptor,driver,owner_entry,helper_entry,helper_instrumentation,launch,*[Path(m.__file__).resolve() for m in [ob,identity_bootstrap,identity_session,identity_transport,identity_root,identity_credentials,identity_entry,identity_guard,sidecar,pi_owner_service,trusted_control,trusted_consent]]]:catalog[str(p)]=sha(p)
+ for p in [Path(PYTHON).resolve(),Path('/usr/bin/node').resolve(),probe,entry,host,descriptor,driver,owner_entry,helper_entry,helper_instrumentation,bridge_instrumentation,launch,*[Path(m.__file__).resolve() for m in [ob,identity_bootstrap,identity_session,identity_transport,identity_root,identity_credentials,identity_entry,identity_guard,sidecar,pi_owner_service,trusted_control,trusted_consent]]]:catalog[str(p)]=sha(p)
  manifest.write_text(json.dumps(dict(schema=identity_bootstrap.MANIFEST_SCHEMA,files=catalog,
   launch=dict(python=PYTHON,entry=str(entry),source=str(code),ui_sha256=sha(probe),entry_sha256=sha(entry)),
   node=ob.node_pin(Path('/usr/bin/node')),owner_root=str(owner),endpoint=str(endpoint),units=specs,host_user_namespace=os.readlink('/proc/self/ns/user'))));manifest.chmod(0o400)
@@ -94,15 +108,38 @@ try:
  end=time.monotonic()+5
  while not (R/'ui-child-host-proof.ready').exists() and time.monotonic()<end:time.sleep(.02)
  assert (R/'ui-child-host-proof.ready').exists(),'No UI/child host-positive proof before Node'
- run(['/usr/bin/systemctl','--user','start',names['owner']])
+ if case!='wrong-root':run(['/usr/bin/systemctl','--user','start',names['owner']])
+ if case=='delayed-cleanup':
+  for phase in ['native-invalidation','helper-reap']:
+   end=time.monotonic()+8
+   while not (R/(phase+'-entered')).exists() and time.monotonic()<end:time.sleep(.005)
+   assert (R/(phase+'-entered')).exists(),phase
+   tick=lambda:int((R/'monitor-ticks').read_text() or '0') if (R/'monitor-ticks').exists() else 0
+   before=tick();end=time.monotonic()+2
+   while tick()<before+2 and time.monotonic()<end:time.sleep(.005)
+   assert tick()>=before+2,'Monitor did not survive two deterministic barrier turns'
+   assert not (R/'gtk-sdk-complete').exists(),'Receipt before owned cleanup barrier release'
+   sealed=json.loads((R/'monitor-state.json').read_text())
+   assert sealed['eligible'] is False and sealed['live'] is False,sealed
+   (R/(phase+'-release')).write_text('release')
  end=time.monotonic()+25
  while not (R/'core-result.json').exists() and time.monotonic()<end:time.sleep(.02)
  assert (R/'gtk-sdk-complete').exists(),'GTK/SDK fixture did not complete'
  assert (R/'core-result.json').exists(),'Missing core result'
  from identity_fixture_assertions import require_clean_result
- result=json.loads((R/'core-result.json').read_text());require_clean_result(result,R)
- assert len(model_calls)==2 and 'PRIVATE_BOUNDARY_SDK_CANARY' in json.dumps(model_calls[1]),model_calls
- print('ACTUAL GTK/FIXED CHILD/NODE SDK/CORE GRANTS + CONFIRMED CLEANUP PASS (SYNTHETIC CONSENT ONLY)',R)
+ result=json.loads((R/'core-result.json').read_text())
+ if case=='wrong-root':
+  assert result['rows']==[] and result['live_registrations']==0 and result['published']==0,result
+  assert model_calls==[] and not (R/'FORBIDDEN-start').exists() and not (R/'FORBIDDEN-auth').exists()
+ elif case in {'lost-receipt','cleanup-failure'}:
+  expected=dict(result,observer_cleanup_confirmed=True,failures=0)
+  require_clean_result(expected,R)
+  assert result['observer_cleanup_confirmed'] is False and result['failures']>0,result
+  assert (R/'reconnect-denied').exists()
+ else:
+  require_clean_result(result,R)
+  assert len(model_calls)==2 and 'PRIVATE_BOUNDARY_SDK_CANARY' in json.dumps(model_calls[1]),model_calls
+ print('PRIVATE CASE PASS (SYNTHETIC CONSENT ONLY)',case,R)
 
 finally:
  model.shutdown();thread.join(timeout=2);model.server_close();(R/'model-calls.json').write_text(json.dumps(model_calls,indent=2))

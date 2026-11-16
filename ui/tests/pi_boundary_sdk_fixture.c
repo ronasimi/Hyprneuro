@@ -71,9 +71,32 @@ int main(int argc,char **argv) {
         fprintf(packets,"%s\n",line);fflush(packets);
         JsonParser *parser=json_parser_new();g_assert_true(json_parser_load_from_data(parser,line,length,NULL));g_free(line);
         JsonNode *packet=json_parser_get_root(parser);const char *type=jstr(jmember(packet,"type")),*op=jstr(jmember(packet,"op"));
+        if(!g_strcmp0(type,"error") && g_getenv("HN_FIXTURE_BAD_ROOT")) {
+            g_assert_cmpstr(op,==,"connect");
+            g_assert_cmpstr(jstr(jmember(jmember(packet,"connect_diagnostic"),"site")),==,"owner-policy");
+            g_object_unref(parser);g_output_stream_close(out,NULL,NULL);
+            g_assert_true(g_subprocess_wait_check(child,NULL,NULL));
+            char *done=g_build_filename(root,"gtk-sdk-complete",NULL);
+            g_assert_true(g_file_set_contents(done,"NEGATIVE fixed-owner mismatch; no owner execution/authentication\n",-1,NULL));
+            g_free(done);fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
+        }
+        if(!g_strcmp0(type,"error") && !g_strcmp0(op,"disconnect") && g_getenv("HN_FIXTURE_UNKNOWN_CLEANUP")) {
+            g_object_unref(parser);g_output_stream_close(out,NULL,NULL);
+            g_assert_true(g_subprocess_wait_check(child,NULL,NULL));
+            const char *retry_stage=NULL,*retry_category=NULL;char *retry_start=NULL;
+            GSubprocess *retry=pi_fixed_bridge(&retry_stage,&retry_category,&retry_start);
+            g_assert_null(retry);g_assert_null(retry_start); /* consumed cell, NO new child/helper */
+            char *denied=g_build_filename(root,"reconnect-denied",NULL);
+            g_assert_true(g_file_set_contents(denied,"UNKNOWN cleanup: fresh Connect denied\n",-1,NULL));g_free(denied);
+            char *done=g_build_filename(root,"gtk-sdk-complete",NULL);
+            g_assert_true(g_file_set_contents(done,"NEGATIVE lost/failed cleanup receipt retained UNKNOWN\n",-1,NULL));g_free(done);
+            fclose(packets);g_object_unref(in);g_object_unref(child);g_free(start);gtk_window_destroy(GTK_WINDOW(window));return 0;
+        }
         g_assert_cmpstr(type,!=,"error");g_assert_cmpstr(type,!=,"unavailable");g_assert_cmpstr(type,!=,"bootstrap_failure");
         if(!g_strcmp0(type,"bridge_ready")) {
             char *ready=g_build_filename(root,"ui-child-host-proof.ready",NULL);g_assert_true(g_file_set_contents(ready,"NONAUTHORITATIVE fixture sequencing\n",-1,NULL));g_free(ready);
+            const char *bad_root=g_getenv("HN_FIXTURE_BAD_ROOT");
+            if(bad_root){send_fixture(out,"connect",bad_root,FALSE);g_object_unref(parser);continue;}
             char *socket=g_build_filename(root,"owner","owner.sock",NULL);gint64 end=g_get_monotonic_time()+10000000;
             while(!g_file_test(socket,G_FILE_TEST_EXISTS) && g_get_monotonic_time()<end){g_main_context_iteration(NULL,FALSE);g_usleep(10000);}
             g_assert_true(g_file_test(socket,G_FILE_TEST_EXISTS));g_free(socket);

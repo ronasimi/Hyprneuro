@@ -97,3 +97,65 @@ preserved result, NOT a rerun or rewriting the original exit status. This moves
 scope evidence beyond the earlier generic Connect error but does not satisfy
 full negative/lifetime/human/production blocks above. Independent review must
 include this small fixture-only correction delta; product authority unchanged.
+
+## Independent review P1 correction (base2493a94; rereview REQUIRED)
+
+Reviewer `01M7HYA457RRRRFZBRX45GS0QM/boundary-source` blocked two defects:
+intentional seal raced the50ms monitor/cleanup receipt, and descriptor-selected
+startup/authentication preceded MAIN owner binding. Parent explicitly approved
+closed private `prepare_owner` correction. Neither P1 is declared independently
+closed by these tests; rereview is required.
+
+- Explicit active/intentional-revoking/reaping/unknown/closed phases: eligibility
+  sealed FIRST; monitor observes negative transport/deadline without unsealing,
+  preserves bounded control delivery during owned cleanup, never grants during
+  revocation. Independent4s callback plus synchronous BOOTTIME fences before
+  terminal receipt/ACK. Receipt sent only after verified helper stop/reap; ACK
+  names the one-use random receipt. Only confirmed acknowledged closure clears
+  the exact ownership cell. Loss/failure retains consumed UNKNOWN even if later
+  cleanup can reap the helper; no automatic rebind/adoption or paper receipt.
+- Existing authenticated fixed-child private channel only: `prepare_owner`
+  compares exact MAIN root spelling BEFORE descriptor parse/start/connect/auth;
+  fresh combined UI+independent child+host-positive Node proof, no active owner
+  required (avoids circular startup). Returns only pinned descriptor SHA/mode,
+  session generation, sequence+random request ID, short proof expiry. This is
+  binding metadata, NOT consent or a public capability. Server request sequence
+  rejects replay. Fixed bridge checks same-FD bytes/hash/uid/mode/nlink/size,
+  canonical path and retained descriptor/root identities before parse/use;
+  refresh after awaited stages before startup and credential/socket/MAC/ready.
+  Parsed configuration remains exact MAIN descriptor; missing finite binding
+  refuses startup. No model/caller runtime assertion can select another root.
+
+Focused source tests pass (no new broad-suite claim); initially failed same-byte
+replacement regression exposed missing cross-call inode retention and is fixed.
+Old preflight-less test doubles are explicitly synthetic and updated; existing
+legacy-policy SDK fixtures are NOT evidence for these corrections. No claim the
+old125 suite was rerun or all legacy managed fixtures now cover finite policy.
+
+Actual policy-enabled manager/production-helper/GTK/fixed-child/SDK private
+matrix `01M7HZTS677E7CSR8GKZQHWQK3` passed4cases,49.018s, serial lease:
+
+1. `sdk-f2520d7face54fe79863ee287e811a92`: second valid prepared descriptor with
+   different source/runtime root rejected at owner-policy; ZERO start/auth
+   guards invoked, no owner unit start, no grants/model calls. Consumed cell
+   stays UNKNOWN, as expected for rejected private operation.
+2. `sdk-b31a9c631e4c45118e70f09794427bf1`: real SDK canary/read/synthetic consent;
+   native grants_invalidated and helper stop/reap separately held by barriers.
+   Each survives TWO actual production monitor turns while core eligibility/
+   registration live FALSE; no terminal completion before release. Then exact
+   revoked row, live0/published0, confirmed cleanup and failures0.
+3. `sdk-252e656558aa4b5e83b66ee831d82a6f`: actual terminal receipt dropped by
+   private transport abort after reap; rows ineligible, ownership cell UNKNOWN,
+   fresh fixed-bridge challenge denied BEFORE new child/helper. Expected broker
+   failures2, NOT failures0 or clean disconnect.
+4. `sdk-9da8c2df0116438fb4034ae0bd9b429a`: timeout injected at exact OWNED helper
+   stop; rows ineligible, UNKNOWN cell and fresh challenge denied. Expected
+   failures3, no adoption; fixture finally stops owned units independently.
+
+All fixture units ended PID0/no jobs/cgroups, failed ancestries retained. The
+pre-matrix negative setup attempt16 failed before unit/model creation (descriptor
+construction order); that original failed runtime is preserved, not relabelled
+an identity denial. All human packets are SYNTHETIC, SSE localFAKE; no production
+SQL/unit/model/config/start changes. Root-alias/replay/descriptor substitution/
+mode tests are component negatives, not separate actual SDK profile acceptance.
+Full negative/idle/suspend/7200s/GUI/human/production blocks above remain.

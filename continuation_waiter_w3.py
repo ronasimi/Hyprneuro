@@ -120,20 +120,29 @@ def watch(event_dir: Path, timeout: int, op_sha: str, generation: str, run_token
             if not ready:
                 return {'status': 'TIMEOUT', 'event': None}
 
-            # Read inotify events
+            # Read inotify events (validate full buffer, advance 16+length)
             changes = os.read(fd, 65536)
             offset = 0
             event_found = False
-            while offset < len(changes):
-                if len(changes) - offset < 16:
-                    break
+            buf_len = len(changes)
+            while offset < buf_len:
+                # Header is 16 bytes: int wd, uint32 mask, uint32 cookie, uint32 len
+                if buf_len - offset < 16:
+                    raise ValueError('Truncated inotify buffer (header)')
                 _wd, mask, _cookie, length = struct.unpack_from('iIII', changes, offset)
-                offset += length
+                # Validate name length fits in buffer
+                if 16 + length > buf_len - offset:
+                    raise ValueError('Truncated inotify buffer (name overflow)')
+                # Zero-length name is valid (directory-level events)
+                offset += 16 + length
                 if mask & (0x100 | 0x80):  # IN_CREATE | IN_MOVED_TO
                     event_found = True
                     break
 
             if not event_found:
+                # Check deadline before continuing (no spin)
+                if time.monotonic() >= deadline:
+                    return {'status': 'TIMEOUT', 'event': None}
                 continue
 
             # Lost-wake protection: re-read after inotify signal
@@ -153,9 +162,10 @@ def main() -> None:
     parser.add_argument('--generation', required=True)
     parser.add_argument('--run-token', required=True)
     parser.add_argument('--timeout', type=int, default=TIMEOUT)
+    parser.add_argument('--event-dir', type=Path, default=OP_DIR)
     args = parser.parse_args()
 
-    result = watch(OP_DIR, args.timeout, args.op_sha, args.generation, args.run_token)
+    result = watch(args.event_dir, args.timeout, args.op_sha, args.generation, args.run_token)
     print(json.dumps(result, sort_keys=True))
 
     if result['status'] == 'START_READY':

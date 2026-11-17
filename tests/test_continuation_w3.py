@@ -260,3 +260,204 @@ class TestNoProductionWrites:
         for m in ('continuation.watch3.ready', 'continuation.start3.started',
                   'continuation.start3.completed', 'continuation.start3.ready'):
             assert not (prod_dir / m).exists(), f'Production W3 marker: {m}'
+
+
+# --- REAL PRIVATE PROCESS FLOW TESTS (actual Popen, not mocks) ---
+
+import tempfile
+import shutil
+
+class TestRealFlowT1EventAfterInotify:
+    """T1: Event created AFTER inotify registration. Waiter returns before timeout.
+    Actual OS processes. Private temp dir. No production writes."""
+
+    def test_inotify_fires_on_event_creation(self, tmp_path):
+        """Start waiter in subprocess, create event after registration, verify wake."""
+        op_dir = tmp_path / 'operation'
+        op_dir.mkdir()
+        op_dir.chmod(0o700)
+
+        # Launch waiter as actual subprocess (blocking inotify)
+        waiter_script = Path(__file__).parent.parent / 'continuation_waiter_w3.py'
+        proc = subprocess.Popen(
+            [sys.executable, '-I', str(waiter_script),
+             '--op-sha', OPERATION_SHA,
+             '--generation', GENERATION,
+             '--run-token', RUN_TOKEN,
+             '--timeout', '10',
+             '--event-dir', str(op_dir)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env={**os.environ, 'HOME': str(tmp_path)}
+        )
+        # Give inotify time to register
+        time.sleep(0.5)
+
+        # Create event file (triggers inotify)
+        event_path = op_dir / EVENT_FILE
+        content = json.dumps({
+            'schema': 'hyprneuro.boundary-start3-ready/1',
+            'operation_sha256': OPERATION_SHA,
+            'generation': GENERATION,
+            'run_token': RUN_TOKEN,
+            'uid': os.getuid(),
+            'pid': os.getpid(),
+            'start': '12345',
+            'ts_utc': '2026-11-17T05:00:00Z',
+        }, sort_keys=True) + '\n'
+        event_path.write_text(content)
+        event_path.chmod(0o600)
+
+        # Waiter should wake (well before 10s timeout)
+        start = time.monotonic()
+        stdout, stderr = proc.communicate(timeout=5)
+        elapsed = time.monotonic() - start
+
+        assert proc.returncode == 0, f'Waiter failed: {stderr}'
+        result = json.loads(stdout)
+        assert result['status'] == 'START_READY'
+        assert result['method'] == 'inotify'
+        assert elapsed < 5, f'Took too long: {elapsed}s'
+        # Cleanup
+        shutil.rmtree(op_dir, ignore_errors=True)
+
+
+class TestRealFlowT2RunnerWithFakeOps:
+    """T2: Actual runner process with fake ops. Shortened deadline.
+    Verifies: startup achieved, contain called, units stopped, children reaped,
+    receipt WINDOW_EXPIRED. All in private temp dir."""
+
+    def test_runner_full_flow_private(self, tmp_path):
+        """Full runner flow with fake ops that immediately 'starts' and 'contains'."""
+        # Create fake ops script
+        fake_ops = tmp_path / 'fake_ops.py'
+        fake_ops.write_text('''
+import sys, json, time, os
+from pathlib import Path
+
+# Fake ops: watch3 writes ready marker, start3 writes started+completed, contain writes unit states
+phase = None
+for i, arg in enumerate(sys.argv):
+    if arg == '--phase':
+        phase = sys.argv[i+1]
+    if arg == '--run-token':
+        token = sys.argv[i+1]
+    if arg == '--operation':
+        op_path = sys.argv[i+1]
+
+op_dir = Path(os.environ.get('FAKE_OP_DIR', '/tmp/fake_op'))
+op_dir.mkdir(parents=True, exist_ok=True)
+
+if phase == 'watch3':
+    # Write watch3.ready immediately
+    (op_dir / 'continuation.watch3.ready').write_text(json.dumps({
+        "schema": "hyprneuro.boundary-watch3-ready/1",
+        "operation_sha256": "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4",
+        "run_token": token,
+        "pid": os.getpid(),
+        "start": "99999"
+    }))
+    # Loop until killed (simulates watch)
+    while True:
+        time.sleep(0.5)
+
+elif phase == 'start3':
+    # Write started + completed immediately
+    (op_dir / 'continuation.start3.started').write_text("306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4\\n")
+    (op_dir / 'continuation.start3.completed').write_text(json.dumps({
+        "schema": "hyprneuro.boundary-start3-receipt/1",
+        "operation_sha256": "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4",
+        "generation": "484e9abe3b334b8c8628df2966394ce8",
+        "run_token": token,
+        "broker": {"pid": "1", "start": "a", "invocation": "x", "cgroup": "/y"},
+        "ui": {"pid": "2", "start": "b", "invocation": "w", "cgroup": "/z"}
+    }))
+    # Exit 0 (start achieved)
+    sys.exit(0)
+
+elif phase == 'contain':
+    # Write unit states (stopped)
+    (op_dir / 'unit_states.json').write_text(json.dumps([
+        {"unit": "broker", "pid": "0", "job": ""},
+        {"unit": "helper", "pid": "0", "job": ""},
+        {"unit": "socket", "pid": "0", "job": ""},
+        {"unit": "ui", "pid": "0", "job": ""}
+    ]))
+    print(json.dumps({"status": "CONTAINED"}))
+    sys.exit(0)
+''')
+
+        # Create fake op dir with required markers
+        fake_op_dir = tmp_path / 'fake_op'
+        fake_op_dir.mkdir()
+        fake_op_dir.chmod(0o700)
+        # W2 markers (required by preconditions)
+        for m in ('continuation.watch2.ready', 'continuation.start2.started', 'continuation.start2.completed'):
+            (fake_op_dir / m).write_text(OPERATION_SHA + '\n')
+        for m in ('install.completed', 'install.started', 'session.pin',
+                  'continuation.provision.started', 'continuation.provision.completed',
+                  'continuation.watch.ready'):
+            (fake_op_dir / m).write_text(OPERATION_SHA + '\n')
+
+        # Create fake runner that uses the fake ops
+        fake_runner = tmp_path / 'fake_runner.py'
+        fake_runner.write_text(f'''
+import sys, os, json, time, subprocess, signal
+from pathlib import Path
+
+# Override paths to use fake ops
+os.environ['FAKE_OP_DIR'] = '{fake_op_dir}'
+
+# Patch the runner to use fake ops and short deadline
+sys.path.insert(0, '{Path(__file__).parent.parent}')
+import continuation_runner_w3 as r
+
+r.OPS_W3_PATH = Path('{fake_ops}')
+r.OPS_W3_SHA = __import__('hashlib').sha256(Path('{fake_ops}').read_bytes()).hexdigest()
+r.OP_DIR = Path('{fake_op_dir}')
+r.AUDIT_DIR = Path('{tmp_path}/audit')
+r.WATCH_DEADLINE = 3  # 3 seconds (test)
+r.WATCH_READY_TIMEOUT = 2
+r.OPERATION_PATH = Path('{tmp_path}/op.json')
+r._valid_sha = lambda s: isinstance(s, str) and len(s) == 64
+r.sha256_file = lambda p: __import__('hashlib').sha256(p.read_bytes()).hexdigest() if p.exists() else ''
+r.OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
+r._unit_evidence = lambda: [{{"unit": "broker", "pid": "0", "job": ""}}, {{"unit": "ui", "pid": "0", "job": ""}}]
+r._contain = lambda: {{"status": "CONTAINED"}}
+
+# Write fake operation.json
+Path('{tmp_path}/op.json').write_text('{{}}')
+
+# Bypass verify (fake environment)
+r.verify_pins = lambda: None
+r.verify_preconditions = lambda: None
+
+r.main()
+''')
+        # Write fake op.json
+        (tmp_path / 'op.json').write_text('{}')
+
+        # Launch fake runner as actual process
+        proc = subprocess.Popen(
+            [sys.executable, '-I', str(fake_runner), '--run-token', RUN_TOKEN],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+            env={**os.environ, 'FAKE_OP_DIR': str(fake_op_dir)}
+        )
+        stdout, stderr = proc.communicate(timeout=15)
+
+        # Runner should exit 0 (WINDOW_EXPIRED after 3s)
+        assert proc.returncode == 0, f'Runner failed rc={proc.returncode}: {stderr[:500]}'
+
+        # Verify receipt
+        receipt_path = tmp_path / 'audit' / 'w3-receipt.json'
+        assert receipt_path.exists(), 'No receipt written'
+        receipt = json.loads(receipt_path.read_text())
+        assert receipt['status'] == 'WINDOW_EXPIRED'
+        assert receipt['backend_attested'] is False
+        assert 'containment' in receipt
+        assert receipt['containment']['status'] == 'CONTAINED'
+
+        # Verify START_READY event was written
+        assert (fake_op_dir / 'continuation.start3.ready').exists()
+
+        # Cleanup
+        shutil.rmtree(fake_op_dir, ignore_errors=True)

@@ -211,6 +211,11 @@ def _write_receipt(receipt: dict) -> None:
     path.chmod(0o644)
 
 
+def _sigterm_handler(signum, frame):
+    """SIGTERM → raise SystemExit into owned try/finally. Bounded cleanup."""
+    raise SystemExit(143)
+
+
 def main() -> None:
     import argparse
     parser = argparse.ArgumentParser()
@@ -233,11 +238,21 @@ def main() -> None:
     watcher = None
     start_proc = None
     status = 'UNKNOWN'
+    _cleanup_in_progress = False
+
+    def _sigterm_during_cleanup(signum, frame):
+        nonlocal _cleanup_in_progress
+        if _cleanup_in_progress:
+            # Second TERM during cleanup: best-effort log, no SIGKILL guarantee
+            return
+        raise SystemExit(143)
+
+    # Install SIGTERM handler ONLY after minimal init (cleanup vars set)
+    signal.signal(signal.SIGTERM, _sigterm_handler)
 
     try:
         # Launch watch3 as child Popen
         watch_argv = _op_argv('watch3', run_token)
-        watch_log = open(AUDIT_DIR / 'watch3.log', 'w') if AUDIT_DIR.exists() else open('/dev/null', 'w')
         AUDIT_DIR.mkdir(parents=True, exist_ok=True)
         AUDIT_DIR.chmod(0o700)
         watch_log = open(AUDIT_DIR / 'watch3.log', 'w')
@@ -331,6 +346,9 @@ def main() -> None:
             status = 'FAILED_EXCEPTION'
         receipt['exception'] = str(e)[:2000]
     finally:
+        _cleanup_in_progress = True
+        signal.signal(signal.SIGTERM, _sigterm_during_cleanup)
+
         # ALL exits: contain → reap → evidence
         containment = _contain()
         receipt['containment'] = containment
@@ -341,6 +359,8 @@ def main() -> None:
             receipt['watch3_reaped'] = _reap(watcher)
 
         receipt['units'] = _unit_evidence()
+        if status == 'UNKNOWN':
+            status = 'CANCELLED_SIGNAL' if receipt.get('exception', '').startswith('SystemExit') else 'FAILED_EXCEPTION'
         receipt['status'] = status
         receipt['ts_end'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         receipt['backend_attested'] = False

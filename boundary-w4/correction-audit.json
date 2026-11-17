@@ -1,0 +1,21 @@
+{
+  "schema": "hyprneuro.boundary-freeze-correction-audit/1",
+  "ts_utc": "2026-11-17T08:30:00Z",
+  "affected_dirs": [
+    "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4"
+  ],
+  "label": "CORRUPTED_SUPERSEDED",
+  "description": "W4 v1 prototype directory was modified in place during v2 correction work. Original uncommitted prototype SHAs are lost. No git archive exists for the uncommitted original bytes.",
+  "original_expected_shas": {
+    "continuation_ops_w4.py": "73df84313bc2109656a4c23350884dd80c9f62df909f51bf03b3c373a8e81ed4",
+    "continuation_runner_w4.py": "068bb537f2fdee546e5e516c73d86b70b87b60dcf83cff584b30a8e009096f9e",
+    "continuation_waiter_w4.py": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
+    "tests/test_w4.py": "846be55ee862113931d3d7e7f143d848159d7b159499b5fe62ba75c5973e5722"
+  },
+  "actual_current_shas": {
+    "note": "Files in the v1 dir were overwritten with v2 content. Original bytes NOT recoverable (uncommitted, no archive).",
+    "recovery_status": "UNKNOWN_LOST"
+  },
+  "disposition": "External ledger record only. NOT claiming unchanged. Dir remains as-is (untouched from this point forward). All prior frozen dirs are read-only from now.",
+  "superseded_by": "boundary-continuation-04-freeze-w4-v3"
+}

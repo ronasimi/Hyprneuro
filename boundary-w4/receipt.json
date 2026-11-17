@@ -1,17 +1,22 @@
 {
-  "schema": "hyprneuro.boundary-continuation-04-freeze-w4-v2/1",
-  "ts_utc": "2026-11-17T08:00:00Z",
+  "schema": "hyprneuro.boundary-continuation-04-freeze-w4-v3/1",
+  "ts_utc": "2026-11-17T12:30:00Z",
   "status": "FROZEN_REQUIRES_INDEPENDENT_REVIEW",
   "parent_freeze": "boundary-continuation-04-freeze-w3-v3",
+  "correction_audit": "correction-audit.json",
+  "correction_label": "CORRUPTED_SUPERSEDED",
   "parent_runner_sha": "6582f72bb56f12cc30064ff0129c04092feed6f405fb4a019639d7789a95971a",
   "parent_waiter_sha": "9163cab6c8e581a3ed7c19aebca9fa04465e0e269701bd1a9bf83f035492b744",
   "parent_ops_sha": "17c79cb7f81f7e271542711c39bca503f8a7f27bdf322dea4c0df666dbe4eeb5",
   "blobs": {
     "continuation_ops_w4.py": "74516bc00d0b791575455eaf16f5599b4b9135eceac317cf46417eb3183c7a1c",
-    "continuation_runner_w4.py": "a583529c15e5f6cd331f122f237c46034cfe985885caba06cf68cfeaafbc89cb",
+    "continuation_runner_w4.py": "bfb7d560a51e77db0380531852a4409637e3e824e062b5ea05107ec7344b1ce9",
     "continuation_waiter_w4.py": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
-    "tests/test_w4.py": "846be55ee862113931d3d7e7f143d848159d7b159499b5fe62ba75c5973e5722",
-    "tests/test_w4_flow.py": "141fb8a31873aecc15dbd9801901554012963bd91bcf24d3e8fc08a7c2832779"
+    "fixtures/fake_ops_w4.py": "5c2720b7a49e5950150e8fecc8abb1334e29ec6ded93d8b5e55762c70f454428",
+    "tests/runner_wrapper.py": "d25abccc13119db4c991f957bca405daab3711b7cbf9f63db5e94f103b95dd9e",
+    "tests/test_w4v3_flow.py": "a40b358adb6703d45a5a4376d9551cc3d76606aba036f939546023e9589636ef",
+    "tests/test_w4_unit.py": "846be55ee862113931d3d7e7f143d848159d7b159499b5fe62ba75c5973e5722",
+    "correction-audit.json": "15c6d59eda047e466e32fed5fade0994b2cfb1b28bfea179d9db686f598748b8"
   },
   "external_pins": {
     "boundary_release.py": "9fcb37cf398dfe2f158ef39fa3ab518f233f231e23242a6e22b680ed9b91e74c",
@@ -23,32 +28,17 @@
   "context_file": {
     "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-w3-v3-postwrite-evidence/postwrite-context.json",
     "sha256": "51f9109f0c9515045ce9fbc0f16c1b15bb8cf54116dfe8a230d4aa3a526e39bc",
-    "evidence_sha": "78ec490f6d015d4fe6fd49b36028d0016c5e35c2d1a7d5d06fa0526cdd21934c",
-    "note": "Real prospective context materialized from approved evidence. NOT a design doc."
+    "evidence_sha": "78ec490f6d015d4fe6fd49b36028d0016c5e35c2d1a7d5d06fa0526cdd21934c"
   },
   "main_calls": {
     "waiter": {
-      "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_waiter_w4.py",
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/continuation_waiter_w4.py",
       "sha256": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
-      "argv_template": [
-        "python", "-I",
-        "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_waiter_w4.py",
-        "--op-sha", "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4",
-        "--generation", "484e9abe3b334b8c8628df2966394ce8",
-        "--run-token", "<MAIN_MINTS_UUID>",
-        "--timeout", "615",
-        "--event-dir", "/home/ron/Workspace/hn-boundary-18aef68-04/operation"
-      ],
       "machine_lease": false
     },
     "runner": {
-      "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_runner_w4.py",
-      "sha256": "a583529c15e5f6cd331f122f237c46034cfe985885caba06cf68cfeaafbc89cb",
-      "argv_template": [
-        "python", "-I",
-        "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_runner_w4.py",
-        "--run-token", "<MAIN_MINTS_UUID_SAME_AS_WAITER>"
-      ],
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/continuation_runner_w4.py",
+      "sha256": "bfb7d560a51e77db0380531852a4409637e3e824e062b5ea05107ec7344b1ce9",
       "machine_lease": true
     }
   },
@@ -58,44 +48,24 @@
     "hyprneuro-pi-identity.service",
     "hyprneuro-pi-identity.socket"
   ],
-  "markers": {
-    "new_w4": [
-      "continuation.watch4.ready",
-      "continuation.start4.started",
-      "continuation.start4.completed",
-      "continuation.start4.ready"
-    ],
-    "retained_w3": [
-      "continuation.watch3.ready",
-      "continuation.start3.started",
-      "continuation.start3.completed",
-      "continuation.start3.ready"
-    ],
-    "retained_w2": [
-      "continuation.watch2.ready",
-      "continuation.start2.started",
-      "continuation.start2.completed"
-    ],
-    "retained_04": [
-      "install.completed",
-      "install.started",
-      "session.pin",
-      "continuation.provision.started",
-      "continuation.provision.completed",
-      "continuation.watch.ready"
-    ]
-  },
   "test_results": {
     "unit_tests": {"total": 20, "passed": 20, "failed": 0},
     "flow_tests": {"total": 6, "passed": 6, "failed": 0}
   },
+  "flow_test_provenance": {
+    "method": "REAL runner code executed via private subprocess fixture",
+    "runner_code_sha": "bfb7d560a51e77db0380531852a4409637e3e824e062b5ea05107ec7344b1ce9",
+    "wrapper_sha": "d25abccc13119db4c991f957bca405daab3711b7cbf9f63db5e94f103b95dd9e",
+    "fake_ops_sha": "5c2720b7a49e5950150e8fecc8abb1334e29ec6ded93d8b5e55762c70f454428",
+    "description": "runner_wrapper.py imports real continuation_runner_w4, patches ONLY module-level constants (paths, deadline, PYTHON), calls real main(). Real _contain() subprocess, real _reap(), real _write_receipt(), real _write_start_ready_event() all execute. Fake OPS boundary script handles phase I/O only."
+  },
   "flow_test_cases": [
-    "F1: START_READY while watch+lease alive (real Popen waiter + fake watch)",
-    "F2: expiry → contain → STOPPED units → child reaped → receipt",
-    "F3: SIGTERM send_signal → contain → CANCELLED_SIGNAL → child reaped",
-    "F4: wrong/missing context denied (no fallback to 04 baseline)",
-    "F5: watch dies → FAILED_WATCH4_READY → contain → receipt",
-    "F6: tampered event (wrong token) rejected by waiter"
+    "F1: real runner + real waiter, START_READY while ACTUAL lease holder + watch alive",
+    "F2: short deadline expiry → real _contain subprocess → fake OPS UNIT STOPPED → real _reap → receipt",
+    "F3: REAL SIGTERM to runner process → CANCELLED_SIGNAL → real cleanup → receipt",
+    "F4: wrong context SHA → verify_pins deny → zero Popen starts",
+    "F5: watch death (fake OPS exit 1) → FAILED_WATCH4_READY → real contain → receipt",
+    "F6: bad ready token → real waiter inotify deny"
   ],
   "safety": {
     "no_sql": true,
@@ -109,7 +79,8 @@
     "backend_attested": false,
     "not_consent": true,
     "human_chooser_required": true,
-    "context_required_no_fallback": true
+    "context_required_no_fallback": true,
+    "all_prior_frozen_dirs_readonly": true
   },
   "not_authorized": true,
   "requires_independent_source_ops_review": true,

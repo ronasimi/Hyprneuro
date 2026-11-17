@@ -36,7 +36,7 @@ _BOUNDARY_RELEASE_SHA = '9fcb37cf398dfe2f158ef39fa3ab518f233f231e23242a6e22b680e
 _BOUNDARY_RELEASE_OPS_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/ops/boundary_release_ops.py')
 _BOUNDARY_RELEASE_OPS_SHA = '5e6c50f202090f93699f11f28c0d61409ee2b6bcafec5bc8ad015ceb601659ac'
 
-W4_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2')
+W4_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3')
 OPS_W4_PATH = W4_DIR / 'continuation_ops_w4.py'
 OPS_W4_SHA = '74516bc00d0b791575455eaf16f5599b4b9135eceac317cf46417eb3183c7a1c'
 

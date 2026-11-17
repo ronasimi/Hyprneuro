@@ -1,21 +1,34 @@
 #!/usr/bin/env python3
 """
 Stable-field comparison for systemd ExecStart structured property.
+Version: 2 (corrected per review 01M7KJ4576QVGWW25CXGX5F114)
 
-Purpose: Compare the COMMAND IDENTITY (path, argv[], ignore_errors) of two
-ExecStart strings while IGNORING volatile manager execution bookkeeping
-(start_time, stop_time, pid, code, status) that resets on daemon-reload.
+Closed grammar: EXACT whitelist of known fields. Reject unknown, duplicate,
+missing, malformed, multiple commands, oversize. No broad startswith.
 
-Grammar (closed, bounded, no regex):
-  { path=WORD ; argv[]=WORDS ; ignore_errors=(yes|no) ; start_time=[...] ; stop_time=[...] ; pid=INT ; code=(...) ; status=INT/INT }
+Stable fields (compared): path, argv[], ignore_errors
+Volatile fields (grammar-validated, content ignored): start_time, stop_time, pid, code, status
 
-Only ONE command per ExecStart (len==1 after parse). Multiple commands,
-missing fields, or malformed serialization are REJECTED.
+Delimiter: ' ; ' — if argv[] itself contains ' ; ', parse FAILS CLOSED.
+This is correct: the pinned snapshot commands do NOT contain ' ; ' in argv.
+If a future command did, the parse would reject it (fail closed, not silently
+misparse).
 
-No new dependencies. No fallback. No broad normalization.
+Length bound: 4096 chars max raw string.
+
+No new dependencies. No D-Bus. No regex. No broad normalization.
 """
 
 from typing import NamedTuple
+
+# --- Closed grammar constants ---
+
+MAX_RAW_LENGTH = 4096
+DELIMITER = ' ; '
+
+STABLE_FIELDS = frozenset({'path', 'argv[]', 'ignore_errors'})
+VOLATILE_FIELDS = frozenset({'start_time', 'stop_time', 'pid', 'code', 'status'})
+ALL_KNOWN_FIELDS = STABLE_FIELDS | VOLATILE_FIELDS
 
 
 class ExecStartStable(NamedTuple):
@@ -25,58 +38,100 @@ class ExecStartStable(NamedTuple):
     ignore_errors: str
 
 
+class ExecStartParseError(ValueError):
+    """Raised on any grammar violation."""
+    pass
+
+
+def _extract_field_value(field_str: str, key: str) -> str:
+    """Extract value after 'key=' from a field string. Raises if key not present."""
+    prefix = key + '='
+    if not field_str.startswith(prefix):
+        raise ExecStartParseError(f'field does not start with {key!r}')
+    return field_str[len(prefix):]
+
+
 def parse_execstart_stable(raw: str) -> ExecStartStable:
-    """Parse an ExecStart string, extracting only stable command fields.
+    """Parse an ExecStart string using strict closed grammar.
     
-    Raises ValueError on any malformed input, missing field, or ambiguity.
-    Uses bounded closed-grammar split, NOT regex.
+    Raises ExecStartParseError on:
+      - oversize (>4096 chars)
+      - missing braces
+      - unknown field keys
+      - duplicate field keys (stable OR volatile)
+      - missing required fields (path, argv[], ignore_errors)
+      - empty path or argv
+      - invalid ignore_errors value (must be 'yes' or 'no')
+      - multiple command entries (more than one '{...}' block)
+      - delimiter ambiguity (field contains ' ; ' internally, causing
+        spurious splits that produce unknown keys)
     """
-    # Expected format: { field=val ; field=val ; ... }
+    # Length bound
+    if len(raw) > MAX_RAW_LENGTH:
+        raise ExecStartParseError(f'ExecStart oversize: {len(raw)} > {MAX_RAW_LENGTH}')
+    
+    # Exactly one command block: starts with '{ ' and ends with ' }'
+    # Reject multiple commands (multiple '{...}' blocks)
+    if raw.count('{ ') != 1 or raw.count(' }') != 1:
+        raise ExecStartParseError('ExecStart: expected exactly one command block')
     if not raw.startswith('{ ') or not raw.endswith(' }'):
-        raise ValueError('ExecStart: missing braces')
+        raise ExecStartParseError('ExecStart: missing braces')
     
     inner = raw[2:-2]  # strip '{ ' and ' }'
     
-    # Split on ' ; ' (the systemd serialization delimiter)
-    fields = inner.split(' ; ')
+    # Split on delimiter
+    fields = inner.split(DELIMITER)
     
-    # Extract stable fields by exact prefix match
+    # Track seen fields for duplicate detection
+    seen = set()
     path = None
     argv = None
     ignore_errors = None
     
     for field in fields:
-        if field.startswith('path='):
-            if path is not None:
-                raise ValueError('ExecStart: duplicate path field')
-            path = field[5:]
-        elif field.startswith('argv[]='):
-            if argv is not None:
-                raise ValueError('ExecStart: duplicate argv field')
-            argv = field[7:]
-        elif field.startswith('ignore_errors='):
-            if ignore_errors is not None:
-                raise ValueError('ExecStart: duplicate ignore_errors field')
-            val = field[14:]
+        # Determine which known key this field belongs to
+        matched_key = None
+        for key in ALL_KNOWN_FIELDS:
+            prefix = key + '='
+            if field.startswith(prefix):
+                matched_key = key
+                break
+        
+        if matched_key is None:
+            # Unknown field — this catches delimiter ambiguity (if argv contained
+            # ' ; ', the split would produce fragments that don't match any key)
+            raise ExecStartParseError(f'ExecStart: unknown field {field[:40]!r}')
+        
+        if matched_key in seen:
+            raise ExecStartParseError(f'ExecStart: duplicate field {matched_key!r}')
+        seen.add(matched_key)
+        
+        # Extract and validate stable fields
+        if matched_key == 'path':
+            path = _extract_field_value(field, 'path')
+        elif matched_key == 'argv[]':
+            argv = _extract_field_value(field, 'argv[]')
+        elif matched_key == 'ignore_errors':
+            val = _extract_field_value(field, 'ignore_errors')
             if val not in ('yes', 'no'):
-                raise ValueError(f'ExecStart: invalid ignore_errors value {val!r}')
+                raise ExecStartParseError(f'ExecStart: invalid ignore_errors {val!r}')
             ignore_errors = val
-        # Volatile fields (start_time, stop_time, pid, code, status) are
-        # present but NOT extracted. Their presence is expected but their
-        # values are irrelevant to command identity.
+        # Volatile fields: grammar-validated (key present, not duplicate)
+        # but content is NOT extracted or compared.
     
+    # Complete consumption: all stable fields must be present
     if path is None:
-        raise ValueError('ExecStart: missing path field')
+        raise ExecStartParseError('ExecStart: missing path')
     if argv is None:
-        raise ValueError('ExecStart: missing argv field')
+        raise ExecStartParseError('ExecStart: missing argv[]')
     if ignore_errors is None:
-        raise ValueError('ExecStart: missing ignore_errors field')
+        raise ExecStartParseError('ExecStart: missing ignore_errors')
     
-    # Reject empty path or argv
+    # Non-empty checks
     if not path:
-        raise ValueError('ExecStart: empty path')
+        raise ExecStartParseError('ExecStart: empty path')
     if not argv:
-        raise ValueError('ExecStart: empty argv')
+        raise ExecStartParseError('ExecStart: empty argv[]')
     
     return ExecStartStable(path=path, argv=argv, ignore_errors=ignore_errors)
 
@@ -84,27 +139,22 @@ def parse_execstart_stable(raw: str) -> ExecStartStable:
 def compare_execstart_stable(expected_raw: str, actual_raw: str) -> None:
     """Compare two ExecStart strings on stable fields only.
     
-    Raises ValueError if stable fields differ or either string is malformed.
-    Does NOT raise for volatile field differences (pid, start_time, etc).
+    Raises ExecStartParseError if either string is malformed.
+    Raises ValueError if stable fields differ.
+    Volatile field content is irrelevant (grammar-validated but not compared).
     """
     expected = parse_execstart_stable(expected_raw)
     actual = parse_execstart_stable(actual_raw)
     
     if expected.path != actual.path:
-        raise ValueError(
-            f'ExecStart path drift: expected={expected.path!r} actual={actual.path!r}'
-        )
+        raise ValueError(f'ExecStart path drift')
     if expected.argv != actual.argv:
-        raise ValueError(
-            f'ExecStart argv drift: expected={expected.argv!r} actual={actual.argv!r}'
-        )
+        raise ValueError(f'ExecStart argv drift')
     if expected.ignore_errors != actual.ignore_errors:
-        raise ValueError(
-            f'ExecStart ignore_errors drift: expected={expected.ignore_errors!r} actual={actual.ignore_errors!r}'
-        )
+        raise ValueError(f'ExecStart ignore_errors drift')
 
 
 def execstart_stable_fields(raw: str) -> dict:
-    """Return the stable fields as a dict (for use in manager_after comparison)."""
+    """Return stable fields as a dict."""
     parsed = parse_execstart_stable(raw)
     return {'path': parsed.path, 'argv': parsed.argv, 'ignore_errors': parsed.ignore_errors}

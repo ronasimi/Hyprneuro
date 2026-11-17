@@ -1,141 +1,186 @@
-# ExecStart Stable-Field Fix + Continuation Design — Review Proposal
+# ExecStart Stable-Field Fix + Continuation Design — v2 (Corrected)
 
-## Status: PROPOSAL ONLY (not applied, not executed)
+Review: 01M7KJ4576QVGWW25CXGX5F114
+Status: PROPOSAL ONLY (not applied, not executed)
 
-## 1. Source Fix (Minimal)
+## 1. Source Fix: Exact Integration
 
-### Target: `boundary_release_ops.py` → `validate_models()`
+### Module: `scripts/execstart_stable_compare.py` (v2)
 
-**Current code (line ~220 in validate_models):**
+**Public API:**
 ```python
-expected=item['manager_after'];value=show(item['unit'],tuple(expected),deadline)
-if value!=expected:raise ValueError('Effective model configuration drift')
+def parse_execstart_stable(raw: str) -> ExecStartStable
+def compare_execstart_stable(expected_raw: str, actual_raw: str) -> None
+def execstart_stable_fields(raw: str) -> dict
+class ExecStartParseError(ValueError): ...
+class ExecStartStable(NamedTuple): path, argv, ignore_errors
 ```
 
-**Proposed fix:**
+**Grammar (closed):**
+- MAX_RAW_LENGTH = 4096
+- DELIMITER = `' ; '`
+- STABLE_FIELDS = `{'path', 'argv[]', 'ignore_errors'}`
+- VOLATILE_FIELDS = `{'start_time', 'stop_time', 'pid', 'code', 'status'}`
+- ALL_KNOWN = STABLE | VOLATILE (8 fields total)
+- Exactly one `{...}` block
+- Every split fragment MUST match exactly one known key prefix
+- Unknown → reject. Duplicate (any) → reject. Missing stable → reject.
+- Delimiter in argv → produces unknown fragments → reject (fail closed)
+
+### Integration Point: `validate_models()` in continuation ops
+
+**NOT a monkeypatch. NOT a global override. A NEW module that imports and calls the helper.**
+
 ```python
-expected=item['manager_after'];value=show(item['unit'],tuple(expected),deadline)
-for k in expected:
-    if k=='ExecStart':
-        from execstart_stable_compare import compare_execstart_stable
-        compare_execstart_stable(expected[k],value.get(k,''))
-    elif value.get(k)!=expected[k]:
-        raise ValueError(f'Effective model configuration drift: {k}')
+# In the NEW continuation ops module (e.g. continuation_ops.py):
+from execstart_stable_compare import compare_execstart_stable, ExecStartParseError
+
+def validate_models_continuation(document: dict, deadline: float) -> None:
+    """Same logic as frozen validate_models, but ExecStart uses stable comparison."""
+    for item in document['models']:
+        unit = item['unit']
+        # All non-ExecStart checks: IDENTICAL to frozen code
+        expected = item['manager_after']
+        value = show(unit, tuple(expected), deadline)
+        for k in expected:
+            if k == 'ExecStart':
+                compare_execstart_stable(expected[k], value.get(k, ''))
+            elif value.get(k) != expected[k]:
+                raise ValueError(f'model drift {unit} {k}')
+        # PID/argv/exe_FD/cgroup/namespaces checks: UNCHANGED from frozen
+        _check_pid_argv_exe_fd(unit, item, deadline)
+        _check_namespaces(unit, item, deadline)
+    # MoE, projectors, snapshot SHA, boot_id: UNCHANGED
 ```
 
-**Rationale:** `ExecStart` is a structured property whose volatile fields (pid, start_time, stop_time, code, status) reset on `daemon-reload` without stopping the process. The stable command-identity fields (path, argv[], ignore_errors) do NOT change on reload. Comparing only stable fields preserves the security property (detect actual command substitution) while tolerating the legitimate daemon-reload reset.
+**Key design constraint:** The continuation ops is a NEW file. It does NOT import or call the frozen `boundary_release_ops.validate_models`. It re-implements the loop with the single ExecStart difference. All other primitive calls (`show`, `file_bytes`, etc.) are imported from `boundary_release` (the frozen helper module) directly.
 
-### Stage Enum Observability (exception handler)
+### WATCH phase: non-full comparison
 
-**Current (line ~437):**
+The `watch` phase (watch.ready) uses `effective()` which checks a subset of properties. If `ExecStart` is in the effective check set, the SAME `compare_execstart_stable` helper is used. All other fields remain strict.
+
+### START phase: full path covered
+
+The `start` phase calls `preserve()` (before_start=True) which includes `validate_models`. Same fix applies.
+
+## 2. Stage Enum Diagnostics
+
+**Exception class WHITELIST (no raw str(e), no keys/path):**
 ```python
-except Exception:
-    result=contain(op) if op else {'containment':'NOT_RUN_UNAUTHENTICATED_OPERATION'}
-    print(json.dumps(dict(status='FAILED_UNCERTAIN_NO_REPLAY',containment=result),sort_keys=True));raise SystemExit(1)
+SAFE_EXCEPTION_CLASSES = frozenset({
+    'ValueError', 'OSError', 'TimeoutError', 'FileNotFoundError',
+    'ConnectionRefusedError', 'ChildProcessError'
+})
+
+def _safe_exception_label(exc: BaseException) -> str:
+    cls = type(exc).__name__
+    return cls if cls in SAFE_EXCEPTION_CLASSES else 'Exception'
 ```
 
-**Proposed:**
-```python
-except Exception as e:
-    # Safe enum label only. No raw str(e), no paths, no values.
-    exc_class=type(e).__name__
-    # Map to stage enum based on which phase is running
-    stage_enum=phase.upper()  # 'INSTALL','PROVISION','START','WATCH','CONTAIN'
-    result=contain(op) if op else {'containment':'NOT_RUN_UNAUTHENTICATED_OPERATION'}
-    print(json.dumps(dict(
-        status='FAILED_NO_REPLAY',
-        stage=stage_enum,
-        exception_class=exc_class,
-        containment=result
-    ),sort_keys=True));raise SystemExit(1)
+**Output format:**
+```json
+{"status":"FAILED_NO_REPLAY","stage":"PROVISION","exception_class":"ValueError","containment":{...}}
 ```
 
-This gives future diagnostics the exception CLASS (e.g. `ValueError`) and the STAGE (e.g. `PROVISION`) without leaking private paths/values/secrets.
+No `str(e)`. No exception message. No file paths. No property values.
 
-## 2. What the Fix Does NOT Change
+## 3. Continuation Operation Design (Exact)
 
-- Model PID/start_ticks/boot_id/exe_FD/argv/cgroup checks: **STRICT unchanged**
-- MoE unit checks: **STRICT unchanged**
-- Projector pin checks: **STRICT unchanged**
-- Namespace checks: **STRICT unchanged**
-- Listener/identity checks: **STRICT unchanged**
-- `check_material`: **unchanged**
-- `effective()`: **unchanged**
-- `screen_lock_state`: **unchanged**
-- Helper `owned_helper()` ExecStart check (line 140): **unchanged** (uses `startswith` prefix, different context)
-- 04 bundle/manifest/operation: **unchanged**
-- Model snapshot 03: **immutable, unchanged**
+### New files (external, NOT in 04 bundle):
 
-## 3. Continuation Design (Installed-Only, No Reinstall)
+| File | Purpose |
+|------|---------|
+| `continuation_ops.py` | Provision/watch/start logic with ExecStart fix |
+| `continuation_arrays.json` | External arrays (targets, pins, paths) |
+| `continuation_runner.py` | External parent runner (similar to parent_runner.py) |
 
-### Current Installed State (post-failed deployment)
-- 04 files installed (binary, unit files, drops)
-- `daemon-reload` done
-- `install.completed` marker present
-- `session.pin` present
-- NO `provision.started` / `provision.completed`
-- Apps stopped, helper/socket loaded+inactive
-- Models running (unchanged)
+### Binding to 04:
+- **Root record:** Reuses 04's `launch-root.json` (generation `484e9abe3b334b8c8628df2966394ce8`). Does NOT create new root. Does NOT refresh/adopt.
+- **Operation SHA:** New SHA for continuation operation (NOT 04's operation SHA)
+- **Model snapshot:** 03 (frozen, immutable, unchanged)
+- **Installed files:** Same 6 targets from 04 install (verified by inode+SHA)
+- **Manifest/code/catalog:** 04's, unchanged. Continuation ops is OUTSIDE the catalog (proven by: catalog pins specific file SHAs, continuation_ops.py is not in catalog)
 
-### Problem
-The installed 04 ops (`boundary_release_ops.py`) has the `validate_models` bug. The provision phase CANNOT pass with the current model snapshot because `ExecStart` volatile fields were reset by daemon-reload.
+### Gates (ALL must pass before provision):
 
-### Minimal Continuation Options
+1. `install.completed` marker exists AND its content matches 04 operation SHA
+2. All 6 installed targets: inode + SHA match 04 receipt
+3. Root record: exists, generation matches, code pinned
+4. Context/env/manifest alias DAG: intact (no drift)
+5. Both apps: `ActiveState=inactive`, `SubState=dead`, `Restart=no`, `Job=`
+6. Helper: loaded, inactive. Socket: loaded, inactive
+7. Owners/flock/guards: no stale locks
+8. `provision.started`: **ABSENT**
+9. `provision.completed`: **ABSENT**
+10. Failed receipt: exists, readable, preserved (no marker reset)
+11. Model snapshot 03: SHA matches, immutable
+12. Model processes: running, PIDs match, argv matches, exe_FD matches
 
-**Option A: Patch ops in-place (NOT recommended)**
-- Edit installed `boundary_release_ops.py` to apply the fix
-- Risk: breaks SHA pin of the ops file, invalidates all future `check_material`
-- Rejected: violates immutability
+### Markers:
+- Continuation writes NEW one-shot markers: `continuation.provision.started`, `continuation.provision.completed`
+- Does NOT write `provision.started` / `provision.completed` (those are 04's)
+- Does NOT reset or modify any 04 markers
 
-**Option B: New external continuation operation (RECOMMENDED)**
-- Create a NEW operation file (e.g. `operation-continuation.json`) that:
-  - References the SAME installed targets (no reinstall)
-  - Uses the FIXED ops (new file, not the frozen 04 ops)
-  - Skips install phase (already done)
-  - Starts at provision phase
-  - Has its own root record (or reuses 04's if compatible)
-  - Pins the current installed state as its baseline
-- The new ops file is the 04 ops + the ExecStart fix (one function changed)
-- No new bundle build, no C build, no 2h soak
-- Requires: new operation SHA, new root record (or proof 04 root is still valid), reviewer approval
+### Root write question:
+- 04's `provision` phase calls `write_new(op, 'provision.started')` which writes to the operation directory
+- Continuation uses its OWN operation directory (separate from 04's)
+- Does NOT write to 04's operation directory
+- Root record is READ-ONLY for continuation (no new generation, no adoption)
 
-**Option C: Provision-only script (simplest)**
-- A standalone script that:
-  1. Validates the installed state (files match 04 targets)
-  2. Runs the provision logic with the ExecStart fix
-  3. Writes `provision.started` / `provision.completed`
-  4. Does NOT touch install, does NOT do daemon-reload
-- No new operation file needed
-- No root record change needed
-- Most minimal, least moving parts
-- Risk: bypasses the normal ops phase guard (install.completed check)
-- Mitigation: script explicitly verifies install.completed exists and matches
+### Execution phases:
+1. **provision:** `preserve(before_start=True)` → `check_material` → `effective` → `screen_lock_state` → `write_new(continuation.provision.started)` → `identity_guard --record` → `write_new(continuation.provision.completed)`
+2. **watch.ready:** `effective()` loop with stable ExecStart comparison
+3. **start:** `systemctl start` both units → concurrent watch → containment on failure
 
-### Recommendation: Option C (Provision-Only Script)
-- Fewest moving parts
-- No new bundle, no new operation, no root change
-- Explicitly verifies preconditions before proceeding
-- Uses the fixed `execstart_stable_compare` module
-- Logs to private audit directory
-- Contains on failure (same as ops)
+**NO reinstall. NO daemon-reload. NO consumed root reuse. NO old marker reuse.**
 
-## 4. Verification Plan (Post-Fix, Pre-Execution)
+### Containment:
+- Same as reviewed 04 ops: stop app units, stop helper, owned PIDs only
+- No product binary changes. No root code changes.
+- OPS is outside catalog (proven: catalog file list does not include continuation_ops.py)
 
-1. Run `validate_models` with fixed comparison → should PASS
-2. Run full provision phase (dry-run, no marker writes) → should PASS
-3. Verify all other model checks (PID, argv, exe_FD, cgroup, namespaces) still strict
-4. Confirm helper `owned_helper()` ExecStart check unaffected
-5. Confirm `check_material` unaffected
-6. Confirm `effective()` unaffected
+## 4. What is NOT Changed
 
-## 5. NOT Included in This Proposal
+- 04 bundle/manifest/operation: **UNCHANGED**
+- 04 ops (`boundary_release_ops.py`): **UNCHANGED** (frozen)
+- Frozen runner (`parent_runner.py`): **UNCHANGED**
+- Model snapshot 03: **IMMUTABLE**
+- Model processes: **NOT restarted, NOT modified**
+- Product source: **NOT modified**
+- Launch root: **NOT modified, NOT adopted**
+- All prior receipts: **PRESERVED**
 
-- No execution of any phase
-- No new bundle build
-- No model restart
-- No SQL
-- No service actions
-- No config changes
-- No GUI actions
-- No 04 bundle modification
-- No model snapshot modification
+## 5. Import Pins (exact)
+
+```python
+# continuation_ops.py imports:
+from boundary_release import (  # frozen helper module, path-pinned
+    show, file_bytes, file_sha256, write_new, read_marker,
+    MODEL_SNAPSHOT, SYSTEMD_USER_BUS, deadline
+)
+from execstart_stable_compare import (  # new module, path-pinned
+    compare_execstart_stable, ExecStartParseError
+)
+```
+
+No generic framework copy. No monkeypatching. No global state mutation.
+
+## 6. Review Checklist
+
+- [ ] Parser: closed grammar, exact whitelist, reject unknown/dup/missing/malformed/multi/oversize
+- [ ] Delimiter ambiguity: fail closed (test proves it)
+- [ ] Stable comparison: path/argv/ignore_errors only
+- [ ] Volatile: grammar-validated, content ignored
+- [ ] All other model checks: STRICT unchanged
+- [ ] No D-Bus dependency
+- [ ] No regex
+- [ ] No new external deps
+- [ ] Stage enum: whitelist, no str(e)
+- [ ] Continuation: new external files, binds 04 root read-only
+- [ ] Gates: all 12 enumerated
+- [ ] Markers: new one-shot, not 04 replay
+- [ ] No reinstall/reload
+- [ ] Containment: same reviewed closed op
+- [ ] 04 bundle/ops/runner: unchanged
+- [ ] Snapshot 03: immutable
+- [ ] No SQL/models/services/GUI mutations

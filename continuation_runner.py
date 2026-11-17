@@ -21,10 +21,10 @@ PYTHON = '/home/ron/Projects/Hyprneuro/python/.venv/bin/python'
 OPERATION_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation.json')
 OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
 
-# Frozen v4 code paths with LITERAL SHA constants
-CONTINUATION_OPS_PATH = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/continuation_ops.py')
+# Frozen v5 code paths with LITERAL SHA constants (immutable artifact directory)
+CONTINUATION_OPS_PATH = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/continuation_ops.py')
 CONTINUATION_OPS_SHA = '7e23baedd7f2dd0981d2161130d40e744945783dde97e506ee5b17e77cc0740c'
-STABLE_COMPARE_PATH = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/execstart_stable_compare.py')
+STABLE_COMPARE_PATH = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/scripts/execstart_stable_compare.py')
 STABLE_COMPARE_SHA = '964b4bf635e3acb9454ee86c7feda05d3d715b04b5c0464849ed2ca3d42e036e'
 
 AUDIT_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-execution')

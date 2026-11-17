@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 Continuation runner for boundary 18aef68-04 (external, installed-only).
+Version: 2 (corrected per review 01M7KMHBS9T1NVK1CYP9T6K5W)
 
-Adapted from the reviewed parent_runner.py pattern. Uses external arrays
-(continuation_arrays.json) NOT the frozen 04 MAIN arrays. Phases:
+Uses the ORIGINAL 04 operation.json (pinned by SHA). Phases:
 provision → watch → start. Bounded 600s from watch launch.
 
 No nested lease. No --wake caller. Single lease held by parent.
@@ -13,7 +13,6 @@ import argparse
 import hashlib
 import json
 import os
-import signal
 import subprocess
 import sys
 import time
@@ -21,7 +20,8 @@ from pathlib import Path
 
 # Pinned paths
 CONTINUATION_OPS = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/continuation_ops.py')
-CONTINUATION_SCRIPTS = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts')
+OPERATION_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation.json')
+OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
 PYTHON = '/home/ron/Projects/Hyprneuro/python/.venv/bin/python'
 AUDIT_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-execution')
 
@@ -34,14 +34,13 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
-def run_phase(phase: str, arrays_path: Path, arrays_sha: str, op_sha: str, timeout: float) -> int:
+def run_phase(phase: str, timeout: float) -> int:
     """Run a single continuation_ops phase. Returns exit code."""
     argv = [
         PYTHON, '-I', str(CONTINUATION_OPS),
+        '--operation', str(OPERATION_PATH),
+        '--operation-sha256', OPERATION_SHA,
         '--phase', phase,
-        '--arrays', str(arrays_path),
-        '--arrays-sha256', arrays_sha,
-        '--operation-sha256', op_sha,
     ]
     try:
         proc = subprocess.Popen(
@@ -60,18 +59,10 @@ def run_phase(phase: str, arrays_path: Path, arrays_sha: str, op_sha: str, timeo
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Continuation runner for 18aef68-04')
-    parser.add_argument('--arrays', required=True)
-    parser.add_argument('--arrays-sha256', required=True)
-    parser.add_argument('--operation-sha256', required=True)
-    args = parser.parse_args()
-
-    arrays_path = Path(args.arrays)
-
-    # Verify arrays SHA before any action
-    actual_sha = sha256_file(arrays_path)
-    if actual_sha != args.arrays_sha256:
-        print(json.dumps({'status': 'FAILED', 'reason': 'arrays SHA mismatch'}))
+    # Verify operation SHA before any action
+    actual_sha = sha256_file(OPERATION_PATH)
+    if actual_sha != OPERATION_SHA:
+        print(json.dumps({'status': 'FAILED', 'reason': 'operation SHA mismatch'}))
         raise SystemExit(1)
 
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
@@ -80,13 +71,13 @@ def main() -> None:
     receipt = {
         'schema': 'hyprneuro.boundary-continuation-runner/1',
         'ts_start': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
-        'arrays_sha256': args.arrays_sha256,
-        'operation_sha256': args.operation_sha256,
+        'operation_sha256': OPERATION_SHA,
+        'operation_path': str(OPERATION_PATH),
         'phases': []
     }
 
     # Phase 1: provision (180s timeout)
-    rc = run_phase('provision', arrays_path, args.arrays_sha256, args.operation_sha256, 180)
+    rc = run_phase('provision', 180)
     receipt['phases'].append({'phase': 'provision', 'rc': rc})
     if rc != 0:
         receipt['status'] = 'FAILED_PROVISION'
@@ -95,7 +86,7 @@ def main() -> None:
 
     # Phase 2: watch (600s bounded from launch)
     watch_start = time.monotonic()
-    rc = run_phase('watch', arrays_path, args.arrays_sha256, args.operation_sha256, 600)
+    rc = run_phase('watch', 600)
     watch_elapsed = time.monotonic() - watch_start
     receipt['phases'].append({'phase': 'watch', 'rc': rc, 'elapsed': round(watch_elapsed, 1)})
     if rc != 0:
@@ -105,7 +96,7 @@ def main() -> None:
 
     # Phase 3: start (remaining budget from 600s)
     remaining = max(60.0, 600.0 - watch_elapsed)
-    rc = run_phase('start', arrays_path, args.arrays_sha256, args.operation_sha256, remaining)
+    rc = run_phase('start', remaining)
     receipt['phases'].append({'phase': 'start', 'rc': rc, 'budget': round(remaining, 1)})
     if rc != 0:
         receipt['status'] = 'FAILED_START'

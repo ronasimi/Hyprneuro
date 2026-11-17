@@ -1,0 +1,117 @@
+{
+  "schema": "hyprneuro.boundary-continuation-04-freeze-w4-v2/1",
+  "ts_utc": "2026-11-17T08:00:00Z",
+  "status": "FROZEN_REQUIRES_INDEPENDENT_REVIEW",
+  "parent_freeze": "boundary-continuation-04-freeze-w3-v3",
+  "parent_runner_sha": "6582f72bb56f12cc30064ff0129c04092feed6f405fb4a019639d7789a95971a",
+  "parent_waiter_sha": "9163cab6c8e581a3ed7c19aebca9fa04465e0e269701bd1a9bf83f035492b744",
+  "parent_ops_sha": "17c79cb7f81f7e271542711c39bca503f8a7f27bdf322dea4c0df666dbe4eeb5",
+  "blobs": {
+    "continuation_ops_w4.py": "74516bc00d0b791575455eaf16f5599b4b9135eceac317cf46417eb3183c7a1c",
+    "continuation_runner_w4.py": "a583529c15e5f6cd331f122f237c46034cfe985885caba06cf68cfeaafbc89cb",
+    "continuation_waiter_w4.py": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
+    "tests/test_w4.py": "846be55ee862113931d3d7e7f143d848159d7b159499b5fe62ba75c5973e5722",
+    "tests/test_w4_flow.py": "141fb8a31873aecc15dbd9801901554012963bd91bcf24d3e8fc08a7c2832779"
+  },
+  "external_pins": {
+    "boundary_release.py": "9fcb37cf398dfe2f158ef39fa3ab518f233f231e23242a6e22b680ed9b91e74c",
+    "boundary_release_ops.py": "5e6c50f202090f93699f11f28c0d61409ee2b6bcafec5bc8ad015ceb601659ac",
+    "continuation_ops_v5.py": "7e23baedd7f2dd0981d2161130d40e744945783dde97e506ee5b17e77cc0740c",
+    "execstart_stable_compare.py": "964b4bf635e3acb9454ee86c7feda05d3d715b04b5c0464849ed2ca3d42e036e",
+    "operation.json": "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4"
+  },
+  "context_file": {
+    "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-w3-v3-postwrite-evidence/postwrite-context.json",
+    "sha256": "51f9109f0c9515045ce9fbc0f16c1b15bb8cf54116dfe8a230d4aa3a526e39bc",
+    "evidence_sha": "78ec490f6d015d4fe6fd49b36028d0016c5e35c2d1a7d5d06fa0526cdd21934c",
+    "note": "Real prospective context materialized from approved evidence. NOT a design doc."
+  },
+  "main_calls": {
+    "waiter": {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_waiter_w4.py",
+      "sha256": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
+      "argv_template": [
+        "python", "-I",
+        "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_waiter_w4.py",
+        "--op-sha", "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4",
+        "--generation", "484e9abe3b334b8c8628df2966394ce8",
+        "--run-token", "<MAIN_MINTS_UUID>",
+        "--timeout", "615",
+        "--event-dir", "/home/ron/Workspace/hn-boundary-18aef68-04/operation"
+      ],
+      "machine_lease": false
+    },
+    "runner": {
+      "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_runner_w4.py",
+      "sha256": "a583529c15e5f6cd331f122f237c46034cfe985885caba06cf68cfeaafbc89cb",
+      "argv_template": [
+        "python", "-I",
+        "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v2/continuation_runner_w4.py",
+        "--run-token", "<MAIN_MINTS_UUID_SAME_AS_WAITER>"
+      ],
+      "machine_lease": true
+    }
+  },
+  "units": [
+    "hyprneuro.service",
+    "hyprneuro-ui.service",
+    "hyprneuro-pi-identity.service",
+    "hyprneuro-pi-identity.socket"
+  ],
+  "markers": {
+    "new_w4": [
+      "continuation.watch4.ready",
+      "continuation.start4.started",
+      "continuation.start4.completed",
+      "continuation.start4.ready"
+    ],
+    "retained_w3": [
+      "continuation.watch3.ready",
+      "continuation.start3.started",
+      "continuation.start3.completed",
+      "continuation.start3.ready"
+    ],
+    "retained_w2": [
+      "continuation.watch2.ready",
+      "continuation.start2.started",
+      "continuation.start2.completed"
+    ],
+    "retained_04": [
+      "install.completed",
+      "install.started",
+      "session.pin",
+      "continuation.provision.started",
+      "continuation.provision.completed",
+      "continuation.watch.ready"
+    ]
+  },
+  "test_results": {
+    "unit_tests": {"total": 20, "passed": 20, "failed": 0},
+    "flow_tests": {"total": 6, "passed": 6, "failed": 0}
+  },
+  "flow_test_cases": [
+    "F1: START_READY while watch+lease alive (real Popen waiter + fake watch)",
+    "F2: expiry → contain → STOPPED units → child reaped → receipt",
+    "F3: SIGTERM send_signal → contain → CANCELLED_SIGNAL → child reaped",
+    "F4: wrong/missing context denied (no fallback to 04 baseline)",
+    "F5: watch dies → FAILED_WATCH4_READY → contain → receipt",
+    "F6: tampered event (wrong token) rejected by waiter"
+  ],
+  "safety": {
+    "no_sql": true,
+    "no_flock": true,
+    "no_production_test_writes": true,
+    "no_real_services_in_tests": true,
+    "no_model_restart": true,
+    "no_network": true,
+    "no_config_changes": true,
+    "no_package_changes": true,
+    "backend_attested": false,
+    "not_consent": true,
+    "human_chooser_required": true,
+    "context_required_no_fallback": true
+  },
+  "not_authorized": true,
+  "requires_independent_source_ops_review": true,
+  "no_production_w4_until_review": true
+}

@@ -173,9 +173,9 @@ def verify_preconditions() -> None:
 
 
 def _op_argv(phase: str, run_token: str) -> list:
-    """Build ops argv. Context file always passed (required)."""
+    """Build ops argv. Context file always passed (required). -B prevents pyc creation."""
     return [
-        PYTHON, '-I', str(OPS_W4_PATH),
+        PYTHON, '-I', '-B', str(OPS_W4_PATH),
         '--operation', str(OPERATION_PATH),
         '--operation-sha256', OPERATION_SHA,
         '--phase', phase,

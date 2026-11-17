@@ -1,0 +1,136 @@
+{
+  "schema": "hyprneuro.boundary-w4-v3-bytecode-preflight/2",
+  "ts_utc": "2026-11-17T14:00:00Z",
+  "status": "DESIGN_ONLY_NOT_EXECUTED",
+  "purpose": "COMPLETE closed inventory + coherent ONE-operation quarantine plan for ALL declared import chain cache dirs",
+  "reuses_pattern": "driver-key-cleanup-correction/quarantine_once.py (renameat2 RENAME_NOREPLACE, same-fs, private 0700, before/intent/after fsync, one-shot journal per dir)",
+
+  "declared_import_chain": {
+    "roots": [
+      "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/",
+      "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/",
+      "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/scripts/",
+      "/home/ron/Workspace/hn-boundary-18aef68-04/ops/"
+    ],
+    "imported_modules": [
+      "continuation_runner_w4 (v3)", "continuation_ops_w4 (v3)", "continuation_waiter_w4 (v3)",
+      "continuation_ops (v5)", "boundary_release (04)", "boundary_release_ops (04)",
+      "capture_boundary_model_baseline (04)", "capture_boundary_preservation_aux (04)",
+      "execstart_stable_compare (v5/scripts)"
+    ]
+  },
+
+  "complete_cache_inventory": {
+    "total_dirs": 4,
+    "total_pyc_files": 10,
+    "dirs": [
+      {
+        "id": "v3",
+        "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/__pycache__",
+        "dir_stat": {"inode": 10557740, "dev": 54, "uid": 1000, "mode": "0o755", "nlink": 1},
+        "files": [
+          {"name": "continuation_ops_w4.cpython-313.pyc", "inode": 10557880, "dev": 54, "uid": 1000, "mode": "0o644", "nlink": 1, "size": 22620, "mtime": 1794919591, "sha256": "d09c448f285c10363c2e3cf9f589914535d57bb3e8e1320e5e4181a5c83bd81f"},
+          {"name": "continuation_runner_w4.cpython-313.pyc", "inode": 10557881, "dev": 54, "uid": 1000, "mode": "0o644", "nlink": 1, "size": 23001, "mtime": 1794919591, "sha256": "2baa4ae46eb6305b046525faced20fce5787d9491cbc4dbfe95c0463c0c3fb39"},
+          {"name": "continuation_waiter_w4.cpython-313.pyc", "inode": 10557882, "dev": 54, "uid": 1000, "mode": "0o644", "nlink": 1, "size": 8999, "mtime": 1794919591, "sha256": "059a8c6b404cb2500e01d35bf0f396f331d916826ebbbc5425e35e846fa17246"}
+        ],
+        "file_count": 3
+      },
+      {
+        "id": "v5_root",
+        "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/__pycache__",
+        "dir_stat": {"dev": 54, "uid": 1000, "mode": "0o755", "nlink": 1},
+        "files": [
+          {"name": "continuation_ops.cpython-313.pyc", "inode": 10485580, "dev": 54, "uid": 1000, "mode": "0o644", "nlink": 1, "size": 24150, "mtime": 1794885727, "sha256": "b23ef48cba33a1c25e714c7e151bd4bec575ef3e6e002827084daf7780e0999c"},
+          {"name": "continuation_runner.cpython-313.pyc", "inode": 10486985, "dev": 54, "uid": 1000, "mode": "0o644", "nlink": 1, "size": 8971, "mtime": 1794886097, "sha256": "63d037d904d88c6781cde10995ea6c44f27e2e56d23427de8ec2ab684608b876"}
+        ],
+        "file_count": 2
+      },
+      {
+        "id": "v5_scripts",
+        "path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/scripts/__pycache__",
+        "dir_stat": {"dev": 54, "uid": 1000, "mode": "0o755", "nlink": 1},
+        "files": [
+          {"name": "execstart_stable_compare.cpython-313.pyc", "inode": 10485582, "dev": 54, "uid": 1000, "mode": "0o644", "nlink": 1, "size": 6441, "mtime": 1794885727, "sha256": "d114d8b22159f78fdbb3636b8f7a2cee69cb065d323f2b3025975a79a2ed7807"}
+        ],
+        "file_count": 1
+      },
+      {
+        "id": "04_ops",
+        "path": "/home/ron/Workspace/hn-boundary-18aef68-04/ops/__pycache__",
+        "dir_stat": {"dev": 54, "uid": 1000, "mode": "0o755", "nlink": 1},
+        "files": [
+          {"name": "boundary_release.cpython-313.pyc", "inode": 10453989, "dev": 54, "uid": 1000, "mode": "0o600", "nlink": 1, "size": 25335, "mtime": 1794877068, "sha256": "dc8b83936a6a9221b9ad873f7a713655fe9020f037e9f78bd6a82d290e3763d0"},
+          {"name": "boundary_release_ops.cpython-313.pyc", "inode": 10474823, "dev": 54, "uid": 1000, "mode": "0o600", "nlink": 1, "size": 44579, "mtime": 1794882801, "sha256": "b3aa5d72f81accaabd1ce881f5b55257f19b2b448f3f06925ae30e435bb1728c"},
+          {"name": "capture_boundary_model_baseline.cpython-313.pyc", "inode": 10453996, "dev": 54, "uid": 1000, "mode": "0o600", "nlink": 1, "size": 21804, "mtime": 1794877068, "sha256": "ed6476bfaa39c2529c89a634b9f015a961fc22aba1a276fac399f3751a83a220"},
+          {"name": "capture_boundary_preservation_aux.cpython-313.pyc", "inode": 10453997, "dev": 54, "uid": 1000, "mode": "0o600", "nlink": 1, "size": 8071, "mtime": 1794877069, "sha256": "5852015d0c40a6d1208d5739f0fa9754f8359c57c975b4afd244caac8805c37f"}
+        ],
+        "file_count": 4
+      }
+    ]
+  },
+
+  "source_pin_verification": {
+    "note": "Source .py SHA verified unchanged. pyc presence does NOT prove source drift. Historical pyc execution UNKNOWN (not negated by source hash).",
+    "all_pins_match": true
+  },
+
+  "quarantine_plan": {
+    "operation": "ONE coherent operation: atomic renameat2 RENAME_NOREPLACE for ALL 4 cache dirs",
+    "per_dir_steps": [
+      "1. quiescence: relevant writers stopped (apps inactive, no open FDs to source dirs)",
+      "2. open parent dir (O_NOFOLLOW chain), open __pycache__ (O_NOFOLLOW)",
+      "3. verify: listdir == exact expected filenames, all regular nlink=1 uid=1000",
+      "4. verify: fstat + hashfd each file matches inventory",
+      "5. create quarantine subdir (0o700, same fs dev=54)",
+      "6. write before.json + intent.json (O_EXCL, fsync)",
+      "7. renameat2(parent_fd, '__pycache__', quarantine_fd, 'quarantined-<id>', RENAME_NOREPLACE)",
+      "8. fsync both parent dirs",
+      "9. verify: original absent, destination present, identity preserved",
+      "10. write after.json (O_EXCL, fsync)"
+    ],
+    "quarantine_destination": "NEW single private 0o700 dir: /home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3-bytecode-preflight/quarantined/",
+    "subdirs_in_quarantine": ["v3-pycache", "v5-root-pycache", "v5-scripts-pycache", "04-ops-pycache"],
+    "same_fs": true,
+    "no_replace": true,
+    "no_copy_fallback": true,
+    "no_restore_or_retry": true,
+    "failure_mode": "If any dir fails: preserve partial state as UNKNOWN, STOP, no rollback, no retry. Journal records which dirs succeeded.",
+    "block_conditions": [
+      "If any dir contains files NOT in exact inventory → BLOCK that dir",
+      "If any file is symlink → BLOCK",
+      "If any file nlink != 1 → BLOCK",
+      "If dir uid != 1000 → BLOCK",
+      "If quiescence check fails → BLOCK all"
+    ]
+  },
+
+  "pyc_recreation_prevention": {
+    "problem": "Runner _op_argv uses [PYTHON, '-I', ops_path, ...]. The -I flag ignores PYTHONDONTWRITEBYTECODE env. So env-based prevention is INSUFFICIENT.",
+    "current_gap": "No -B flag in ops argv. If caches are quarantined, next ops run would RECREATE them.",
+    "required_fix": "Add '-B' to _op_argv in continuation_runner_w4.py (ONE line change: insert '-B' after '-I'). This is a MINIMAL source change requiring review.",
+    "alternative": "If source change not approved: accept that caches will be recreated, and the quarantine is a POINT-IN-TIME snapshot for provenance record only (not a permanent gate).",
+    "test_wrapper": "Already uses -B (PYTHONDONTWRITEBYTECODE=1 + python -B). No gap in test path.",
+    "04_command": "boundary_release.command() sets PYTHONDONTWRITEBYTECODE=1 in env for systemctl calls. These are NOT Python imports, so no pyc risk."
+  },
+
+  "execution_constraints": {
+    "requires_main_review": true,
+    "worker_does_not_execute": true,
+    "no_new_source_code": true,
+    "no_prod_quarantine_mutation_yet": true,
+    "no_services_sql_models_gui": true,
+    "no_prod_markers_writes_deletes": true,
+    "no_fresh_preflight_until_bytecode_clear": true,
+    "current_units": "all stopped",
+    "frozen_receipts_unaltered": true,
+    "no_new_commits": true,
+    "gh_gate_currently_met": true
+  },
+
+  "honest_labels": {
+    "pyc_creator": "UNKNOWN (not recorded at creation time)",
+    "pyc_execution_history": "UNKNOWN (source hash match does NOT prove pyc was not loaded)",
+    "source_origin_proof": "NOT claimed. Source .py SHAs match pins, but this does not prove pycs were never imported.",
+    "quarantine_purpose": "Provenance record + prevent future silent import. NOT a security boundary against hostile same-UID."
+  }
+}

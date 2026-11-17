@@ -27,7 +27,13 @@ OPERATION_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation.json
 OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
 GENERATION = '484e9abe3b334b8c8628df2966394ce8'
 
-W3_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w3')
+# Pre-import PIN checks: verify 04 boundary_release modules BEFORE any import/subprocess
+_BOUNDARY_RELEASE_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/ops/boundary_release.py')
+_BOUNDARY_RELEASE_SHA = '9fcb37cf398dfe2f158ef39fa3ab518f233f231e23242a6e22b680ed9b91e74c'
+_BOUNDARY_RELEASE_OPS_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/ops/boundary_release_ops.py')
+_BOUNDARY_RELEASE_OPS_SHA = '5e6c50f202090f93699f11f28c0d61409ee2b6bcafec5bc8ad015ceb601659ac'
+
+W3_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w3-v3')
 OPS_W3_PATH = W3_DIR / 'continuation_ops_w3.py'
 OPS_W3_SHA = '17c79cb7f81f7e271542711c39bca503f8a7f27bdf322dea4c0df666dbe4eeb5'
 COMPARATOR_PATH = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/scripts/execstart_stable_compare.py')
@@ -65,7 +71,22 @@ def sha256_file(path: Path) -> str:
 
 
 def verify_pins() -> None:
-    """Verify all frozen code pins. NO conditional skip."""
+    """Verify all frozen code pins. NO conditional skip. Pre-import boundary pins first."""
+    # Pre-import: 04 boundary_release modules (BEFORE any subprocess/import)
+    if not _valid_sha(_BOUNDARY_RELEASE_SHA):
+        raise ValueError('BOUNDARY_RELEASE_SHA malformed')
+    if not _valid_sha(_BOUNDARY_RELEASE_OPS_SHA):
+        raise ValueError('BOUNDARY_RELEASE_OPS_SHA malformed')
+    if not _BOUNDARY_RELEASE_PATH.exists():
+        raise ValueError('boundary_release.py missing')
+    if sha256_file(_BOUNDARY_RELEASE_PATH) != _BOUNDARY_RELEASE_SHA:
+        raise ValueError('boundary_release.py SHA mismatch')
+    if not _BOUNDARY_RELEASE_OPS_PATH.exists():
+        raise ValueError('boundary_release_ops.py missing')
+    if sha256_file(_BOUNDARY_RELEASE_OPS_PATH) != _BOUNDARY_RELEASE_OPS_SHA:
+        raise ValueError('boundary_release_ops.py SHA mismatch')
+
+    # Standard pins
     if not _valid_sha(OPERATION_SHA):
         raise ValueError('OPERATION_SHA malformed')
     if not _valid_sha(V5_OPS_SHA):
@@ -130,7 +151,7 @@ def _op_argv(phase: str, run_token: str) -> list:
 
 
 def _write_start_ready_event(run_token: str) -> None:
-    """Write START_READY event file (O_EXCL, fsync). Startup receipt, NOT consent."""
+    """Write START_READY event file (atomic O_CREAT|O_EXCL 0o600, fsync). NOT consent."""
     event_path = OP_DIR / START3_READY_EVENT
     proc = Path('/proc/self')
     content = json.dumps({
@@ -143,6 +164,7 @@ def _write_start_ready_event(run_token: str) -> None:
         'start': proc.joinpath('stat').read_text().rsplit(') ', 1)[1].split()[19],
         'ts_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
     }, sort_keys=True) + '\n'
+    # Atomic: O_CREAT|O_EXCL with 0o600 mode (no write_text+chmod race)
     fd = os.open(str(event_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     try:
         os.write(fd, content.encode())
@@ -211,8 +233,9 @@ def _write_receipt(receipt: dict) -> None:
     path.chmod(0o644)
 
 
-def _sigterm_handler(signum, frame):
-    """SIGTERM → raise SystemExit into owned try/finally. Bounded cleanup."""
+def _sigterm_handler(signum, frame, _state):
+    """SIGTERM → set flag + raise SystemExit into owned try/finally."""
+    _state['sigterm'] = True
     raise SystemExit(143)
 
 
@@ -238,17 +261,16 @@ def main() -> None:
     watcher = None
     start_proc = None
     status = 'UNKNOWN'
-    _cleanup_in_progress = False
+    _state = {'sigterm': False, 'cleanup': False}
 
     def _sigterm_during_cleanup(signum, frame):
-        nonlocal _cleanup_in_progress
-        if _cleanup_in_progress:
-            # Second TERM during cleanup: best-effort log, no SIGKILL guarantee
-            return
+        if _state['cleanup']:
+            return  # Second TERM during cleanup: defer, no SIGKILL
+        _state['sigterm'] = True
         raise SystemExit(143)
 
-    # Install SIGTERM handler ONLY after minimal init (cleanup vars set)
-    signal.signal(signal.SIGTERM, _sigterm_handler)
+    # Install SIGTERM handler after minimal init (state vars set)
+    signal.signal(signal.SIGTERM, lambda s, f: _sigterm_handler(s, f, _state))
 
     try:
         # Launch watch3 as child Popen
@@ -341,12 +363,19 @@ def main() -> None:
         else:
             status = f'FAILED_START3_RC_{start_rc}'
 
+    except SystemExit as e:
+        # SystemExit is BaseException, NOT caught by except Exception
+        if _state['sigterm']:
+            status = 'CANCELLED_SIGNAL'
+        else:
+            status = 'UNKNOWN'
+        receipt['exception'] = f'SystemExit({e.code})'
     except Exception as e:
         if status == 'UNKNOWN':
             status = 'FAILED_EXCEPTION'
         receipt['exception'] = str(e)[:2000]
     finally:
-        _cleanup_in_progress = True
+        _state['cleanup'] = True
         signal.signal(signal.SIGTERM, _sigterm_during_cleanup)
 
         # ALL exits: contain → reap → evidence
@@ -360,7 +389,7 @@ def main() -> None:
 
         receipt['units'] = _unit_evidence()
         if status == 'UNKNOWN':
-            status = 'CANCELLED_SIGNAL' if receipt.get('exception', '').startswith('SystemExit') else 'FAILED_EXCEPTION'
+            status = 'CANCELLED_SIGNAL' if _state['sigterm'] else 'FAILED_EXCEPTION'
         receipt['status'] = status
         receipt['ts_end'] = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
         receipt['backend_attested'] = False

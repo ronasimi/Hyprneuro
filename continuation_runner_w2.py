@@ -29,12 +29,13 @@ PYTHON = '/home/ron/Projects/Hyprneuro/python/.venv/bin/python'
 OPERATION_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation.json')
 OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
 
-# Frozen W2 code paths
+# Frozen W2 code paths (literal, not None, not conditional)
 W2_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w2')
 OPS_W2_PATH = W2_DIR / 'continuation_ops_w2.py'
-OPS_W2_SHA = None  # Set at freeze time
-COMPARATOR_PATH = W2_DIR / 'scripts' / 'execstart_stable_compare.py'
-COMPARATOR_SHA = None  # Set at freeze time
+OPS_W2_SHA = '67f5c97980ec0ef9f7473330cf8406fbef6e4b92670ebfb57dd77b662a939ddb'
+# Comparator: ACTUAL v5 file (v5 ops imports from its own scripts/ dir)
+COMPARATOR_PATH = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/scripts/execstart_stable_compare.py')
+COMPARATOR_SHA = '964b4bf635e3acb9454ee86c7feda05d3d715b04b5c0464849ed2ca3d42e036e'
 V5_OPS_PATH = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/continuation_ops.py')
 V5_OPS_SHA = '7e23baedd7f2dd0981d2161130d40e744945783dde97e506ee5b17e77cc0740c'
 
@@ -62,14 +63,14 @@ def sha256_file(path: Path) -> str:
 
 
 def verify_pins() -> None:
-    """Verify all frozen code pins. Raises on any issue."""
+    """Verify all frozen code pins. Raises on ANY issue. NO conditional skip."""
     if not _valid_sha(OPERATION_SHA):
         raise ValueError('OPERATION_SHA malformed')
     if not _valid_sha(V5_OPS_SHA):
         raise ValueError('V5_OPS_SHA malformed')
-    if OPS_W2_SHA is not None and not _valid_sha(OPS_W2_SHA):
+    if not _valid_sha(OPS_W2_SHA):
         raise ValueError('OPS_W2_SHA malformed')
-    if COMPARATOR_SHA is not None and not _valid_sha(COMPARATOR_SHA):
+    if not _valid_sha(COMPARATOR_SHA):
         raise ValueError('COMPARATOR_SHA malformed')
 
     if not OPERATION_PATH.exists():
@@ -80,12 +81,14 @@ def verify_pins() -> None:
         raise ValueError('v5 ops path missing')
     if sha256_file(V5_OPS_PATH) != V5_OPS_SHA:
         raise ValueError('v5 ops SHA mismatch')
-    if OPS_W2_PATH.exists() and OPS_W2_SHA is not None:
-        if sha256_file(OPS_W2_PATH) != OPS_W2_SHA:
-            raise ValueError('W2 ops SHA mismatch')
-    if COMPARATOR_PATH.exists() and COMPARATOR_SHA is not None:
-        if sha256_file(COMPARATOR_PATH) != COMPARATOR_SHA:
-            raise ValueError('comparator SHA mismatch')
+    if not OPS_W2_PATH.exists():
+        raise ValueError('W2 ops path missing')
+    if sha256_file(OPS_W2_PATH) != OPS_W2_SHA:
+        raise ValueError('W2 ops SHA mismatch')
+    if not COMPARATOR_PATH.exists():
+        raise ValueError('comparator path missing')
+    if sha256_file(COMPARATOR_PATH) != COMPARATOR_SHA:
+        raise ValueError('comparator SHA mismatch')
 
 
 def verify_preconditions() -> None:
@@ -172,12 +175,16 @@ def main() -> None:
     watch_log.write(f'=== watch2 (child Popen) ===\nargv: {json.dumps(watch_argv)}\nrun_token: {run_token}\n')
     watch_log.flush()
 
+    # Set IMMEDIATELY before Popen: absolute deadline anchors here
+    watch_launch_time = time.monotonic()
+    supervision_deadline = watch_launch_time + WATCH_DEADLINE
+
     watcher = subprocess.Popen(watch_argv, shell=False, stdout=watch_log, stderr=subprocess.STDOUT)
     receipt['phases'].append({'phase': 'watch2_launch', 'pid': watcher.pid})
 
-    # --- Bounded wait for valid watch2.ready ---
+    # --- Bounded wait for valid watch2.ready (capped by absolute supervision_deadline) ---
     watch2_ready_path = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation/continuation.watch2.ready')
-    ready_deadline = time.monotonic() + WATCH_READY_TIMEOUT
+    ready_deadline = min(time.monotonic() + WATCH_READY_TIMEOUT, supervision_deadline)
     ready_ok = False
     while time.monotonic() < ready_deadline:
         if watcher.poll() is not None:
@@ -213,8 +220,6 @@ def main() -> None:
     receipt['phases'].append({'phase': 'start2_launch', 'pid': start_proc.pid})
 
     # --- Concurrent monitoring: watch watcher + start ---
-    watch_launch_time = time.monotonic()
-    supervision_deadline = watch_launch_time + WATCH_DEADLINE
     watcher_died = False
     start_rc = None
 

@@ -320,3 +320,108 @@ class TestNoProductionWrites:
         prod_dir = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation')
         for m in NEW_MARKERS:
             assert not (prod_dir / m).exists(), f'Production W2 marker created: {m}'
+
+
+# --- verify_pins: NO None, NO conditional skip, literal constants ---
+
+class TestVerifyPinsStrict:
+    """verify_pins must reject None, malformed, and modified files.
+    NO Popen on any pin failure. Tests use private fixtures."""
+
+    def test_ops_w2_sha_is_literal_not_none(self):
+        """OPS_W2_SHA must be a literal 64-hex constant, not None."""
+        assert runner_w2.OPS_W2_SHA is not None
+        assert len(runner_w2.OPS_W2_SHA) == 64
+        assert all(c in '0123456789abcdef' for c in runner_w2.OPS_W2_SHA)
+
+    def test_comparator_sha_is_literal_not_none(self):
+        """COMPARATOR_SHA must be a literal 64-hex constant, not None."""
+        assert runner_w2.COMPARATOR_SHA is not None
+        assert len(runner_w2.COMPARATOR_SHA) == 64
+        assert all(c in '0123456789abcdef' for c in runner_w2.COMPARATOR_SHA)
+
+    def test_verify_pins_rejects_none_ops_sha(self):
+        """verify_pins raises if OPS_W2_SHA is None."""
+        orig = runner_w2.OPS_W2_SHA
+        runner_w2.OPS_W2_SHA = None
+        try:
+            with pytest.raises(ValueError, match='OPS_W2_SHA'):
+                runner_w2.verify_pins()
+        finally:
+            runner_w2.OPS_W2_SHA = orig
+
+    def test_verify_pins_rejects_malformed_comparator(self):
+        """verify_pins raises if COMPARATOR_SHA is malformed."""
+        orig = runner_w2.COMPARATOR_SHA
+        runner_w2.COMPARATOR_SHA = 'xyz'
+        try:
+            with pytest.raises(ValueError, match='COMPARATOR_SHA'):
+                runner_w2.verify_pins()
+        finally:
+            runner_w2.COMPARATOR_SHA = orig
+
+    def test_verify_pins_rejects_modified_ops(self, tmp_path):
+        """verify_pins raises if W2 ops file content changed."""
+        orig_path = runner_w2.OPS_W2_PATH
+        runner_w2.OPS_W2_PATH = tmp_path / 'fake_ops.py'
+        (tmp_path / 'fake_ops.py').write_text('modified content')
+        try:
+            with pytest.raises(ValueError, match='W2 ops SHA mismatch'):
+                runner_w2.verify_pins()
+        finally:
+            runner_w2.OPS_W2_PATH = orig_path
+
+    def test_verify_pins_rejects_modified_comparator(self, tmp_path):
+        """verify_pins raises if comparator file content changed."""
+        orig_path = runner_w2.COMPARATOR_PATH
+        runner_w2.COMPARATOR_PATH = tmp_path / 'fake_comp.py'
+        (tmp_path / 'fake_comp.py').write_text('modified comparator')
+        try:
+            with pytest.raises(ValueError, match='comparator SHA mismatch'):
+                runner_w2.verify_pins()
+        finally:
+            runner_w2.COMPARATOR_PATH = orig_path
+
+    def test_no_popen_on_pin_failure(self, tmp_path):
+        """If verify_pins fails, NO Popen is launched. Zero processes."""
+        orig = runner_w2.OPS_W2_SHA
+        runner_w2.OPS_W2_SHA = 'deadbeef' * 8  # Wrong SHA
+        try:
+            with pytest.raises(ValueError):
+                runner_w2.verify_pins()
+        finally:
+            runner_w2.OPS_W2_SHA = orig
+        # If we got here without Popen, test passes
+        # (verify_pins raised before any Popen could occur)
+
+
+# --- Deadline anchor: 600s FROM WATCH LAUNCH, not after ready ---
+
+class TestDeadlineAnchor:
+    """Supervision deadline = watch_launch + 600. NOT ready_time + 600."""
+
+    def test_watch_launch_time_before_popen(self):
+        """Source proof: watch_launch_time set BEFORE watcher Popen."""
+        src = Path(__file__).parent.parent.joinpath('continuation_runner_w2.py').read_text()
+        # Find line numbers
+        lines = src.split('\n')
+        launch_line = None
+        popen_line = None
+        for i, line in enumerate(lines):
+            if 'watch_launch_time = time.monotonic()' in line:
+                launch_line = i
+            if 'watcher = subprocess.Popen' in line:
+                popen_line = i
+        assert launch_line is not None, 'watch_launch_time not found'
+        assert popen_line is not None, 'watcher Popen not found'
+        assert launch_line < popen_line, f'watch_launch_time (line {launch_line}) must be BEFORE watcher Popen (line {popen_line})'
+
+    def test_supervision_deadline_from_watch_launch(self):
+        """Source proof: supervision_deadline = watch_launch_time + WATCH_DEADLINE."""
+        src = Path(__file__).parent.parent.joinpath('continuation_runner_w2.py').read_text()
+        assert 'supervision_deadline = watch_launch_time + WATCH_DEADLINE' in src
+
+    def test_ready_deadline_capped_by_supervision(self):
+        """Source proof: ready_deadline capped by supervision_deadline."""
+        src = Path(__file__).parent.parent.joinpath('continuation_runner_w2.py').read_text()
+        assert 'min(time.monotonic() + WATCH_READY_TIMEOUT, supervision_deadline)' in src

@@ -230,19 +230,18 @@ class TestPhaseProvisionPrivate:
                 # We're testing that guard is captured and no prod writes happen
                 pass
 
-        # Verify: NO W2 production markers written (v1-v5 may exist from real exec)
+        # Verify: NO W3 production markers written (W2 exist from real exec)
         prod_dir = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation')
-        for marker in ('continuation.watch2.ready', 'continuation.start2.started',
-                       'continuation.start2.completed'):
-            assert not (prod_dir / marker).exists(), f'W2 PRODUCTION MARKER WRITTEN: {marker}'
+        for marker in ('continuation.watch3.ready', 'continuation.start3.started',
+                       'continuation.start3.completed', 'continuation.start3.ready'):
+            assert not (prod_dir / marker).exists(), f'W3 PRODUCTION MARKER WRITTEN: {marker}'
 
     def test_provision_no_production_markers_after(self):
-        """W2 markers must NOT exist in production (only v1-v5 markers from real exec)."""
+        """W3 markers must NOT exist in production (W2 exist from real exec)."""
         prod_dir = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation')
-        # W2 markers must never be created by tests
-        for marker in ('continuation.watch2.ready', 'continuation.start2.started',
-                       'continuation.start2.completed'):
-            assert not (prod_dir / marker).exists(), f'W2 production marker created: {marker}'
+        for marker in ('continuation.watch3.ready', 'continuation.start3.started',
+                       'continuation.start3.completed', 'continuation.start3.ready'):
+            assert not (prod_dir / marker).exists(), f'W3 production marker created: {marker}'
 
 
 # --- Phase START: PRIVATE fixture ---

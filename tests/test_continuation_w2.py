@@ -316,10 +316,12 @@ class TestRunnerConcurrentPattern:
 
 class TestNoProductionWrites:
     def test_no_prod_markers_created(self):
-        """After all tests, production operation dir has NO W2 markers."""
+        """After all tests, production operation dir has NO W3 markers.
+        W2 markers exist from real MAIN execution (immutable)."""
         prod_dir = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation')
-        for m in NEW_MARKERS:
-            assert not (prod_dir / m).exists(), f'Production W2 marker created: {m}'
+        for m in ('continuation.watch3.ready', 'continuation.start3.started',
+                  'continuation.start3.completed', 'continuation.start3.ready'):
+            assert not (prod_dir / m).exists(), f'Production W3 marker created: {m}'
 
 
 # --- verify_pins: NO None, NO conditional skip, literal constants ---

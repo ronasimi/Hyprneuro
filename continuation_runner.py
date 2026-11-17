@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 """
 Continuation runner for boundary 18aef68-04 (external, installed-only).
-Version: 3 (corrected per review 01M7KMHBS9T1NVK1CYP9T6K5W)
+Version: 4 (FROZEN literal pins, no None, no conditional skip)
 
-Uses FROZEN v3 paths with literal SHAs. No mutable worktree fallback.
-All code pins verified before first phase and before each execute.
-
-Phases: provision → watch → start. Bounded 600s from watch launch.
-No nested lease. No --wake caller. Single lease held by parent.
+All code pins are LITERAL CONSTANTS verified before import and before each phase.
+No mutable worktree fallback. No self-hash trust cycle.
+Runner itself is externally pinned by MAIN (sha256sum of this file).
 """
 
-import argparse
 import hashlib
 import json
 import subprocess
@@ -18,19 +15,29 @@ import sys
 import time
 from pathlib import Path
 
-# --- FROZEN v3 literal pins (no mutable worktree fallback) ---
+# --- FROZEN v4 LITERAL PINS (not None, not conditional) ---
 
 PYTHON = '/home/ron/Projects/Hyprneuro/python/.venv/bin/python'
 OPERATION_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation.json')
 OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
 
-# Frozen v3 code paths (committed, not worktree-mutable)
+# Frozen v4 code paths with LITERAL SHA constants
 CONTINUATION_OPS_PATH = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/continuation_ops.py')
-CONTINUATION_OPS_SHA = None  # Set at freeze time (see freeze receipt)
+CONTINUATION_OPS_SHA = '7e23baedd7f2dd0981d2161130d40e744945783dde97e506ee5b17e77cc0740c'
 STABLE_COMPARE_PATH = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/execstart_stable_compare.py')
-STABLE_COMPARE_SHA = None  # Set at freeze time
+STABLE_COMPARE_SHA = '964b4bf635e3acb9454ee86c7feda05d3d715b04b5c0464849ed2ca3d42e036e'
 
 AUDIT_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-execution')
+
+# Valid SHA format: exactly 64 lowercase hex chars
+_SHA_HEX = set('0123456789abcdef')
+
+
+def _valid_sha(s) -> bool:
+    """Reject None, non-string, wrong length, non-hex."""
+    if not isinstance(s, str) or len(s) != 64:
+        return False
+    return all(c in _SHA_HEX for c in s)
 
 
 def sha256_file(path: Path) -> str:
@@ -42,22 +49,36 @@ def sha256_file(path: Path) -> str:
 
 
 def verify_pins() -> None:
-    """Verify all frozen code pins before any phase execution.
-    Raises ValueError on any mismatch. No fallback."""
-    # Operation pin
+    """Verify ALL frozen code pins. Raises ValueError on any mismatch/missing/malformed.
+    Called before import AND before each phase. No skip, no fallback."""
+    # Validate constants are well-formed (not None, not malformed)
+    if not _valid_sha(OPERATION_SHA):
+        raise ValueError('OPERATION_SHA malformed')
+    if not _valid_sha(CONTINUATION_OPS_SHA):
+        raise ValueError('CONTINUATION_OPS_SHA malformed')
+    if not _valid_sha(STABLE_COMPARE_SHA):
+        raise ValueError('STABLE_COMPARE_SHA malformed')
+
+    # Verify operation pin
+    if not OPERATION_PATH.exists():
+        raise ValueError(f'Operation path missing: {OPERATION_PATH}')
     actual = sha256_file(OPERATION_PATH)
     if actual != OPERATION_SHA:
-        raise ValueError(f'Operation SHA mismatch: {actual[:16]}... != {OPERATION_SHA[:16]}...')
-    # Continuation ops pin (if set)
-    if CONTINUATION_OPS_SHA is not None:
-        actual = sha256_file(CONTINUATION_OPS_PATH)
-        if actual != CONTINUATION_OPS_SHA:
-            raise ValueError(f'continuation_ops SHA mismatch: {actual[:16]}... != {CONTINUATION_OPS_SHA[:16]}...')
-    # Stable compare pin (if set)
-    if STABLE_COMPARE_SHA is not None:
-        actual = sha256_file(STABLE_COMPARE_PATH)
-        if actual != STABLE_COMPARE_SHA:
-            raise ValueError(f'stable_compare SHA mismatch: {actual[:16]}... != {STABLE_COMPARE_SHA[:16]}...')
+        raise ValueError(f'Operation SHA mismatch: got {actual[:16]}... want {OPERATION_SHA[:16]}...')
+
+    # Verify continuation ops pin
+    if not CONTINUATION_OPS_PATH.exists():
+        raise ValueError(f'continuation_ops path missing: {CONTINUATION_OPS_PATH}')
+    actual = sha256_file(CONTINUATION_OPS_PATH)
+    if actual != CONTINUATION_OPS_SHA:
+        raise ValueError(f'continuation_ops SHA mismatch: got {actual[:16]}... want {CONTINUATION_OPS_SHA[:16]}...')
+
+    # Verify stable compare pin
+    if not STABLE_COMPARE_PATH.exists():
+        raise ValueError(f'stable_compare path missing: {STABLE_COMPARE_PATH}')
+    actual = sha256_file(STABLE_COMPARE_PATH)
+    if actual != STABLE_COMPARE_SHA:
+        raise ValueError(f'stable_compare SHA mismatch: got {actual[:16]}... want {STABLE_COMPARE_SHA[:16]}...')
 
 
 def run_phase(phase: str, timeout: float) -> int:
@@ -86,21 +107,21 @@ def run_phase(phase: str, timeout: float) -> int:
 
 
 def main() -> None:
-    # Verify all pins before any action
+    # Verify ALL pins before any action
     verify_pins()
 
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
     AUDIT_DIR.chmod(0o700)
 
     receipt = {
-        'schema': 'hyprneuro.boundary-continuation-runner/3',
+        'schema': 'hyprneuro.boundary-continuation-runner/4',
         'ts_start': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'operation_sha256': OPERATION_SHA,
         'operation_path': str(OPERATION_PATH),
         'continuation_ops_path': str(CONTINUATION_OPS_PATH),
-        'continuation_ops_sha256': sha256_file(CONTINUATION_OPS_PATH),
+        'continuation_ops_sha256': CONTINUATION_OPS_SHA,
         'stable_compare_path': str(STABLE_COMPARE_PATH),
-        'stable_compare_sha256': sha256_file(STABLE_COMPARE_PATH),
+        'stable_compare_sha256': STABLE_COMPARE_SHA,
         'phases': []
     }
 

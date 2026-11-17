@@ -1,28 +1,35 @@
 #!/usr/bin/env python3
 """
 Continuation runner for boundary 18aef68-04 (external, installed-only).
-Version: 2 (corrected per review 01M7KMHBS9T1NVK1CYP9T6K5W)
+Version: 3 (corrected per review 01M7KMHBS9T1NVK1CYP9T6K5W)
 
-Uses the ORIGINAL 04 operation.json (pinned by SHA). Phases:
-provision → watch → start. Bounded 600s from watch launch.
+Uses FROZEN v3 paths with literal SHAs. No mutable worktree fallback.
+All code pins verified before first phase and before each execute.
 
+Phases: provision → watch → start. Bounded 600s from watch launch.
 No nested lease. No --wake caller. Single lease held by parent.
 """
 
 import argparse
 import hashlib
 import json
-import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
-# Pinned paths
-CONTINUATION_OPS = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/continuation_ops.py')
+# --- FROZEN v3 literal pins (no mutable worktree fallback) ---
+
+PYTHON = '/home/ron/Projects/Hyprneuro/python/.venv/bin/python'
 OPERATION_PATH = Path('/home/ron/Workspace/hn-boundary-18aef68-04/operation.json')
 OPERATION_SHA = '306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4'
-PYTHON = '/home/ron/Projects/Hyprneuro/python/.venv/bin/python'
+
+# Frozen v3 code paths (committed, not worktree-mutable)
+CONTINUATION_OPS_PATH = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/continuation_ops.py')
+CONTINUATION_OPS_SHA = None  # Set at freeze time (see freeze receipt)
+STABLE_COMPARE_PATH = Path('/home/ron/Workspace/hyprneuro-pi-owner-gtk/scripts/execstart_stable_compare.py')
+STABLE_COMPARE_SHA = None  # Set at freeze time
+
 AUDIT_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-execution')
 
 
@@ -34,10 +41,30 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def verify_pins() -> None:
+    """Verify all frozen code pins before any phase execution.
+    Raises ValueError on any mismatch. No fallback."""
+    # Operation pin
+    actual = sha256_file(OPERATION_PATH)
+    if actual != OPERATION_SHA:
+        raise ValueError(f'Operation SHA mismatch: {actual[:16]}... != {OPERATION_SHA[:16]}...')
+    # Continuation ops pin (if set)
+    if CONTINUATION_OPS_SHA is not None:
+        actual = sha256_file(CONTINUATION_OPS_PATH)
+        if actual != CONTINUATION_OPS_SHA:
+            raise ValueError(f'continuation_ops SHA mismatch: {actual[:16]}... != {CONTINUATION_OPS_SHA[:16]}...')
+    # Stable compare pin (if set)
+    if STABLE_COMPARE_SHA is not None:
+        actual = sha256_file(STABLE_COMPARE_PATH)
+        if actual != STABLE_COMPARE_SHA:
+            raise ValueError(f'stable_compare SHA mismatch: {actual[:16]}... != {STABLE_COMPARE_SHA[:16]}...')
+
+
 def run_phase(phase: str, timeout: float) -> int:
-    """Run a single continuation_ops phase. Returns exit code."""
+    """Run a single continuation_ops phase. Verifies pins before each execute."""
+    verify_pins()
     argv = [
-        PYTHON, '-I', str(CONTINUATION_OPS),
+        PYTHON, '-I', str(CONTINUATION_OPS_PATH),
         '--operation', str(OPERATION_PATH),
         '--operation-sha256', OPERATION_SHA,
         '--phase', phase,
@@ -46,7 +73,7 @@ def run_phase(phase: str, timeout: float) -> int:
         proc = subprocess.Popen(
             argv,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            cwd=str(CONTINUATION_OPS.parent),
+            cwd=str(CONTINUATION_OPS_PATH.parent),
         )
         out, _ = proc.communicate(timeout=timeout)
         AUDIT_DIR.joinpath(f'continuation-{phase}.log').write_bytes(out)
@@ -59,20 +86,21 @@ def run_phase(phase: str, timeout: float) -> int:
 
 
 def main() -> None:
-    # Verify operation SHA before any action
-    actual_sha = sha256_file(OPERATION_PATH)
-    if actual_sha != OPERATION_SHA:
-        print(json.dumps({'status': 'FAILED', 'reason': 'operation SHA mismatch'}))
-        raise SystemExit(1)
+    # Verify all pins before any action
+    verify_pins()
 
     AUDIT_DIR.mkdir(parents=True, exist_ok=True)
     AUDIT_DIR.chmod(0o700)
 
     receipt = {
-        'schema': 'hyprneuro.boundary-continuation-runner/1',
+        'schema': 'hyprneuro.boundary-continuation-runner/3',
         'ts_start': time.strftime('%Y-%m-%dT%H:%M:%S%z'),
         'operation_sha256': OPERATION_SHA,
         'operation_path': str(OPERATION_PATH),
+        'continuation_ops_path': str(CONTINUATION_OPS_PATH),
+        'continuation_ops_sha256': sha256_file(CONTINUATION_OPS_PATH),
+        'stable_compare_path': str(STABLE_COMPARE_PATH),
+        'stable_compare_sha256': sha256_file(STABLE_COMPARE_PATH),
         'phases': []
     }
 

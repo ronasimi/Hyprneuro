@@ -166,12 +166,19 @@ def preserve_continuation(op: dict, deadline: float, full: bool = True, before_s
             b.check_pin(value)
     else:
         # Non-full: filesystem/kernel-only monitor (WATCH path)
+        # INDEPENDENT cmdline SHA check: execve preserves PID/start_ticks but
+        # can change argv. identity() does NOT cover this. Mandatory.
         snapshot = json.loads(b.file_bytes(b.MODEL_SNAPSHOT))
         from capture_boundary_model_baseline import identity, listeners
         for entry in snapshot['models']:
             pid = entry['identity_after']['pid']
             if identity(pid) != entry['identity_after'] or listeners(pid) != entry['listeners']:
                 raise ValueError('Observed model identity/listener drift')
+            # INDEPENDENT cmdline SHA (mitigates parser delimiter ambiguity)
+            proc = Path('/proc') / str(pid)
+            cmdline_sha = hashlib.sha256(proc.joinpath('cmdline').read_bytes()).hexdigest()
+            if cmdline_sha != entry['argv_sha256']:
+                raise ValueError('Model cmdline drift (independent argv identity)')
             # FIXED: stable ExecStart comparison for non-full path too
             value = b.show(entry['unit'], tuple(entry['manager_after']), deadline)
             _compare_manager_after(entry['manager_after'], value)

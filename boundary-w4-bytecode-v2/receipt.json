@@ -1,0 +1,42 @@
+{
+  "schema": "hyprneuro.boundary-w4-v3-bytecode-preflight-v2/1",
+  "ts_utc": "2026-11-17T15:00:00Z",
+  "status": "FROZEN_REQUIRES_MAIN_REVIEW",
+  "purpose": "Quarantine script v3 with named-unit-BLOCK fix, explicit ValueError, cache_fd finally, T11+T12 kernel tests.",
+  "blobs": {
+    "quarantine_bytecode_w4_v3.py": "7e8a1d9e8e0bf8b492451e2ae6c918cd81d4e347c3a036e263e387ce62607535",
+    "tests/test_quarantine_v3.py": "b80a1f9247b1fc762e27400674f8839ccf615ffe17badd19c36a75dcf34ea8ec",
+    "runner_only_unchanged": "7cb6b16cfcb7ebc9b7fdc967c33ec5c568def6b2a7e8c8a4ffb3e80a23dcfa40"
+  },
+  "old_script_preserved": {
+    "quarantine_bytecode_w4.py": "2f8c616ca5250e4064f2faf4c479053c5a8c6830cdb628a88183b123fab47d81",
+    "status": "SUPERSEDED_FAILURE_HISTORY_NOT_DELETED"
+  },
+  "fixes_applied": [
+    "Named unit query fails (OSError/timeout/dbus) → BLOCKED before ANY rename",
+    "canonical_dir_fd: assert → explicit ValueError (security precondition)",
+    "verify_dir: cache_fd closed in except before re-raise (no FD leak)",
+    "Unrelated unreadable process remains UNKNOWN record (not false block)"
+  ],
+  "test_results": {
+    "total": 12,
+    "passed": 12,
+    "failed": 0,
+    "new_tests": ["T11: named unit BLOCK", "T12: partial failure kernel"]
+  },
+  "references_unchanged": {
+    "ops": "74516bc00d0b791575455eaf16f5599b4b9135eceac317cf46417eb3183c7a1c",
+    "waiter": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
+    "context": "51f9109f0c9515045ce9fbc0f16c1b15bb8cf54116dfe8a230d4aa3a526e39bc",
+    "runner_B_patched": "7cb6b16cfcb7ebc9b7fdc967c33ec5c568def6b2a7e8c8a4ffb3e80a23dcfa40"
+  },
+  "execution_command": "python3 -B -I /home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3-bytecode-preflight-v2/quarantine_bytecode_w4_v3.py",
+  "constraints": {
+    "no_execution": true,
+    "no_prod_mutation": true,
+    "no_fresh_preflight": true,
+    "original_v3_frozen_unchanged": true,
+    "old_script_preserved_as_history": true,
+    "user_push_gate": "ALL commits pushed by MAIN before E2E"
+  }
+}

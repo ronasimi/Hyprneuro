@@ -1,0 +1,22 @@
+=== W5 REAL runner flow test (re-run; -I -B; expect no pyc) ===
+ts_utc: 2026-11-17T18:14:23Z
+F1 PASS: real runner + real waiter, START5_READY while runner ALIVE + watch alive
+    [ts 2026-11-17T18:14:23Z] test_f1_start_ready_lease_alive
+F2 PASS: real runner expiry -> contain -> STOPPED -> children reaped -> receipt
+    [ts 2026-11-17T18:14:26Z] test_f2_expiry_contain_reaped
+F3 PASS: real runner SIGTERM -> CANCELLED_SIGNAL -> contain -> receipt
+    [ts 2026-11-17T18:14:31Z] test_f3_sigterm_cancelled
+F4 PASS: wrong context SHA -> REAL verify_pins deny -> zero starts
+    [ts 2026-11-17T18:14:34Z] test_f4_wrong_context_deny
+F5a PASS: watch death during startup -> FAILED_WATCH5_READY -> contain -> receipt
+    [ts 2026-11-17T18:14:34Z] test_f5a_watch_death_early
+F5b PASS: watch death after ready -> FAILED_WATCH_DIED_POST_START -> contain -> receipt
+    [ts 2026-11-17T18:14:35Z] test_f5b_watch_death_after_ready
+F6 PASS: bad start5.ready token -> real waiter deny
+    [ts 2026-11-17T18:14:39Z] test_f6_bad_token_waiter_deny
+F7 PASS: start failure -> FAILED_START5_RC_1 -> contain -> receipt
+    [ts 2026-11-17T18:14:39Z] test_f7_start_failure
+
+W5 REAL Runner Flow Tests: 8 passed, 0 failed / 8 total
+PROD OP_DIR UNCHANGED (11 markers, real watch4.ready preserved)
+FLOW_EXIT=0

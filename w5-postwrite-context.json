@@ -1,0 +1,40 @@
+{
+  "ancestry": {
+    "known_failed_w3_execution": "01M7M3HTR1C8T9357S0J0NVV5",
+    "original_generation": "484e9abe3b334b8c8628df2966394ce8",
+    "original_operation_sha": "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4",
+    "prior_successful_execution": "01M7KXFG946H2JE1YSHQD2G62D",
+    "source_context_sha": "51f9109f0c9515045ce9fbc0f16c1b15bb8cf54116dfe8a230d4aa3a526e39bc"
+  },
+  "database_no_SQL": {
+    "/home/ron/.local/state/hyprharness/sidecar/observations.sqlite3": {
+      "dev": 54,
+      "inode": 9255046,
+      "mode": 384,
+      "sha256": "3905144e30d0052f7b989bc8cf7a17c3d80c89215afbd7979d719cb341143baf",
+      "size": 8187904,
+      "uid": 1000
+    },
+    "/home/ron/.local/state/hyprharness/sidecar/observations.sqlite3-shm": null,
+    "/home/ron/.local/state/hyprharness/sidecar/observations.sqlite3-wal": null
+  },
+  "not_recaptured": [
+    "root_record",
+    "model_snapshot",
+    "source_baseline",
+    "catalog",
+    "config"
+  ],
+  "schema": "hyprneuro.boundary-postwrite-context/1",
+  "settings": {
+    "dev": 54,
+    "inode": 9595658,
+    "mode": 384,
+    "path": "/home/ron/.config/hyprneuro/settings.json",
+    "sha256": "fa6116f8f5e1e568d01cc795ebe0b6f919ca0522f526a6d2a5ff8c0ba9a7f3a4",
+    "size": 659,
+    "uid": 1000
+  },
+  "ts_utc": "2026-11-17T16:46:17Z",
+  "w5_source": "derived-from-old-approved-postwrite-ctx-51f-no-recapture"
+}

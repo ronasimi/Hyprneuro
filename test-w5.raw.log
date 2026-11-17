@@ -1,0 +1,29 @@
+=== W5 private test run ===
+ts_utc: 2026-11-17T17:15:09Z
+argv: /home/ron/Projects/Hyprneuro/python/.venv/bin/python -I -B tests/test_w5.py
+test_check_context_prestart_db_drift_fails (__main__.TestOpsContext.test_check_context_prestart_db_drift_fails) ... ok
+test_check_context_prestart_missing_context_fails (__main__.TestOpsContext.test_check_context_prestart_missing_context_fails) ... ok
+test_validate_context_missing_ancestry_fails (__main__.TestOpsContext.test_validate_context_missing_ancestry_fails) ... ok
+test_validate_context_positive (__main__.TestOpsContext.test_validate_context_positive) ... ok
+test_validate_context_wrong_schema_fails (__main__.TestOpsContext.test_validate_context_wrong_schema_fails) ... ok
+test_phase_start5_real_logic_private (__main__.TestPhaseStart5.test_phase_start5_real_logic_private) ... ok
+test_extra_missing_w2_fails (__main__.TestPreconditions.test_extra_missing_w2_fails) ... ok
+test_no_w3_success_required (__main__.TestPreconditions.test_no_w3_success_required) ... ok
+test_old_w4_ready_missing_fails (__main__.TestPreconditions.test_old_w4_ready_missing_fails) ... ok
+test_old_w4_ready_sha_drift_fails (__main__.TestPreconditions.test_old_w4_ready_sha_drift_fails) ... ok
+test_positive_w3_failed_w4_exact_w5_absent (__main__.TestPreconditions.test_positive_w3_failed_w4_exact_w5_absent) ... ok
+test_provision_sha_drift_fails (__main__.TestPreconditions.test_provision_sha_drift_fails) ... ok
+test_w4_start4_present_fails (__main__.TestPreconditions.test_w4_start4_present_fails) ... ok
+test_w5_marker_present_fails (__main__.TestPreconditions.test_w5_marker_present_fails) ... ok
+test_real_prod_op_dir_markers_unchanged (__main__.TestProdUntouched.test_real_prod_op_dir_markers_unchanged) ... ok
+test_stale_w4_ignored_watches_w5_only (__main__.TestWaiter.test_stale_w4_ignored_watches_w5_only) ... ok
+test_validate_event_positive (__main__.TestWaiter.test_validate_event_positive) ... ok
+test_validate_event_wrong_schema_fails (__main__.TestWaiter.test_validate_event_wrong_schema_fails) ... ok
+test_validate_event_wrong_token_fails (__main__.TestWaiter.test_validate_event_wrong_token_fails) ... ok
+test_w5_event_preexisting (__main__.TestWaiter.test_w5_event_preexisting) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 2.016s
+
+OK
+TEST_EXIT=0

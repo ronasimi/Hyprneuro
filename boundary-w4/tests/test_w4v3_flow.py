@@ -5,7 +5,7 @@ Each test Popen's the runner_wrapper which imports and calls the REAL
 continuation_runner_w4.main(). Only constants are patched (paths, deadline).
 The real _contain(), _reap(), _write_receipt(), _write_start_ready_event() execute.
 
-F1: real runner + real waiter, START_READY while ACTUAL lease holder + watch alive
+F1: real runner + real waiter, START_READY while runner process alive + watch alive
 F2: short deadline expiry → contain subprocess → fake ops UNIT STOPPED → children reaped
 F3: REAL runner SIGTERM → CANCELLED_SIGNAL → cleanup
 F4: wrong context → pre-Popen zero starts (verify_pins/verify_preconditions deny)
@@ -64,11 +64,11 @@ def _popen_runner(env: dict) -> subprocess.Popen:
     )
 
 
-# --- F1: REAL runner + REAL waiter, START_READY while lease+watch alive ---
+# --- F1: REAL runner + REAL waiter, START_READY while runner process alive + watch alive ---
 
 def test_f1_start_ready_lease_alive(tmp: Path) -> None:
     """F1: Real runner launches real waiter. START_READY written while
-    ACTUAL lease holder (runner) + watch process alive.
+    runner process alive + watch process alive.
     Proves: real runner main() → Popen watch → wait ready → Popen start
     → START_READY event → watcher still alive.
     """
@@ -116,8 +116,8 @@ def test_f1_start_ready_lease_alive(tmp: Path) -> None:
         assert result['status'] == 'START_READY'
         assert result['event']['run_token'] == token
 
-        # Runner is STILL alive (lease holder, supervision window not expired)
-        assert runner_proc.poll() is None, 'Runner should still be alive (lease holder)'
+        # Runner is STILL alive (supervision window not expired)
+        assert runner_proc.poll() is None, 'Runner should still be alive'
 
     finally:
         # Clean up: terminate runner (will trigger contain + reap in its finally)
@@ -298,6 +298,7 @@ except SystemExit as e:
 
     # Should fail BEFORE any Popen (verify_pins catches context SHA mismatch)
     assert rc != 0, f'Expected failure, got rc=0. stderr={stderr[:300]}'
+    assert 'Context file SHA mismatch' in stderr, f'Expected exact context mismatch in stderr, got: {stderr[:500]}'
 
     # No watch4.ready should have been written (zero starts)
     assert not (op_dir / 'continuation.watch4.ready').exists(), 'Watch should NOT have started'

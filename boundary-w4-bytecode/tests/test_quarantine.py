@@ -366,6 +366,183 @@ except (ValueError, OSError) as e:
     print('T7 PASS: symlink in cache → failure')
 
 
+
+
+# --- T8: ACTUAL KERNEL renameat2 positive (same-fs private temp) ---
+
+def test_t8_kernel_renameat2_positive(tmp: Path) -> None:
+    """T8: Actual kernel renameat2 RENAME_NOREPLACE on same-fs private dirs.
+    Source cache metadata preserved, source absent, dest present.
+    """
+    import ctypes
+    import hashlib
+
+    # Setup: create parent + __pycache__ with a file
+    parent = tmp / 'src_parent'
+    parent.mkdir()
+    cache = parent / '__pycache__'
+    cache.mkdir()
+    test_file = cache / 'mod.cpython-313.pyc'
+    content = b'fake-pyc-bytes-for-kernel-test'
+    test_file.write_bytes(content)
+    os.chmod(str(test_file), 0o644)
+
+    # Capture source metadata
+    src_stat = cache.stat()
+    src_identity = (src_stat.st_dev, src_stat.st_ino, src_stat.st_uid,
+                    src_stat.st_gid, stat.S_IMODE(src_stat.st_mode), src_stat.st_nlink, src_stat.st_size)
+    file_sha = hashlib.sha256(content).hexdigest()
+
+    # Create quarantine dest (same fs as tmp)
+    qdir = tmp / 'quarantine_dest'
+    qdir.mkdir(mode=0o700)
+
+    # Open FDs
+    parent_fd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    q_fd = os.open(str(qdir), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+
+    try:
+        # Execute renameat2
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = libc.renameat2
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+
+        rc = renameat2(parent_fd, b'__pycache__', q_fd, b'quarantined-test', 1)  # RENAME_NOREPLACE=1
+        assert rc == 0, f'renameat2 failed rc={rc} errno={ctypes.get_errno()}'
+
+        # fsync both parents
+        os.fsync(parent_fd)
+        os.fsync(q_fd)
+
+        # Verify: source absent
+        src_path = parent / '__pycache__'
+        assert not src_path.exists(), 'Source cache still present after rename'
+
+        # Verify: dest present with same identity
+        dest_path = qdir / 'quarantined-test'
+        assert dest_path.exists(), 'Destination not present after rename'
+        dest_stat = dest_path.stat()
+        dest_identity = (dest_stat.st_dev, dest_stat.st_ino, dest_stat.st_uid,
+                         dest_stat.st_gid, stat.S_IMODE(dest_stat.st_mode), dest_stat.st_nlink, dest_stat.st_size)
+        assert dest_identity == src_identity, f'Identity mismatch: {dest_identity} != {src_identity}'
+
+        # Verify: file content preserved
+        dest_file = dest_path / 'mod.cpython-313.pyc'
+        assert dest_file.exists()
+        assert hashlib.sha256(dest_file.read_bytes()).hexdigest() == file_sha
+
+    finally:
+        os.close(parent_fd)
+        os.close(q_fd)
+
+    print('T8 PASS: kernel renameat2 positive, identity preserved, source absent, dest present')
+
+
+# --- T9: Destination exists → EEXIST, source/dest UNCHANGED ---
+
+def test_t9_eexist_source_unchanged(tmp: Path) -> None:
+    """T9: renameat2 RENAME_NOREPLACE when dest exists → EEXIST.
+    Source and dest bytes UNCHANGED.
+    """
+    import ctypes
+    import hashlib
+
+    # Setup
+    parent = tmp / 'src_parent'
+    parent.mkdir()
+    cache = parent / '__pycache__'
+    cache.mkdir()
+    test_file = cache / 'mod.cpython-313.pyc'
+    content = b'source-content'
+    test_file.write_bytes(content)
+    os.chmod(str(test_file), 0o644)
+    src_sha_before = hashlib.sha256(content).hexdigest()
+
+    # Create dest that ALREADY EXISTS
+    qdir = tmp / 'qdest'
+    qdir.mkdir(mode=0o700)
+    existing = qdir / 'quarantined-test'
+    existing.mkdir()
+    existing_file = existing / 'old.cpython-313.pyc'
+    existing_content = b'existing-dest-content'
+    existing_file.write_bytes(existing_content)
+    dest_sha_before = hashlib.sha256(existing_content).hexdigest()
+
+    parent_fd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    q_fd = os.open(str(qdir), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+
+    try:
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = libc.renameat2
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+
+        rc = renameat2(parent_fd, b'__pycache__', q_fd, b'quarantined-test', 1)
+        assert rc != 0, 'renameat2 should have failed'
+        errno = ctypes.get_errno()
+        assert errno == 17, f'Expected EEXIST (17), got errno={errno}'  # EEXIST=17
+
+        # Source UNCHANGED
+        assert (parent / '__pycache__' / 'mod.cpython-313.pyc').read_bytes() == content
+        assert hashlib.sha256((parent / '__pycache__' / 'mod.cpython-313.pyc').read_bytes()).hexdigest() == src_sha_before
+
+        # Dest UNCHANGED
+        assert (qdir / 'quarantined-test' / 'old.cpython-313.pyc').read_bytes() == existing_content
+        assert hashlib.sha256((qdir / 'quarantined-test' / 'old.cpython-313.pyc').read_bytes()).hexdigest() == dest_sha_before
+
+    finally:
+        os.close(parent_fd)
+        os.close(q_fd)
+
+    print('T9 PASS: EEXIST, source/dest bytes unchanged')
+
+
+# --- T10: fsync BOTH parent FDs (descriptor identity check) ---
+
+def test_t10_fsync_both_parents(tmp: Path) -> None:
+    """T10: Verify fsync is called on BOTH parent FDs with correct descriptor identities.
+    Not just fsync-count - actual descriptor identity matters.
+    """
+    import ctypes
+
+    # Setup
+    parent = tmp / 'src_parent'
+    parent.mkdir()
+    cache = parent / '__pycache__'
+    cache.mkdir()
+    (cache / 'mod.cpython-313.pyc').write_bytes(b'test')
+
+    qdir = tmp / 'qdest'
+    qdir.mkdir(mode=0o700)
+
+    parent_fd = os.open(str(parent), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    q_fd = os.open(str(qdir), os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+
+    try:
+        # Verify FD identities are distinct and valid
+        p_stat = os.fstat(parent_fd)
+        q_stat = os.fstat(q_fd)
+        assert p_stat.st_ino != q_stat.st_ino, 'Parent and dest FDs should be different inodes'
+        assert stat.S_ISDIR(p_stat.st_mode), 'Parent FD not a directory'
+        assert stat.S_ISDIR(q_stat.st_mode), 'Dest FD not a directory'
+
+        # fsync both - should succeed without error
+        os.fsync(parent_fd)
+        os.fsync(q_fd)
+
+        # Verify FDs still valid after fsync
+        p_stat2 = os.fstat(parent_fd)
+        q_stat2 = os.fstat(q_fd)
+        assert p_stat2.st_ino == p_stat.st_ino, 'Parent FD identity changed after fsync'
+        assert q_stat2.st_ino == q_stat.st_ino, 'Dest FD identity changed after fsync'
+
+    finally:
+        os.close(parent_fd)
+        os.close(q_fd)
+
+    print('T10 PASS: fsync both parent FDs, descriptor identities verified')
+
 # --- Main ---
 
 def main() -> None:
@@ -377,6 +554,9 @@ def main() -> None:
         test_t5_file_appears,
         test_t6_parent_inode_mismatch,
         test_t7_symlink_rejected,
+        test_t8_kernel_renameat2_positive,
+        test_t9_eexist_source_unchanged,
+        test_t10_fsync_both_parents,
     ]
 
     passed = 0

@@ -309,106 +309,118 @@ def main() -> None:
         os.mkdir(str(QUARANTINE_DEST), 0o700)
     q_fd = canonical_dir_fd(QUARANTINE_DEST)
     q_stat = os.fstat(q_fd)
-    assert stat.S_IMODE(q_stat.st_mode) == 0o700
-    assert q_stat.st_dev == 54, 'Quarantine dest not same filesystem'
+    if stat.S_IMODE(q_stat.st_mode) != 0o700:
+        os.close(q_fd)
+        raise ValueError(f'Quarantine dest mode {oct(stat.S_IMODE(q_stat.st_mode))} != 0o700')
+    if q_stat.st_dev != 54:
+        os.close(q_fd)
+        raise ValueError(f'Quarantine dest dev {q_stat.st_dev} != 54 (not same filesystem)')
 
-    # Verify ALL dirs BEFORE any mutation
+    # Verify ALL dirs BEFORE any mutation (FDs managed in list, closed in finally)
+    open_fds = []  # Track all opened FDs for cleanup
     verifications = []
-    for dir_spec in DIRS:
-        v = verify_dir(dir_spec, q_fd)
-        verifications.append(v)
+    try:
+        for dir_spec in DIRS:
+            v = verify_dir(dir_spec, q_fd)
+            verifications.append(v)
+            open_fds.extend([v['parent_fd'], v['cache_fd']])
 
-    # Write before.json
-    before = {
-        'timestamp': ts,
-        'action': 'quarantine_all_4_cache_dirs',
-        'quiescence': quiescence,
-        'dirs': [{k: v[k] for k in ('dir_id', 'dir_stat', 'files', 'file_count')} for v in verifications],
-        'total_files': sum(v['file_count'] for v in verifications),
-    }
-    before_sha = durable_write(q_fd, 'before.json', before)
+        # Write before.json
+        before = {
+            'timestamp': ts,
+            'action': 'quarantine_all_4_cache_dirs',
+            'quiescence': quiescence,
+            'dirs': [{k: v[k] for k in ('dir_id', 'dir_stat', 'files', 'file_count')} for v in verifications],
+            'total_files': sum(v['file_count'] for v in verifications),
+        }
+        before_sha = durable_write(q_fd, 'before.json', before)
 
-    # Write intent.json
-    intent = {
-        'timestamp': ts,
-        'action': 'renameat2 RENAME_NOREPLACE x4',
-        'source_dirs': [str(d['parent'] / d['cache_name']) for d in DIRS],
-        'destination': str(QUARANTINE_DEST),
-        'before_sha256': before_sha,
-        'copy_fallback': False,
-        'restore_or_retry': False,
-    }
-    intent_sha = durable_write(q_fd, 'intent.json', intent)
+        # Write intent.json
+        intent = {
+            'timestamp': ts,
+            'action': 'renameat2 RENAME_NOREPLACE x4',
+            'source_dirs': [str(d['parent'] / d['cache_name']) for d in DIRS],
+            'destination': str(QUARANTINE_DEST),
+            'before_sha256': before_sha,
+            'copy_fallback': False,
+            'restore_or_retry': False,
+        }
+        intent_sha = durable_write(q_fd, 'intent.json', intent)
 
-    # Execute: renameat2 for each dir
-    libc = ctypes.CDLL(None, use_errno=True)
-    renameat2 = libc.renameat2
-    renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
-    renameat2.restype = ctypes.c_int
-    RENAME_NOREPLACE = 1
+        # Execute: renameat2 for each dir
+        libc = ctypes.CDLL(None, use_errno=True)
+        renameat2 = libc.renameat2
+        renameat2.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_int, ctypes.c_char_p, ctypes.c_uint]
+        renameat2.restype = ctypes.c_int
+        RENAME_NOREPLACE = 1
 
-    results = []
-    for i, (dir_spec, v) in enumerate(zip(DIRS, verifications)):
-        dest_name = f'quarantined-{dir_spec["id"]}'
-        # Final check immediately before mutation
-        actual_files = os.listdir(v['cache_fd'])
-        if sorted(actual_files) != sorted(dir_spec['expected_files'].keys()):
-            # File appeared/disappeared - STOP
-            results.append({'dir': dir_spec['id'], 'status': 'BLOCKED_FILE_DRIFT'})
-            break
+        results = []
+        for i, (dir_spec, v) in enumerate(zip(DIRS, verifications)):
+            dest_name = f'quarantined-{dir_spec["id"]}'
+            # Final check immediately before mutation
+            actual_files = os.listdir(v['cache_fd'])
+            if sorted(actual_files) != sorted(dir_spec['expected_files'].keys()):
+                results.append({'dir': dir_spec['id'], 'status': 'BLOCKED_FILE_DRIFT'})
+                break
 
-        rc = renameat2(v['parent_fd'], dir_spec['cache_name'].encode(), q_fd, dest_name.encode(), RENAME_NOREPLACE)
-        if rc != 0:
-            errno = ctypes.get_errno()
-            results.append({'dir': dir_spec['id'], 'status': f'FAILED_renameat2_errno_{errno}'})
-            break  # STOP on first failure, no retry
+            rc = renameat2(v['parent_fd'], dir_spec['cache_name'].encode(), q_fd, dest_name.encode(), RENAME_NOREPLACE)
+            if rc != 0:
+                errno = ctypes.get_errno()
+                results.append({'dir': dir_spec['id'], 'status': f'FAILED_renameat2_errno_{errno}'})
+                break
 
-        os.fsync(v['parent_fd'])
-        os.fsync(q_fd)
+            # fsync BOTH parent fds (source parent + quarantine dest)
+            os.fsync(v['parent_fd'])
+            os.fsync(q_fd)
 
-        # Verify: original absent
-        try:
-            os.stat(dir_spec['cache_name'], dir_fd=v['parent_fd'], follow_symlinks=False)
-            results.append({'dir': dir_spec['id'], 'status': 'ERROR_original_still_present'})
-            break
-        except FileNotFoundError:
-            pass
+            # Verify: original absent
+            try:
+                os.stat(dir_spec['cache_name'], dir_fd=v['parent_fd'], follow_symlinks=False)
+                results.append({'dir': dir_spec['id'], 'status': 'ERROR_original_still_present'})
+                break
+            except FileNotFoundError:
+                pass
 
-        # Verify: destination present
-        dest_fd = os.open(dest_name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=q_fd)
-        dest_stat = os.fstat(dest_fd)
-        if identity(dest_stat) != identity(v['dir_stat']):
-            os.close(dest_fd)
-            results.append({'dir': dir_spec['id'], 'status': 'ERROR_identity_mismatch'})
-            break
-        os.close(dest_fd)
+            # Verify: destination present with matching identity
+            dest_fd = os.open(dest_name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=q_fd)
+            try:
+                dest_stat = os.fstat(dest_fd)
+                if identity(dest_stat) != identity(v['dir_stat']):
+                    results.append({'dir': dir_spec['id'], 'status': 'ERROR_identity_mismatch'})
+                    break
+            finally:
+                os.close(dest_fd)
 
-        results.append({'dir': dir_spec['id'], 'status': 'QUARANTINED'})
-        os.close(v['cache_fd'])
-        os.close(v['parent_fd'])
+            results.append({'dir': dir_spec['id'], 'status': 'QUARANTINED'})
+            # Close this dir's FDs (no longer needed)
+            os.close(v['cache_fd'])
+            os.close(v['parent_fd'])
+            # Remove from open_fds track
+            open_fds.remove(v['cache_fd'])
+            open_fds.remove(v['parent_fd'])
 
-    # Close remaining FDs
-    for v in verifications:
-        try:
-            os.close(v.get('cache_fd', -1))
-            os.close(v.get('parent_fd', -1))
-        except (OSError, TypeError):
-            pass
+        # Write after.json (always, even on partial failure)
+        after = {
+            'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            'results': results,
+            'all_succeeded': all(r['status'] == 'QUARANTINED' for r in results) and len(results) == 4,
+            'partial_failure': any(r['status'] != 'QUARANTINED' for r in results),
+            'before_sha256': before_sha,
+            'intent_sha256': intent_sha,
+            'no_retry_performed': True,
+            'no_copy_fallback': True,
+            'no_rollback': True,
+        }
+        after_sha = durable_write(q_fd, 'after.json', after)
 
-    # Write after.json
-    after = {
-        'timestamp': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-        'results': results,
-        'all_succeeded': all(r['status'] == 'QUARANTINED' for r in results) and len(results) == 4,
-        'partial_failure': any(r['status'] != 'QUARANTINED' for r in results),
-        'before_sha256': before_sha,
-        'intent_sha256': intent_sha,
-        'no_retry_performed': True,
-        'no_copy_fallback': True,
-        'no_rollback': True,
-    }
-    after_sha = durable_write(q_fd, 'after.json', after)
-    os.close(q_fd)
+    finally:
+        # Close ALL remaining FDs (no leaks)
+        for fd in open_fds:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        os.close(q_fd)
 
     print(json.dumps({
         'status': 'COMPLETE' if after['all_succeeded'] else 'PARTIAL_FAILURE',

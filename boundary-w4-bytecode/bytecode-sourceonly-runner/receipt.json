@@ -1,0 +1,55 @@
+{
+  "schema": "hyprneuro.boundary-w4-v3-bytecode-sourceonly-runner/1",
+  "ts_utc": "2026-11-17T14:30:00Z",
+  "status": "FROZEN_REQUIRES_MAIN_REVIEW",
+  "purpose": "Runner-only frozen artifact with 1-line B patch. References approved v3 ops/waiter paths unchanged.",
+  "blobs": {
+    "continuation_runner_w4.py": "7cb6b16cfcb7ebc9b7fdc967c33ec5c568def6b2a7e8c8a4ffb3e80a23dcfa40",
+    "quarantine_bytecode_w4.py": "2f8c616ca5250e4064f2faf4c479053c5a8c6830cdb628a88183b123fab47d81",
+    "tests/test_quarantine.py": "3bcdd29cbdf2913dab04140cc10ed45a33494d07a096dcbf8422c4cc043a17a9"
+  },
+  "b_patch": {
+    "description": "1-line change: _op_argv adds '-B' after '-I'",
+    "before": "PYTHON, '-I', str(OPS_W4_PATH),",
+    "after": "PYTHON, '-I', '-B', str(OPS_W4_PATH),",
+    "effect": "Prevents pyc creation in all ops children (watch4/start4/contain)",
+    "lines_changed": 1
+  },
+  "references_unchanged": {
+    "ops_path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/continuation_ops_w4.py",
+    "ops_sha": "74516bc00d0b791575455eaf16f5599b4b9135eceac317cf46417eb3183c7a1c",
+    "waiter_path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/continuation_waiter_w4.py",
+    "waiter_sha": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
+    "context_path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-w3-v3-postwrite-evidence/postwrite-context.json",
+    "context_sha": "51f9109f0c9515045ce9fbc0f16c1b15bb8cf54116dfe8a230d4aa3a526e39bc",
+    "v3_receipt": "unchanged (NOT amended)"
+  },
+  "external_pins_unchanged": {
+    "boundary_release.py": "9fcb37cf398dfe2f158ef39fa3ab518f233f231e23242a6e22b680ed9b91e74c",
+    "boundary_release_ops.py": "5e6c50f202090f93699f11f28c0d61409ee2b6bcafec5bc8ad015ceb601659ac",
+    "continuation_ops_v5.py": "7e23baedd7f2dd0981d2161130d40e744945783dde97e506ee5b17e77cc0740c",
+    "execstart_stable_compare.py": "964b4bf635e3acb9454ee86c7feda05d3d715b04b5c0464849ed2ca3d42e036e",
+    "operation.json": "306cf4b978789d1d60dd6dc239ee9c5b454c17f6189bfe68201118b28b4562c4"
+  },
+  "git_commit": "330233b (to be amended with this commit)",
+  "test_results": {
+    "quarantine_tests": {"total": 10, "passed": 10, "failed": 0},
+    "flow_tests": {"total": 6, "passed": 6, "failed": 0},
+    "unit_tests": {"total": 20, "passed": 20, "failed": 0}
+  },
+  "quarantine_plan": {
+    "script_sha": "2f8c616ca5250e4064f2faf4c479053c5a8c6830cdb628a88183b123fab47d81",
+    "status": "DESIGN_ONLY_NOT_EXECUTED",
+    "requires_main_review": true,
+    "requires_main_lease": true,
+    "no_worker_execution": true
+  },
+  "constraints": {
+    "no_execution": true,
+    "no_prod_mutation": true,
+    "no_fresh_preflight": true,
+    "original_v3_frozen_unchanged": true,
+    "old_caches_unknown_not_adopted": true,
+    "user_push_gate": "ALL commits pushed by MAIN before E2E"
+  }
+}

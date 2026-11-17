@@ -30,7 +30,7 @@ from pathlib import Path
 
 # --- Test constants ---
 
-W4_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4')
+W4_DIR = Path('/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3')
 OPS_W4 = W4_DIR / 'continuation_ops_w4.py'
 RUNNER_W4 = W4_DIR / 'continuation_runner_w4.py'
 WAITER_W4 = W4_DIR / 'continuation_waiter_w4.py'

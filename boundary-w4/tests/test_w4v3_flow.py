@@ -139,7 +139,7 @@ def test_f1_start_ready_lease_alive(tmp: Path) -> None:
     assert receipt['run_token'] == token
     assert receipt['backend_attested'] is False
     assert 'containment' in receipt
-    print('F1 PASS: real runner + real waiter, START_READY while lease+watch alive')
+    print('F1 PASS: real runner + real waiter, START_READY while runner process ALIVE + watch alive')
 
 
 # --- F2: Short deadline expiry → contain → STOPPED → reaped ---
@@ -170,9 +170,9 @@ def test_f2_expiry_contain_reaped(tmp: Path) -> None:
     inner = cont.get('containment', cont)  # Handle both flat and nested
     assert inner.get('hyprneuro.service') == 'STOPPED', f'Got {inner}'
     assert inner.get('hyprneuro-ui.service') == 'STOPPED', f'Got {inner}'
-    # Children were reaped (real _reap)
-    assert 'watch4_reaped' in receipt
-    assert 'start4_reaped' in receipt
+    # Children were reaped (real _reap) - values must be not None
+    assert receipt.get('watch4_reaped') is not None, f"watch4_reaped is None: {receipt.get('watch4_reaped')}"
+    assert receipt.get('start4_reaped') is not None, f"start4_reaped is None: {receipt.get('start4_reaped')}"
     # Runner exits 0 for WINDOW_EXPIRED
     assert rc == 0, f'Expected rc=0, got {rc}'
     print('F2 PASS: real runner expiry → contain → STOPPED → children reaped → receipt')
@@ -220,7 +220,10 @@ def test_f4_wrong_context_deny(tmp: Path) -> None:
     env, token = _make_env(tmp, watch_deadline=5)
     op_dir = Path(env['W4V3_OP_DIR'])
 
-    # Create a standalone wrapper that patches constants but NOT verify_pins
+    # Create a standalone wrapper that patches constants but NOT verify_pins.
+    # Uses REAL read-only 04 operation.json so OP SHA check passes,
+    # isolating the context SHA mismatch as the failing check.
+    REAL_OP_JSON = '/home/ron/Workspace/hn-boundary-18aef68-04/operation.json'
     custom_wrapper = tmp / 'wrapper_f4.py'
     custom_wrapper.write_text(f'''
 import hashlib, json, os, sys
@@ -231,13 +234,13 @@ AUDIT_DIR = Path("{env['W4V3_AUDIT_DIR']}")
 FAKE_OPS = Path("{FAKE_OPS}")
 RUNNER_PATH = Path("{RUNNER_W4}")
 CONTEXT_PATH = Path("{env['W4V3_CONTEXT_PATH']}")
+REAL_OP_JSON = Path("{REAL_OP_JSON}")
 
 # Setup fixture dirs + markers
 OP_DIR.mkdir(parents=True, exist_ok=True)
 AUDIT_DIR.mkdir(parents=True, exist_ok=True)
 os.chmod(str(OP_DIR), 0o700)
 os.chmod(str(AUDIT_DIR), 0o700)
-(OP_DIR.parent / 'operation.json').write_text('{{"bundle": "' + str(OP_DIR.parent) + '"}}')
 
 # Create context file
 ctx_data = {{
@@ -267,15 +270,16 @@ sys.path.insert(0, str(RUNNER_PATH.parent))
 import continuation_runner_w4 as runner
 
 # Patch constants ONLY (NOT verify_pins)
+# Use REAL 04 operation.json so OP SHA check passes (isolates context check)
 runner.OP_DIR = OP_DIR
 runner.AUDIT_DIR = AUDIT_DIR
 runner.OPS_W4_PATH = FAKE_OPS
 runner.OPS_W4_SHA = hashlib.sha256(FAKE_OPS.read_bytes()).hexdigest()
 runner.WATCH_DEADLINE = 5
 runner.CONTEXT_PATH = CONTEXT_PATH
-runner.CONTEXT_SHA = "deadbeef" * 8  # WRONG SHA - will fail verify_pins
+runner.CONTEXT_SHA = "deadbeef" * 8  # WRONG SHA - will fail verify_pins at context
 runner.PYTHON = sys.executable
-runner.OPERATION_PATH = OP_DIR.parent / 'operation.json'
+runner.OPERATION_PATH = REAL_OP_JSON  # REAL read-only 04 op (SHA matches)
 runner._unit_evidence = lambda: []
 
 sys.argv = [str(RUNNER_PATH), "--run-token", "{token}"]

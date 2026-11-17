@@ -1,0 +1,57 @@
+{
+  "schema": "hyprneuro.boundary-w4-v3-bytecode-recovery/1",
+  "ts_utc": "2026-11-17T15:30:00Z",
+  "status": "FROZEN_REQUIRES_MAIN_REVIEW",
+  "purpose": "Recovery script to complete remaining 3 dirs after v3 partial failure. Separate context, no replay.",
+  "blobs": {
+    "recovery_quarantine_w4.py": "4c3f2943b8ae2c89dfe57a56bc7b1c33defae2e7faccf2c90123ba75919301b5",
+    "tests/test_recovery.py": "1733985fb855340b3e3b2f851efa572a25fb6f204ede8ed4973f39fb76cc4d06"
+  },
+  "original_failed_run_preserved": {
+    "script": "7e8a1d9e8e0bf8b492451e2ae6c918cd81d4e347c3a036e263e387ce62607535",
+    "before_sha256": "f66161b7c6f67e4963d7514ab1079e969c8426360d39f1cde60fd26da237e185",
+    "intent_sha256": "124c1c532a4f4bcaf2e1c8ede323c2a4b5b949a93d615eb70c953ffe94a449fd",
+    "after_json": "ABSENT",
+    "first_moved_v3": {
+      "dest_inode": 10557740,
+      "dest_dev": 54,
+      "status": "VERIFIED_PRESENT"
+    }
+  },
+  "recovery_context": {
+    "first_moved": "v3 (verify only, do NOT re-move)",
+    "remaining": ["v5_root (inode 10485579)", "v5_scripts (inode 10485581)", "04_ops (inode 10453988)"],
+    "journal_dir": "quarantined/recovery-journal/ (NEW, O_EXCL)",
+    "no_replay_first": true
+  },
+  "key_fix": {
+    "bug": "identity() passed dict to stat-expecting function",
+    "fix": "identity_from_dict() + identity_from_stat() separate normalizers, closed keys, reject unknown"
+  },
+  "test_results": {
+    "total": 11,
+    "passed": 11,
+    "failed": 0,
+    "highlights": [
+      "T2: identity fix verified (dict/stat match, closed types)",
+      "T6: full 3-remaining positive via ACTUAL transaction path",
+      "T7: wrong first dest → deny BEFORE any remaining mutation",
+      "T9: partial failure → truthful journal, no retry, subsequent untouched"
+    ]
+  },
+  "execution_command": "python3 -B -I /home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3-bytecode-preflight-v2/recovery/recovery_quarantine_w4.py",
+  "references_unchanged": {
+    "runner_B_patched": "7cb6b16cfcb7ebc9b7fdc967c33ec5c568def6b2a7e8c8a4ffb3e80a23dcfa40",
+    "ops": "74516bc00d0b791575455eaf16f5599b4b9135eceac317cf46417eb3183c7a1c",
+    "waiter": "d80864a87afd837ce5a0a886caa9c1b33dc1dc43a0fbf025fa35ee5f3dd4cb0b",
+    "context": "51f9109f0c9515045ce9fbc0f16c1b15bb8cf54116dfe8a230d4aa3a526e39bc"
+  },
+  "constraints": {
+    "no_execution": true,
+    "no_prod_mutation": true,
+    "no_fresh_preflight": true,
+    "original_frozen_unchanged": true,
+    "old_script_preserved": true,
+    "user_push_gate": "MAIN non-force push + remote verify before E2E"
+  }
+}

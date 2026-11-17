@@ -1,0 +1,113 @@
+{
+  "schema": "hyprneuro.boundary-w4-v3-bytecode-preflight-v2-forensics/1",
+  "ts_utc": "2026-11-17T15:10:00Z",
+  "status": "PARTIAL_FAILURE_FORENSICS_READ_ONLY",
+  "execution": {
+    "wid": "01M7MYVNQ4CMXRZZA3ZDM4KGW6",
+    "script": "7e8a1d9e8e0bf8b492451e2ae6c918cd81d4e347c3a036e263e387ce62607535",
+    "script_path": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3-bytecode-preflight-v2/quarantine_bytecode_w4_v3.py",
+    "duration_ms": 903,
+    "exit": "CRASH_AttributeError",
+    "error": "identity(v['dir_stat']) passes DICT to identity() which expects stat object (.st_dev AttributeError)",
+    "error_line": 394,
+    "crash_point": "AFTER first successful rename, DURING identity verification of dest"
+  },
+  "deterministic_bug": {
+    "description": "v['dir_stat'] is a DICT from metadata(cstat), not a stat result object. identity() accesses st.st_dev which fails on dict.",
+    "code_proof": "Line 111: return (st.st_dev, st.st_ino, ...) - st is a dict, not os.stat_result",
+    "fix_required": "Compare dict fields directly or convert, NOT identity() on dict",
+    "tests_missed_this": "T8/T12 use direct ctypes renameat2, never exercise main() identity comparison path with real metadata dict"
+  },
+  "actual_state": {
+    "quarantine_dest": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3-bytecode-preflight/quarantined",
+    "before_json": {
+      "exists": true,
+      "inode": 10579370,
+      "mode": "0400",
+      "sha256": "f66161b7c6f67e4963d7514ab1079e969c8426360d39f1cde60fd26da237e185",
+      "size": 6570
+    },
+    "intent_json": {
+      "exists": true,
+      "inode": 10579371,
+      "mode": "0400",
+      "sha256": "124c1c532a4f4bcaf2e1c8ede323c2a4b5b949a93d615eb70c953ffe94a449fd",
+      "size": 780
+    },
+    "after_json": {
+      "exists": false,
+      "reason": "Crash occurred before after.json write (exception not caught in try/finally)"
+    },
+    "first_move_completed": {
+      "dir_id": "v3",
+      "source": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-w4-v3/__pycache__",
+      "source_absent": true,
+      "dest": "quarantined/quarantined-v3",
+      "dest_inode": 10557740,
+      "dest_dev": 54,
+      "dest_uid": 1000,
+      "dest_mode": "0755",
+      "expected_source_inode_from_before": 10557740,
+      "identity_match": true,
+      "files": {
+        "continuation_ops_w4.cpython-313.pyc": "d09c448f285c10363c2e3cf9f589914535d57bb3e8e1320e5e4181a5c83bd81f",
+        "continuation_runner_w4.cpython-313.pyc": "2baa4ae46eb6305b046525faced20fce5787d9491cbc4dbfe95c0463c0c3fb39",
+        "continuation_waiter_w4.cpython-313.pyc": "059a8c6b404cb2500e01d35bf0f396f331d916826ebbbc5425e35e846fa17246"
+      },
+      "file_count": 3,
+      "hashes_match_before": true
+    },
+    "remaining_3_unchanged": {
+      "v5_root": {
+        "source": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/__pycache__",
+        "inode": 10485579,
+        "expected_inode": 10485579,
+        "match": true,
+        "dest_absent": true,
+        "files_sha_match": true
+      },
+      "v5_scripts": {
+        "source": "/home/ron/Workspace/hyprneuro-production-audit/boundary-continuation-04-freeze-v5/scripts/__pycache__",
+        "inode": 10485581,
+        "expected_inode": 10485581,
+        "match": true,
+        "dest_absent": true,
+        "files_sha_match": true
+      },
+      "04_ops": {
+        "source": "/home/ron/Workspace/hn-boundary-18aef68-04/ops/__pycache__",
+        "inode": 10453988,
+        "expected_inode": 10453988,
+        "match": true,
+        "dest_absent": true,
+        "files_sha_match": true
+      }
+    }
+  },
+  "fsync_status": {
+    "v3_parent_fd": "fsync DONE (code line after renameat2 success, before crash)",
+    "q_fd": "fsync DONE (code line after renameat2 success, before crash)",
+    "v5_root": "NOT REACHED",
+    "v5_scripts": "NOT REACHED",
+    "04_ops": "NOT REACHED"
+  },
+  "partial_recovery_design": {
+    "principle": "Separate context. NOT replay of original journal.",
+    "step1": "Verify first already-moved dir: exact dev/ino identity + file hashes match before.json record",
+    "step2": "Remaining 3: fresh one-shot with original authority literal inventory",
+    "step3": "New before/intent/after in NEW quarantine subdir (not overwriting existing)",
+    "constraint": "No mutation until parent review of recovery design"
+  },
+  "constraints": {
+    "read_only_forensics": true,
+    "no_retry": true,
+    "no_source_fix": true,
+    "no_new_rename": true,
+    "no_delete": true,
+    "no_restore": true,
+    "no_adopt": true,
+    "no_marker_remove": true,
+    "original_before_intent_untouched": true,
+    "original_script_unchanged": true
+  }
+}

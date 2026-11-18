@@ -102,6 +102,26 @@ class AlphaProfileTests(unittest.TestCase):
             import shutil
             shutil.rmtree(prof.parent, ignore_errors=True)
 
+    def test_descriptor_source_host_discovery(self):
+        # P0 regression: descriptor.source must be the repo root so that
+        # source/extensions/pi-owner/host.mjs exists (the owner execve target) and
+        # PYTHONPATH=source/python/src resolves; the manifest catalog is python/src.
+        prof = self._mkroot()
+        try:
+            info = pap.prepare_profile(prof)
+            import json
+            desc = json.loads((Path(info['owner']) / 'owner.json').read_text())
+            host = Path(desc['source']) / 'extensions' / 'pi-owner' / 'host.mjs'
+            self.assertTrue(host.is_file(), 'host.mjs missing under descriptor.source')
+            self.assertEqual(b.digest(host), '187842d11e92841aadee7cce981ad044590c6388650bf52703a24fd24894d5db')
+            self.assertTrue((Path(desc['source']) / 'python' / 'src').is_dir())
+            # manifest catalog is still the python/src tree (unchanged by the fix)
+            man = json.loads((Path(info['manifest'])).read_text())
+            self.assertTrue(any(k.startswith(str(REPO / 'python' / 'src')) for k in man['files']))
+        finally:
+            import shutil
+            shutil.rmtree(prof.parent, ignore_errors=True)
+
     def test_guard_root_one_shot_is_manager_scoped(self):
         """guard_root requires the manager namespace/units/credential; it is not
         a private leaf. Assert the source documents that contract (honest gap)."""

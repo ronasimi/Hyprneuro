@@ -71,7 +71,9 @@ def prepare_profile(profile_root):
 
     # Owner descriptor (profile owner root; shared agent paths).
     (owner / 'home' / 'workspace' / 'fixture.txt').write_bytes(b'ALPHA_PROFILE_PRIVATE_READ_CANARY\n')
-    descriptor = dict(schema=service.SCHEMA, root=str(owner), source=str(source),
+    # source = repo root (host discovery: source/extensions/pi-owner/host.mjs and
+    # PYTHONPATH=source/python/src); the manifest catalog below stays python/src.
+    descriptor = dict(schema=service.SCHEMA, root=str(owner), source=str(repo),
                       node=NODE, sdk=SDK, durable=DURABLE, pi=PI,
                       read_paths=['fixture.txt'], task_id='hn-alpha-' + generation)
     b.write_new(owner / 'owner.json', b.encoded(descriptor), 0o600)

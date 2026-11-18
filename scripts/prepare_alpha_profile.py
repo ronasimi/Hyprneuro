@@ -101,8 +101,87 @@ def prepare_profile(profile_root):
                 context=str(root / 'context.json'), manifest=str(root / 'manifest.json'))
 
 
+def run_profile(profile_root, duration=1800, ui=None):
+    """Create the profile + launch the full route (owner + sidecar + GTK) as
+    bounded children. All persistent writes stay inside the profile (XDG);
+    Wayland/DBus/Hyprland are preserved from the ambient session; no global
+    residency and no active policy. Child cleanup on exit. Not a new launcher
+    framework: it reuses the existing owner/sidecar/GTK entry points.
+    """
+    import os
+    import signal
+    import subprocess
+    import time
+    info = prepare_profile(profile_root)
+    profile = Path(info['profile'])
+    owner = Path(info['owner'])
+    env = dict(os.environ)
+    for name, sub in (('XDG_RUNTIME_DIR', 'runtime'), ('XDG_STATE_HOME', 'state'),
+                      ('XDG_CONFIG_HOME', 'config'), ('XDG_CACHE_HOME', 'cache')):
+        d = profile / sub
+        d.mkdir(mode=0o700, parents=True, exist_ok=True)
+        env[name] = str(d)
+    env['PYTHONPATH'] = str(Path(__file__).resolve().parents[1] / 'python' / 'src')
+    for name in ('HYPRNEURO_RESIDENCY_DIR', 'HYPRNEURO_PI_TRUSTED_POLICY'):
+        env.pop(name, None)  # legacy residency; no active policy
+    log = open(profile / 'run.log', 'ab')
+    children = []
+    try:
+        children.append(subprocess.Popen(
+            [PYTHON, '-B', '-m', 'hyprneuro.pi_owner_service', str(owner)],
+            env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True))
+        time.sleep(1.0)
+        children.append(subprocess.Popen(
+            [PYTHON, '-B', '-m', 'hyprneuro.sidecar', 'serve', '--no-settings'],
+            env=env, stdout=log, stderr=subprocess.STDOUT, start_new_session=True))
+        time.sleep(1.0)
+        ui_path = ui or os.environ.get('HYPHARNESS_UI') or '/home/ron/.local/bin/hyprneuro-ui'
+        if Path(ui_path).is_file():
+            uenv = dict(env)
+            uenv['HYPHARNESS_SIDECAR'] = str(profile / 'runtime' / 'hyprharness' / 'sidecar.sock')
+            uenv['HYPHARNESS_PI_OWNER'] = str(owner)
+            children.append(subprocess.Popen([ui_path], env=uenv, stdout=log,
+                                             stderr=subprocess.STDOUT, start_new_session=True))
+        deadline = time.monotonic() + duration
+        while time.monotonic() < deadline:
+            if any(c.poll() is not None for c in children):
+                break
+            time.sleep(0.5)
+    finally:
+        # Kill each child's whole process group (start_new_session) so the
+        # execve'd node host and the GTK's pi_desktop_bridge grandchild are
+        # reaped too, not just the direct child.
+        for c in children:
+            if c.poll() is None:
+                try:
+                    os.killpg(os.getpgid(c.pid), signal.SIGTERM)
+                except (ProcessLookupError, OSError):
+                    pass
+        time.sleep(1.0)
+        for c in children:
+            if c.poll() is None:
+                try:
+                    os.killpg(os.getpgid(c.pid), signal.SIGKILL)
+                except (ProcessLookupError, OSError):
+                    pass
+        for c in children:
+            try:
+                c.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+        log.close()
+    return info
+
+
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--profile', type=Path, required=True)
+    ap.add_argument('--run', action='store_true',
+                    help='After preparing, launch the full route (owner+sidecar+GTK) as bounded children')
+    ap.add_argument('--duration', type=int, default=1800, help='Bounded lease seconds for --run (default 1800)')
+    ap.add_argument('--ui', type=Path, default=None, help='GTK binary path for --run')
     args = ap.parse_args()
-    sys.stdout.write(b.encoded(prepare_profile(args.profile)).decode('utf-8'))
+    if args.run:
+        sys.stdout.write(b.encoded(run_profile(args.profile, args.duration, args.ui)).decode('utf-8'))
+    else:
+        sys.stdout.write(b.encoded(prepare_profile(args.profile)).decode('utf-8'))
